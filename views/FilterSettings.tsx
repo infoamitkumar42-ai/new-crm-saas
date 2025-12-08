@@ -22,7 +22,8 @@ export const FilterSettings: React.FC<FilterSettingsProps> = ({ user, onUpdate }
     await onUpdate(filters, dailyLimit);
     
     // Log the event
-    await logEvent(user.id, 'filter_updated', {
+    await logEvent('filter_updated', {
+      user_id: user.id,
       previous_limit: user.daily_limit,
       new_limit: dailyLimit,
       new_filters: filters

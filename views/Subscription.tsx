@@ -1,30 +1,38 @@
+
 import React from 'react';
 import { Check } from 'lucide-react';
 import { Card, Button } from '../components/UI';
 import { User, PaymentPlan } from '../types';
 import { logEvent } from '../supabaseClient';
+import { ENV } from '../config/env';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const PLANS: PaymentPlan[] = [
   {
     id: 'daily',
     name: 'Day Pass',
-    price: 15,
+    price: 49,           // ₹49 per day
     interval: 'daily',
     features: ['Up to 10 leads/day', 'Basic Filtering', 'Email Support']
   },
   {
     id: 'weekly',
-    name: 'Weekly Pro',
-    price: 90,
+    name: 'Growth',
+    price: 299,          // ₹299 per week
     interval: 'weekly',
-    features: ['Up to 50 leads/day', 'Advanced Filtering', 'Priority Support', 'Save 15%']
+    features: ['Up to 15 leads/day', 'Advanced Filters', 'Priority Support']
   },
   {
     id: 'monthly',
-    name: 'Enterprise',
-    price: 299,
+    name: 'Pro',
+    price: 999,          // ₹999 per month
     interval: 'monthly',
-    features: ['Unlimited leads/day', 'All Filter Types', 'Dedicated Account Manager', 'Save 30%']
+    features: ['Up to 25 leads/day', 'All Filters', 'Highest Priority Support']
   }
 ];
 
@@ -33,81 +41,78 @@ interface SubscriptionProps {
   onPaymentSuccess: (planId: string, razorpayPaymentId: string) => void;
 }
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
 export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSuccess }) => {
-  
+
   const handlePurchase = (plan: PaymentPlan) => {
-    // 1. Create Order on Backend (Mocked here)
+    if (!window.Razorpay) {
+      alert('Razorpay SDK not loaded');
+      return;
+    }
+
     const options = {
-      key: "rzp_test_YOUR_KEY_HERE", // Mock key
-      amount: plan.price * 100, // Amount in lowest denomination (paise)
-      currency: "USD",
-      name: "LeadFlow SaaS",
-      description: `Subscription: ${plan.name}`,
-      image: "https://picsum.photos/200/200",
-      handler: function (response: any) {
-        // Log the success before updating state
-        logEvent(user.id, 'payment_success_client', {
-            plan_id: plan.id,
-            amount: plan.price,
-            razorpay_id: response.razorpay_payment_id
-        });
-        
-        onPaymentSuccess(plan.id, response.razorpay_payment_id);
-      },
+      key: ENV.RAZORPAY_KEY_ID,
+      amount: plan.price * 100, // paise
+      currency: 'INR',
+      name: 'LeadFlow CRM',
+      description: `${plan.name} (${plan.interval})`,
       prefill: {
-        name: user.name,
         email: user.email,
+        name: user.name
       },
-      theme: {
-        color: "#2563eb"
+      notes: {
+        email: user.email,
+        planId: plan.id
+      },
+      handler: async function (response: any) {
+        await logEvent('payment_success', {
+          planId: plan.id,
+          paymentId: response.razorpay_payment_id
+        });
+
+        onPaymentSuccess(plan.id, response.razorpay_payment_id);
       }
     };
 
-    const rzp1 = new window.Razorpay(options);
-    rzp1.open();
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   return (
     <div className="space-y-6">
-      <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-3xl font-bold text-slate-900">Simple, Transparent Pricing</h1>
-        <p className="text-slate-500 mt-2">Start receiving high-quality leads directly to your spreadsheet today.</p>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">Subscription</h2>
+        <p className="text-sm text-slate-500">
+          Choose a plan to start receiving leads. All prices in INR.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {PLANS.map((plan) => (
-          <Card key={plan.id} className={`p-6 relative flex flex-col ${plan.id === 'weekly' ? 'ring-2 ring-brand-500 shadow-lg' : ''}`}>
-            {plan.id === 'weekly' && (
-              <div className="absolute top-0 right-0 -mt-3 -mr-3 bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                POPULAR
+      <div className="grid gap-4 md:grid-cols-3">
+        {PLANS.map(plan => (
+          <Card
+            key={plan.id}
+            className={`p-5 flex flex-col ${
+              plan.id === 'weekly' ? 'border-brand-500 ring-1 ring-brand-200' : ''
+            }`}
+          >
+            <div className="flex-1 space-y-2">
+              <h3 className="font-semibold text-slate-900">{plan.name}</h3>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold">₹{plan.price}</span>
+                <span className="text-sm text-slate-500">/ {plan.interval}</span>
               </div>
-            )}
-            <div className="mb-4">
-              <h3 className="text-xl font-semibold text-slate-900">{plan.name}</h3>
-              <div className="mt-4 flex items-baseline">
-                <span className="text-4xl font-bold tracking-tight text-slate-900">${plan.price}</span>
-                <span className="ml-1 text-xl font-semibold text-slate-500">/{plan.interval}</span>
-              </div>
+              <ul className="mt-3 space-y-1 text-sm text-slate-600">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-emerald-500" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            
-            <ul className="space-y-4 mb-8 flex-1">
-              {plan.features.map((feature, idx) => (
-                <li key={idx} className="flex items-start">
-                  <Check className="flex-shrink-0 w-5 h-5 text-green-500" />
-                  <span className="ml-3 text-sm text-slate-700">{feature}</span>
-                </li>
-              ))}
-            </ul>
 
-            <Button 
-              variant={plan.id === 'weekly' ? 'primary' : 'secondary'} 
-              className="w-full"
+            <Button
+              variant={plan.id === 'weekly' ? 'primary' : 'secondary'}
+              className="w-full mt-4"
               onClick={() => handlePurchase(plan)}
             >
               Choose {plan.name}

@@ -1,65 +1,252 @@
-import React, { useState } from 'react';
-import { Download, Upload, Users, DollarSign } from 'lucide-react';
-import { Card, Button, Badge, StatCard } from '../components/UI';
-import { User } from '../types';
+import React, { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
+import { User } from "../types";
+import { Card } from "../components/UI";
+import { ENV } from "../config/env";
 
-export const AdminDashboard: React.FC = () => {
-  // Mock Data for Admin
-  const [users] = useState<User[]>([
-    { id: '1', name: 'John Doe', email: 'john@co.com', payment_status: 'active', valid_until: '2023-12-31', role: 'user', daily_limit: 10, sheet_url: '#', filters: {} as any },
-    { id: '2', name: 'Jane Smith', email: 'jane@agency.com', payment_status: 'inactive', valid_until: null, role: 'user', daily_limit: 20, sheet_url: '#', filters: {} as any },
-  ]);
+interface AdminDashboardProps {
+  user?: User; // Optional in case accessed directly, but guarded by role
+}
+
+interface PaymentRow {
+  id: string;
+  user_id: string;
+  amount: number;
+  plan_type: string | null;
+  status: string | null;
+  created_at: string;
+}
+
+interface LeadSummary {
+  total_leads: number;
+  distributed_leads: number;
+  fresh_leads: number;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [leadSummary, setLeadSummary] = useState<LeadSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [leadError, setLeadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      setLoading(false);
+      return;
+    }
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data: userRows, error: userErr } = await supabase
+          .from("users")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (userErr) throw userErr;
+
+        const mappedUsers: User[] = (userRows || []).map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name || "",
+          sheet_url: u.sheet_url || "",
+          payment_status: u.payment_status || "inactive",
+          valid_until: u.valid_until || null,
+          filters: u.filters || {},
+          daily_limit: u.daily_limit || 10,
+          role: u.role || "user",
+        }));
+
+        setUsers(mappedUsers);
+
+        const { data: paymentRows, error: payErr } = await supabase
+          .from("payments")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (payErr) throw payErr;
+
+        setPayments((paymentRows || []) as any);
+
+        // Lead summary from Apps Script
+        if (ENV.APPS_SCRIPT_URL && !ENV.APPS_SCRIPT_URL.includes('PLACEHOLDER')) {
+          try {
+            const res = await fetch(
+              `${ENV.APPS_SCRIPT_URL}?action=summary`,
+              {
+                method: "GET",
+              }
+            );
+            if (res.ok) {
+              const json = await res.json();
+              setLeadSummary({
+                total_leads: json.total_leads ?? 0,
+                distributed_leads: json.distributed_leads ?? 0,
+                fresh_leads: json.fresh_leads ?? 0,
+              });
+            } else {
+              setLeadError("Apps Script summary returned an error status");
+            }
+          } catch (err) {
+            console.error("Error fetching lead summary", err);
+            setLeadError("Could not load lead summary");
+          }
+        }
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Failed to load admin data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [user?.role]);
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="p-6 text-sm text-red-600">
+        Access denied. Admins only.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 text-sm text-slate-500">Loading admin data...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-sm text-red-600">
+        Error loading admin dashboard: {error}
+      </div>
+    );
+  }
+
+  const totalUsers = users.length;
+  const activeUsers = users.filter((u) => u.payment_status === "active").length;
+  const inactiveUsers = totalUsers - activeUsers;
+
+  // Payments stored in database are in paise
+  const totalRevenuePaise = payments.reduce(
+    (sum, p) => sum + (p.amount || 0),
+    0
+  );
+  const totalRevenueINR = totalRevenuePaise / 100;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Master Admin</h1>
-        <p className="text-slate-500">Manage system-wide lead distribution and users.</p>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Admin Dashboard
+        </h2>
+        <p className="text-sm text-slate-500">
+          Monitor users, payments, and lead distribution.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Users" value={users.length} icon={Users} />
-        <StatCard title="Active Subs" value={users.filter(u => u.payment_status === 'active').length} icon={Users} />
-        <StatCard title="Revenue Today" value="$450" icon={DollarSign} trend="+12% vs last week" />
-        <StatCard title="Leads in Buffer" value="1,240" icon={Upload} />
+      {/* Top stats: users + revenue */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Total Users
+          </div>
+          <div className="text-2xl font-semibold text-slate-900">
+            {totalUsers}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Active Users
+          </div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {activeUsers}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Inactive / Expired
+          </div>
+          <div className="text-2xl font-semibold text-amber-600">
+            {inactiveUsers}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Total Revenue (₹)
+          </div>
+          <div className="text-2xl font-semibold text-slate-900">
+            ₹{totalRevenueINR.toFixed(0)}
+          </div>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main User Table */}
-        <Card className="lg:col-span-2 p-0 overflow-hidden">
-          <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="font-semibold text-slate-900">Registered Users</h3>
-            <Button variant="secondary" className="text-sm">Export CSV</Button>
+      {/* Lead summary from Apps Script */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Total Leads in Master Sheet
+          </div>
+          <div className="text-2xl font-semibold text-slate-900">
+            {leadSummary ? leadSummary.total_leads : "-"}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Distributed Leads
+          </div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {leadSummary ? leadSummary.distributed_leads : "-"}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-slate-500 uppercase mb-1">
+            Fresh / Undistributed
+          </div>
+          <div className="text-2xl font-semibold text-amber-600">
+            {leadSummary ? leadSummary.fresh_leads : "-"}
+          </div>
+        </Card>
+      </div>
+
+      {leadError && (
+        <p className="text-xs text-amber-600">
+          Lead summary warning: {leadError}
+        </p>
+      )}
+
+      {/* Latest users */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="p-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-slate-900 text-sm">
+              Latest Users
+            </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Limit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sheet</th>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-500 border-b">
+                  <th className="text-left py-1 pr-2">Email</th>
+                  <th className="text-left py-1 pr-2">Role</th>
+                  <th className="text-left py-1 pr-2">Status</th>
+                  <th className="text-left py-1 pr-2">Valid Until</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-slate-900">{u.name}</div>
-                          <div className="text-sm text-slate-500">{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge status={u.payment_status}>{u.payment_status}</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {u.daily_limit}/day
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-brand-600 hover:text-brand-900">
-                      <a href={u.sheet_url}>Open</a>
+              <tbody>
+                {users.slice(0, 10).map((u) => (
+                  <tr key={u.id} className="border-b last:border-0">
+                    <td className="py-1 pr-2">{u.email}</td>
+                    <td className="py-1 pr-2">{u.role}</td>
+                    <td className="py-1 pr-2">{u.payment_status}</td>
+                    <td className="py-1 pr-2">
+                      {u.valid_until ? new Date(u.valid_until).toLocaleDateString() : "-"}
                     </td>
                   </tr>
                 ))}
@@ -68,28 +255,40 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </Card>
 
-        {/* Master Control */}
-        <div className="space-y-6">
-          <Card className="p-6 bg-slate-900 text-white border-slate-700">
-            <h3 className="font-semibold mb-4 text-white">Master Sheet Link</h3>
-            <p className="text-slate-400 text-sm mb-4">
-              This is the source of truth. The GAS automation pulls from here.
-            </p>
-            <a href="#" className="text-brand-400 hover:text-brand-300 underline text-sm break-all">
-              https://docs.google.com/spreadsheets/d/MASTER-SHEET-ID
-            </a>
-            <div className="mt-6 pt-6 border-t border-slate-700">
-               <h4 className="text-sm font-semibold mb-2">Manual Actions</h4>
-               <Button className="w-full bg-slate-700 hover:bg-slate-600 mb-2">
-                 <Upload className="w-4 h-4 mr-2" />
-                 Upload Leads (CSV)
-               </Button>
-               <Button className="w-full bg-brand-600 hover:bg-brand-700">
-                 Force Distribution Run
-               </Button>
-            </div>
-          </Card>
-        </div>
+        {/* Latest payments */}
+        <Card className="p-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-slate-900 text-sm">
+              Latest Payments
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-500 border-b">
+                  <th className="text-left py-1 pr-2">Amount (₹)</th>
+                  <th className="text-left py-1 pr-2">Plan</th>
+                  <th className="text-left py-1 pr-2">Status</th>
+                  <th className="text-left py-1 pr-2">Created At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.slice(0, 10).map((p) => (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="py-1 pr-2">
+                      ₹{(p.amount || 0) / 100}
+                    </td>
+                    <td className="py-1 pr-2">{p.plan_type ?? "-"}</td>
+                    <td className="py-1 pr-2">{p.status ?? "captured"}</td>
+                    <td className="py-1 pr-2">
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
     </div>
   );

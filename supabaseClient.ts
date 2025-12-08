@@ -1,35 +1,59 @@
-import { createClient } from '@supabase/supabase-js';
 
-// NOTE: In a real app, these would come from process.env
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://xyz.supabase.co';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY || 'eyJrh...';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { ENV } from "./config/env";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(
+  ENV.SUPABASE_URL,
+  ENV.SUPABASE_ANON_KEY
+);
 
-// Helper to get session (Simulated for this demo if no actual backend is connected)
-export const getSession = async () => {
-  const { data, error } = await supabase.auth.getSession();
-  return { session: data.session, error };
-};
+/**
+ * Centralized logging service.
+ * Persists events to the 'logs' table in Supabase.
+ * 
+ * @param event - The action name (e.g., 'filter_updated', 'payment_success').
+ * @param payload - JSON object containing details.
+ * @param userId - Optional. If not provided on frontend, attempts to resolve from session.
+ * @param client - Optional. Pass a specific Supabase client (e.g., admin client for backend).
+ */
+export async function logEvent(
+  event: string, 
+  payload: any, 
+  userId?: string, 
+  client: SupabaseClient = supabase
+) {
+  // Always log to console for immediate debugging
+  console.log(`[LOG service]: ${event}`, payload);
 
-// Logging Utility
-export const logEvent = async (userId: string | undefined, action: string, details: object = {}) => {
-  // If no user ID is provided (e.g. anonymous visitor), we might skip or log as null
-  // For this mock, we just console log if supabase isn't fully configured
   try {
-    const { error } = await supabase.from('logs').insert({
-      user_id: userId || null,
-      action,
-      details,
-      created_at: new Date().toISOString()
-    });
-    
-    if (error) {
-      console.warn('Failed to log event to Supabase:', error.message);
-    } else {
-      console.log(`[Log] Action: ${action}`, details);
+    let targetUserId = userId;
+
+    // If running in browser and no userId provided, try to get from current session
+    if (!targetUserId && typeof window !== 'undefined') {
+      const { data } = await client.auth.getSession();
+      targetUserId = data.session?.user?.id;
     }
-  } catch (e) {
-    console.error('Exception logging event:', e);
+
+    if (targetUserId) {
+      const { error } = await client.from('logs').insert({
+        user_id: targetUserId,
+        action: event,
+        details: payload
+      });
+
+      if (error) {
+        // Suppress "table not found" errors to avoid console noise if schema isn't set up
+        // Check both code 42P01 and message content
+        if (error.code === '42P01' || error.message.includes('Could not find the table')) {
+            console.warn("Supabase 'logs' table not found. Skipping DB log.");
+        } else {
+            console.error("Failed to write log to Supabase:", error.message);
+        }
+      }
+    } else {
+      console.warn("Skipping DB log: User ID not available for event", event);
+    }
+  } catch (err) {
+    console.error("Exception in logEvent service:", err);
   }
-};
+}

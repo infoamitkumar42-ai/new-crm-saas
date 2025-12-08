@@ -5,13 +5,30 @@ import { User } from '../types';
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
-  onNavigate: (tab: string) => void;
+  onNavigate?: (tab: string) => void;
+  // Support both naming conventions for compatibility
+  onTabChange?: (tab: string) => void;
   user: User;
   onLogout: () => void;
+  showAdminTab?: boolean;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate, user, onLogout }) => {
+export const Layout: React.FC<LayoutProps> = ({ 
+  children, 
+  activeTab, 
+  onNavigate, 
+  onTabChange, 
+  user, 
+  onLogout,
+  showAdminTab = false 
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  // Helper to handle tab change from either prop
+  const handleNavigation = (tab: string) => {
+    if (onNavigate) onNavigate(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,7 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate,
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  if (user.role === 'admin') {
+  if (showAdminTab) {
     navItems.push({ id: 'admin', label: 'Master Admin', icon: ShieldCheck });
   }
 
@@ -39,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate,
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => handleNavigation(item.id)}
                 className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                   isActive 
                     ? 'bg-brand-600 text-white' 
@@ -56,10 +73,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate,
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold text-xs">
-              {user.name.charAt(0)}
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-white">{user.name}</p>
+              <p className="text-sm font-medium text-white">{user.name || 'User'}</p>
               <p className="text-xs text-slate-500 truncate w-32">{user.email}</p>
             </div>
           </div>
@@ -96,7 +113,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate,
               <button
                 key={item.id}
                 onClick={() => {
-                  onNavigate(item.id);
+                  handleNavigation(item.id);
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full flex items-center px-3 py-3 text-base font-medium rounded-lg ${

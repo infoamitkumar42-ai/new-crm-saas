@@ -1,20 +1,73 @@
-import React from 'react';
-import { Activity, Users, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Activity, Users, Clock, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Badge, Card, StatCard, Button } from '../components/UI';
 import { User } from '../types';
+import { supabase } from '../supabaseClient';
+import { useAuth } from '../auth/useAuth';
 
 interface DashboardProps {
   user: User;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+  const { refreshProfile } = useAuth();
+  const [isGeneratingSheet, setIsGeneratingSheet] = useState(false);
   const isInactive = user.payment_status !== 'active';
+
+  // Poll for sheet URL if it's missing (it might be creating in background)
+  useEffect(() => {
+    if (!user.sheet_url) {
+        const interval = setInterval(async () => {
+            await refreshProfile();
+        }, 3000);
+        return () => clearInterval(interval);
+    }
+  }, [user.sheet_url, refreshProfile]);
+
+  const handleCreateSheet = async () => {
+      setIsGeneratingSheet(true);
+      try {
+          const sheetResp = await fetch("/api/create-sheet", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ email: user.email, name: user.name }),
+          });
+          const sheetData = await sheetResp.json();
+          
+          if (sheetData.sheetUrl) {
+              await supabase
+                .from('users')
+                .update({ 
+                    sheet_url: sheetData.sheetUrl,
+                    daily_limit: 10,
+                    filters: {
+                       age_min: 18,
+                       age_max: 60,
+                       cities: [],
+                       genders: ['All'],
+                       professions: [],
+                       min_income: 0
+                    }
+                })
+                .eq('id', user.id);
+              await refreshProfile();
+          } else {
+              alert("Could not create sheet yet. Please try again in a moment.");
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Connection error. Please check your internet.");
+      } finally {
+          setIsGeneratingSheet(false);
+      }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <Badge status={user.payment_status}>
+        <Badge status={user.payment_status === 'active' ? 'active' : 'inactive'}>
           Plan: {user.payment_status.toUpperCase()}
         </Badge>
       </div>
@@ -63,14 +116,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-900">Google Sheet</p>
-                <p className="text-xs text-slate-500">Last updated: 2 mins ago</p>
+                <p className="text-xs text-slate-500">
+                  {user.sheet_url ? 'Connected' : 'Creating... (This takes ~10s)'}
+                </p>
               </div>
             </div>
-            <a href={user.sheet_url} target="_blank" rel="noreferrer">
-              <Button variant="secondary" className="text-sm">
-                Open Sheet <ExternalLink className="w-4 h-4 ml-2" />
-              </Button>
-            </a>
+            {user.sheet_url ? (
+                <a href={user.sheet_url} target="_blank" rel="noreferrer">
+                  <Button variant="secondary" className="text-sm">
+                    Open Sheet <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </a>
+            ) : (
+                <Button 
+                    variant="primary" 
+                    className="text-sm" 
+                    onClick={handleCreateSheet} 
+                    isLoading={isGeneratingSheet}
+                >
+                    {isGeneratingSheet ? "Generating..." : "Retry Connection"}
+                </Button>
+            )}
           </div>
         </Card>
 
