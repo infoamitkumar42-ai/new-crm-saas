@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./auth/useAuth";
 import { Landing } from "./views/Landing";
@@ -19,7 +18,6 @@ const AppInner = () => {
   
   // State for handling stuck setup
   const [setupElapsed, setSetupElapsed] = useState(0);
-  const [isManualSetup, setIsManualSetup] = useState(false);
 
   // Timer to track setup duration and poll profile
   useEffect(() => {
@@ -27,7 +25,7 @@ const AppInner = () => {
     if (session && !profile) {
        timer = setInterval(() => {
          setSetupElapsed(prev => prev + 1);
-         // Poll profile every 3 seconds in case the backend finished silently
+         // Poll profile every 3 seconds
          if (setupElapsed > 0 && setupElapsed % 3 === 0) {
              refreshProfile();
          }
@@ -38,57 +36,7 @@ const AppInner = () => {
     return () => clearInterval(timer);
   }, [session, profile, refreshProfile, setupElapsed]);
 
-  const handleManualSetup = async () => {
-    setIsManualSetup(true);
-    try {
-        if (!session?.user) return;
-        
-        console.log("Retrying setup manually...");
-
-        // 1. Retry Creating Sheet
-        // We pass the existing user details
-        const createSheetResp = await fetch("/api/create-sheet", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                email: session.user.email, 
-                name: session.user.user_metadata?.name || "User" 
-            }),
-        });
-        const sheetData = await createSheetResp.json();
-        
-        if (!sheetData.sheetUrl) {
-             throw new Error("Could not generate Google Sheet. Service might be busy.");
-        }
-
-        // 2. Retry Init User
-        const initResp = await fetch("/api/init-user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: session.user.email,
-                name: session.user.user_metadata?.name || "User",
-                sheetUrl: sheetData.sheetUrl,
-                id: session.user.id
-            }),
-        });
-        
-        if (!initResp.ok) {
-            throw new Error("Failed to save profile.");
-        }
-
-        // 3. Final Refresh
-        await refreshProfile();
-        
-    } catch (e: any) {
-        console.error("Manual Setup Error:", e);
-        alert(`Setup failed: ${e.message || "Unknown error"}. Please try signing out and back in.`);
-    } finally {
-        setIsManualSetup(false);
-    }
-  };
-
-  // 1. Global Loading (Initial Session Check)
+  // 1. Global Loading
   if (loading) {
      return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -115,72 +63,37 @@ const AppInner = () => {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
           <div className="flex flex-col items-center max-w-md text-center px-4 bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-              {isManualSetup ? (
-                 <>
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-4"></div>
-                    <h2 className="text-xl font-semibold text-slate-900 mb-2">Finalizing Setup</h2>
-                    <p className="text-slate-600 text-sm">Retrying connection to Google Sheets...</p>
-                 </>
-              ) : (
-                  <>
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-4"></div>
-                    <h2 className="text-xl font-semibold text-slate-900 mb-2">Setting up your dashboard</h2>
-                    <p className="text-slate-500 text-sm mb-6">
-                        We are generating your Google Sheet and finalizing your account. This usually takes 5-10 seconds.
-                    </p>
-                    
-                    {setupElapsed > 10 && (
-                        <div className="w-full space-y-4 animate-in fade-in duration-500">
-                            <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 text-left">
-                                <p className="text-amber-800 text-xs font-medium mb-1">Taking longer than expected?</p>
-                                <p className="text-amber-700 text-xs">
-                                    Google Apps Script can sometimes be slow to respond. If it's stuck, try retrying below.
-                                </p>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <button 
-                                    onClick={handleManualSetup}
-                                    className="w-full py-2 px-4 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
-                                >
-                                    Retry Setup Manually
-                                </button>
-                                <button 
-                                    onClick={signOut}
-                                    className="text-slate-400 text-xs hover:text-slate-600 underline"
-                                >
-                                    Cancel & Sign Out
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                  </>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-4"></div>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">Setting up your dashboard</h2>
+              <p className="text-slate-500 text-sm mb-6">
+                  We are creating your account profile. This usually takes a few seconds.
+              </p>
+              
+              {setupElapsed > 8 && (
+                  <div className="w-full space-y-4 animate-in fade-in duration-500">
+                      <p className="text-amber-700 text-xs bg-amber-50 p-2 rounded">
+                          Taking longer than expected? 
+                      </p>
+                      <button 
+                          onClick={() => window.location.reload()}
+                          className="w-full py-2 px-4 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+                      >
+                          Reload Page
+                      </button>
+                      <button 
+                        onClick={signOut}
+                        className="text-slate-400 text-xs hover:text-slate-600 underline block w-full"
+                      >
+                        Sign Out
+                      </button>
+                  </div>
               )}
           </div>
         </div>
       );
   }
   
-  // 4. Critical Error State: Profile exists but Sheet URL is missing
-  if (session && profile && !profile.sheet_url) {
-     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-           <div className="bg-white p-8 rounded-xl shadow-lg border border-red-100 max-w-md text-center">
-              <div className="text-red-500 text-xl font-bold mb-2">Setup Error</div>
-              <p className="text-slate-600 mb-6">
-                Your account was created, but we couldn't generate your personal Google Sheet.
-              </p>
-              <button 
-                onClick={signOut}
-                className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-              >
-                Sign Out & Try Again
-              </button>
-           </div>
-        </div>
-     );
-  }
-
-  // 5. Logged In & Profile Loaded -> Main App
+  // 4. MAIN APP (Profile Exists)
   const isAdmin = profile?.role === "admin";
 
   const updateFilters = async (filters: FilterConfig, dailyLimit: number) => {
@@ -212,6 +125,25 @@ const AppInner = () => {
       onLogout={signOut}
       showAdminTab={isAdmin}
     >
+      {/* --- WARNING BANNER ADDED HERE --- */}
+      {!profile.sheet_url && (
+         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg shadow-sm">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  <span className="font-bold">Setup Incomplete:</span> Your Google Sheet could not be created automatically. 
+                  Please click the <strong>"Retry Connection"</strong> button in your dashboard below.
+                </p>
+              </div>
+            </div>
+         </div>
+      )}
+
       {activeTab === "dashboard" && <Dashboard user={profile!} />}
       {activeTab === "filters" && <FilterSettings user={profile!} onUpdate={updateFilters} />}
       {activeTab === "subscription" && (
