@@ -1,5 +1,6 @@
 function doPost(e) {
   try {
+    // Basic validation
     if (!e || !e.postData) return sendResponse({ result: "error", message: "No data" });
     
     var data = JSON.parse(e.postData.contents);
