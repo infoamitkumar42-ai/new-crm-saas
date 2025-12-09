@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
@@ -41,30 +40,39 @@ export const AuthView: React.FC = () => {
         const user = signUpData.user;
         if (!user) throw new Error("Signup failed. Please try again.");
 
-        // 2. Auto Confirm
+        // 2. Auto Confirm (Optional)
         setStatusMessage("Verifying account...");
-        await fetch("/api/confirm-user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: user.email, id: user.id }),
-        });
-
-        // 3. Create Google Sheet
-        setStatusMessage("Creating Google Sheet...");
-        const createSheetResp = await fetch("/api/create-sheet", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: user.email, name: name || "User" }),
-        });
-        
-        const sheetData = await createSheetResp.json();
-        console.log("Sheet creation debug:", sheetData);
-
-        if (!sheetData.sheetUrl) {
-            throw new Error("Failed to create Google Sheet. Please try again.");
+        try {
+            await fetch("/api/confirm-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: user.email, id: user.id }),
+            });
+        } catch (e) {
+            console.warn("Auto-confirm skipped or failed.");
         }
 
-        // 4. Initialize User Profile
+        // 3. Create Google Sheet (FAIL-SAFE MODE)
+        // Yahan humne change kiya hai: Agar sheet fail ho jaye, to error mat phenko!
+        setStatusMessage("Setting up dashboard...");
+        let sheetUrl = null;
+        try {
+            const createSheetResp = await fetch("/api/create-sheet", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: user.email, name: name || "User" }),
+            });
+            const sheetData = await createSheetResp.json();
+            if (sheetData && sheetData.sheetUrl) {
+                sheetUrl = sheetData.sheetUrl;
+            }
+        } catch (sheetErr) {
+            console.warn("Sheet creation delayed, will retry later:", sheetErr);
+            // Error ignore kar rahe hain taaki user save ho sake
+        }
+
+        // 4. Initialize User Profile (MOST IMPORTANT)
+        // Sheet URL mile ya na mile, hum User ko DB mein save karenge
         setStatusMessage("Finalizing profile...");
         const initResp = await fetch("/api/init-user", {
             method: "POST",
@@ -72,16 +80,16 @@ export const AuthView: React.FC = () => {
             body: JSON.stringify({
                 email: user.email,
                 name: name || user.user_metadata?.name,
-                sheetUrl: sheetData.sheetUrl,
+                sheetUrl: sheetUrl, // Ye null bhi ho sakta hai, koi dikkat nahi
                 id: user.id
             }),
         });
 
-        if (!initResp.ok) throw new Error("Failed to save user profile.");
+        if (!initResp.ok) throw new Error("Failed to save user profile. Please contact support.");
 
         await logEvent('user_signup_complete', { email });
         
-        // Refresh profile to enter dashboard
+        // Dashboard mein bhejo
         setStatusMessage("Opening dashboard...");
         await refreshProfile();
         
@@ -102,10 +110,8 @@ export const AuthView: React.FC = () => {
       console.error("Auth Error:", err);
       setError(err.message || "An unexpected error occurred");
       
-      // If we failed during signup steps after auth, sign out to reset state
-      // so the user isn't stuck in a "logged in but no profile" state
+      // Agar signup fail hua to logout kar do taaki user phase na rahe
       if (mode === "signup") {
-         alert("Signup interrupted: " + err.message + ". Please try again.");
          await supabase.auth.signOut();
       }
     } finally {
@@ -175,6 +181,7 @@ export const AuthView: React.FC = () => {
         
         {statusMessage && (
             <div className="text-sm text-brand-600 bg-brand-50 border border-brand-100 rounded-md px-3 py-2 flex items-center">
+                {/* Spinner Icon */}
                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-brand-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
