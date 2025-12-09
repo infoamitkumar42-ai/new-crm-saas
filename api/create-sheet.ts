@@ -14,7 +14,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!scriptUrl) return res.status(500).json({ error: "Script URL missing" });
 
-    // 6 Second Timeout Controller
+    // ⏳ TIMEOUT CONTROL (6 Seconds)
+    // Google agar slow hai to hum wait nahi karenge, taaki Vercel crash na ho
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -31,10 +32,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ sheetUrl: data.sheetUrl });
 
     } catch (e: any) {
-      // Agar timeout hua, toh bhi frontend ko fail mat karo, null bhej do.
-      // Dashboard baad mein "Retry" button dikha dega.
-      console.log("Sheet creation timed out or failed, proceeding without it.");
-      return res.status(200).json({ sheetUrl: null, warning: "Timeout" });
+      // Agar timeout hua, tab bhi Success (200) bhejo, bas sheetUrl null rakho
+      // Taaki user Dashboard mein ghus sake
+      console.log("Sheet creation slow, skipping for now.");
+      return res.status(200).json({ sheetUrl: null, status: "slow_connection" });
     }
 
   } catch (error: any) {
