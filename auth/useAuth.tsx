@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -48,47 +47,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loadProfile = async (supabaseUser: SupabaseUser | undefined) => {
-    if (!supabaseUser || !supabaseUser.email) {
-      setProfile(null);
-      return;
-    }
+    try {
+        if (!supabaseUser || !supabaseUser.email) {
+          setProfile(null);
+          return;
+        }
 
-    const dbUser = await fetchProfile(supabaseUser.email);
-    
-    if (dbUser) {
-      const mapped: User = {
-        id: dbUser.id,
-        email: dbUser.email,
-        name: dbUser.name || "",
-        sheet_url: dbUser.sheet_url || "",
-        payment_status: dbUser.payment_status || "inactive",
-        valid_until: dbUser.valid_until || null,
-        filters: dbUser.filters || {},
-        daily_limit: dbUser.daily_limit || 10,
-        role: dbUser.role || "user",
-      };
-      setProfile(mapped);
-    } else {
-      // Profile missing. This is normal during initial signup before the API creates the row.
-      // We keep profile null, allowing App.tsx or Auth.tsx to handle the "Setup" phase.
-      setProfile(null);
+        const dbUser = await fetchProfile(supabaseUser.email);
+        
+        if (dbUser) {
+          const mapped: User = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name || "",
+            sheet_url: dbUser.sheet_url || "",
+            payment_status: dbUser.payment_status || "inactive",
+            valid_until: dbUser.valid_until || null,
+            filters: dbUser.filters || {},
+            daily_limit: dbUser.daily_limit || 10,
+            role: dbUser.role || "user",
+          };
+          setProfile(mapped);
+        } else {
+          // Profile nahi mili (shayad abhi ban rahi hai)
+          setProfile(null);
+        }
+    } catch (error) {
+        console.error("Load Profile Error", error);
+        setProfile(null);
+    } finally {
+        // ✅ YE LINE IMPORTANT HAI:
+        // Chahe profile mile ya na mile, Loading band honi chahiye!
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      
-      if (mounted) {
-        setSession(data.session ?? null);
-        if (data.session?.user) {
-          await loadProfile(data.session.user);
-        } else {
-          setLoading(false);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(data.session ?? null);
+          if (data.session?.user) {
+            await loadProfile(data.session.user);
+          } else {
+            setLoading(false);
+          }
         }
+      } catch (err) {
+        // Agar session check fail ho, tab bhi loading band karo
+        if (mounted) setLoading(false);
       }
     };
 
@@ -99,8 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           setSession(session);
           if (session?.user) {
-            // Note: We don't set loading=true here to avoid flickering, 
-            // but we do await the profile load.
+            // Note: Hum yahan wapis loading true nahi karte taaki flicker na ho
             await loadProfile(session.user);
           } else {
             setProfile(null);
@@ -123,19 +132,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp: AuthContextValue["signUp"] = async ({ email, password }) => {
-    // We don't set global loading here to allow UI to control the spinner
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
   };
 
   const signIn: AuthContextValue["signIn"] = async ({ email, password }) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
@@ -143,6 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setProfile(null);
     setSession(null);
+    setLoading(false);
   };
 
   return (
