@@ -1,66 +1,45 @@
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  lock.tryLock(10000);
-
   try {
+    if (!e || !e.postData) return sendResponse({ result: "error", message: "No data" });
+    
     var data = JSON.parse(e.postData.contents);
-    var action = data.action;
+    if (data.action === "createSheet") return createUserSheet(data);
     
-    // Check Action Type
-    if (action === "createSheet") {
-      return createUserSheet(data);
-    }
-    
-    return sendResponse({ "result": "error", "message": "Unknown action" });
-    
+    return sendResponse({ result: "success", message: "Ping OK" });
   } catch (err) {
-    return sendResponse({ "result": "error", "error": err.toString() });
-  } finally {
-    lock.releaseLock();
+    return sendResponse({ result: "error", error: err.toString() });
   }
 }
 
 function createUserSheet(data) {
   var email = data.email;
-  var name = data.name;
+  var name = data.name || "User";
   
-  if (!email) return sendResponse({ "result": "error", "message": "Email is required" });
-
   try {
-    // 1. Create New Sheet
-    var ss = SpreadsheetApp.create("LeadFlow - " + (name || "User"));
+    // 1. Create Sheet
+    var ss = SpreadsheetApp.create("LeadFlow - " + name);
     var sheet = ss.getActiveSheet();
     
-    // 2. Add Headers
+    // 2. Setup Columns
     var headers = ["Date", "Name", "Phone", "City", "Status", "Notes", "Source"];
     sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setBackground("#2563eb").setFontColor("white").setFontWeight("bold");
     
-    // 3. Style Headers (Blue Background)
-    var range = sheet.getRange(1, 1, 1, headers.length);
-    range.setBackground("#2563eb").setFontColor("white").setFontWeight("bold");
-    
-    // 4. Add User as Editor (Share Sheet)
+    // 3. PERMISSION FIX (Ye Naya Hai)
+    // Sheet ko "Anyone with Link" ke liye open kar do taaki user turant access kar sake
     try {
-      ss.addEditor(email);
-    } catch (e) {
-      // Sometimes fails if email is not Google, but we proceed anyway
-      Logger.log("Could not share sheet: " + e.toString());
+      ss.setSharing(SpreadsheetApp.Access.ANYONE_WITH_LINK, SpreadsheetApp.Permission.EDITOR);
+    } catch (shareErr) {
+      // Agar ye fail ho, tabhi specific email add karne ki koshish karo
+      try { ss.addEditor(email); } catch (e) {}
     }
-    
-    // 5. Return Success
-    return sendResponse({
-      "result": "success",
-      "sheetUrl": ss.getUrl(),
-      "sheetId": ss.getId()
-    });
-    
+
+    return sendResponse({ result: "success", sheetUrl: ss.getUrl() });
   } catch (e) {
-    return sendResponse({ "result": "error", "error": e.toString() });
+    return sendResponse({ result: "error", error: e.toString() });
   }
 }
 
 function sendResponse(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
