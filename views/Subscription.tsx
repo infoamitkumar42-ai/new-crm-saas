@@ -1,124 +1,115 @@
-
 import React from 'react';
-import { Check } from 'lucide-react';
-import { Card, Button } from '../components/UI';
-import { User, PaymentPlan } from '../types';
-import { logEvent } from '../supabaseClient';
-import { ENV } from '../config/env';
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-const PLANS: PaymentPlan[] = [
-  {
-    id: 'daily',
-    name: 'Day Pass',
-    price: 49,           // ₹49 per day
-    interval: 'daily',
-    features: ['Up to 10 leads/day', 'Basic Filtering', 'Email Support']
-  },
-  {
-    id: 'weekly',
-    name: 'Growth',
-    price: 299,          // ₹299 per week
-    interval: 'weekly',
-    features: ['Up to 15 leads/day', 'Advanced Filters', 'Priority Support']
-  },
-  {
-    id: 'monthly',
-    name: 'Pro',
-    price: 999,          // ₹999 per month
-    interval: 'monthly',
-    features: ['Up to 25 leads/day', 'All Filters', 'Highest Priority Support']
-  }
-];
+import { User } from '../types';
 
 interface SubscriptionProps {
   user: User;
-  onPaymentSuccess: (planId: string, razorpayPaymentId: string) => void;
+  onPaymentSuccess: (planId: string, paymentId: string) => void;
 }
 
 export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSuccess }) => {
-
-  const handlePurchase = (plan: PaymentPlan) => {
-    if (!window.Razorpay) {
-      alert('Razorpay SDK not loaded');
-      return;
+  
+  // PLANS CONFIGURATION
+  const plans = [
+    {
+      id: 'starter',
+      name: 'Starter Pack',
+      price: 499,
+      leads: 40, // Approx
+      costPerLead: '₹12',
+      features: ['Valid for 7 Days', 'Basic City Filtering', 'Email Support'],
+      color: 'bg-white border-slate-200',
+      btnColor: 'bg-slate-900 text-white',
+      badge: null
+    },
+    {
+      id: 'pro',
+      name: 'Growth Pack',
+      price: 1999,
+      leads: 200, // Approx
+      costPerLead: '₹9.9', // Psychology Trigger!
+      features: ['Valid for 30 Days', 'Advanced Targeting', 'Priority WhatsApp Support', 'No Daily Limit'],
+      color: 'bg-brand-50 border-brand-500 ring-1 ring-brand-500',
+      btnColor: 'bg-brand-600 text-white hover:bg-brand-700',
+      badge: 'MOST POPULAR'
+    },
+    {
+      id: 'agency',
+      name: 'Agency / Team',
+      price: 7999,
+      leads: 1000,
+      costPerLead: '₹8', // Cheapest!
+      features: ['Valid for 60 Days', '5 Team Members', 'Dedicated Account Manager', 'Custom Integrations'],
+      color: 'bg-white border-slate-200',
+      btnColor: 'bg-slate-900 text-white',
+      badge: 'BEST VALUE'
     }
+  ];
 
-    const options = {
-      key: ENV.RAZORPAY_KEY_ID,
-      amount: plan.price * 100, // paise
-      currency: 'INR',
-      name: 'LeadFlow CRM',
-      description: `${plan.name} (${plan.interval})`,
-      prefill: {
-        email: user.email,
-        name: user.name
-      },
-      notes: {
-        email: user.email,
-        planId: plan.id
-      },
-      handler: async function (response: any) {
-        await logEvent('payment_success', {
-          planId: plan.id,
-          paymentId: response.razorpay_payment_id
-        });
-
-        onPaymentSuccess(plan.id, response.razorpay_payment_id);
-      }
-    };
-
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+  const handleBuy = (plan: any) => {
+    // Abhi ke liye bas alert, baad mein Razorpay
+    alert(`Redirecting to payment for ${plan.name} (₹${plan.price})...`);
+    // onPaymentSuccess(plan.id, "dummy_payment_id");
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900">Subscription</h2>
-        <p className="text-sm text-slate-500">
-          Choose a plan to start receiving leads. All prices in INR.
+    <div className="max-w-5xl mx-auto space-y-8 pb-10">
+      <div className="text-center max-w-2xl mx-auto">
+        <h2 className="text-3xl font-bold text-slate-900">Simple, Transparent Pricing</h2>
+        <p className="text-slate-500 mt-2 text-lg">
+          No monthly salary. No hidden fees. Pay only for the leads you get.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {PLANS.map(plan => (
-          <Card
-            key={plan.id}
-            className={`p-5 flex flex-col ${
-              plan.id === 'weekly' ? 'border-brand-500 ring-1 ring-brand-200' : ''
-            }`}
-          >
-            <div className="flex-1 space-y-2">
-              <h3 className="font-semibold text-slate-900">{plan.name}</h3>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">₹{plan.price}</span>
-                <span className="text-sm text-slate-500">/ {plan.interval}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
+        {plans.map((plan) => (
+          <div key={plan.id} className={`relative rounded-2xl p-6 shadow-sm border flex flex-col ${plan.color}`}>
+            
+            {/* Badge (Most Popular etc) */}
+            {plan.badge && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                {plan.badge}
               </div>
-              <ul className="mt-3 space-y-1 text-sm text-slate-600">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+            )}
+
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">{plan.name}</h3>
+              <div className="flex items-baseline mt-2">
+                <span className="text-4xl font-bold text-slate-900">₹{plan.price}</span>
+                <span className="text-slate-500 ml-2 text-sm">/ one-time</span>
+              </div>
+              <div className="mt-2 inline-block bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-medium">
+                Effective Cost: {plan.costPerLead} / lead
+              </div>
             </div>
 
-            <Button
-              variant={plan.id === 'weekly' ? 'primary' : 'secondary'}
-              className="w-full mt-4"
-              onClick={() => handlePurchase(plan)}
+            <ul className="space-y-3 mb-8 flex-1">
+              <li className="flex items-center text-sm text-slate-700 font-medium">
+                <svg className="w-5 h-5 text-brand-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                ~{plan.leads} High Quality Leads
+              </li>
+              {plan.features.map((feat, i) => (
+                <li key={i} className="flex items-center text-sm text-slate-600">
+                  <svg className="w-5 h-5 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  {feat}
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={() => handleBuy(plan)}
+              className={`w-full py-3 rounded-lg font-bold transition-all shadow-md ${plan.btnColor}`}
             >
-              Choose {plan.name}
-            </Button>
-          </Card>
+              Get Started
+            </button>
+          </div>
         ))}
+      </div>
+
+      {/* Psychology Note */}
+      <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 text-center">
+        <p className="text-slate-600 text-sm">
+          🔒 <strong>100% Secure Payment via Razorpay.</strong> Leads are distributed based on your "Settings" filters (City/Age).
+        </p>
       </div>
     </div>
   );
