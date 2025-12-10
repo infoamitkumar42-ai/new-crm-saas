@@ -10,33 +10,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fake Leads for Demo (Jab tak real leads nahi aati)
-  // Baad mein hum isse Supabase/Sheet se fetch karenge
-  const demoLeads: Lead[] = [
-    { id: '1', name: 'Rahul Sharma', phone: '919876543210', city: 'Mumbai', profession: 'Job', age: 28, status: 'New' },
-    { id: '2', name: 'Priya Singh', phone: '918765432109', city: 'Pune', profession: 'Business', age: 34, status: 'New' },
-  ];
-
+  // 1. Real Data Fetching from Supabase
   useEffect(() => {
-    // Abhi ke liye demo leads dikha rahe hain
-    // Real integration mein hum yahan Supabase se leads layenge
-    setLeads(demoLeads);
-    setLoading(false);
-  }, []);
+    const fetchLeads = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('user_id', user.id) // Sirf is user ki leads lao
+          .order('created_at', { ascending: false }) // Newest pehle
+          .limit(50); // Abhi ke liye top 50 dikhate hain
+
+        if (error) throw error;
+
+        // Data ko sahi format mein map karo
+        if (data) {
+           const mappedLeads: Lead[] = data.map((item: any) => ({
+             id: item.id,
+             name: item.name || 'Unknown',
+             phone: item.phone || '',
+             city: item.city || 'N/A',
+             profession: '', // Agar script se nahi aa raha to blank
+             age: 0,
+             status: item.status || 'New',
+           }));
+           setLeads(mappedLeads);
+        }
+      } catch (err) {
+        console.error("Error loading leads:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeads();
+
+    // (Optional) Real-time subscription bhi laga sakte hain yahan
+    // Taaki page refresh kiye bina nayi lead aa jaye
+    const subscription = supabase
+      .channel('public:leads')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads', filter: `user_id=eq.${user.id}` }, (payload) => {
+          console.log('New lead arrived!', payload);
+          // Nayi lead ko list mein upar add kar do
+          const newLead = payload.new as any;
+          setLeads(prev => [{
+             id: newLead.id,
+             name: newLead.name,
+             phone: newLead.phone,
+             city: newLead.city,
+             profession: '',
+             age: 0,
+             status: 'New'
+          }, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [user.id]);
 
   const openWhatsApp = (phone: string, name: string) => {
-    // 1. Phone number saaf karo (spaces, dashes hatao)
     let cleanPhone = phone.replace(/\D/g, '');
-    
-    // 2. Country code check (India default)
     if (!cleanPhone.startsWith('91') && cleanPhone.length === 10) {
       cleanPhone = '91' + cleanPhone;
     }
-
-    // 3. Pre-filled Message
     const message = `Hi ${name}, I received your inquiry regarding our business plan. Are you available for a call?`;
-    
-    // 4. Open WhatsApp Web/App
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -98,7 +137,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900">{lead.name}</td>
-                  <td className="px-6 py-4">{lead.phone}</td>
+                  <td className="px-6 py-4 font-mono text-slate-500">{lead.phone}</td>
                   <td className="px-6 py-4">{lead.city}</td>
                   <td className="px-6 py-4">
                     <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold">
@@ -106,14 +145,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    {/* 🔥 WhatsApp Click-to-Chat Button */}
                     <button
                       onClick={() => openWhatsApp(lead.phone, lead.name)}
                       className="flex items-center space-x-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow-md"
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.6 1.967.3 4.02 1.489 5.817z"/>
-                      </svg>
                       <span>Chat</span>
                     </button>
                   </td>
@@ -124,7 +159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           
           {leads.length === 0 && !loading && (
             <div className="text-center p-8 text-slate-400">
-              No leads found yet.
+              No leads yet. Waiting for new distribution...
             </div>
           )}
         </div>
