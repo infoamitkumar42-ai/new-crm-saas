@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to load profile from DB
+  // Helper to load profile
   const fetchProfile = async (email: string) => {
     try {
       const { data, error } = await supabase
@@ -29,13 +29,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("email", email)
         .maybeSingle();
 
-      if (error) {
-        console.warn("Profile fetch warning:", error.message);
-        return null;
-      }
+      if (error) return null;
       return data;
     } catch (e) {
-      console.error("Profile fetch error:", e);
       return null;
     }
   };
@@ -50,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const dbUser = await fetchProfile(supabaseUser.email);
         
         if (dbUser) {
+          // Map DB user to our type
           const mapped: User = {
             id: dbUser.id,
             email: dbUser.email,
@@ -67,7 +64,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     } catch (error) {
         console.error("Load Profile Error", error);
-        setProfile(null);
     } finally {
         setLoading(false);
     }
@@ -76,10 +72,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // 🛡️ SAFETY TIMER: Agar 3 second mein kuch nahi hua, to Loading band kar do
-    const safetyTimer = setTimeout(() => {
+    // 🛡️ SAFETY TIMER: Sabse Important Fix
+    // Agar 3 second mein kuch nahi hua, to loading ko FALSE kar do.
+    const timer = setTimeout(() => {
         if (loading) {
-            console.warn("Auth check timed out, forcing loading false");
+            console.log("Force stopping loading...");
             setLoading(false);
         }
     }, 3000);
@@ -118,13 +115,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
+      clearTimeout(timer);
       listener.subscription.unsubscribe();
     };
-  }, []); // Removed 'loading' from dependency to avoid loop
+  }, []);
 
   const refreshProfile = async () => {
     if (session?.user) {
+      // Refresh karte waqt loading TRUE mat karo, bas data update karo
       await loadProfile(session.user);
     }
   };
