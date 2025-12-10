@@ -20,44 +20,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper: Profile Fetch
-  const fetchProfile = async (email: string) => {
+  // Helper: Load Profile Logic
+  const fetchAndSetProfile = async (u: SupabaseUser) => {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-      if (error) return null;
-      return data;
-    } catch (e) { return null; }
-  };
+        // 1. Try Fetching Profile
+        let { data, error } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", u.id) // ID se search karenge (Jyada accurate)
+            .maybeSingle();
 
-  const loadProfile = async (supabaseUser: SupabaseUser | undefined) => {
-    try {
-        if (!supabaseUser || !supabaseUser.email) {
-          setProfile(null);
-          return;
+        // 2. 🛡️ SELF-HEAL: Agar Profile nahi mili (Missing Row), to nayi banao
+        if (!data) {
+            console.log("⚠️ Profile missing in DB. Auto-creating...");
+            const newProfile = {
+                id: u.id,
+                email: u.email,
+                name: u.user_metadata?.name || "User",
+                payment_status: "inactive",
+                daily_limit: 2,
+                filters: {}
+            };
+            
+            const { error: insertError } = await supabase.from("users").insert([newProfile]);
+            
+            if (!insertError) {
+                data = newProfile; // Use the new profile
+            } else {
+                console.error("Failed to auto-create profile:", insertError);
+            }
         }
-        const dbUser = await fetchProfile(supabaseUser.email);
-        
-        if (dbUser) {
+
+        // 3. Set State
+        if (data) {
           setProfile({
-            id: dbUser.id,
-            email: dbUser.email,
-            name: dbUser.name || "",
-            sheet_url: dbUser.sheet_url || "",
-            payment_status: dbUser.payment_status || "inactive",
-            valid_until: dbUser.valid_until || null,
-            filters: dbUser.filters || {},
-            daily_limit: dbUser.daily_limit || 10,
-            role: dbUser.role || "user",
+            id: data.id,
+            email: data.email,
+            name: data.name || "",
+            sheet_url: data.sheet_url || "",
+            payment_status: data.payment_status || "inactive",
+            valid_until: data.valid_until || null,
+            filters: data.filters || {},
+            daily_limit: data.daily_limit || 10,
+            role: data.role || "user",
           });
-        } else {
-          setProfile(null);
         }
-    } catch (error) {
-        console.error("Load Profile Error", error);
+    } catch (err) {
+        console.error("Profile load error:", err);
     } finally {
         setLoading(false);
     }
@@ -66,28 +75,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // 🛡️ SAFETY TIMER (3 Seconds)
-    // Ye Back button issue ko solve karega
+    // Safety: 5 Sec mein loading band
     const safetyTimer = setTimeout(() => {
-        if (loading) {
-            console.log("Loading taking too long, forcing open...");
-            setLoading(false);
-        }
-    }, 3000);
+        if (loading) setLoading(false);
+    }, 5000);
 
     const init = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (mounted) {
-          setSession(data.session ?? null);
-          if (data.session?.user) {
-            await loadProfile(data.session.user);
-          } else {
-            setLoading(false);
-          }
+      const { data } = await supabase.auth.getSession();
+      if (mounted) {
+        setSession(data.session ?? null);
+        if (data.session?.user) {
+          await fetchAndSetProfile(data.session.user);
+        } else {
+          setLoading(false);
         }
-      } catch (err) {
-        if (mounted) setLoading(false);
       }
     };
 
@@ -98,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           setSession(session);
           if (session?.user) {
-            await loadProfile(session.user);
+            await fetchAndSetProfile(session.user);
           } else {
             setProfile(null);
             setLoading(false);
@@ -115,11 +116,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshProfile = async () => {
-    if (session?.user) await loadProfile(session.user);
+    if (session?.user) await fetchAndSetProfile(session.user);
   };
 
-  const signUp: AuthContextValue["signUp"] = async ({ email, password }) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+  const signUp: AuthContextValue["signUp"] = async ({ email, password, name }) => {
+    // Signup par metadata bhejo taaki auto-create mein name aa jaye
+    const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: { data: { name } }
+    });
     if (error) throw error;
   };
 
