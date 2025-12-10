@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to load profile
+  // Helper: Profile Fetch
   const fetchProfile = async (email: string) => {
     try {
       const { data, error } = await supabase
@@ -28,12 +28,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .select("*")
         .eq("email", email)
         .maybeSingle();
-
       if (error) return null;
       return data;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   };
 
   const loadProfile = async (supabaseUser: SupabaseUser | undefined) => {
@@ -42,12 +39,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
           return;
         }
-
         const dbUser = await fetchProfile(supabaseUser.email);
         
         if (dbUser) {
-          // Map DB user to our type
-          const mapped: User = {
+          setProfile({
             id: dbUser.id,
             email: dbUser.email,
             name: dbUser.name || "",
@@ -57,8 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             filters: dbUser.filters || {},
             daily_limit: dbUser.daily_limit || 10,
             role: dbUser.role || "user",
-          };
-          setProfile(mapped);
+          });
         } else {
           setProfile(null);
         }
@@ -72,11 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // 🛡️ SAFETY TIMER: Sabse Important Fix
-    // Agar 3 second mein kuch nahi hua, to loading ko FALSE kar do.
-    const timer = setTimeout(() => {
+    // 🛡️ SAFETY TIMER (3 Seconds)
+    // Ye Back button issue ko solve karega
+    const safetyTimer = setTimeout(() => {
         if (loading) {
-            console.log("Force stopping loading...");
+            console.log("Loading taking too long, forcing open...");
             setLoading(false);
         }
     }, 3000);
@@ -115,16 +109,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
-      clearTimeout(timer);
+      clearTimeout(safetyTimer);
       listener.subscription.unsubscribe();
     };
   }, []);
 
   const refreshProfile = async () => {
-    if (session?.user) {
-      // Refresh karte waqt loading TRUE mat karo, bas data update karo
-      await loadProfile(session.user);
-    }
+    if (session?.user) await loadProfile(session.user);
   };
 
   const signUp: AuthContextValue["signUp"] = async ({ email, password }) => {
@@ -145,9 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{ session, profile, loading, signUp, signIn, signOut, refreshProfile }}
-    >
+    <AuthContext.Provider value={{ session, profile, loading, signUp, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
@@ -155,8 +144,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 };
