@@ -20,70 +20,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 FORCE LOAD PROFILE (No Ifs, No Buts)
-  const fetchAndSetProfile = async (u: SupabaseUser) => {
+  // 🔥 SUPER FAST LOADER (Instant Dashboard)
+  const instantLoad = async (u: SupabaseUser) => {
+    // 1. TURANT FAKE PROFILE BANAO (Taaki user atke nahi)
+    // Ye temporary profile UI ko khush kar degi
+    const tempProfile: User = {
+        id: u.id,
+        email: u.email || "",
+        name: u.user_metadata?.name || "User",
+        sheet_url: "",
+        payment_status: "inactive",
+        valid_until: null,
+        filters: {},
+        daily_limit: 2,
+        role: "user"
+    };
+    
+    // UI Update immediately (No Waiting for DB)
+    setProfile(tempProfile); 
+    setLoading(false);
+
+    // 2. Ab aaram se Background mein Asli Data dhundo
     try {
-        // 1. Try DB Load
-        let { data, error } = await supabase
+        const { data, error } = await supabase
             .from("users")
             .select("*")
             .eq("id", u.id)
             .maybeSingle();
 
-        // 2. Agar DB fail hua ya data nahi mila -> FORCE CREATE DUMMY
-        if (!data) {
-            console.warn("⚠️ Profile not found. Forcing temporary session...");
-            // Fake profile banao taaki dashboard khul jaye
-            data = {
-                id: u.id,
-                email: u.email,
-                name: u.user_metadata?.name || "User",
-                payment_status: "inactive",
-                daily_limit: 2,
-                filters: {},
-                sheet_url: ""
-            };
-            
-            // Try saving to DB silently (Background)
-            supabase.from("users").insert([data]).then(({ error }) => {
-                if (error) console.log("Background creation failed:", error.message);
+        if (data) {
+            // Agar asli data mil gaya, to update kar do
+            setProfile({
+                id: data.id,
+                email: data.email,
+                name: data.name || "User",
+                sheet_url: data.sheet_url || "",
+                payment_status: data.payment_status || "inactive",
+                valid_until: data.valid_until || null,
+                filters: data.filters || {},
+                daily_limit: data.daily_limit || 2,
+                role: data.role || "user",
             });
+        } else {
+            // Agar DB mein row nahi hai, to silently create kar do
+            await supabase.from("users").insert([tempProfile]);
         }
-
-        // 3. SET STATE (Guarantee)
-        setProfile({
-            id: data.id || u.id,
-            email: data.email || u.email || "",
-            name: data.name || "User",
-            sheet_url: data.sheet_url || "",
-            payment_status: data.payment_status || "inactive",
-            valid_until: data.valid_until || null,
-            filters: data.filters || {},
-            daily_limit: data.daily_limit || 10,
-            role: data.role || "user",
-        });
-
     } catch (err) {
-        console.error("Critical Auth Error:", err);
-    } finally {
-        setLoading(false);
+        console.warn("Background sync failed, keeping temp profile.");
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    // 🛑 SAFETY TIMER: 3 Second max wait
-    const safetyTimer = setTimeout(() => {
-        if (loading) setLoading(false);
-    }, 3000);
+    // Safety Timer
+    setTimeout(() => { if(loading) setLoading(false); }, 2000);
 
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (mounted) {
         setSession(data.session ?? null);
         if (data.session?.user) {
-          await fetchAndSetProfile(data.session.user);
+          // 🔥 Call Instant Load
+          instantLoad(data.session.user);
         } else {
           setLoading(false);
         }
@@ -97,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           setSession(session);
           if (session?.user) {
-            await fetchAndSetProfile(session.user);
+            instantLoad(session.user);
           } else {
             setProfile(null);
             setLoading(false);
@@ -108,25 +107,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       listener.subscription.unsubscribe();
     };
   }, []);
 
   const refreshProfile = async () => {
-    if (session?.user) await fetchAndSetProfile(session.user);
+    if (session?.user) await instantLoad(session.user);
   };
 
-  const signUp: AuthContextValue["signUp"] = async ({ email, password, name }) => {
+  const signUp = async ({ email, password, name }: any) => {
     const { error } = await supabase.auth.signUp({ 
-        email, 
-        password,
-        options: { data: { name } }
+        email, password, options: { data: { name } }
     });
     if (error) throw error;
   };
 
-  const signIn: AuthContextValue["signIn"] = async ({ email, password }) => {
+  const signIn = async ({ email, password }: any) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
