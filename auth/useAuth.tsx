@@ -20,60 +20,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper: Load Profile Logic with FORCE ENTRY
+  // 🔥 FORCE LOAD PROFILE (No Ifs, No Buts)
   const fetchAndSetProfile = async (u: SupabaseUser) => {
     try {
-        // 1. Try Fetching Profile from DB
+        // 1. Try DB Load
         let { data, error } = await supabase
             .from("users")
             .select("*")
             .eq("id", u.id)
             .maybeSingle();
 
-        // 2. Agar DB mein nahi mila (ya RLS error aaya)
+        // 2. Agar DB fail hua ya data nahi mila -> FORCE CREATE DUMMY
         if (!data) {
-            console.log("⚠️ Profile missing or hidden. Attempting auto-fix...");
-            
-            const newProfile = {
+            console.warn("⚠️ Profile not found. Forcing temporary session...");
+            // Fake profile banao taaki dashboard khul jaye
+            data = {
                 id: u.id,
                 email: u.email,
                 name: u.user_metadata?.name || "User",
                 payment_status: "inactive",
                 daily_limit: 2,
-                filters: {}
+                filters: {},
+                sheet_url: ""
             };
             
-            // Try Creating Row
-            const { error: insertError } = await supabase.from("users").insert([newProfile]);
-            
-            if (!insertError) {
-                console.log("✅ Profile created successfully.");
-                data = newProfile;
-            } else {
-                console.warn("❌ Creation failed (Likely Duplicate or RLS). FORCING ENTRY ANYWAY.");
-                // 🔥 THE MAGIC FIX: Agar DB mana kare, tab bhi Local State set kar do!
-                // Isse user 'Finalizing Setup' par nahi atkega.
-                data = newProfile; 
-            }
+            // Try saving to DB silently (Background)
+            supabase.from("users").insert([data]).then(({ error }) => {
+                if (error) console.log("Background creation failed:", error.message);
+            });
         }
 
-        // 3. Set State (Ab data null nahi ho sakta)
-        if (data) {
-          setProfile({
+        // 3. SET STATE (Guarantee)
+        setProfile({
             id: data.id || u.id,
             email: data.email || u.email || "",
-            name: data.name || "",
+            name: data.name || "User",
             sheet_url: data.sheet_url || "",
             payment_status: data.payment_status || "inactive",
             valid_until: data.valid_until || null,
             filters: data.filters || {},
             daily_limit: data.daily_limit || 10,
             role: data.role || "user",
-          });
-        }
+        });
+
     } catch (err) {
         console.error("Critical Auth Error:", err);
-        // Even on crash, stop loading
     } finally {
         setLoading(false);
     }
@@ -82,10 +73,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Safety Timer
+    // 🛑 SAFETY TIMER: 3 Second max wait
     const safetyTimer = setTimeout(() => {
         if (loading) setLoading(false);
-    }, 4000);
+    }, 3000);
 
     const init = async () => {
       const { data } = await supabase.auth.getSession();
