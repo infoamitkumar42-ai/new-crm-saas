@@ -1,22 +1,24 @@
+// src/types.ts
+
+export interface FilterConfig {
+  age_min?: number;       // '?' lagaya hai taaki agar value na ho to error na aaye
+  age_max?: number;
+  cities?: string[];      // City filtering ke liye
+  genders?: string[];
+  professions?: string[];
+  min_income?: number;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  sheet_url: string;
+  sheet_url?: string;     // '?' lagaya kyunki shuru mein sheet_url null ho sakta hai
   payment_status: "active" | "inactive" | string;
-  valid_until: string | null;
-  filters: any;
+  valid_until?: string | null;
   daily_limit: number;
   role: "user" | "admin" | string;
-}
-
-export interface FilterConfig {
-  age_min: number;
-  age_max: number;
-  cities: string[];
-  genders: string[];
-  professions: string[];
-  min_income: number;
+  filters: FilterConfig;  // ✅ Yahan 'any' hata kar 'FilterConfig' kar diya
 }
 
 export interface PaymentPlan {
