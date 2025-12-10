@@ -15,46 +15,40 @@ const AppInner = () => {
   const { session, profile, loading, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [showAuth, setShowAuth] = useState(false);
+  
+  // Mobile Menu State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // State for handling stuck setup
+  // State to track how long we are stuck in setup
   const [setupElapsed, setSetupElapsed] = useState(0);
 
-  // 🛡️ AUTO-HEAL LOGIC (Self-Repair System)
+  // 🛡️ SMART RECOVERY LOGIC
   useEffect(() => {
     let timer: any;
     
-    // Sirf tab chalega jab Session ho par Profile na load ho raha ho (Stuck State)
+    // Sirf tab chalega jab Session hai lekin Profile load nahi ho pa raha
     if (session && !profile) {
        timer = setInterval(async () => {
          setSetupElapsed(prev => prev + 1);
          
-         // 3 Second tak try karo profile lane ki
-         if (setupElapsed < 4) {
+         // Har 2 second mein database check karo
+         if (setupElapsed % 2 === 0) {
              await refreshProfile();
-         }
-         
-         // 🛑 AGAR 5 SECOND SE JYADA ATKA RAHA:
-         if (setupElapsed > 4) {
-             console.log("User stuck in Zombie state. Auto-fixing...");
-             // 1. Session kill karo
-             await signOut();
-             // 2. Page reload karke cache saaf karo
-             window.location.reload();
          }
        }, 1000);
     } else {
+        // Reset counter when profile is found
         setSetupElapsed(0);
     }
     return () => clearInterval(timer);
-  }, [session, profile, refreshProfile, setupElapsed, signOut]);
+  }, [session, profile, refreshProfile, setupElapsed]);
 
-  // 1. Global Loading
+  // 1. Global Loading (App Start)
   if (loading) {
       return (
        <div className="min-h-screen flex items-center justify-center bg-slate-50">
          <div className="flex flex-col items-center animate-pulse">
-             <div className="h-8 w-8 bg-brand-200 rounded-full mb-2"></div>
+             <div className="h-10 w-10 bg-brand-200 rounded-full mb-3"></div>
              <div className="text-slate-400 text-sm font-medium">Starting LeadFlow...</div>
          </div>
        </div>
@@ -71,19 +65,42 @@ const AppInner = () => {
     );
   }
 
-  // 3. Logged In BUT No Profile (Temporary State)
+  // 3. Logged In BUT No Profile (STUCK STATE HANDLER)
   if (session && !profile) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mx-auto mb-4"></div>
-              <h2 className="text-xl font-semibold text-slate-900">Finalizing Setup...</h2>
-              <p className="text-slate-500 text-sm mt-2">Just a moment.</p>
+          <div className="text-center p-8 max-w-sm bg-white rounded-2xl shadow-sm border border-slate-100">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600 mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold text-slate-900">Finalizing Setup...</h2>
+              <p className="text-slate-500 text-sm mt-2 mb-6">
+                We are preparing your dashboard. <br/>This usually takes 2-3 seconds.
+              </p>
+              
+              {/* Agar 5 second se jyada lage, to ye button dikhao */}
+              {setupElapsed > 5 && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                    <p className="text-amber-600 text-xs bg-amber-50 p-2 rounded border border-amber-100">
+                        Taking longer than expected?
+                    </p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-slate-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
+                    >
+                        Click to Fix & Reload
+                    </button>
+                    <button 
+                        onClick={signOut}
+                        className="block w-full text-slate-400 text-xs hover:text-slate-600 mt-2"
+                    >
+                        Log Out
+                    </button>
+                  </div>
+              )}
           </div>
         </div>
       );
   }
-   
+
   // 4. MAIN APP (System Healthy ✅)
   const isAdmin = profile?.role === "admin";
 
@@ -114,7 +131,7 @@ const AppInner = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       
-      {/* MOBILE HEADER */}
+      {/* --- MOBILE HEADER --- */}
       <div className="md:hidden fixed top-0 left-0 right-0 bg-slate-900 text-white z-50 px-4 py-3 flex justify-between items-center shadow-lg">
          <span className="font-bold text-lg tracking-tight">LeadFlow</span>
          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 active:bg-slate-800 rounded-lg">
@@ -126,10 +143,10 @@ const AppInner = () => {
          </button>
       </div>
 
-      {/* MOBILE MENU */}
+      {/* --- MOBILE MENU OVERLAY --- */}
       {mobileMenuOpen && (
           <div className="md:hidden fixed inset-0 z-40 bg-slate-900/98 pt-20 px-6 backdrop-blur-sm animate-in fade-in slide-in-from-top-5 duration-200">
-              <nav className="space-y-4">
+              <nav className="space-y-3">
                   <button onClick={() => handleTabChange('dashboard')} className={`w-full text-left py-4 px-4 rounded-xl text-lg font-medium transition-all ${activeTab === 'dashboard' ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/20' : 'text-slate-300 hover:bg-slate-800'}`}>
                       Dashboard
                   </button>
@@ -152,7 +169,7 @@ const AppInner = () => {
           </div>
       )}
 
-      {/* DESKTOP SIDEBAR */}
+      {/* --- DESKTOP SIDEBAR --- */}
       <aside className="w-64 bg-slate-900 text-white hidden md:flex flex-col h-screen sticky top-0 border-r border-slate-800">
         <div className="p-6">
           <h1 className="text-2xl font-bold tracking-tight text-white">LeadFlow</h1>
@@ -178,7 +195,7 @@ const AppInner = () => {
         </nav>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
+      {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto mt-16 md:mt-0">
         {!profile.sheet_url && (
            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg animate-in fade-in slide-in-from-top-2">
