@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
@@ -36,12 +30,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.warn("Error fetching profile:", error.message);
+        console.warn("Profile fetch warning:", error.message);
         return null;
       }
       return data;
     } catch (e) {
-      console.error("Exception fetching profile", e);
+      console.error("Profile fetch error:", e);
       return null;
     }
   };
@@ -69,21 +63,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           };
           setProfile(mapped);
         } else {
-          // Profile nahi mili (shayad abhi ban rahi hai)
           setProfile(null);
         }
     } catch (error) {
         console.error("Load Profile Error", error);
         setProfile(null);
     } finally {
-        // ✅ YE LINE IMPORTANT HAI:
-        // Chahe profile mile ya na mile, Loading band honi chahiye!
         setLoading(false);
     }
   };
 
   useEffect(() => {
     let mounted = true;
+
+    // 🛡️ SAFETY TIMER: Agar 3 second mein kuch nahi hua, to Loading band kar do
+    const safetyTimer = setTimeout(() => {
+        if (loading) {
+            console.warn("Auth check timed out, forcing loading false");
+            setLoading(false);
+        }
+    }, 3000);
 
     const init = async () => {
       try {
@@ -97,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       } catch (err) {
-        // Agar session check fail ho, tab bhi loading band karo
         if (mounted) setLoading(false);
       }
     };
@@ -109,7 +107,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           setSession(session);
           if (session?.user) {
-            // Note: Hum yahan wapis loading true nahi karte taaki flicker na ho
             await loadProfile(session.user);
           } else {
             setProfile(null);
@@ -121,9 +118,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Removed 'loading' from dependency to avoid loop
 
   const refreshProfile = async () => {
     if (session?.user) {
