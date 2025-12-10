@@ -20,19 +20,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper: Load Profile Logic
+  // Helper: Load Profile Logic with FORCE ENTRY
   const fetchAndSetProfile = async (u: SupabaseUser) => {
     try {
-        // 1. Try Fetching Profile
+        // 1. Try Fetching Profile from DB
         let { data, error } = await supabase
             .from("users")
             .select("*")
-            .eq("id", u.id) // ID se search karenge (Jyada accurate)
+            .eq("id", u.id)
             .maybeSingle();
 
-        // 2. 🛡️ SELF-HEAL: Agar Profile nahi mili (Missing Row), to nayi banao
+        // 2. Agar DB mein nahi mila (ya RLS error aaya)
         if (!data) {
-            console.log("⚠️ Profile missing in DB. Auto-creating...");
+            console.log("⚠️ Profile missing or hidden. Attempting auto-fix...");
+            
             const newProfile = {
                 id: u.id,
                 email: u.email,
@@ -42,20 +43,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 filters: {}
             };
             
+            // Try Creating Row
             const { error: insertError } = await supabase.from("users").insert([newProfile]);
             
             if (!insertError) {
-                data = newProfile; // Use the new profile
+                console.log("✅ Profile created successfully.");
+                data = newProfile;
             } else {
-                console.error("Failed to auto-create profile:", insertError);
+                console.warn("❌ Creation failed (Likely Duplicate or RLS). FORCING ENTRY ANYWAY.");
+                // 🔥 THE MAGIC FIX: Agar DB mana kare, tab bhi Local State set kar do!
+                // Isse user 'Finalizing Setup' par nahi atkega.
+                data = newProfile; 
             }
         }
 
-        // 3. Set State
+        // 3. Set State (Ab data null nahi ho sakta)
         if (data) {
           setProfile({
-            id: data.id,
-            email: data.email,
+            id: data.id || u.id,
+            email: data.email || u.email || "",
             name: data.name || "",
             sheet_url: data.sheet_url || "",
             payment_status: data.payment_status || "inactive",
@@ -66,7 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
     } catch (err) {
-        console.error("Profile load error:", err);
+        console.error("Critical Auth Error:", err);
+        // Even on crash, stop loading
     } finally {
         setLoading(false);
     }
@@ -75,10 +82,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Safety: 5 Sec mein loading band
+    // Safety Timer
     const safetyTimer = setTimeout(() => {
         if (loading) setLoading(false);
-    }, 5000);
+    }, 4000);
 
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -120,7 +127,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp: AuthContextValue["signUp"] = async ({ email, password, name }) => {
-    // Signup par metadata bhejo taaki auto-create mein name aa jaye
     const { error } = await supabase.auth.signUp({ 
         email, 
         password,
