@@ -14,31 +14,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!scriptUrl) return res.status(500).json({ error: "Script URL missing" });
 
-    // ⏳ 6 Second Timeout (Vercel Limit is 10s)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    // ⚡ SUPER STRICT TIMEOUT (4 Seconds)
+    // Vercel 10s deta hai, hum 4s mein hi cut kar denge taaki error na aaye.
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ timedOut: true });
+      }, 4000);
+    });
 
-    try {
-      const response = await fetch(scriptUrl, {
-        method: "POST",
-        body: JSON.stringify({ action: "createSheet", email, name }),
-        headers: { "Content-Type": "text/plain" },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
-      const data = await response.json();
-      return res.status(200).json({ sheetUrl: data.sheetUrl });
+    const fetchPromise = fetch(scriptUrl, {
+      method: "POST",
+      body: JSON.stringify({ action: "createSheet", email, name }),
+      headers: { "Content-Type": "text/plain" },
+    });
 
-    } catch (e: any) {
-      // ✅ MAGIC FIX: Agar timeout ho jaye, tab bhi ERROR MAT DO.
-      // Success bhejo, bas sheetUrl null rakho. Dashboard handle kar lega.
-      console.log("Sheet creation slow, skipping wait.");
+    // Race lagao: Kaun pehle khatam hota hai? (Google ya Timer)
+    const response: any = await Promise.race([fetchPromise, timeoutPromise]);
+
+    // Agar Timer jeet gaya (Google slow tha)
+    if (response.timedOut) {
+      console.log("⚠️ Google Sheet slow hai, skipping wait to save Dashboard.");
+      // Frontend ko bolo sab theek hai, bas sheetUrl null hai
       return res.status(200).json({ sheetUrl: null, status: "slow_connection" });
     }
 
+    // Agar Google jeet gaya (Sheet ban gayi)
+    const data = await response.json();
+    return res.status(200).json({ sheetUrl: data.sheetUrl });
+
   } catch (error: any) {
-    // Ye critical server error hai
-    return res.status(500).json({ error: error.message });
+    console.error("API Error:", error);
+    // Error mat bhejo, 200 OK bhejo taaki user Dashboard mein ghus sake
+    return res.status(200).json({ sheetUrl: null, error: error.message });
   }
 }
