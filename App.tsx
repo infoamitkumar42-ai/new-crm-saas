@@ -5,17 +5,19 @@ import { Layout as MainLayout } from "./components/Layout";
 import { Dashboard } from "./views/Dashboard";
 import { FilterSettings } from "./views/FilterSettings";
 import { Subscription } from "./views/Subscription";
+import { Settings } from "./views/Settings"; // ✅ Naya Import
 import { AdminDashboard } from "./views/AdminDashboard";
 import { FilterConfig } from "./types";
 import { supabase } from "./supabaseClient";
 
-type TabId = "dashboard" | "filters" | "subscription" | "admin";
+// ✅ 'settings' ko TabId mein add kiya
+type TabId = "dashboard" | "filters" | "subscription" | "admin" | "settings";
 
 const AppInner = () => {
   const { session, profile, loading, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [showAuth, setShowAuth] = useState(false);
-  
+   
   // State for handling stuck setup
   const [setupElapsed, setSetupElapsed] = useState(0);
 
@@ -38,14 +40,14 @@ const AppInner = () => {
 
   // 1. Global Loading
   if (loading) {
-     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
-            <div className="text-slate-500 text-sm">Loading LeadFlow...</div>
-        </div>
-      </div>
-    );
+      return (
+       <div className="min-h-screen flex items-center justify-center bg-slate-50">
+         <div className="flex flex-col items-center">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
+             <div className="text-slate-500 text-sm">Loading LeadFlow...</div>
+         </div>
+       </div>
+     );
   }
 
   // 2. Not Logged In -> Landing Page
@@ -69,7 +71,7 @@ const AppInner = () => {
                   We are creating your account profile. This usually takes a few seconds.
               </p>
               
-              {setupElapsed > 8 && (
+              {setupElapsed > 5 && (
                   <div className="w-full space-y-4 animate-in fade-in duration-500">
                       <p className="text-amber-700 text-xs bg-amber-50 p-2 rounded">
                           Taking longer than expected? 
@@ -92,20 +94,25 @@ const AppInner = () => {
         </div>
       );
   }
-  
+   
   // 4. MAIN APP (Profile Exists)
   const isAdmin = profile?.role === "admin";
 
-  const updateFilters = async (filters: FilterConfig, dailyLimit: number) => {
+  const updateFilters = async (filters: FilterConfig, dailyLimit?: number) => {
     if (!profile) return;
     try {
+        // Prepare update object
+        const updates: any = { filters };
+        if (dailyLimit !== undefined) updates.daily_limit = dailyLimit;
+
         const { error } = await supabase
             .from('users')
-            .update({ filters, daily_limit: dailyLimit })
+            .update(updates)
             .eq('id', profile.id);
             
         if (error) throw error;
-        alert('Settings saved successfully!');
+        await refreshProfile(); // UI Update karo
+        // alert('Settings saved successfully!'); // Alert settings page khud handle karega
     } catch (e) {
         console.error("Failed to update filters", e);
         alert('Failed to save settings.');
@@ -125,7 +132,7 @@ const AppInner = () => {
       onLogout={signOut}
       showAdminTab={isAdmin}
     >
-      {/* --- WARNING BANNER ADDED HERE --- */}
+      {/* --- WARNING BANNER --- */}
       {!profile.sheet_url && (
          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg shadow-sm">
             <div className="flex">
@@ -144,11 +151,28 @@ const AppInner = () => {
          </div>
       )}
 
+      {/* --- TABS LOGIC --- */}
       {activeTab === "dashboard" && <Dashboard user={profile!} />}
-      {activeTab === "filters" && <FilterSettings user={profile!} onUpdate={updateFilters} />}
+      
+      {activeTab === "filters" && (
+          <FilterSettings 
+            user={profile!} 
+            onUpdate={async (f, l) => updateFilters(f, l)} 
+          />
+      )}
+      
+      {/* ✅ NEW: Settings Tab Link */}
+      {activeTab === "settings" && (
+          <Settings 
+            user={profile!} 
+            onUpdate={async (f) => updateFilters(f)} 
+          />
+      )}
+
       {activeTab === "subscription" && (
         <Subscription user={profile!} onPaymentSuccess={handlePaymentSuccess} />
       )}
+      
       {activeTab === "admin" && isAdmin && (
          <AdminDashboard user={profile!} />
       )}
