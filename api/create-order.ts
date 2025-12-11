@@ -1,14 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Razorpay from 'razorpay';
 
-// Razorpay initialize karo
 const razorpay = new Razorpay({
   key_id: process.env.VITE_RAZORPAY_KEY_ID!,
   key_secret: process.env.VITE_RAZORPAY_KEY_SECRET!,
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Sirf POST request allow karo
   if (req.method !== 'POST') return res.status(405).end();
 
   const { planId, price, userId } = req.body;
@@ -19,11 +17,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const options = {
-      amount: Math.round(price * 100), // Razorpay paise mein leta hai (₹10 = 1000 paise)
+      amount: Math.round(price * 100), // Amount in paise
       currency: "INR",
       receipt: `rcpt_${Date.now().toString().slice(-8)}`,
       notes: {
-        userId: userId, // Webhook ke liye zaroori hai
+        userId: userId,
         planId: planId
       }
     };
