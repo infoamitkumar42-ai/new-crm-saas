@@ -5,16 +5,7 @@ import { Card } from "../components/UI";
 import { ENV } from "../config/env";
 
 interface AdminDashboardProps {
-  user?: User; // Optional in case accessed directly, but guarded by role
-}
-
-interface PaymentRow {
-  id: string;
-  user_id: string;
-  amount: number;
-  plan_type: string | null;
-  status: string | null;
-  created_at: string;
+  user?: User; 
 }
 
 interface LeadSummary {
@@ -25,270 +16,188 @@ interface LeadSummary {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [users, setUsers] = useState<User[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [leadSummary, setLeadSummary] = useState<LeadSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [leadError, setLeadError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [leadSummary, setLeadSummary] = useState<LeadSummary | null>(null);
+
+  // --- DATA LOADING ---
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Users Fetch karo
+      const { data: userRows, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setUsers(userRows || []);
+
+      // Apps Script se Summary lao (Agar URL hai to)
+      if (ENV.APPS_SCRIPT_URL && !ENV.APPS_SCRIPT_URL.includes('PLACEHOLDER')) {
+         try {
+            const res = await fetch(`${ENV.APPS_SCRIPT_URL}?action=summary`);
+            if (res.ok) {
+               const json = await res.json();
+               setLeadSummary(json);
+            }
+         } catch (e) { console.warn("Summary fetch failed"); }
+      }
+    } catch (err) {
+      console.error("Admin Load Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (user?.role !== "admin") {
-      setLoading(false);
-      return;
-    }
+    if (user?.role === "admin") loadData();
+  }, [user]);
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
+  // --- ⚡ MANUAL ACTIVATION LOGIC (GOD MODE) ---
+  const activateUser = async (targetUserId: string, planType: 'starter' | 'boost' | 'stop') => {
+    setActionLoading(targetUserId);
+    try {
+      let updates = {};
+      const today = new Date();
 
-      try {
-        const { data: userRows, error: userErr } = await supabase
-          .from("users")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (userErr) throw userErr;
-
-        const mappedUsers: User[] = (userRows || []).map((u: any) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name || "",
-          sheet_url: u.sheet_url || "",
-          payment_status: u.payment_status || "inactive",
-          valid_until: u.valid_until || null,
-          filters: u.filters || {},
-          daily_limit: u.daily_limit || 10,
-          role: u.role || "user",
-        }));
-
-        setUsers(mappedUsers);
-
-        const { data: paymentRows, error: payErr } = await supabase
-          .from("payments")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (payErr) throw payErr;
-
-        setPayments((paymentRows || []) as any);
-
-        // Lead summary from Apps Script
-        if (ENV.APPS_SCRIPT_URL && !ENV.APPS_SCRIPT_URL.includes('PLACEHOLDER')) {
-          try {
-            const res = await fetch(
-              `${ENV.APPS_SCRIPT_URL}?action=summary`,
-              {
-                method: "GET",
-              }
-            );
-            if (res.ok) {
-              const json = await res.json();
-              setLeadSummary({
-                total_leads: json.total_leads ?? 0,
-                distributed_leads: json.distributed_leads ?? 0,
-                fresh_leads: json.fresh_leads ?? 0,
-              });
-            } else {
-              setLeadError("Apps Script summary returned an error status");
-            }
-          } catch (err) {
-            console.error("Error fetching lead summary", err);
-            setLeadError("Could not load lead summary");
-          }
-        }
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Failed to load admin data");
-      } finally {
-        setLoading(false);
+      if (planType === 'starter') {
+         // Give 30 Days (Monthly)
+         const expiry = new Date();
+         expiry.setDate(today.getDate() + 30);
+         updates = { 
+            payment_status: 'active', 
+            daily_limit: 2, 
+            valid_until: expiry.toISOString(),
+            plan_id: 'manual_starter'
+         };
+      } else if (planType === 'boost') {
+         // Give 7 Days (Weekly Beast)
+         const expiry = new Date();
+         expiry.setDate(today.getDate() + 7);
+         updates = { 
+            payment_status: 'active', 
+            daily_limit: 10, 
+            valid_until: expiry.toISOString(),
+            plan_id: 'manual_boost'
+         };
+      } else {
+         // Deactivate (Stop)
+         updates = { 
+            payment_status: 'inactive', 
+            daily_limit: 0, 
+            valid_until: null 
+         };
       }
-    };
 
-    load();
-  }, [user?.role]);
+      const { error } = await supabase.from('users').update(updates).eq('id', targetUserId);
+      if (error) throw error;
+      
+      await loadData(); // Refresh list
+      alert(`User Updated to: ${planType.toUpperCase()}`);
 
-  if (user?.role !== "admin") {
-    return (
-      <div className="p-6 text-sm text-red-600">
-        Access denied. Admins only.
-      </div>
-    );
-  }
+    } catch (err: any) {
+      alert("Update Failed: " + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
-  if (loading) {
-    return (
-      <div className="p-6 text-sm text-slate-500">Loading admin data...</div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 text-sm text-red-600">
-        Error loading admin dashboard: {error}
-      </div>
-    );
-  }
-
-  const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.payment_status === "active").length;
-  const inactiveUsers = totalUsers - activeUsers;
-
-  // Payments stored in database are in paise
-  const totalRevenuePaise = payments.reduce(
-    (sum, p) => sum + (p.amount || 0),
-    0
-  );
-  const totalRevenueINR = totalRevenuePaise / 100;
+  if (user?.role !== "admin") return <div className="p-6 text-red-600">Access Denied</div>;
+  if (loading) return <div className="p-6 text-slate-500">Loading Admin Panel...</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-10">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">
-          Admin Dashboard
-        </h2>
-        <p className="text-sm text-slate-500">
-          Monitor users, payments, and lead distribution.
-        </p>
+        <h2 className="text-2xl font-bold text-slate-900">Admin Control Center 🎛️</h2>
+        <p className="text-slate-500">Manage users and force-activate plans for testing.</p>
       </div>
 
-      {/* Top stats: users + revenue */}
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Total Users
-          </div>
-          <div className="text-2xl font-semibold text-slate-900">
-            {totalUsers}
+        <Card className="p-4 bg-slate-900 text-white">
+          <div className="text-xs text-slate-400 uppercase">Total Users</div>
+          <div className="text-2xl font-bold">{users.length}</div>
+        </Card>
+        <Card className="p-4 bg-emerald-50 border-emerald-200">
+          <div className="text-xs text-emerald-600 uppercase">Active Users</div>
+          <div className="text-2xl font-bold text-emerald-700">
+            {users.filter(u => u.payment_status === 'active').length}
           </div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Active Users
-          </div>
-          <div className="text-2xl font-semibold text-emerald-600">
-            {activeUsers}
-          </div>
+          <div className="text-xs text-slate-500 uppercase">Leads Distributed</div>
+          <div className="text-2xl font-bold">{leadSummary?.distributed_leads || '-'}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Inactive / Expired
-          </div>
-          <div className="text-2xl font-semibold text-amber-600">
-            {inactiveUsers}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Total Revenue (₹)
-          </div>
-          <div className="text-2xl font-semibold text-slate-900">
-            ₹{totalRevenueINR.toFixed(0)}
-          </div>
+          <div className="text-xs text-slate-500 uppercase">Fresh Inventory</div>
+          <div className="text-2xl font-bold text-brand-600">{leadSummary?.fresh_leads || '-'}</div>
         </Card>
       </div>
 
-      {/* Lead summary from Apps Script */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Total Leads in Master Sheet
-          </div>
-          <div className="text-2xl font-semibold text-slate-900">
-            {leadSummary ? leadSummary.total_leads : "-"}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Distributed Leads
-          </div>
-          <div className="text-2xl font-semibold text-emerald-600">
-            {leadSummary ? leadSummary.distributed_leads : "-"}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-slate-500 uppercase mb-1">
-            Fresh / Undistributed
-          </div>
-          <div className="text-2xl font-semibold text-amber-600">
-            {leadSummary ? leadSummary.fresh_leads : "-"}
-          </div>
-        </Card>
-      </div>
-
-      {leadError && (
-        <p className="text-xs text-amber-600">
-          Lead summary warning: {leadError}
-        </p>
-      )}
-
-      {/* Latest users */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="p-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Latest Users
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-slate-500 border-b">
-                  <th className="text-left py-1 pr-2">Email</th>
-                  <th className="text-left py-1 pr-2">Role</th>
-                  <th className="text-left py-1 pr-2">Status</th>
-                  <th className="text-left py-1 pr-2">Valid Until</th>
+      {/* Users Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+           <h3 className="font-bold text-slate-800">User Management</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 font-medium">
+              <tr>
+                <th className="px-6 py-3">User</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Limit</th>
+                <th className="px-6 py-3">Expiry</th>
+                <th className="px-6 py-3 text-center">⚡ Quick Actions (God Mode)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-3">
+                    <div className="font-medium text-slate-900">{u.name || 'No Name'}</div>
+                    <div className="text-xs text-slate-500">{u.email}</div>
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${u.payment_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {u.payment_status?.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 font-mono">{u.daily_limit || 0}/day</td>
+                  <td className="px-6 py-3 text-xs">
+                     {u.valid_until ? new Date(u.valid_until).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-6 py-3 flex justify-center gap-2">
+                    {/* ACTION BUTTONS */}
+                    <button 
+                      onClick={() => activateUser(u.id, 'starter')}
+                      disabled={actionLoading === u.id}
+                      className="px-3 py-1 bg-white border border-slate-300 rounded text-xs hover:bg-slate-50 shadow-sm"
+                    >
+                      Give Monthly
+                    </button>
+                    <button 
+                      onClick={() => activateUser(u.id, 'boost')}
+                      disabled={actionLoading === u.id}
+                      className="px-3 py-1 bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs hover:bg-amber-200 font-bold shadow-sm"
+                    >
+                      Give Boost 🔥
+                    </button>
+                    {u.payment_status === 'active' && (
+                        <button 
+                          onClick={() => activateUser(u.id, 'stop')}
+                          disabled={actionLoading === u.id}
+                          className="px-2 py-1 text-red-400 hover:text-red-600 text-xs"
+                        >
+                          Stop
+                        </button>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {users.slice(0, 10).map((u) => (
-                  <tr key={u.id} className="border-b last:border-0">
-                    <td className="py-1 pr-2">{u.email}</td>
-                    <td className="py-1 pr-2">{u.role}</td>
-                    <td className="py-1 pr-2">{u.payment_status}</td>
-                    <td className="py-1 pr-2">
-                      {u.valid_until ? new Date(u.valid_until).toLocaleDateString() : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        {/* Latest payments */}
-        <Card className="p-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Latest Payments
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-slate-500 border-b">
-                  <th className="text-left py-1 pr-2">Amount (₹)</th>
-                  <th className="text-left py-1 pr-2">Plan</th>
-                  <th className="text-left py-1 pr-2">Status</th>
-                  <th className="text-left py-1 pr-2">Created At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.slice(0, 10).map((p) => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-1 pr-2">
-                      ₹{(p.amount || 0) / 100}
-                    </td>
-                    <td className="py-1 pr-2">{p.plan_type ?? "-"}</td>
-                    <td className="py-1 pr-2">{p.status ?? "captured"}</td>
-                    <td className="py-1 pr-2">
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
