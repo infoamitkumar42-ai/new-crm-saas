@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 // Razorpay initialize karo
 const razorpay = new Razorpay({
   key_id: process.env.VITE_RAZORPAY_KEY_ID!,
-  key_secret: process.env.VITE_RAZORPAY_KEY_SECRET!, // Env variable check karlena
+  key_secret: process.env.VITE_RAZORPAY_KEY_SECRET!,
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
