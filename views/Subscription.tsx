@@ -1,160 +1,156 @@
-import React, { useState } from 'react';
-import { User } from '../types';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
-interface SubscriptionProps {
-  user: User;
-  onPaymentSuccess: (planId: string, paymentId: string) => void;
-}
+// Environment Variables
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;https://vewqzsqddgmkslnuctvb.supabase.co
+const SUPABASE_SERVICE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3F6c3FkZGdta3NsbnVjdHZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDUzMDQ2MiwiZXhwIjoyMDgwMTA2NDYyfQ.pAgMGN6MtKm1A3fsKr1GIt8-qmKYhwFjSt92L_6_7us 
+const WEBHOOK_SECRET = process.env.VITE_RAZORPAY_WEBHOOK_SECRET;mySuperSecretWebhookKey_123
 
-// Window object mein Razorpay add karo taaki Typescript chillaye nahi
-declare global {
-  interface Window {
-    Razorpay: any;
+// Admin Client (Database Update ke liye)
+const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!);
+
+// Helper: Plan ID se Duration aur Limit nikalo
+const getPlanDetails = (planId: string) => {
+  // Monthly Plans
+  if (planId === 'starter_monthly') return { days: 30, limit: 2, type: 'monthly' };
+  if (planId === 'growth_monthly') return { days: 30, limit: 5, type: 'monthly' };
+  if (planId === 'team_monthly') return { days: 30, limit: 12, type: 'monthly' };
+  
+  // Weekly Boost Packs
+  if (planId === 'boost_a') return { days: 7, limit: 10, type: 'boost' }; // Fast Start (10 leads/day)
+  if (planId === 'boost_b') return { days: 7, limit: 20, type: 'boost' }; // Turbo Weekly (20 leads/day)
+  
+  // Future proofing
+  if (planId === 'boost_c') return { days: 7, limit: 25, type: 'boost' };
+
+  // Default Fallback (Safety ke liye Starter plan)
+  return { days: 30, limit: 2, type: 'monthly' };
+};
+
+// NextJS ko bolo ki Body Parse na kare (Signature verify karne ke liye Raw Body chahiye)
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function buffer(readable: any) {
+  const chunks = [];
+  for await (const chunk of readable) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
   }
+  return Buffer.concat(chunks);
 }
 
-export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
-  const [loading, setLoading] = useState(false);
-
-  // --- PLANS SETUP ---
-  const plans = [
-    // Monthly Plans
-    {
-      id: 'starter_monthly', type: 'monthly', name: 'Starter Plan', price: 999,
-      duration: '30 Days', dailyLimit: 2, totalLeads: '~60 Leads',
-      highlight: 'For Beginners', features: ['Daily Drop: 2 Leads', 'Valid: 30 Days', '✅ Replacement Guarantee', 'Calling Script Included'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-slate-800 text-white', badge: null
-    },
-    {
-      id: 'growth_monthly', type: 'monthly', name: 'Supervisor Plan', price: 1999,
-      duration: '30 Days', dailyLimit: 5, totalLeads: '~150 Leads',
-      highlight: 'Best for Recruiters', features: ['Daily: 5 Leads', 'Valid: 30 Days', '✅ Priority Replacement', 'Target: Housewives/Job'],
-      color: 'bg-brand-50 border-brand-500 ring-1 ring-brand-500', btnColor: 'bg-brand-600 text-white hover:bg-brand-700', badge: 'STEADY GROWTH'
-    },
-    {
-      id: 'team_monthly', type: 'monthly', name: 'Manager Plan', price: 4999,
-      duration: '30 Days', dailyLimit: 12, totalLeads: '~360 Leads',
-      highlight: 'For Leaders', features: ['Daily: 12 Bulk Leads', 'Valid: 30 Days', '✅ Team Distribution', 'Dedicated Support'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-slate-800 text-white', badge: null
-    },
-    // Weekly Boost Plans
-    {
-      id: 'boost_a', type: 'boost', name: 'Fast Start', price: 999,
-      duration: '7 Days', dailyLimit: 10, totalLeads: '~70 Leads',
-      highlight: 'More Leads than Monthly', features: ['Daily: 10 Leads', 'Valid: 7 Days Only', '⚡ High Speed Delivery', 'Burn Budget Fast'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-amber-600 text-white hover:bg-amber-700', badge: 'SPEED'
-    },
-    {
-      id: 'boost_b', type: 'boost', name: 'Turbo Weekly', price: 1999,
-      duration: '7 Days', dailyLimit: 20, totalLeads: '~140 Leads',
-      highlight: 'Instant Pipeline Fill', features: ['Daily: 20 Leads', 'Valid: 7 Days Only', '🔥 Aggressive Growth', 'High Intent Data'],
-      color: 'bg-amber-50 border-amber-500 ring-1 ring-amber-500', btnColor: 'bg-amber-600 text-white hover:bg-amber-700', badge: 'BEST ROI'
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST') {
+    if (!WEBHOOK_SECRET) {
+      console.error('CRITICAL: RAZORPAY_WEBHOOK_SECRET is missing in .env');
+      return res.status(500).json({ status: 'error', message: 'Configuration error' });
     }
-  ];
 
-  const filteredPlans = plans.filter(p => p.type === activeTab);
-
-  // --- PAYMENT LOGIC ---
-  const handleBuy = async (plan: any) => {
-    setLoading(true);
+    const signature = req.headers['x-razorpay-signature'] as string;
+    
     try {
-      // 1. Create Order on Server
-      const response = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: plan.id,
-          price: plan.price,
-          userId: user.id
-        })
-      });
+      // 1. Raw Body Read karo (Signature Verification ke liye)
+      const buf = await buffer(req);
+      const rawBody = buf.toString();
 
-      const order = await response.json();
+      // 2. Verify Signature (Security Check)
+      const shasum = crypto.createHmac('sha256', WEBHOOK_SECRET);
+      shasum.update(rawBody);
+      const digest = shasum.digest('hex');
 
-      if (!response.ok) {
-        throw new Error(order.error || 'Order creation failed');
+      if (digest !== signature) {
+        console.error("❌ Invalid Signature. Fake request blocked.");
+        return res.status(400).json({ status: 'invalid_signature' });
       }
 
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Frontend Key
-        amount: order.amount,
-        currency: order.currency,
-        name: "LeadFlow CRM",
-        description: `Subscription for ${plan.name}`,
-        order_id: order.id,
-        handler: function (response: any) {
-          // Success!
-          alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`);
-          onPaymentSuccess(plan.id, response.razorpay_payment_id);
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: {
-          color: "#2563eb"
+      // 3. Parse Event
+      const event = JSON.parse(rawBody);
+
+      // 4. Sirf Payment Success par kaam karo
+      if (event.event === 'payment.captured') {
+        const payload = event.payload.payment.entity;
+        
+        const email = payload.email || payload.notes?.email; 
+        const amount = payload.amount;
+        const razorpayId = payload.id;
+        // Notes se Plan ID nikalo (Jo humne create-order mein bheja tha)
+        const planId = payload.notes?.planId;
+        const userId = payload.notes?.userId; // Zaroori hai user dhoondne ke liye
+        
+        console.log(`💰 Payment: ₹${amount/100} | User: ${userId} | Plan: ${planId}`);
+
+        // Plan Details Calculate karo
+        const { days, limit, type } = getPlanDetails(planId);
+
+        // Expiry Date Set karo
+        const validUntil = new Date();
+        validUntil.setDate(validUntil.getDate() + days);
+
+        // User Dhundo (ID se best hai, fallback email)
+        let userQuery = supabase.from('users').select('id');
+        
+        if (userId) {
+            userQuery = userQuery.eq('id', userId);
+        } else if (email) {
+            userQuery = userQuery.eq('email', email);
+        } else {
+            console.error("❌ No User ID or Email in payment notes");
+            return res.status(400).json({ error: "User unknown" });
         }
-      };
 
-      const rzp1 = new window.Razorpay(options);
-      rzp1.on('payment.failed', function (response: any){
-        alert(`Payment Failed: ${response.error.description}`);
-      });
-      rzp1.open();
+        const { data: user } = await userQuery.single();
 
-    } catch (error: any) {
-      console.error('Payment Error:', error);
-      alert('Failed to start payment. Please try again.');
-    } finally {
-      setLoading(false);
+        if (user) {
+            // 5. User ko Update karo (Activate Plan)
+             const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+                payment_status: 'active',
+                valid_until: validUntil.toISOString(),
+                daily_limit: limit,
+                plan_id: planId // Track active plan
+            })
+            .eq('id', user.id);
+            
+            if (updateError) {
+                console.error('❌ Database update failed:', updateError);
+                return res.status(500).json({ error: 'DB update failed' });
+            }
+
+            // 6. Payment Record karo
+            await supabase.from('payments').insert({
+              user_id: user.id,
+              amount: amount,
+              plan_type: type, // monthly or boost
+              razorpay_id: razorpayId,
+              status: 'success'
+            });
+
+            // 7. Log entry (Debugging ke liye)
+            await supabase.from('logs').insert({
+              user_id: user.id,
+              action: 'plan_activated',
+              details: { plan: planId, days: days, amount: amount, rzp_id: razorpayId }
+            });
+            
+            console.log(`✅ Plan Activated: ${planId} for User ${user.id}`);
+        } else {
+            console.error("❌ User not found in DB for payment");
+        }
+      }
+      
+      // Razorpay ko bolo "Sab theek hai"
+      res.json({ status: 'ok' });
+
+    } catch (err: any) {
+      console.error("Webhook Processing Error:", err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
     }
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      {/* Header & Toggle */}
-      <div className="text-center max-w-3xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Choose Your Strategy 🎯</h2>
-        <p className="text-slate-500 mt-3 text-lg">Do you want consistent daily leads (Monthly)? Or a massive burst this week (Boost)?</p>
-        <div className="flex justify-center mt-8">
-          <div className="bg-slate-100 p-1.5 rounded-xl flex items-center shadow-inner border border-slate-200">
-            <button onClick={() => setActiveTab('monthly')} className={`px-6 md:px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'monthly' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🗓️ Monthly (Steady)</button>
-            <button onClick={() => setActiveTab('boost')} className={`px-6 md:px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'boost' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🚀 Boost Packs (Fast)</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
-        {filteredPlans.map((plan) => (
-          <div key={plan.id} className={`relative rounded-2xl p-6 shadow-sm border flex flex-col hover:-translate-y-1 transition-transform duration-200 ${plan.color}`}>
-            {plan.badge && <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-sm ${plan.type === 'monthly' ? 'bg-brand-600' : 'bg-amber-600'}`}>{plan.badge}</div>}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mt-1">{plan.highlight}</p>
-              <div className="mt-4 flex items-baseline"><span className="text-4xl font-extrabold text-slate-900">₹{plan.price}</span><span className="text-xs text-slate-500 ml-1 font-medium">/ {plan.duration}</span></div>
-            </div>
-            <div className="bg-slate-50 rounded-lg p-3 mb-5 border border-slate-100">
-              <div className="flex justify-between items-center text-sm mb-1"><span className="text-slate-600">Daily Speed:</span><span className={`font-bold ${plan.type === 'monthly' ? 'text-brand-700' : 'text-amber-700'}`}>{plan.dailyLimit} Leads/day</span></div>
-              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Total Volume:</span><span className="font-bold text-slate-900">{plan.totalLeads}</span></div>
-            </div>
-            <ul className="space-y-3 mb-6 flex-1">
-              {plan.features.map((feat, i) => (
-                <li key={i} className="flex items-start text-xs text-slate-700 font-medium">
-                  <svg className={`w-4 h-4 mr-2 flex-shrink-0 ${plan.type === 'monthly' ? 'text-brand-500' : 'text-amber-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  {feat}
-                </li>
-              ))}
-            </ul>
-            <button onClick={() => handleBuy(plan)} disabled={loading} className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 ${plan.btnColor} ${loading ? 'opacity-70 cursor-wait' : ''}`}>
-              {loading ? 'Processing...' : (plan.type === 'monthly' ? 'Subscribe Now' : 'Activate Boost')}
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="text-center mt-8 px-4 text-xs text-slate-400"><p>🔒 100% Secure Payment via Razorpay. Invalid numbers replaced automatically.</p></div>
-    </div>
-  );
-};
+  } else {
+    res.status(405).send('Method Not Allowed');
+  }
+}
