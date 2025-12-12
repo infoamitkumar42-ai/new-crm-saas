@@ -22,7 +22,7 @@ export const Layout = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
-      {/* 📱 MOBILE TOP BAR */}
+      {/* 📱 MOBILE TOP BAR (Solid - No Blur) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shadow-md">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white">L</div>
@@ -33,16 +33,16 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (SIBLING STRATEGY) */}
+      {/* 📱 MOBILE MENU (SIBLING STRATEGY - SOLID) */}
       {isMobileMenuOpen && (
         <>
-            {/* 1. LAYER: BLURRED BACKDROP (Parda) */}
+            {/* 1. BACKGROUND OVERLAY (Solid Dark, Not Blurred) */}
             <div 
-                className="lg:hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm"
+                className="lg:hidden fixed inset-0 z-[60] bg-black/80" 
                 onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            {/* 2. LAYER: SOLID MENU (Content) */}
+            {/* 2. MENU PANEL (Solid Slate-900) */}
             <div className="lg:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-xs z-[70] bg-slate-900 shadow-2xl flex flex-col pt-20 border-r border-slate-800">
                 <div className="flex-1 px-4 space-y-3 overflow-y-auto">
                     {navItems.map((item) => {
