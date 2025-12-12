@@ -1,13 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // 👇 YAHAN CHANGE HAI: Humne 'src' hata diya aur sidhe folders likh diye
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./*.{js,ts,jsx,tsx}",           // Root files (App.tsx, index.tsx)
+    "./components/**/*.{js,ts,jsx,tsx}", // Components folder
+    "./views/**/*.{js,ts,jsx,tsx}",      // Views folder
+    "./auth/**/*.{js,ts,jsx,tsx}"        // Auth folder
   ],
   theme: {
     extend: {
       colors: {
-        // Humari custom 'Brand' Blue theme
         brand: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -15,11 +18,10 @@ export default {
           300: '#93c5fd',
           400: '#60a5fa',
           500: '#3b82f6',
-          600: '#2563eb', // Main Brand Color
+          600: '#2563eb',
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
-          950: '#172554',
         },
       },
     },
