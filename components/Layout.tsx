@@ -19,17 +19,11 @@ export const Layout = () => {
     { icon: CreditCard, label: 'Plans & Billing', path: '/subscription' },
   ];
 
-  // 🎨 FORCE SOLID COLORS
-  const SOLID_BG = '#0f172a'; // Deep Navy Blue
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
       {/* 📱 MOBILE TOP BAR */}
-      <div 
-        className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
-        style={{ backgroundColor: SOLID_BG, borderBottom: '1px solid #1e293b' }}
-      >
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shadow-md">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white">L</div>
           <span className="font-bold text-lg text-white">LeadFlow</span>
@@ -39,53 +33,51 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (SOLID OVERLAY) */}
+      {/* 📱 MOBILE MENU (SIBLING FIX) */}
       {isMobileMenuOpen && (
-        <div 
-          style={{ 
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: SOLID_BG, // 👈 Solid Color (No Blur)
-            zIndex: 9999,
-            paddingTop: '70px',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          className="lg:hidden"
-        >
-            <div className="flex-1 px-4 space-y-3 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <button
-                            key={item.path}
-                            onClick={() => {
-                                navigate(item.path);
-                                setIsMobileMenuOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-white"
-                            style={{
-                                backgroundColor: isActive ? '#4f46e5' : 'transparent', // Blue if active
-                                border: isActive ? 'none' : '1px solid #334155'
-                            }}
-                        >
-                            <item.icon size={20} />
-                            <span>{item.label}</span>
-                        </button>
-                    );
-                })}
-            </div>
+        <>
+            {/* 1. LAYER: BLURRED BACKDROP (Parda) */}
+            <div 
+                className="lg:hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm"
+                onClick={() => setIsMobileMenuOpen(false)}
+            />
 
-            <div className="p-6 border-t border-slate-800 pb-10">
-                <button 
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 bg-red-900/10 font-bold"
-                >
-                    <LogOut size={20} />
-                    <span>Sign Out</span>
-                </button>
+            {/* 2. LAYER: SOLID MENU (Content) */}
+            <div className="lg:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-xs z-[70] bg-slate-900 shadow-2xl flex flex-col pt-20 border-r border-slate-800">
+                <div className="flex-1 px-4 space-y-3 overflow-y-auto">
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => {
+                                    navigate(item.path);
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-base
+                                    ${isActive 
+                                    ? 'bg-blue-600 text-white shadow-lg' 
+                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    }`}
+                            >
+                                <item.icon size={20} />
+                                <span>{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="p-6 border-t border-slate-800 pb-10">
+                    <button 
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 bg-red-900/10 hover:bg-red-900/20 font-bold"
+                    >
+                        <LogOut size={20} />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
             </div>
-        </div>
+        </>
       )}
 
       {/* 🖥️ DESKTOP SIDEBAR */}
