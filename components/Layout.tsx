@@ -1,14 +1,22 @@
-// Replace lines 18-66 in components/Layout.tsx with this code:
-
-{/* 📱 MOBILE TOP BAR - SOLID BACKGROUND (NO TRANSPARENCY) */}
+{/* 📱 MOBILE TOP BAR - SOLID BACKGROUND */}
 <div 
-  className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
   style={{ 
-    backgroundColor: '#0f172a', // Force solid dark blue
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 16px',
+    backgroundColor: '#0f172a',
     borderBottom: '1px solid #1e293b',
-    backdropFilter: 'none', // Explicitly disable blur
-    WebkitBackdropFilter: 'none' // Safari fix
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none'
   }}
+  className="lg:hidden"
 >
   <div className="flex items-center gap-2">
     <div className="h-8 w-8 rounded flex items-center justify-center font-bold text-white" style={{ backgroundColor: '#2563eb' }}>L</div>
@@ -16,13 +24,13 @@
   </div>
   <button 
     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-    className="text-white p-1 focus:outline-none"
+    className="text-white p-1"
   >
     {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
   </button>
 </div>
 
-{/* 📱 MOBILE MENU OVERLAY - SOLID BACKGROUND */}
+{/* 📱 MOBILE MENU OVERLAY */}
 {isMobileMenuOpen && (
   <div 
     style={{ 
@@ -32,13 +40,12 @@
       right: 0, 
       bottom: 0, 
       zIndex: 40,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dark dim layer
-      backdropFilter: 'none', // No blur
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'none',
       WebkitBackdropFilter: 'none'
     }}
     onClick={() => setIsMobileMenuOpen(false)}
   >
-    {/* MENU PANEL (Left Side - Solid Color) */}
     <div 
       style={{ 
         position: 'absolute',
@@ -47,7 +54,7 @@
         bottom: 0,
         width: '80%',
         maxWidth: '300px',
-        backgroundColor: '#0f172a', // Solid slate-900
+        backgroundColor: '#0f172a',
         paddingTop: '80px',
         display: 'flex',
         flexDirection: 'column',
@@ -79,8 +86,6 @@
           );
         })}
       </div>
-
-      {/* Logout Button */}
       <div className="p-6 border-t border-slate-800 pb-10">
         <button 
           onClick={handleLogout}
