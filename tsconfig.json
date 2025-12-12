@@ -20,7 +20,7 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     
-    /* Path Mapping */
+    /* Paths - Root folder support */
     "paths": {
       "@/*": ["./*"]
     }
