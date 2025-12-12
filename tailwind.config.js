@@ -2,10 +2,10 @@
 export default {
   content: [
     "./index.html",
-    "./*.{js,ts,jsx,tsx}",           // Root files (App.tsx wagera)
-    "./components/**/*.{js,ts,jsx,tsx}", // Components folder
-    "./views/**/*.{js,ts,jsx,tsx}",      // Views folder
-    "./auth/**/*.{js,ts,jsx,tsx}"        // Auth folder
+    "./*.{js,ts,jsx,tsx}",                // Root files (App.tsx, index.tsx)
+    "./components/**/*.{js,ts,jsx,tsx}",  // Components folder
+    "./views/**/*.{js,ts,jsx,tsx}",       // Views folder
+    "./auth/**/*.{js,ts,jsx,tsx}"         // Auth folder
   ],
   theme: {
     extend: {
