@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile Menu Fix - Zabardasti Solid Color */
+.mobile-menu-overlay {
+  background-color: #0f172a !important; /* Dark Blue */
+  opacity: 1 !important;
+}
