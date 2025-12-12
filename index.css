@@ -1,16 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* 🔥 FORCE SOLID BACKGROUNDS - NO BLUR */
-.mobile-menu-overlay {
-  background-color: #0f172a !important;
-  opacity: 1 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Force solid colors on all fixed mobile elements */
 @media (max-width: 1024px) {
   [class*="backdrop-blur"],
   [class*="bg-opacity"] {
@@ -18,9 +6,9 @@
     -webkit-backdrop-filter: none !important;
   }
   
-  /* Mobile top bar - always solid */
-  .lg\:hidden.fixed {
-    background-color: #0f172a !important;
+  .lg\:hidden.fixed,
+  .lg\:hidden[style*="fixed"] {
     backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
