@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// 👇 YE LINE DALNA SABSE ZAROORI HAI
+// 👇 THIS LINE IS CRITICAL. IF MISSING, NO STYLES WILL LOAD
 import './index.css'; 
 import App from './App';
 
