@@ -19,20 +19,13 @@ export const Layout = () => {
     { icon: CreditCard, label: 'Plans & Billing', path: '/subscription' },
   ];
 
-  // 🎨 COLORS (Mobile Menu Fix)
-  const SOLID_BG = '#0f172a'; // Dark Slate Blue (Solid)
-  const BRAND_COLOR = '#4f46e5'; 
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
-      {/* 📱 MOBILE TOP BAR (Solid Background - Z-Index 50) */}
-      <div 
-        className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
-        style={{ backgroundColor: SOLID_BG, borderBottom: '1px solid #1e293b' }}
-      >
+      {/* 📱 MOBILE TOP BAR */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shadow-md">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded flex items-center justify-center font-bold text-white" style={{ backgroundColor: BRAND_COLOR }}>L</div>
+          <div className="h-8 w-8 bg-brand-600 rounded flex items-center justify-center font-bold text-white">L</div>
           <span className="font-bold text-lg text-white">LeadFlow</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white p-1">
@@ -40,73 +33,55 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU FULL SCREEN (Solid Background - Z-Index 9999) */}
+      {/* 📱 MOBILE MENU (SPLIT STRATEGY) */}
       {isMobileMenuOpen && (
-        <div 
-          style={{ 
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: SOLID_BG, // 👈 100% SOLID COLOR
-            zIndex: 9999, // 👈 SABSE UPAR
-            paddingTop: '70px',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          className="lg:hidden"
-        >
-            <div className="flex-1 px-4 space-y-3 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <button
-                            key={item.path}
-                            onClick={() => {
-                                navigate(item.path);
-                                setIsMobileMenuOpen(false);
-                            }}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '15px',
-                                padding: '15px',
-                                borderRadius: '10px',
-                                backgroundColor: isActive ? BRAND_COLOR : 'rgba(255,255,255,0.05)',
-                                color: 'white',
-                                fontSize: '16px',
-                                fontWeight: '600'
-                            }}
-                        >
-                            <item.icon size={20} />
-                            <span>{item.label}</span>
-                        </button>
-                    );
-                })}
-            </div>
+        <>
+            {/* 1. BACKDROP LAYER (Blurry Background) */}
+            <div 
+                className="lg:hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm"
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-hidden="true"
+            />
 
-            <div className="p-6 border-t border-slate-800 pb-10">
-                <button 
-                    onClick={handleLogout}
-                    style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '15px',
-                        padding: '15px',
-                        borderRadius: '10px',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    <LogOut size={20} />
-                    <span>Sign Out</span>
-                </button>
+            {/* 2. MENU CONTENT LAYER (Sharp Text - No Blur Here) */}
+            <div className="lg:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-xs z-[70] bg-slate-900 shadow-2xl flex flex-col pt-20 border-r border-slate-800 transition-transform duration-300">
+                <div className="flex-1 px-4 space-y-3 overflow-y-auto">
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => {
+                                    navigate(item.path);
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-base
+                                    ${isActive 
+                                    ? 'bg-brand-600 text-white shadow-lg' 
+                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    }`}
+                            >
+                                <item.icon size={20} />
+                                <span>{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="p-6 border-t border-slate-800 pb-10">
+                    <button 
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 bg-red-900/10 hover:bg-red-900/20 font-bold"
+                    >
+                        <LogOut size={20} />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
             </div>
-        </div>
+        </>
       )}
 
-      {/* 🖥️ DESKTOP SIDEBAR (No changes needed) */}
+      {/* 🖥️ DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex flex-col w-72 h-screen fixed left-0 top-0 bg-slate-900 text-white overflow-y-auto z-40">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-10">
