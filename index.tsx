@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+// 👇 Ye line sabse zaroori hai, isse hi Rang (Colors) aayenge
+import './index.css'; 
 import App from './App';
 
 const rootElement = document.getElementById('root');
