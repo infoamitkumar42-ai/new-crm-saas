@@ -22,8 +22,11 @@ export const Layout = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
-      {/* 📱 MOBILE TOP BAR (Solid - No Blur) */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shadow-md">
+      {/* 📱 MOBILE TOP BAR (Solid Dark) */}
+      <div 
+        className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
+        style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #1e293b' }}
+      >
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white">L</div>
           <span className="font-bold text-lg text-white">LeadFlow</span>
@@ -33,51 +36,48 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (SIBLING STRATEGY - SOLID) */}
+      {/* 📱 MOBILE MENU (No Blur, Solid Color) */}
       {isMobileMenuOpen && (
-        <>
-            {/* 1. BACKGROUND OVERLAY (Solid Dark, Not Blurred) */}
-            <div 
-                className="lg:hidden fixed inset-0 z-[60] bg-black/80" 
-                onClick={() => setIsMobileMenuOpen(false)}
-            />
-
-            {/* 2. MENU PANEL (Solid Slate-900) */}
-            <div className="lg:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-xs z-[70] bg-slate-900 shadow-2xl flex flex-col pt-20 border-r border-slate-800">
-                <div className="flex-1 px-4 space-y-3 overflow-y-auto">
-                    {navItems.map((item) => {
-                        const isActive = location.pathname === item.path;
-                        return (
-                            <button
-                                key={item.path}
-                                onClick={() => {
-                                    navigate(item.path);
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-base
-                                    ${isActive 
-                                    ? 'bg-blue-600 text-white shadow-lg' 
-                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                    }`}
-                            >
-                                <item.icon size={20} />
-                                <span>{item.label}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div className="p-6 border-t border-slate-800 pb-10">
-                    <button 
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 bg-red-900/10 hover:bg-red-900/20 font-bold"
-                    >
-                        <LogOut size={20} />
-                        <span>Sign Out</span>
-                    </button>
-                </div>
+        <div 
+          style={{ 
+            position: 'fixed', top: 0, left: 0, bottom: 0, right: 0,
+            backgroundColor: '#0f172a', // Solid Color
+            zIndex: 9999,
+            paddingTop: '80px',
+            display: 'flex', flexDirection: 'column'
+          }}
+          className="lg:hidden"
+        >
+            <div className="flex-1 px-4 space-y-4 overflow-y-auto">
+                {navItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                        <button
+                            key={item.path}
+                            onClick={() => { navigate(item.path); setIsMobileMenuOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors text-white"
+                            style={{
+                                backgroundColor: isActive ? '#2563eb' : 'transparent',
+                                border: isActive ? 'none' : '1px solid #334155'
+                            }}
+                        >
+                            <item.icon size={20} />
+                            <span>{item.label}</span>
+                        </button>
+                    );
+                })}
             </div>
-        </>
+
+            <div className="p-6 border-t border-slate-800 pb-10">
+                <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 bg-red-900/10 font-bold"
+                >
+                    <LogOut size={20} />
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </div>
       )}
 
       {/* 🖥️ DESKTOP SIDEBAR */}
@@ -88,34 +88,20 @@ export const Layout = () => {
             <span className="text-2xl font-bold">LeadFlow</span>
           </div>
           <nav className="space-y-2">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl font-medium transition-colors
-                    ${isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+            {navItems.map((item) => (
+              <button key={item.path} onClick={() => navigate(item.path)} className={`w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl font-medium transition-colors ${location.pathname === item.path ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <item.icon size={20} /> <span>{item.label}</span>
+              </button>
+            ))}
           </nav>
         </div>
         <div className="mt-auto p-6 border-t border-slate-800">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-400">
-            <LogOut size={20} /> Sign Out
-          </button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-400"><LogOut size={20} /> Sign Out</button>
         </div>
       </aside>
 
-      {/* 📄 MAIN CONTENT */}
       <main className="flex-1 w-full pt-20 lg:pt-0 lg:ml-72 bg-slate-50 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-          <Outlet />
-        </div>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto"><Outlet /></div>
       </main>
     </div>
   );
