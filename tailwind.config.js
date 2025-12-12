@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // 👇 YAHAN CHANGE HAI: Humne 'src' hata diya aur sidhe folders likh diye
   content: [
     "./index.html",
     "./*.{js,ts,jsx,tsx}",           // Root files (App.tsx, index.tsx)
