@@ -20,7 +20,7 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     
-    /* Path Mapping for Imports */
+    /* Path Mapping */
     "paths": {
       "@/*": ["./*"]
     }
@@ -31,6 +31,5 @@
     "./components/**/*.tsx", 
     "./views/**/*.tsx",
     "./api/**/*.ts"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  ]
 }
