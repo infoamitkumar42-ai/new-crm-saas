@@ -33,17 +33,17 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (SPLIT STRATEGY) */}
+      {/* 📱 MOBILE MENU (SIBLING STRATEGY - NO BLUR ISSUE) */}
       {isMobileMenuOpen && (
         <>
-            {/* 1. BACKDROP LAYER (Blurry Background) */}
+            {/* 1. DARK BACKDROP (Blurred Background) */}
             <div 
                 className="lg:hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm"
                 onClick={() => setIsMobileMenuOpen(false)}
                 aria-hidden="true"
             />
 
-            {/* 2. MENU CONTENT LAYER (Sharp Text - No Blur Here) */}
+            {/* 2. MENU PANEL (Solid & Sharp) */}
             <div className="lg:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-xs z-[70] bg-slate-900 shadow-2xl flex flex-col pt-20 border-r border-slate-800 transition-transform duration-300">
                 <div className="flex-1 px-4 space-y-3 overflow-y-auto">
                     {navItems.map((item) => {
@@ -81,7 +81,7 @@ export const Layout = () => {
         </>
       )}
 
-      {/* 🖥️ DESKTOP SIDEBAR */}
+      {/* 🖥️ DESKTOP SIDEBAR (Unaffected) */}
       <aside className="hidden lg:flex flex-col w-72 h-screen fixed left-0 top-0 bg-slate-900 text-white overflow-y-auto z-40">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-10">
