@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User, Lead } from '../types';
 import { supabase } from '../supabaseClient';
-import { Lock, TrendingUp, Crown, Phone, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Lock, TrendingUp, Crown, Phone, MessageCircle } from 'lucide-react';
 
 interface DashboardProps {
   user: User;
@@ -12,7 +12,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  // --- UPSELL LOGIC ---
+  // --- UPSELL LOGIC (Locked Features) ---
+  // Agar user basic plan par hai (Limit <= 10), to features lock rahenge
   const isBasicUser = user.daily_limit <= 10 && user.daily_limit !== 5 && user.daily_limit !== 12 && user.daily_limit !== 20;
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           .limit(50);
 
         if (error) throw error;
-        if (data) setLeads(data); // Direct mapping if names match, else map manually like before
+        if (data) setLeads(data);
       } catch (err) {
         console.error("Error loading leads:", err);
       } finally {
@@ -36,7 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
     fetchLeads();
 
-    // Real-time listener
+    // Real-time listener (Jaise hi lead aaye, turant dikhaye)
     const subscription = supabase
       .channel('public:leads')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads', filter: `user_id=eq.${user.id}` }, (payload) => {
@@ -49,28 +50,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     };
   }, [user.id]);
 
-  // --- 🔄 STATUS UPDATE LOGIC ---
+  // --- STATUS UPDATE (Interactive) ---
   const handleStatusChange = async (leadId: string, newStatus: string) => {
     setUpdating(leadId);
     try {
-        // 1. Optimistic Update (Turant UI change karo)
+        // 1. Instant UI Update (User ko wait na karna pade)
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
 
-        // 2. DB Update
-        const { error } = await supabase
-            .from('leads')
-            .update({ status: newStatus })
-            .eq('id', leadId);
-
+        // 2. Database Save
+        const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
         if (error) throw error;
     } catch (err) {
-        alert("Failed to update status");
-        // Revert on error could be added here
+        alert("Update failed. Check internet.");
     } finally {
         setUpdating(null);
     }
   };
 
+  // --- HELPERS ---
   const calculateDaysLeft = (validUntil: string | null) => {
     if (!validUntil) return 0;
     const today = new Date();
@@ -93,140 +90,163 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     else alert("Sheet not connected.");
   };
 
-  // Status Badge Colors
-  const getStatusColor = (status: string) => {
-      switch(status) {
-          case 'Interested': return 'bg-green-100 text-green-700 border-green-200';
-          case 'Call Later': return 'bg-amber-100 text-amber-700 border-amber-200';
-          case 'Rejected': return 'bg-red-50 text-red-600 border-red-100';
-          default: return 'bg-slate-100 text-slate-600 border-slate-200'; // New
-      }
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20"> {/* pb-20 added for mobile scrolling space */}
       
-      {/* RENEWAL BANNER */}
+      {/* 🔴 SECTION 1: RENEWAL ALERT (High Priority) */}
       {daysLeft <= 3 && daysLeft > 0 && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg flex justify-between items-center shadow-sm animate-pulse">
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm animate-pulse mb-6">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
+            <span className="text-3xl">⚠️</span>
             <div>
-              <p className="font-bold text-amber-800">Plan Expiring Soon!</p>
-              <p className="text-sm text-amber-700">Only {daysLeft} days left. Recharge to keep leads flowing.</p>
+              <p className="font-bold text-amber-900 text-lg">Plan Expiring Soon!</p>
+              <p className="text-sm text-amber-800">Only <span className="font-bold">{daysLeft} days left</span>. Renew now to keep leads flowing.</p>
             </div>
           </div>
-          <a href="/subscription" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 shadow">Renew Now</a>
+          <button onClick={() => window.location.href='/subscription'} className="w-full sm:w-auto bg-amber-600 text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-amber-700 shadow-md transition-transform active:scale-95">
+            Renew Now
+          </button>
         </div>
       )}
 
-      {/* UPSELL BANNER */}
+      {/* 🚀 SECTION 2: UPSELL BANNER (Visible Space) */}
       {isBasicUser && (
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-1 shadow-lg">
-          <div className="bg-white rounded-lg p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-             <div className="flex items-center gap-4">
-                <div className="bg-indigo-100 p-3 rounded-full text-indigo-600">
-                   <Crown className="w-6 h-6" />
+        <div className="mb-8 transform hover:scale-[1.01] transition-transform duration-300">
+            <div className="bg-gradient-to-r from-brand-600 to-indigo-600 rounded-xl p-0.5 shadow-xl">
+            <div className="bg-white rounded-[10px] p-4 sm:p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="bg-indigo-100 p-3 rounded-full text-indigo-600 shadow-inner">
+                    <Crown className="w-8 h-8" />
+                    </div>
+                    <div>
+                    <h3 className="font-bold text-slate-900 text-lg">Unlock "High Budget" Leads?</h3>
+                    <p className="text-sm text-slate-500">Upgrade to <span className="font-bold text-indigo-600">Supervisor Plan</span> to verify lead income.</p>
+                    </div>
                 </div>
-                <div>
-                   <h3 className="font-bold text-slate-900">Unlock "High Budget" Leads?</h3>
-                   <p className="text-sm text-slate-500">Upgrade to <span className="font-bold text-indigo-600">Supervisor Plan</span> to see lead income & budget.</p>
-                </div>
-             </div>
-             <button onClick={() => window.location.href='/subscription'} className="bg-slate-900 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-800 transition-all shadow-md">
-                Upgrade Plan ⚡
-             </button>
-          </div>
+                <button 
+                    onClick={() => window.location.href='/subscription'} 
+                    className="w-full md:w-auto bg-slate-900 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-slate-800 shadow-lg"
+                >
+                    Upgrade Now ⚡
+                </button>
+            </div>
+            </div>
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="text-slate-500 text-sm font-medium">Total Leads</div>
-          <div className="text-3xl font-bold text-slate-900 mt-2">{leads.length}</div>
+      {/* 📊 SECTION 3: STATS CARDS (BLUE THEME REQUESTED) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Card 1: Total Leads */}
+        <div className="bg-brand-600 rounded-2xl p-6 text-white shadow-lg shadow-brand-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+            <p className="text-brand-100 text-sm font-medium uppercase tracking-wider">Total Leads</p>
+            <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-extrabold">{leads.length}</span>
+                <span className="text-sm text-brand-200">received</span>
+            </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="text-slate-500 text-sm font-medium">Daily Limit</div>
-          <div className="text-3xl font-bold text-brand-600 mt-2">{user.daily_limit}</div>
+
+        {/* Card 2: Daily Limit */}
+        <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-lg shadow-slate-200 relative overflow-hidden">
+            <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-brand-500 opacity-20 rounded-full blur-xl"></div>
+            <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Daily Speed</p>
+            <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-extrabold text-brand-400">{user.daily_limit}</span>
+                <span className="text-sm text-slate-400">leads/day</span>
+            </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="text-slate-500 text-sm font-medium">Plan Status</div>
-          <div className="text-3xl font-bold text-emerald-600 mt-2 capitalize">{user.payment_status}</div>
+
+        {/* Card 3: Status */}
+        <div className={`rounded-2xl p-6 text-white shadow-lg relative overflow-hidden ${user.payment_status === 'active' ? 'bg-emerald-600 shadow-emerald-200' : 'bg-red-500 shadow-red-200'}`}>
+            <p className="text-white/80 text-sm font-medium uppercase tracking-wider">Plan Status</p>
+            <div className="mt-2 flex items-center gap-2">
+                <span className="text-3xl font-bold capitalize">{user.payment_status}</span>
+                {user.payment_status === 'active' && <div className="h-3 w-3 rounded-full bg-white animate-pulse"></div>}
+            </div>
         </div>
       </div>
 
-      {/* LEADS TABLE (INTERACTIVE) */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-slate-800">Your Leads</h2>
-          <button onClick={openSheet} className="flex items-center space-x-2 text-sm text-brand-600 hover:text-brand-700 font-medium bg-brand-50 px-3 py-2 rounded-lg">
-            <span>Open Google Sheet</span>
+      {/* 📋 SECTION 4: LEADS TABLE (Mobile Optimized) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+        {/* Table Header */}
+        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Your Leads</h2>
+            <p className="text-xs text-slate-500 mt-1">Updates are saved automatically.</p>
+          </div>
+          <button onClick={openSheet} className="flex items-center gap-2 text-sm text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2.5 rounded-lg font-bold transition-colors">
+             <span className="text-lg">📄</span> Open Google Sheet
           </button>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-900 font-semibold uppercase tracking-wider text-xs">
+            {/* Blue Header Row */}
+            <thead className="bg-slate-900 text-white font-semibold uppercase tracking-wider text-xs">
               <tr>
-                <th className="px-6 py-4">Name</th>
+                <th className="px-6 py-4 rounded-tl-lg">Name</th>
                 <th className="px-6 py-4">Phone</th>
                 <th className="px-6 py-4">City</th>
-                <th className="px-6 py-4">Status (Click to Change)</th>
-                <th className="px-6 py-4">
-                    <div className="flex items-center gap-1">Budget {isBasicUser && <Lock className="w-3 h-3 text-slate-400" />}</div>
-                </th>
-                <th className="px-6 py-4">Action</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Budget</th>
+                <th className="px-6 py-4 rounded-tr-lg">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{lead.name}</td>
-                  <td className="px-6 py-4 font-mono text-slate-500">{lead.phone}</td>
-                  <td className="px-6 py-4">{lead.city}</td>
+                <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
+                  <td className="px-6 py-5 font-bold text-slate-900 text-base">{lead.name}</td>
+                  <td className="px-6 py-5 font-mono text-slate-500">{lead.phone}</td>
+                  <td className="px-6 py-5 text-slate-700 font-medium">{lead.city}</td>
                   
-                  {/* 🟢 INTERACTIVE STATUS DROPDOWN */}
-                  <td className="px-6 py-4">
+                  {/* 🟢 Interactive Status (Solid UI) */}
+                  <td className="px-6 py-5">
                     <div className="relative">
                         <select 
                             value={lead.status}
                             onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                             disabled={updating === lead.id}
-                            className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-bold border outline-none cursor-pointer focus:ring-2 focus:ring-brand-500 transition-all ${getStatusColor(lead.status)}`}
+                            className={`
+                              appearance-none w-40 pl-4 pr-8 py-2.5 rounded-lg text-xs font-bold border outline-none cursor-pointer shadow-sm transition-all
+                              ${lead.status === 'New' ? 'bg-white border-slate-300 text-slate-700' : ''}
+                              ${lead.status === 'Interested' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : ''}
+                              ${lead.status === 'Call Later' ? 'bg-amber-50 border-amber-300 text-amber-700' : ''}
+                              ${lead.status === 'Rejected' ? 'bg-red-50 border-red-300 text-red-700' : ''}
+                              hover:shadow-md focus:ring-2 focus:ring-brand-500
+                            `}
                         >
-                            <option value="New">New Lead</option>
-                            <option value="Interested">Interested ✅</option>
-                            <option value="Call Later">Call Later 🕒</option>
-                            <option value="Rejected">Not Interested ❌</option>
+                            <option value="New">🔵 New Lead</option>
+                            <option value="Interested">✅ Interested</option>
+                            <option value="Call Later">🕒 Call Later</option>
+                            <option value="Rejected">❌ Rejected</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-                            <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
                   </td>
 
                   {/* 🔒 Locked Column */}
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-5">
                     {isBasicUser ? (
-                        <div className="flex items-center gap-2 text-slate-400 bg-slate-100 px-2 py-1 rounded w-fit text-xs font-bold select-none">
+                        <div className="flex items-center gap-1.5 text-slate-400 bg-slate-100/80 px-3 py-1.5 rounded-md w-fit text-xs font-bold border border-slate-200 select-none">
                             <Lock className="w-3 h-3" />
                             <span>Upgrade</span>
                         </div>
                     ) : (
-                        <div className="text-emerald-600 font-bold text-xs flex items-center gap-1">
+                        <div className="text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-100 font-bold text-xs flex items-center gap-1.5 w-fit">
                             <TrendingUp className="w-3 h-3" />
-                            <span>₹ High</span>
+                            <span>High Value</span>
                         </div>
                     )}
                   </td>
 
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-5">
                     <button
                       onClick={() => openWhatsApp(lead.phone, lead.name)}
-                      className="flex items-center space-x-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow-md"
+                      className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all"
                     >
-                      <Phone className="w-3 h-3" />
+                      <MessageCircle className="w-4 h-4" />
                       <span>Chat</span>
                     </button>
                   </td>
@@ -236,7 +256,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </table>
           
           {leads.length === 0 && !loading && (
-            <div className="text-center p-8 text-slate-400">No leads yet. They will appear here daily.</div>
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="bg-slate-100 p-4 rounded-full mb-4">
+                 <Lock className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-slate-900 font-bold text-lg">No leads available yet</p>
+              <p className="text-slate-500 text-sm mt-1 max-w-xs mx-auto">
+                 New leads are distributed daily at 9:00 AM based on your plan limit.
+              </p>
+            </div>
           )}
         </div>
       </div>
