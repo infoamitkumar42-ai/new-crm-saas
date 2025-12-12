@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// 👇 Ye line sabse important hai! Iske bina rang nahi dikhenge.
+// 👇 YE LINE MISSING THI
 import './index.css'; 
 import App from './App';
 
