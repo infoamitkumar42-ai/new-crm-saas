@@ -19,50 +19,42 @@ export const Layout = () => {
     { icon: CreditCard, label: 'Plans & Billing', path: '/subscription' },
   ];
 
+  // 🎨 COLORS (Mobile Menu Fix)
+  const SOLID_BG = '#0f172a'; // Dark Slate Blue (Solid)
+  const BRAND_COLOR = '#4f46e5'; 
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
-      {/* 📱 MOBILE TOP BAR */}
+      {/* 📱 MOBILE TOP BAR (Solid Background - Z-Index 50) */}
       <div 
-        className="lg:hidden fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 py-4"
-        style={{ 
-            backgroundColor: '#0f172a', // Solid Dark Blue
-            borderBottom: '1px solid #334155' 
-        }}
+        className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
+        style={{ backgroundColor: SOLID_BG, borderBottom: '1px solid #1e293b' }}
       >
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 bg-brand-600 rounded flex items-center justify-center font-bold text-white">L</div>
-          {/* 👇 NAAM CHANGE KIYA HAI CHECK KARNE KE LIYE */}
-          <span className="font-bold text-lg text-white tracking-wide">LeadFlow APP</span> 
+          <div className="h-8 w-8 rounded flex items-center justify-center font-bold text-white" style={{ backgroundColor: BRAND_COLOR }}>L</div>
+          <span className="font-bold text-lg text-white">LeadFlow</span>
         </div>
-        <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-            className="text-white p-2"
-        >
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white p-1">
           {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (FULL SCREEN BLACK OVERLAY) */}
+      {/* 📱 MOBILE MENU FULL SCREEN (Solid Background - Z-Index 9999) */}
       {isMobileMenuOpen && (
         <div 
           style={{ 
             position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: '#000000', // ⚫ PITCH BLACK (Solid)
-            zIndex: 99999,
-            paddingTop: '80px',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: SOLID_BG, // 👈 100% SOLID COLOR
+            zIndex: 9999, // 👈 SABSE UPAR
+            paddingTop: '70px',
             display: 'flex',
-            flexDirection: 'column',
-            backdropFilter: 'none', // 🚫 NO BLUR
-            WebkitBackdropFilter: 'none' // 🚫 iPhone Fix
+            flexDirection: 'column'
           }}
           className="lg:hidden"
         >
-            <div className="flex-1 px-6 space-y-4">
+            <div className="flex-1 px-4 space-y-3 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     return (
@@ -78,22 +70,21 @@ export const Layout = () => {
                                 alignItems: 'center',
                                 gap: '15px',
                                 padding: '15px',
-                                borderRadius: '8px',
-                                backgroundColor: isActive ? '#4f46e5' : '#1e293b', // Blue or Dark Gray
-                                color: '#ffffff', // White Text
-                                border: '1px solid #334155',
-                                fontSize: '18px',
+                                borderRadius: '10px',
+                                backgroundColor: isActive ? BRAND_COLOR : 'rgba(255,255,255,0.05)',
+                                color: 'white',
+                                fontSize: '16px',
                                 fontWeight: '600'
                             }}
                         >
-                            <item.icon size={24} />
+                            <item.icon size={20} />
                             <span>{item.label}</span>
                         </button>
                     );
                 })}
             </div>
 
-            <div className="p-6 pb-20 bg-black border-t border-slate-800">
+            <div className="p-6 border-t border-slate-800 pb-10">
                 <button 
                     onClick={handleLogout}
                     style={{
@@ -102,21 +93,20 @@ export const Layout = () => {
                         alignItems: 'center',
                         gap: '15px',
                         padding: '15px',
-                        borderRadius: '8px',
+                        borderRadius: '10px',
                         backgroundColor: '#ef4444',
                         color: 'white',
-                        fontWeight: 'bold',
-                        fontSize: '18px'
+                        fontWeight: 'bold'
                     }}
                 >
-                    <LogOut size={24} />
+                    <LogOut size={20} />
                     <span>Sign Out</span>
                 </button>
             </div>
         </div>
       )}
 
-      {/* 🖥️ DESKTOP SIDEBAR (No Change) */}
+      {/* 🖥️ DESKTOP SIDEBAR (No changes needed) */}
       <aside className="hidden lg:flex flex-col w-72 h-screen fixed left-0 top-0 bg-slate-900 text-white overflow-y-auto z-40">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-10">
@@ -147,6 +137,7 @@ export const Layout = () => {
         </div>
       </aside>
 
+      {/* 📄 MAIN CONTENT */}
       <main className="flex-1 w-full pt-20 lg:pt-0 lg:ml-72 bg-slate-50 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
