@@ -20,10 +20,11 @@
     }
   },
   "include": [
-    "./*.ts", 
-    "./*.tsx", 
-    "./components/**/*.tsx", 
-    "./views/**/*.tsx",
-    "./api/**/*.ts"
+    "./**/*.ts",
+    "./**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
   ]
 }
