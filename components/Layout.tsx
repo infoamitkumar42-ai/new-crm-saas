@@ -33,7 +33,7 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU (SIBLING FIX) */}
+      {/* 📱 MOBILE MENU (SIBLING STRATEGY) */}
       {isMobileMenuOpen && (
         <>
             {/* 1. LAYER: BLURRED BACKDROP (Parda) */}
