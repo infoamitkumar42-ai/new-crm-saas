@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Auth } from './views/Auth';
+import { Auth } from './views/Auth'; // 👇 Hum 'Auth' naam hi use karenge ab
 import { Dashboard } from './views/Dashboard';
 import { Landing } from './views/Landing';
 import { FilterSettings } from './views/FilterSettings';
 import { Subscription } from './views/Subscription';
-import { TeamManager } from './views/TeamManager'; // 👇 Import added
 import { supabase } from './supabaseClient';
 
 function App() {
@@ -40,9 +39,6 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/target" element={<FilterSettings />} />
           <Route path="/subscription" element={<Subscription />} />
-          
-          {/* 👇 New Team Route - Passing current user ID as managerId */}
-          <Route path="/team" element={<TeamManager managerId={session?.user?.id || ''} />} />
         </Route>
 
         <Route path="/landing" element={<Landing />} />
