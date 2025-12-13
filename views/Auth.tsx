@@ -3,7 +3,7 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 
-// 👇 Iska naam 'Auth' fix kar diya hai
+// 👇 Iska naam hum 'Auth' rakh rahe hain (Sab jagah yahi use hoga)
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -31,32 +31,28 @@ export const Auth: React.FC = () => {
 
         if (authError) throw authError;
         const user = signUpData.user;
-        if (!user) throw new Error("Signup failed.");
-
-        // Create Sheet (Fail-safe)
-        setStatusMessage("Setting up dashboard...");
-        let sheetUrl = null;
+        
+        // Sheet creation (Fail-safe)
         try {
-            const createSheetResp = await fetch("/api/create-sheet", {
+            await fetch("/api/create-sheet", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: user.email, name: name || "User" }),
+                body: JSON.stringify({ email: email, name: name || "User" }),
             });
-            const sheetData = await createSheetResp.json();
-            sheetUrl = sheetData?.sheetUrl || null;
         } catch (e) { console.warn("Sheet skipped"); }
 
         // Init User
-        await fetch("/api/init-user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: user.email,
-                name: name || user.user_metadata?.name,
-                sheetUrl: sheetUrl, 
-                id: user.id
-            }),
-        });
+        if (user) {
+            await fetch("/api/init-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: user.email,
+                    name: name || user.user_metadata?.name,
+                    id: user.id
+                }),
+            });
+        }
 
         await logEvent('user_signup_complete', { email });
         setStatusMessage("Opening dashboard...");
@@ -66,7 +62,6 @@ export const Auth: React.FC = () => {
         setStatusMessage("Logging in...");
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        await logEvent('user_login', { userId: data.user?.id });
         await refreshProfile();
       }
     } catch (err: any) {
