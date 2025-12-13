@@ -1,29 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, LogOut, Menu, X, Network } from 'lucide-react'; // Network icon added
+import { LayoutDashboard, Users, CreditCard, LogOut, Menu, X, Network } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>('user'); // Default user
+
+  // 👇 Check User Role on Load
+  useEffect(() => {
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        if (data) setUserRole(data.role);
+      }
+    };
+    checkRole();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
+  // 👇 Show 'Team Manager' ONLY if role is 'manager' or 'admin'
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Target Audience', path: '/target' },
     { icon: CreditCard, label: 'Plans & Billing', path: '/subscription' },
-    { icon: Network, label: 'Team Manager', path: '/team' }, // 👈 NEW ITEM ADDED
+    // Condition added here:
+    ...(userRole === 'manager' || userRole === 'admin' ? [{ icon: Network, label: 'Team Manager', path: '/team' }] : []),
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
       
-      {/* 📱 MOBILE TOP BAR (Solid Dark Blue) */}
+      {/* 📱 MOBILE TOP BAR */}
       <div 
         className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
         style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #1e293b' }}
@@ -40,7 +59,7 @@ export const Layout = () => {
         </button>
       </div>
 
-      {/* 📱 MOBILE MENU OVERLAY */}
+      {/* 📱 MOBILE MENU */}
       {isMobileMenuOpen && (
         <div 
             style={{ 
