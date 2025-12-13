@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css'; 
 import App from './App';
-// 👇 IMPORT ADDED
+// 👇 IMPORT ZAROORI HAI
 import { AuthProvider } from './auth/useAuth';
 
 const rootElement = document.getElementById('root');
@@ -13,7 +13,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* 👇 WRAP APP WITH AUTHPROVIDER */}
+    {/* 👇 APP KO AUTHPROVIDER SE WRAP KARNA MAT BHOOLNA */}
     <AuthProvider>
       <App />
     </AuthProvider>
