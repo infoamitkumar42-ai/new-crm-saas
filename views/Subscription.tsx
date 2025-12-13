@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { User } from '../types';
+import { Check, Zap, Crown, Users, TrendingUp } from 'lucide-react';
 
 interface SubscriptionProps {
   user: User;
   onPaymentSuccess: (planId: string, paymentId: string) => void;
 }
 
-// Window object mein Razorpay add karo taaki Typescript chillaye nahi
 declare global {
   interface Window {
     Razorpay: any;
@@ -14,52 +14,80 @@ declare global {
 }
 
 export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState(false);
 
-  // --- PLANS SETUP ---
+  // 🔥 PRODUCTION PLANS (Your Real Business)
   const plans = [
-    // Monthly Plans
     {
-      id: 'starter_monthly', type: 'monthly', name: 'Starter Plan', price: 999,
-      duration: '30 Days', dailyLimit: 2, totalLeads: '~60 Leads',
-      highlight: 'For Beginners', features: ['Daily Drop: 2 Leads', 'Valid: 30 Days', '✅ Replacement Guarantee', 'Calling Script Included'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-slate-800 text-white', badge: null
+      id: 'new_member',
+      name: 'New Member',
+      price: 1000,
+      duration: '30 Days',
+      totalLeads: 60,
+      dailyLeads: 2,
+      highlight: 'Perfect to Start',
+      features: [
+        '60 Guaranteed Leads/Month',
+        '2 Fresh Leads Daily',
+        '✅ Housewife Target',
+        '✅ Student Target',
+        '✅ Job Seeker Target',
+        'Invalid Number Replacement',
+        'WhatsApp Support'
+      ],
+      color: 'bg-white border-slate-200',
+      btnColor: 'bg-slate-800 text-white hover:bg-slate-900',
+      badge: null
     },
     {
-      id: 'growth_monthly', type: 'monthly', name: 'Supervisor Plan', price: 1999,
-      duration: '30 Days', dailyLimit: 5, totalLeads: '~150 Leads',
-      highlight: 'Best for Recruiters', features: ['Daily: 5 Leads', 'Valid: 30 Days', '✅ Priority Replacement', 'Target: Housewives/Job'],
-      color: 'bg-brand-50 border-brand-500 ring-1 ring-brand-500', btnColor: 'bg-brand-600 text-white hover:bg-brand-700', badge: 'STEADY GROWTH'
+      id: 'supervisor',
+      name: 'Supervisor',
+      price: 2000,
+      duration: '30 Days',
+      totalLeads: 130,
+      dailyLeads: 4,
+      highlight: 'Most Popular Choice',
+      features: [
+        '130+ Monthly Leads',
+        '4-5 Daily Lead Drop',
+        '✅ All Target Categories',
+        '✅ Priority Distribution',
+        '✅ Better Quality Leads',
+        'Fast Replacement',
+        'Priority Support',
+        '📞 Calling Script Included'
+      ],
+      color: 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-500 ring-2 ring-blue-500',
+      btnColor: 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg',
+      badge: 'RECOMMENDED'
     },
     {
-      id: 'team_monthly', type: 'monthly', name: 'Manager Plan', price: 4999,
-      duration: '30 Days', dailyLimit: 12, totalLeads: '~360 Leads',
-      highlight: 'For Leaders', features: ['Daily: 12 Bulk Leads', 'Valid: 30 Days', '✅ Team Distribution', 'Dedicated Support'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-slate-800 text-white', badge: null
-    },
-    // Weekly Boost Plans
-    {
-      id: 'boost_a', type: 'boost', name: 'Fast Start', price: 999,
-      duration: '7 Days', dailyLimit: 10, totalLeads: '~70 Leads',
-      highlight: 'More Leads than Monthly', features: ['Daily: 10 Leads', 'Valid: 7 Days Only', '⚡ High Speed Delivery', 'Burn Budget Fast'],
-      color: 'bg-white border-slate-200', btnColor: 'bg-amber-600 text-white hover:bg-amber-700', badge: 'SPEED'
-    },
-    {
-      id: 'boost_b', type: 'boost', name: 'Turbo Weekly', price: 1999,
-      duration: '7 Days', dailyLimit: 20, totalLeads: '~140 Leads',
-      highlight: 'Instant Pipeline Fill', features: ['Daily: 20 Leads', 'Valid: 7 Days Only', '🔥 Aggressive Growth', 'High Intent Data'],
-      color: 'bg-amber-50 border-amber-500 ring-1 ring-amber-500', btnColor: 'bg-amber-600 text-white hover:bg-amber-700', badge: 'BEST ROI'
+      id: 'manager',
+      name: 'Manager',
+      price: 3500,
+      duration: '30 Days',
+      totalLeads: 200,
+      dailyLeads: 7,
+      highlight: 'For Team Leaders',
+      features: [
+        '200+ Premium Leads',
+        '7 Daily Lead Guarantee',
+        '✅ Exclusive Quality',
+        '✅ Team Distribution Ready',
+        '✅ Custom Filter Priority',
+        'Instant Replacement',
+        'Dedicated Account Manager',
+        '🎯 First Access to New Leads'
+      ],
+      color: 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-400',
+      btnColor: 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg',
+      badge: 'PREMIUM'
     }
   ];
 
-  const filteredPlans = plans.filter(p => p.type === activeTab);
-
-  // --- PAYMENT LOGIC ---
   const handleBuy = async (plan: any) => {
     setLoading(true);
     try {
-      // 1. Create Order on Server
       const response = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,18 +104,17 @@ export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSucce
         throw new Error(order.error || 'Order creation failed');
       }
 
-      // 2. Open Razorpay Checkout
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Frontend Key
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: order.amount,
         currency: order.currency,
         name: "LeadFlow CRM",
-        description: `Subscription for ${plan.name}`,
+        description: `${plan.name} - ${plan.totalLeads} Monthly Leads`,
         order_id: order.id,
         handler: function (response: any) {
-          // Success!
-          alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`);
+          alert(`✅ Payment Successful! Leads will start from tomorrow morning.`);
           onPaymentSuccess(plan.id, response.razorpay_payment_id);
+          setTimeout(() => window.location.reload(), 1500);
         },
         prefill: {
           name: user.name,
@@ -95,66 +122,159 @@ export const Subscription: React.FC<SubscriptionProps> = ({ user, onPaymentSucce
         },
         theme: {
           color: "#2563eb"
+        },
+        modal: {
+          ondismiss: function() {
+            setLoading(false);
+          }
         }
       };
 
       const rzp1 = new window.Razorpay(options);
       rzp1.on('payment.failed', function (response: any){
-        alert(`Payment Failed: ${response.error.description}`);
+        alert(`❌ Payment Failed: ${response.error.description}`);
+        setLoading(false);
       });
       rzp1.open();
 
     } catch (error: any) {
       console.error('Payment Error:', error);
-      alert('Failed to start payment. Please try again.');
-    } finally {
+      alert('Failed to start payment. Please contact support.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      {/* Header & Toggle */}
+    <div className="max-w-7xl mx-auto space-y-10 pb-12">
+      {/* Header */}
       <div className="text-center max-w-3xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Choose Your Strategy 🎯</h2>
-        <p className="text-slate-500 mt-3 text-lg">Do you want consistent daily leads (Monthly)? Or a massive burst this week (Boost)?</p>
-        <div className="flex justify-center mt-8">
-          <div className="bg-slate-100 p-1.5 rounded-xl flex items-center shadow-inner border border-slate-200">
-            <button onClick={() => setActiveTab('monthly')} className={`px-6 md:px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'monthly' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🗓️ Monthly (Steady)</button>
-            <button onClick={() => setActiveTab('boost')} className={`px-6 md:px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'boost' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🚀 Boost Packs (Fast)</button>
-          </div>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full text-green-700 text-sm font-semibold mb-4">
+          <TrendingUp className="w-4 h-4" />
+          50+ Active Clients • 5000+ Leads Delivered
         </div>
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+          Choose Your Growth Plan 🎯
+        </h1>
+        <p className="text-lg text-slate-600">
+          Get daily <strong>Housewife + Student + Job Seeker</strong> leads directly in your Google Sheet
+        </p>
       </div>
 
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
-        {filteredPlans.map((plan) => (
-          <div key={plan.id} className={`relative rounded-2xl p-6 shadow-sm border flex flex-col hover:-translate-y-1 transition-transform duration-200 ${plan.color}`}>
-            {plan.badge && <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-sm ${plan.type === 'monthly' ? 'bg-brand-600' : 'bg-amber-600'}`}>{plan.badge}</div>}
+      {/* Current Status (If Active) */}
+      {user.payment_status === 'active' && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 rounded-2xl p-6 mx-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-500 rounded-full">
+              <Check className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-green-900 text-lg">✅ Plan Active</h3>
+              <p className="text-green-700">
+                Current Limit: <strong>{user.daily_limit} leads/day</strong> • 
+                Expires: <strong>{user.valid_until ? new Date(user.valid_until).toLocaleDateString('en-IN') : 'N/A'}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
+        {plans.map((plan) => (
+          <div 
+            key={plan.id} 
+            className={`relative rounded-2xl p-8 shadow-lg border-2 flex flex-col transition-all hover:scale-105 ${plan.color}`}
+          >
+            {/* Badge */}
+            {plan.badge && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg uppercase">
+                {plan.badge}
+              </div>
+            )}
+
+            {/* Icon */}
             <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mt-1">{plan.highlight}</p>
-              <div className="mt-4 flex items-baseline"><span className="text-4xl font-extrabold text-slate-900">₹{plan.price}</span><span className="text-xs text-slate-500 ml-1 font-medium">/ {plan.duration}</span></div>
+              {plan.id === 'new_member' && <Users className="w-8 h-8 text-slate-600" />}
+              {plan.id === 'supervisor' && <Zap className="w-8 h-8 text-blue-600" />}
+              {plan.id === 'manager' && <Crown className="w-8 h-8 text-purple-600" />}
             </div>
-            <div className="bg-slate-50 rounded-lg p-3 mb-5 border border-slate-100">
-              <div className="flex justify-between items-center text-sm mb-1"><span className="text-slate-600">Daily Speed:</span><span className={`font-bold ${plan.type === 'monthly' ? 'text-brand-700' : 'text-amber-700'}`}>{plan.dailyLimit} Leads/day</span></div>
-              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Total Volume:</span><span className="font-bold text-slate-900">{plan.totalLeads}</span></div>
+
+            {/* Header */}
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-slate-900 mb-1">{plan.name}</h3>
+              <p className="text-sm text-slate-600 font-medium">{plan.highlight}</p>
             </div>
-            <ul className="space-y-3 mb-6 flex-1">
-              {plan.features.map((feat, i) => (
-                <li key={i} className="flex items-start text-xs text-slate-700 font-medium">
-                  <svg className={`w-4 h-4 mr-2 flex-shrink-0 ${plan.type === 'monthly' ? 'text-brand-500' : 'text-amber-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  {feat}
+
+            {/* Price */}
+            <div className="mb-6">
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-extrabold text-slate-900">₹{plan.price}</span>
+                <span className="text-slate-500">/ month</span>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-slate-900 text-white rounded-xl p-4 mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs opacity-70">Daily Delivery</span>
+                <span className="text-2xl font-bold">{plan.dailyLeads}</span>
+              </div>
+              <div className="h-px bg-white/20 my-2"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs opacity-70">Total Monthly</span>
+                <span className="font-bold text-green-400">{plan.totalLeads}+</span>
+              </div>
+            </div>
+
+            {/* Features */}
+            <ul className="space-y-3 mb-8 flex-1">
+              {plan.features.map((feature, i) => (
+                <li key={i} className="flex items-start text-sm">
+                  <Check className="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-slate-700 font-medium">{feature}</span>
                 </li>
               ))}
             </ul>
-            <button onClick={() => handleBuy(plan)} disabled={loading} className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 ${plan.btnColor} ${loading ? 'opacity-70 cursor-wait' : ''}`}>
-              {loading ? 'Processing...' : (plan.type === 'monthly' ? 'Subscribe Now' : 'Activate Boost')}
+
+            {/* CTA */}
+            <button
+              onClick={() => handleBuy(plan)}
+              disabled={loading}
+              className={`w-full py-4 rounded-xl font-bold text-base transition-all active:scale-95 ${plan.btnColor} ${loading ? 'opacity-70 cursor-wait' : ''}`}
+            >
+              {loading ? 'Processing...' : user.payment_status === 'active' ? 'Upgrade Plan' : 'Subscribe Now'}
             </button>
           </div>
         ))}
       </div>
-      <div className="text-center mt-8 px-4 text-xs text-slate-400"><p>🔒 100% Secure Payment via Razorpay. Invalid numbers replaced automatically.</p></div>
+
+      {/* Trust Section */}
+      <div className="bg-slate-50 rounded-2xl p-8 mx-4">
+        <div className="grid md:grid-cols-4 gap-6 text-center">
+          <div>
+            <div className="text-3xl font-bold text-blue-600 mb-2">50+</div>
+            <p className="text-slate-600 font-medium">Active Clients</p>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-green-600 mb-2">5000+</div>
+            <p className="text-slate-600 font-medium">Leads Delivered</p>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-purple-600 mb-2">100%</div>
+            <p className="text-slate-600 font-medium">Replacement Guarantee</p>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-amber-600 mb-2">24/7</div>
+            <p className="text-slate-600 font-medium">WhatsApp Support</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-sm text-slate-500 px-4 space-y-2">
+        <p>🔒 100% Secure Payment via Razorpay • GST Invoice Provided</p>
+        <p>📞 Support: <a href="https://wa.me/919876543210" className="text-blue-600 font-semibold hover:underline">WhatsApp Us</a></p>
+      </div>
     </div>
   );
 };
