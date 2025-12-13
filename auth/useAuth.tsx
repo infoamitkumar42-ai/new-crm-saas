@@ -22,8 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // 🔥 SUPER FAST LOADER (Instant Dashboard)
   const instantLoad = async (u: SupabaseUser) => {
-    // 1. TURANT FAKE PROFILE BANAO (Taaki user atke nahi)
-    // Ye temporary profile UI ko khush kar degi
     const tempProfile: User = {
         id: u.id,
         email: u.email || "",
@@ -36,11 +34,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: "user"
     };
     
-    // UI Update immediately (No Waiting for DB)
     setProfile(tempProfile); 
     setLoading(false);
 
-    // 2. Ab aaram se Background mein Asli Data dhundo
     try {
         const { data, error } = await supabase
             .from("users")
@@ -49,7 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .maybeSingle();
 
         if (data) {
-            // Agar asli data mil gaya, to update kar do
             setProfile({
                 id: data.id,
                 email: data.email,
@@ -62,7 +57,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 role: data.role || "user",
             });
         } else {
-            // Agar DB mein row nahi hai, to silently create kar do
             await supabase.from("users").insert([tempProfile]);
         }
     } catch (err) {
@@ -77,13 +71,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setTimeout(() => { if(loading) setLoading(false); }, 2000);
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) {
-        setSession(data.session ?? null);
-        if (data.session?.user) {
-          // 🔥 Call Instant Load
-          instantLoad(data.session.user);
-        } else {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        // 🛡️ Token Error Recovery
+        if (error) {
+          console.warn('Session recovery failed:', error.message);
+          await supabase.auth.signOut();
+          if (mounted) {
+            setSession(null);
+            setProfile(null);
+            setLoading(false);
+          }
+          return;
+        }
+        
+        if (mounted) {
+          setSession(data.session ?? null);
+          if (data.session?.user) {
+            instantLoad(data.session.user);
+          } else {
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization failed:', err);
+        if (mounted) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setProfile(null);
           setLoading(false);
         }
       }
@@ -92,8 +108,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (mounted) {
+          // 🛡️ Handle Token Expiry
+          if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+            setSession(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
+          
           setSession(session);
           if (session?.user) {
             instantLoad(session.user);
