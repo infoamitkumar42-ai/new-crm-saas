@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { LayoutDashboard, MapPin, Calendar, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, ExternalLink } from 'lucide-react';
 
 export const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
