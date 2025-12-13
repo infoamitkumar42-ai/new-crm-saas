@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 🔥 FORCE SOLID BACKGROUNDS - NO BLUR */
 @media (max-width: 1024px) {
   [class*="backdrop-blur"],
