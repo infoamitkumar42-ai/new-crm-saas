@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Auth } from './views/Auth'; // 👇 Hum 'Auth' naam hi use karenge ab
+import { Auth } from './views/Auth';
 import { Dashboard } from './views/Dashboard';
 import { Landing } from './views/Landing';
 import { FilterSettings } from './views/FilterSettings';
@@ -32,15 +32,17 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Login Page */}
         <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" />} />
         
-        {/* Protected Routes */}
+        {/* Dashboard Area */}
         <Route element={session ? <Layout /> : <Navigate to="/login" />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/target" element={<FilterSettings />} />
           <Route path="/subscription" element={<Subscription />} />
         </Route>
 
+        {/* Landing Page */}
         <Route path="/landing" element={<Landing />} />
       </Routes>
     </BrowserRouter>
