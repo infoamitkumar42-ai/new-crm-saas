@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css'; // ⚠️ YE LINE ZAROORI HAI
+import './index.css'; 
 import App from './App';
+// 👇 IMPORT ADDED
+import { AuthProvider } from './auth/useAuth';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,6 +13,9 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    {/* 👇 WRAP APP WITH AUTHPROVIDER */}
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );
