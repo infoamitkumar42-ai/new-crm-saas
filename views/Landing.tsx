@@ -1,6 +1,6 @@
-
 import React from "react";
-import { AuthView } from "./Auth";
+// 👇 FIX 1: Import name changed from AuthView to Auth
+import { Auth } from "./Auth"; 
 import { 
   CheckCircle2, 
   MapPin, 
@@ -143,7 +143,8 @@ export const Landing: React.FC<LandingProps> = ({ showAuth, onStart }) => {
             <div className="relative mx-auto w-full max-w-md lg:max-w-full">
               {showAuth ? (
                 <div className="bg-white rounded-2xl shadow-2xl shadow-slate-200/50 p-1 border border-slate-100 animate-in fade-in zoom-in duration-300">
-                   <AuthView />
+                   {/* 👇 FIX 2: Component usage changed from AuthView to Auth */}
+                   <Auth />
                 </div>
               ) : (
                 <div className="relative group perspective-1000">
