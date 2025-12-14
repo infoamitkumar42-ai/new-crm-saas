@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Zap, BarChart3, Shield, ArrowRight, Star, Lock, Server, Play, Users } from 'lucide-react';
+// 👇 Added 'Globe' to imports
+import { CheckCircle, Zap, BarChart3, Shield, ArrowRight, Star, Lock, Server, Play, Users, Globe } from 'lucide-react';
 
 export const Landing = () => {
   return (
