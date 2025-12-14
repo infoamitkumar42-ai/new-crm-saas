@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout } from './components/Layout';
+// Layout ko hum hata rahe hain Dashboard ke liye
+// import { Layout } from './components/Layout'; 
 import { Auth } from './views/Auth';
 import { Landing } from './views/Landing';
-import { FilterSettings } from './views/FilterSettings';
 import { Subscription } from './views/Subscription';
 
-// Direct Imports (No sub-folders needed if flat structure)
+// Direct Imports
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
@@ -49,8 +49,8 @@ function App() {
     );
   }
 
-  // 👇 Role-Based Dashboard Switcher
-  const getDashboardByRole = () => {
+  // 👇 Role-Based Logic
+  const renderDashboard = () => {
     switch (fullProfile?.role) {
       case 'admin':
         return <AdminDashboard />;
@@ -58,6 +58,7 @@ function App() {
         return <ManagerDashboard />;
       case 'member':
       default:
+        // Member Dashboard
         return <MemberDashboard />;
     }
   };
@@ -65,21 +66,27 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
+        {/* 1. Public Routes */}
         <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
         
-        {/* Protected Routes (Wrapped in Layout) */}
-        <Route element={session ? <Layout /> : <Navigate to="/login" replace />}>
-          
-          {/* Main Dashboard (Changes based on Role) */}
-          <Route path="/" element={getDashboardByRole()} />
-          
-          <Route path="/target" element={<FilterSettings user={fullProfile!} onUpdate={() => {}} />} />
-          <Route path="/subscription" element={<Subscription user={fullProfile!} onPaymentSuccess={() => {}} />} />
-        </Route>
+        {/* 2. PROTECTED DASHBOARD ROUTES (No Layout Wrapper = No Burger Menu) */}
+        <Route 
+          path="/" 
+          element={
+            session ? renderDashboard() : <Navigate to="/login" replace />
+          } 
+        />
 
-        {/* Catch All */}
+        {/* 3. Subscription Route (Members ke liye alag se rakh sakte hain) */}
+        <Route 
+          path="/subscription" 
+          element={
+            session ? <Subscription user={fullProfile!} onPaymentSuccess={() => {}} /> : <Navigate to="/login" />
+          } 
+        />
+
+        {/* Catch All - Redirect to Home */}
         <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
