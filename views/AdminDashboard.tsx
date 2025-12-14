@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Users, DollarSign, Database, RefreshCw, Upload, Trash2, Ban, Search, CheckCircle } from 'lucide-react';
+import { Users, DollarSign, Database, RefreshCw, Upload, Trash2, Ban, Search, CheckCircle, LogOut } from 'lucide-react';
 
 export const AdminDashboard = () => {
   const [stats, setStats] = useState({ users: 0, managers: 0, leads: 0, revenue: 0 });
@@ -48,13 +48,11 @@ export const AdminDashboard = () => {
     }
   };
 
-  // ⚡ Handle Bulk Lead Upload (Simulation)
+  // Handle Bulk Lead Upload (Simulation)
   const handleBulkUpload = async () => {
     if (!bulkData) return;
     setUploadStatus("Processing...");
     
-    // Yahan hum future mein CSV parsing logic lagayenge.
-    // Abhi ke liye hum bas ek 'Unassigned' lead create kar rahe hain test ke liye.
     try {
         const lines = bulkData.split('\n');
         // Demo: Creating 1 dummy lead for testing flow
@@ -62,8 +60,7 @@ export const AdminDashboard = () => {
             name: "Bulk Upload Test",
             phone: "0000000000",
             status: "Fresh",
-            // assigned_to: null, // Global Pool logic later
-            // manager_id: null
+             // In real app, we will parse CSV and assign to global pool
         });
 
         if(error) throw error;
@@ -76,9 +73,9 @@ export const AdminDashboard = () => {
     }
   };
 
-  // 🚫 Block/Delete User
+  // Block/Delete User
   const deleteUser = async (userId: string) => {
-      if(!window.confirm("Are you sure? This will verify remove the user.")) return;
+      if(!window.confirm("Are you sure? This will remove the user permanently.")) return;
       
       const { error } = await supabase.from('users').delete().eq('id', userId);
       if(error) alert("Error deleting: " + error.message);
@@ -107,21 +104,30 @@ export const AdminDashboard = () => {
         <div className="flex gap-3">
             <button 
                 onClick={() => setShowUpload(!showUpload)} 
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm font-bold"
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm font-bold transition-all"
             >
                 <Upload size={18} /> {showUpload ? "Close Upload" : "Upload Leads"}
             </button>
+
+            {/* 👇 Sign Out Button Added Here */}
+            <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 border border-red-200 shadow-sm font-bold transition-all"
+            >
+                <LogOut size={18} /> Sign Out
+            </button>
+
             <button onClick={fetchAdminData} className="p-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50">
                 <RefreshCw size={20} className="text-slate-600" />
             </button>
         </div>
       </div>
 
-      {/* 👇 Bulk Upload Section (Toggle) */}
+      {/* Bulk Upload Section (Toggle) */}
       {showUpload && (
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100 mb-8 animate-fade-in-down">
               <h3 className="font-bold text-slate-800 mb-2">🌍 Global Lead Bank Upload</h3>
-              <p className="text-xs text-slate-500 mb-4">Paste data here (Name, Phone, City) - currently simulates upload.</p>
+              <p className="text-xs text-slate-500 mb-4">Paste data here (Name, Phone, City).</p>
               <textarea 
                   className="w-full border p-3 rounded-lg bg-slate-50 text-sm font-mono h-32 focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Rahul, 9999999999, Delhi&#10;Amit, 8888888888, Mumbai"
