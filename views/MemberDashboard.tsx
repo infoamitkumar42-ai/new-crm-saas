@@ -8,9 +8,6 @@ export const MemberDashboard = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [managerName, setManagerName] = useState("Loading...");
-  
-  // Debug State (Galti pakadne ke liye)
-  const [debugInfo, setDebugInfo] = useState<any>({});
 
   useEffect(() => {
     fetchData();
@@ -20,28 +17,16 @@ export const MemberDashboard = () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setDebugInfo({ error: "No user logged in" });
-        return;
-      }
-
-      // Debugging: User ID store kar rahe hain
-      setDebugInfo(prev => ({ ...prev, userId: user.id, email: user.email }));
+      if (!user) return;
 
       // 1. Get My Profile & Sheet URL
-      const { data: userData, error: userError } = await supabase
+      const { data: userData } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
       
-      if (userError) {
-        setDebugInfo(prev => ({ ...prev, userError: userError.message }));
-      } else {
-        setProfile(userData);
-        setDebugInfo(prev => ({ ...prev, sheetUrl: userData.sheet_url || "Not Found" }));
-      }
+      setProfile(userData);
 
       // 2. Get Manager Name
       if (userData?.manager_id) {
@@ -56,30 +41,34 @@ export const MemberDashboard = () => {
       }
 
       // 3. Get My Assigned Leads
-      const { data: leadsData, error: leadsError } = await supabase
+      const { data: leadsData } = await supabase
         .from('leads')
         .select('*')
-        .eq('assigned_to', user.id) // Filter by My ID
+        .eq('assigned_to', user.id)
         .order('created_at', { ascending: false });
 
-      if (leadsError) {
-          console.error("Leads Fetch Error:", leadsError);
-          setDebugInfo(prev => ({ ...prev, leadsError: leadsError.message }));
-      } else {
-          setLeads(leadsData || []);
-          setDebugInfo(prev => ({ ...prev, leadsCount: leadsData?.length || 0 }));
-      }
+      setLeads(leadsData || []);
 
-    } catch (error: any) {
-      setDebugInfo(prev => ({ ...prev, criticalError: error.message }));
+    } catch (error) {
+      console.error("Dashboard Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
+    // Optimistic UI Update
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
-    await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
+    
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: newStatus })
+      .eq('id', leadId);
+
+    if (error) {
+      alert("Error updating status!");
+      fetchData(); // Revert on error
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -92,7 +81,7 @@ export const MemberDashboard = () => {
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
+  if (loading) return <div className="p-10 text-center text-slate-500">Loading your workspace...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
@@ -104,78 +93,91 @@ export const MemberDashboard = () => {
         </div>
         
         <div className="flex gap-3">
-            {/* Google Sheet Button - Sirf tab dikhega jab URL hoga */}
+            {/* Google Sheet Button */}
             {(profile as any)?.sheet_url && (
                 <a 
                   href={(profile as any).sheet_url} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm"
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm transition-all"
                 >
                   <FileSpreadsheet size={18} /> Open Sheet
                 </a>
             )}
-            <button onClick={fetchData} className="p-2 bg-white border rounded-lg shadow-sm">
+            <button onClick={fetchData} className="p-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50 text-slate-600 transition-all">
                 <RefreshCw size={20} />
             </button>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-xl shadow-sm border">
-          <p className="text-xs text-slate-400 font-bold">Total</p>
-          <p className="text-2xl font-bold">{leads.length}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Leads</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">{leads.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-green-500">
-          <p className="text-xs text-slate-400 font-bold">Interested</p>
-          <p className="text-2xl font-bold text-green-600">{leads.filter(l => l.status === 'Interested').length}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-green-500">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Interested</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{leads.filter(l => l.status === 'Interested').length}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-yellow-500">
-          <p className="text-xs text-slate-400 font-bold">Pending</p>
-          <p className="text-2xl font-bold text-yellow-600">{leads.filter(l => l.status === 'Fresh').length}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-yellow-500">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Pending</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">{leads.filter(l => l.status === 'Fresh').length}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-purple-500">
-          <p className="text-xs text-slate-400 font-bold">Closed</p>
-          <p className="text-2xl font-bold text-purple-600">{leads.filter(l => l.status === 'Closed').length}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-purple-500">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Closed</p>
+          <p className="text-2xl font-bold text-purple-600 mt-1">{leads.filter(l => l.status === 'Closed').length}</p>
         </div>
       </div>
 
       {/* Leads Table */}
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div className="px-6 py-4 border-b bg-slate-50 flex justify-between">
-          <h2 className="font-bold text-slate-800">My Leads</h2>
-          <span className="text-xs bg-white border px-2 py-1 rounded">Total: {leads.length}</span>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <h2 className="font-bold text-slate-800">My Assigned Leads</h2>
+          <span className="text-xs bg-white border px-2 py-1 rounded text-slate-500">Total: {leads.length}</span>
         </div>
         
         {leads.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
-            <p>No leads found yet.</p>
+            <p className="font-medium">No leads assigned yet.</p>
+            <p className="text-sm mt-1">Wait for your manager to send some! 🚀</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100 uppercase text-xs tracking-wider">
                 <tr>
-                  <th className="p-4">Name</th>
+                  <th className="p-4 pl-6">Name</th>
                   <th className="p-4">Phone</th>
                   <th className="p-4">City</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">Action</th>
+                  <th className="p-4 text-right pr-6">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-50">
                 {leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-slate-50">
-                    <td className="p-4 font-bold">{lead.name}</td>
-                    <td className="p-4 flex items-center gap-2"><Phone size={14} className="text-blue-500"/> {lead.phone}</td>
-                    <td className="p-4 text-slate-600"><MapPin size={14} /> {lead.city || 'N/A'}</td>
-                    <td className="p-4"><span className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(lead.status)}`}>{lead.status}</span></td>
+                  <tr key={lead.id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="p-4 pl-6 font-bold text-slate-900">{lead.name}</td>
+                    <td className="p-4 text-slate-600 flex items-center gap-2">
+                      <Phone size={14} className="text-blue-500"/> 
+                      <a href={`tel:${lead.phone}`} className="hover:text-blue-600 hover:underline">{lead.phone}</a>
+                    </td>
+                    <td className="p-4 text-slate-600"><MapPin size={14} className="inline mr-1 text-slate-400"/> {lead.city || 'N/A'}</td>
                     <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${
+                         lead.status === 'Fresh' ? 'bg-blue-50 border-blue-100 text-blue-700' :
+                         lead.status === 'Interested' ? 'bg-green-50 border-green-100 text-green-700' :
+                         lead.status === 'Closed' ? 'bg-purple-50 border-purple-100 text-purple-700' :
+                         'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}>
+                        {lead.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right pr-6">
                       <select 
                         value={lead.status}
                         onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                        className="border rounded px-2 py-1 outline-none text-xs"
+                        className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 cursor-pointer shadow-sm hover:border-blue-400 transition-colors"
                       >
                          <option value="Fresh">Fresh</option>
                          <option value="Call Back">Call Back</option>
@@ -191,17 +193,6 @@ export const MemberDashboard = () => {
           </div>
         )}
       </div>
-
-      {/* 🔴 DEBUG BOX (Sirf Error Check Karne Ke Liye) */}
-      <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg text-xs font-mono text-red-800">
-        <h3 className="font-bold mb-2">🔧 Debug Info (Iska screenshot lekar dikhana agar error aaye)</h3>
-        <p><strong>My User ID:</strong> {debugInfo.userId}</p>
-        <p><strong>My Email:</strong> {debugInfo.email}</p>
-        <p><strong>Leads Found:</strong> {debugInfo.leadsCount}</p>
-        <p><strong>Sheet URL:</strong> {debugInfo.sheetUrl}</p>
-        {debugInfo.leadsError && <p className="font-bold">⚠️ Leads Error: {debugInfo.leadsError}</p>}
-      </div>
-
     </div>
   );
 };
