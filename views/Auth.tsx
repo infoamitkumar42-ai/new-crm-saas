@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
+import { useNavigate } from "react-router-dom"; // Navigation ke liye
 
-// 👇 Iska naam hum 'Auth' rakh rahe hain (Sab jagah yahi use hoga)
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
+  const navigate = useNavigate(); // Hook for navigation
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,6 +14,26 @@ export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const handlePostLogin = async (userId: string) => {
+    // 1. Fetch User Role
+    const { data, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      console.error("Role fetch error:", error);
+      navigate('/member/dashboard'); // Fallback
+      return;
+    }
+
+    // 2. Redirect based on Role
+    if (data.role === 'admin') navigate('/admin/dashboard');
+    else if (data.role === 'manager') navigate('/manager/dashboard');
+    else navigate('/member/dashboard');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,38 +52,42 @@ export const Auth: React.FC = () => {
 
         if (authError) throw authError;
         const user = signUpData.user;
-        
-        // Sheet creation (Fail-safe)
+        if (!user) throw new Error("Signup failed.");
+
+        // Create Sheet (Fail-safe)
         try {
             await fetch("/api/create-sheet", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: email, name: name || "User" }),
+                body: JSON.stringify({ email: user.email, name: name || "User" }),
             });
         } catch (e) { console.warn("Sheet skipped"); }
 
-        // Init User
-        if (user) {
-            await fetch("/api/init-user", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: user.email,
-                    name: name || user.user_metadata?.name,
-                    id: user.id
-                }),
-            });
-        }
+        // Init User Profile in DB
+        await fetch("/api/init-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email: user.email,
+                name: name || user.user_metadata?.name,
+                id: user.id,
+                role: 'member' // Default role
+            }),
+        });
 
         await logEvent('user_signup_complete', { email });
-        setStatusMessage("Opening dashboard...");
+        setStatusMessage("Redirecting...");
         await refreshProfile();
+        handlePostLogin(user.id);
         
       } else {
         setStatusMessage("Logging in...");
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        
+        await logEvent('user_login', { userId: data.user?.id });
         await refreshProfile();
+        if (data.user) handlePostLogin(data.user.id);
       }
     } catch (err: any) {
       setError(err.message);
