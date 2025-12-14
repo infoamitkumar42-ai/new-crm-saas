@@ -21,13 +21,17 @@ function App() {
   useEffect(() => {
     const getProfile = async () => {
         if (session?.user) {
+            // Data fetch karte waqt thoda wait logic
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
             
-            if (data) setFullProfile(data as CustomUser);
+            if (data) {
+                console.log("User Role Found:", data.role); // 👈 Console mein check krne ke liye
+                setFullProfile(data as CustomUser);
+            }
         }
         setProfileLoading(false);
     };
@@ -42,18 +46,25 @@ function App() {
     );
   }
 
-  // 👇 Safe Dashboard Logic
+  // 👇 Improved Dashboard Logic (Case Insensitive)
   const getDashboard = () => {
-    if (!fullProfile) return <div>Error loading profile. Please refresh.</div>;
+    if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
 
-    switch (fullProfile.role) {
+    // Role ko small letters mein convert karke check karo
+    const userRole = fullProfile.role?.toLowerCase().trim(); 
+
+    // 👇 DEBUGGER: Agar mobile pe galti ho rahi hai, to ye upar dikhega
+    // (Launch ke baad ise hata dena)
+    // return <div>Role Detected: {userRole}</div>; 
+
+    switch (userRole) {
       case 'admin':
-        return <AdminDashboard />; // Full Screen
+        return <AdminDashboard />;
       case 'manager':
-        return <ManagerDashboard />; // Full Screen
+        return <ManagerDashboard />;
       case 'member':
       default:
-        // Member gets Layout (Sidebar)
+        // Agar role kuch ajeeb hai ya 'member' hai, tabhi ye khulega
         return (
             <Layout>
                 <MemberDashboard />
@@ -66,19 +77,16 @@ function App() {
     <BrowserRouter>
       <Routes>
         
-        {/* 👇 FINAL FIX: Agar Login nahi hai to Landing Page dikhao */}
+        {/* Main Route Logic */}
         <Route 
           path="/" 
           element={session ? getDashboard() : <Landing />} 
         />
 
-        {/* Login Page */}
         <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
-        
-        {/* Landing Page (Explicit) */}
         <Route path="/landing" element={<Landing />} />
         
-        {/* Member Pages (Only accessible if logged in) */}
+        {/* Protected Routes */}
         {session && fullProfile && (
             <>
                 <Route path="/target" element={
