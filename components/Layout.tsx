@@ -1,53 +1,38 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, LogOut, Menu, X } from 'lucide-react';
+import React from 'react';
+import { Sidebar } from './Sidebar'; // Check karna ye file exist krti hai na?
+import { useAuth } from '../auth/useAuth';
 import { supabase } from '../supabaseClient';
+import { LogOut } from 'lucide-react';
 
-export const Layout = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+// 👇 Yahan 'children' prop add kiya hai taaki wo andar ka content dikha sake
+interface LayoutProps {
+  children: React.ReactNode;
+}
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
-
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Target Audience', path: '/target' },
-    { icon: CreditCard, label: 'Plans & Billing', path: '/subscription' },
-  ];
+export const Layout = ({ children }: LayoutProps) => {
+  const { signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 shadow-md" style={{ backgroundColor: '#0f172a' }}>
-        <span className="font-bold text-lg text-white">LeadFlow</span>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white"><Menu /></button>
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar */}
+      <div className="hidden md:block w-64 fixed h-full z-10">
+        <Sidebar />
       </div>
 
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 text-white transform transition-transform lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6">
-          <span className="text-2xl font-bold">LeadFlow</span>
-          <nav className="space-y-2 mt-8">
-            {navItems.map((item) => (
-              <button key={item.path} onClick={() => { navigate(item.path); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${location.pathname === item.path ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
-                <item.icon size={20} /> <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
+      {/* Mobile / Main Content Area */}
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+        
+        {/* Mobile Header (Optional - Agar sidebar mobile mein hidden hai) */}
+        <div className="md:hidden bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-20">
+            <span className="font-bold text-blue-600">LeadFlow</span>
+            {/* Mobile Menu Button logic yahan aa sakta hai */}
         </div>
-        <div className="absolute bottom-0 w-full p-6">
-          <button onClick={handleLogout} className="flex items-center gap-3 text-red-400"><LogOut size={20} /> Sign Out</button>
-        </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full pt-16 lg:pt-0 lg:ml-72 bg-slate-50 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto"><Outlet /></div>
-      </main>
+        {/* 👇 MAIN CONTENT (Yahan Dashboard/Pages dikhenge) */}
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
