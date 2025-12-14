@@ -53,7 +53,7 @@ export const Landing = () => {
           <div className="relative mx-auto max-w-5xl">
             <div className="absolute inset-0 bg-blue-600 blur-[100px] opacity-20 rounded-full"></div>
             <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 md:p-4 overflow-hidden">
-               {/* Placeholder for Dashboard Image - Aap yahan real screenshot lagaoge baad mein */}
+               {/* Placeholder for Dashboard Image */}
                <div className="bg-slate-50 rounded-xl aspect-[16/9] flex items-center justify-center border border-dashed border-slate-300">
                   <div className="text-center">
                     <BarChart3 size={48} className="mx-auto text-slate-300 mb-2" />
@@ -74,7 +74,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ================= FEATURES (The Problem Solver) ================= */}
+      {/* ================= FEATURES ================= */}
       <section id="features" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -123,9 +123,7 @@ export const Landing = () => {
           <h2 className="text-3xl font-bold text-center mb-16">3 Simple Steps to Automation</h2>
           
           <div className="grid md:grid-cols-3 gap-8 text-center relative">
-            {/* Connecting Line (Desktop Only) */}
             <div className="hidden md:block absolute top-12 left-[20%] right-[20%] h-0.5 bg-slate-200 -z-10"></div>
-
             <StepCard number="1" title="Create Team Code" desc="Sign up as a Manager and get a unique Team Code." />
             <StepCard number="2" title="Connect Sheets" desc="Paste our Script into your Google Sheet to sync leads." />
             <StepCard number="3" title="Add Members" desc="Your team joins using the code and starts getting leads." />
@@ -139,4 +137,103 @@ export const Landing = () => {
           <h2 className="text-3xl font-bold mb-4">Simple, Transparent Pricing</h2>
           <p className="text-slate-500 mb-12">Stop paying for expensive CRMs. Pay per member.</p>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free Plan */}
+            <div className="p-8 border border-slate-200 rounded-2xl hover:border-slate-300 transition-all">
+              <h3 className="font-bold text-xl mb-2">Starter</h3>
+              <p className="text-4xl font-extrabold mb-2">₹0</p>
+              <p className="text-slate-400 text-sm mb-6">For trying out</p>
+              <ul className="text-left space-y-4 mb-8">
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> 1 Manager</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> 5 Leads / Day</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> Basic Dashboard</li>
+              </ul>
+              <Link to="/login" className="block w-full py-3 border border-slate-200 rounded-xl font-bold hover:bg-slate-50">Try Free</Link>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="p-8 bg-slate-900 text-white rounded-2xl shadow-xl transform md:-translate-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-blue-600 text-xs font-bold px-3 py-1 rounded-bl-xl">POPULAR</div>
+              <h3 className="font-bold text-xl mb-2">Pro Member</h3>
+              <p className="text-4xl font-extrabold mb-2">₹499<span className="text-lg font-normal text-slate-400">/mo</span></p>
+              <p className="text-slate-400 text-sm mb-6">For serious closers</p>
+              <ul className="text-left space-y-4 mb-8">
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-blue-400"/> Unlimited Leads</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-blue-400"/> Priority Support</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-blue-400"/> WhatsApp Click-to-Chat</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-blue-400"/> Performance Badge</li>
+              </ul>
+              <Link to="/login" className="block w-full py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-700">Get Started</Link>
+            </div>
+
+            {/* Team Plan */}
+            <div className="p-8 border border-slate-200 rounded-2xl hover:border-slate-300 transition-all">
+              <h3 className="font-bold text-xl mb-2">Team Leader</h3>
+              <p className="text-4xl font-extrabold mb-2">₹999<span className="text-lg font-normal text-slate-400">/mo</span></p>
+              <p className="text-slate-400 text-sm mb-6">For big teams</p>
+              <ul className="text-left space-y-4 mb-8">
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> Manage 50+ Members</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> Advanced Analytics</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> Bulk Upload</li>
+                <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500"/> Admin Controls</li>
+              </ul>
+              <Link to="/login" className="block w-full py-3 border border-slate-200 rounded-xl font-bold hover:bg-slate-50">Contact Sales</Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= CTA FOOTER ================= */}
+      <section className="py-20 bg-blue-600 text-white text-center">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to 10x Your Team's Sales?</h2>
+          <p className="text-blue-100 mb-10 text-lg">Join 100+ managers who switched from Excel to LeadFlow today.</p>
+          <Link to="/login" className="px-10 py-4 bg-white text-blue-600 rounded-xl font-bold text-xl shadow-lg hover:bg-blue-50 transition-all">
+            Create Free Account
+          </Link>
+          <p className="mt-6 text-sm text-blue-200 opacity-80">No credit card required for trial.</p>
+        </div>
+      </section>
+
+      {/* ================= FOOTER ================= */}
+      <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-6">
+           <div>
+             <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">LF</div>
+                <span className="font-bold text-white text-lg">LeadFlow</span>
+             </div>
+             <p className="text-sm">© 2024 LeadFlow SaaS. All rights reserved.</p>
+           </div>
+           <div className="flex gap-6 text-sm">
+             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+             <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+             <a href="#" className="hover:text-white transition-colors">Support</a>
+           </div>
+        </div>
+      </footer>
+
+    </div>
+  );
+};
+
+// Sub-components
+const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
+  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 hover:shadow-lg hover:border-blue-100 transition-all group">
+    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
+      {icon}
+    </div>
+    <h3 className="font-bold text-lg text-slate-900 mb-2">{title}</h3>
+    <p className="text-slate-500 leading-relaxed">{desc}</p>
+  </div>
+);
+
+const StepCard = ({ number, title, desc }: { number: string, title: string, desc: string }) => (
+  <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 relative z-10">
+    <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xl mx-auto mb-6 shadow-lg shadow-blue-200">
+      {number}
+    </div>
+    <h3 className="font-bold text-lg mb-2">{title}</h3>
+    <p className="text-slate-500">{desc}</p>
+  </div>
+);
