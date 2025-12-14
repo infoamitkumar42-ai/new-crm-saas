@@ -5,7 +5,8 @@ export interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
-  manager_id?: string | null;
+  team_code?: string;      // Manager ka Code
+  manager_id?: string;     // Link to Manager
   created_at: string;
 }
 
@@ -19,14 +20,14 @@ export interface Lead {
   notes: string;
   assigned_to: string; // Member ID
   manager_id: string;  // Manager ID
-  uploaded_by?: string;
   created_at: string;
 }
 
-export interface Subscription {
+// User interface for Auth Context compatibility
+export interface User {
   id: string;
-  user_id: string;
-  plan_id: string;
-  status: 'active' | 'expired';
-  end_date: string;
+  email: string;
+  name?: string;
+  role?: UserRole;
+  [key: string]: any;
 }
