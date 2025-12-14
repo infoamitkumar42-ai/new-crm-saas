@@ -81,18 +81,18 @@ export const MemberDashboard = () => {
       default: return 'bg-slate-100 text-slate-800';
     }
   };
-  
-  // 👇 WhatsApp Link Generator Function
-  const getWhatsAppLink = (phone: string, name: string) => {
-      // Message URL Encode karna zaruri hai
-      const message = encodeURIComponent(`Hi ${name}, mera naam ${profile?.name} hai. Maine aapki lead dekhi thi. Kya aap free hain abhi baat karne ke liye?`);
-      
-      // Indian numbers ke liye 91 prefix zaruri hai
-      const cleanPhone = phone.replace(/\D/g, ''); 
-      const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      
-      return `https://wa.me/${prefixedPhone}?text=${message}`;
-  };
+  
+  // 👇 WhatsApp Link Generator Function
+  const getWhatsAppLink = (phone: string, name: string) => {
+      // Message URL Encode karna zaruri hai
+      const message = encodeURIComponent(`Hi ${name}, mera naam ${profile?.name} hai. Maine aapki lead dekhi thi. Kya aap free hain abhi baat karne ke liye?`);
+      
+      // Indian numbers ke liye 91 prefix zaruri hai
+      const cleanPhone = phone.replace(/\D/g, ''); 
+      const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      
+      return `https://wa.me/${prefixedPhone}?text=${message}`;
+  };
 
 
   if (loading) return <div className="p-10 text-center text-slate-500">Loading your workspace...</div>;
@@ -132,7 +132,6 @@ export const MemberDashboard = () => {
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-green-500">
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Interested</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{leads.filter(l => l.status === 'Interested').length}</p>
           <p className="text-2xl font-bold text-green-600 mt-1">{leads.filter(l => l.status === 'Interested').length}</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-yellow-500">
@@ -174,23 +173,25 @@ export const MemberDashboard = () => {
                   <tr key={lead.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="p-4 pl-6 font-bold text-slate-900">{lead.name}</td>
                     <td className="p-4 text-slate-600 flex items-center gap-2">
-                      
-                        {/* 👇 1. PHONE CALL BUTTON */}
+                      
+                        {/* 👇 1. PHONE CALL BUTTON */}
                       <a href={`tel:${lead.phone}`} className="hover:text-blue-600 flex items-center gap-1">
-                            <Phone size={14} className="text-blue-500"/> 
-                            {lead.phone}
-                        </a>
-                        
-                        {/* 👇 2. WHATSAPP BUTTON (NEW ADDITION) */}
-                        <a 
-                            href={getWhatsAppLink(lead.phone, lead.name)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-3 p-1 bg-green-100 rounded-full hover:bg-green-200 transition-colors"
-                            title={`Message ${lead.name} on WhatsApp`}
-                        >
-                            <MessageSquare size={16} className="text-green-600"/>
-                        </a>
+                            <Phone size={14} className="text-blue-500"/> 
+                            {lead.phone}
+                        </a>
+                        
+                        {/* 👇 2. WHATSAPP BUTTON (FINAL DESIGN) */}
+                        <a 
+                            href={getWhatsAppLink(lead.phone, lead.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            // 🟢 Updated to look like the WhatsApp logo
+                            className="ml-3 p-2 bg-green-600 rounded-full hover:bg-green-700 transition-colors shadow-md"
+                            title={`Message ${lead.name} on WhatsApp`}
+                        >
+                            {/* Icon ko white kiya for contrast */}
+                            <MessageSquare size={16} className="text-white"/>
+                        </a>
                     </td>
                     <td className="p-4 text-slate-600"><MapPin size={14} className="inline mr-1 text-slate-400"/> {lead.city || 'N/A'}</td>
                     <td className="p-4">
