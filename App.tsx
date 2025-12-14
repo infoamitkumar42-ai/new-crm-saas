@@ -65,15 +65,19 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/landing" element={<Landing />} />
-        <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
         
-        {/* Main Dashboard Route */}
+        {/* 👇 FINAL FIX: Agar Login nahi hai to Landing Page dikhao */}
         <Route 
           path="/" 
-          element={session ? getDashboard() : <Navigate to="/login" replace />} 
+          element={session ? getDashboard() : <Landing />} 
         />
 
+        {/* Login Page */}
+        <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
+        
+        {/* Landing Page (Explicit) */}
+        <Route path="/landing" element={<Landing />} />
+        
         {/* Member Pages (Only accessible if logged in) */}
         {session && fullProfile && (
             <>
@@ -90,7 +94,7 @@ function App() {
             </>
         )}
 
-        <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
