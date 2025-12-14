@@ -13,6 +13,7 @@ export const Subscription = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return alert("Please login first to subscribe.");
 
+      // Order create karein
       const response = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -20,34 +21,44 @@ export const Subscription = () => {
       });
 
       const orderData = await response.json();
-      if (!response.ok) throw new Error(orderData.error);
+      if (!response.ok) throw new Error(orderData.error || "Order creation failed");
 
+      // Razorpay Options
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Ensure this is in your .env
         amount: orderData.amount,
         currency: "INR",
         name: "LeadFlow Plans",
         description: `Activation: ${planId}`,
         order_id: orderData.id,
-        handler: async () => {
+        handler: async (response: any) => {
+           // Payment Success Logic
+           // Yahan aap verify-payment API call bhi kar sakte hain for security
+           console.log("Payment ID: ", response.razorpay_payment_id);
            alert("Payment Successful! Plan activated.");
-           window.location.href = '/';
+           window.location.href = '/'; // Redirect to Dashboard
         },
         prefill: { email: user.email },
         theme: { color: activeTab === 'monthly' ? "#2563EB" : "#EA580C" },
       };
 
+      // Razorpay Open karein
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
 
+      rzp.on('payment.failed', function (response: any){
+        alert("Payment Failed: " + response.error.description);
+      });
+
     } catch (error: any) {
+      console.error("Payment Error:", error);
       alert("Error: " + error.message);
     } finally {
       setLoading(null);
     }
   };
 
-  // 👇 NEW PSYCHOLOGY-BASED PRICING
+  // 👇 PSYCHOLOGY-BASED PRICING PLANS DATA
   const plans = {
     monthly: [
       {
@@ -70,7 +81,8 @@ export const Subscription = () => {
         buttonText: 'Subscribe Now',
         buttonColor: 'bg-slate-800 hover:bg-slate-900',
         borderColor: 'border-slate-200',
-        icon: Shield
+        icon: Shield,
+        highlight: false
       },
       {
         id: 'supervisor', 
@@ -78,9 +90,9 @@ export const Subscription = () => {
         subtitle: 'MOST POPULAR',
         price: 1999,
         duration: 30,
-        dailySpeed: 6, // Increased from 5 to 6 to lower cost
+        dailySpeed: 6,
         totalVolume: 180,
-        perLeadCost: 11.10, // Massive Drop from 16.65
+        perLeadCost: 11.10, // Drop from 16.65
         savings: 'Save ₹5.5 per lead',
         badge: 'BEST VALUE',
         features: [
@@ -101,9 +113,9 @@ export const Subscription = () => {
         subtitle: 'FOR TEAM LEADERS',
         price: 4999,
         duration: 30,
-        dailySpeed: 16, // Increased from 12 to 16
+        dailySpeed: 16,
         totalVolume: 480,
-        perLeadCost: 10.41, // Lowest Cost (Profit Maximizer)
+        perLeadCost: 10.41, // Lowest Cost
         savings: 'Lowest Cost Per Lead',
         badge: 'MAX PROFIT',
         features: [
@@ -115,7 +127,8 @@ export const Subscription = () => {
         buttonText: 'Subscribe Now',
         buttonColor: 'bg-slate-800 hover:bg-slate-900',
         borderColor: 'border-slate-200',
-        icon: Rocket
+        icon: Rocket,
+        highlight: false
       }
     ],
     boost: [
@@ -139,7 +152,8 @@ export const Subscription = () => {
         buttonText: 'Activate Boost',
         buttonColor: 'bg-orange-600 hover:bg-orange-700',
         borderColor: 'border-orange-400',
-        icon: Zap
+        icon: Zap,
+        highlight: false
       },
       {
         id: 'turbo_weekly',
@@ -147,9 +161,9 @@ export const Subscription = () => {
         subtitle: 'RECRUITMENT DRIVE',
         price: 1999,
         duration: 7,
-        dailySpeed: 25, // Increased to make math better
+        dailySpeed: 25,
         totalVolume: 175,
-        perLeadCost: 11.42, // Great value for weekly
+        perLeadCost: 11.42,
         savings: 'Best Weekly ROI',
         badge: 'BEST ROI',
         features: [
@@ -170,9 +184,9 @@ export const Subscription = () => {
         subtitle: 'NUCLEAR MODE',
         price: 2999,
         duration: 7,
-        dailySpeed: 40, // Massive volume
+        dailySpeed: 40,
         totalVolume: 280,
-        perLeadCost: 10.71, // Almost match Manager price
+        perLeadCost: 10.71,
         savings: 'Maximum Volume',
         badge: 'BEAST MODE',
         features: [
@@ -184,7 +198,8 @@ export const Subscription = () => {
         buttonText: 'Activate Boost',
         buttonColor: 'bg-orange-600 hover:bg-orange-700',
         borderColor: 'border-orange-400',
-        icon: TrendingUp
+        icon: TrendingUp,
+        highlight: false
       }
     ]
   };
@@ -205,7 +220,7 @@ export const Subscription = () => {
            </p>
         </div>
 
-        {/* Updated Tabs (Renamed as requested) */}
+        {/* Tab Switcher */}
         <div className="flex justify-center mb-12">
           <div className="bg-white p-1.5 rounded-2xl shadow-lg border border-slate-200 inline-flex">
             <button
@@ -259,7 +274,7 @@ export const Subscription = () => {
                 </div>
               )}
 
-              {/* Header */}
+              {/* Card Header */}
               <div className="text-center mb-6 pt-4">
                 <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${
                     activeTab === 'monthly' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'
@@ -278,7 +293,7 @@ export const Subscription = () => {
                 </div>
               </div>
 
-              {/* Savings Highlight (Psychology Trigger) */}
+              {/* Savings Highlight */}
               <div className="text-center mb-6 h-6">
                 {plan.savings && (
                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full animate-pulse">
@@ -301,7 +316,7 @@ export const Subscription = () => {
                 </div>
               </div>
 
-              {/* Per Lead Cost (The Selling Point) */}
+              {/* Per Lead Cost */}
               <div className={`border-2 rounded-xl p-3 mb-8 flex justify-between items-center ${
                  plan.perLeadCost < 12 ? 'bg-green-50 border-green-500' : 'bg-slate-50 border-slate-200'
               }`}>
