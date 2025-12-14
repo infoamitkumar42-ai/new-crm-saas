@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile } from '../types';
-import { Users, RefreshCw, AlertTriangle, TrendingUp, Search, Crown, Shield } from 'lucide-react';
+import { Users, RefreshCw, AlertTriangle, TrendingUp, Search, Crown, LogOut } from 'lucide-react';
 
 interface MemberStats {
   id: string;
   name: string;
   email: string;
-  plan: string; // 👈 New: Plan Logic
+  plan: string;
   totalLeads: number;
   closedLeads: number;
   pendingLeads: number;
@@ -36,7 +36,7 @@ export const ManagerDashboard = () => {
       // 2. Get My Team Members (With Plan Info)
       const { data: teamMembers } = await supabase
         .from('users')
-        .select('id, name, email, plan, created_at') // 👈 Fetching 'plan'
+        .select('id, name, email, plan, created_at')
         .eq('manager_id', user.id);
 
       if (!teamMembers || teamMembers.length === 0) {
@@ -58,7 +58,7 @@ export const ManagerDashboard = () => {
           id: member.id,
           name: member.name || 'Unknown',
           email: member.email,
-          plan: member.plan || 'Free', // 👈 Plan Value
+          plan: member.plan || 'Free',
           totalLeads: memberLeads.length,
           closedLeads: memberLeads.filter(l => l.status === 'Closed').length,
           pendingLeads: memberLeads.filter(l => l.status === 'Fresh').length,
@@ -101,6 +101,16 @@ export const ManagerDashboard = () => {
                     onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
+            
+            {/* 👇 Sign Out Button Added Here */}
+            <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="p-2 bg-red-50 text-red-600 border border-red-200 rounded-lg shadow-sm hover:bg-red-100 transition-all"
+                title="Sign Out"
+            >
+                <LogOut size={20} />
+            </button>
+
             <button onClick={fetchManagerData} className="p-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50">
                 <RefreshCw size={20} className="text-slate-600" />
             </button>
@@ -138,7 +148,7 @@ export const ManagerDashboard = () => {
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b uppercase text-xs">
                 <tr>
                   <th className="p-4 pl-6">Member</th>
-                  <th className="p-4">Active Plan</th> {/* 👈 New Column */}
+                  <th className="p-4">Active Plan</th>
                   <th className="p-4 text-center">Leads Got</th>
                   <th className="p-4 text-center">Sales Closed</th>
                   <th className="p-4 text-right pr-6">Performance</th>
