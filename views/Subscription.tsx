@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Check, Zap, Shield, Crown, Rocket, Flame, Clock } from 'lucide-react';
+import { Check, Zap, Shield, Crown, Rocket, Flame, Clock, TrendingUp } from 'lucide-react';
 
 export const Subscription = () => {
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
 
-  // 👇 PAYMENT LOGIC (Standard Razorpay)
+  // 👇 PAYMENT LOGIC
   const handleSubscribe = async (planId: string, amount: number) => {
     setLoading(planId);
     try {
@@ -27,7 +27,7 @@ export const Subscription = () => {
         amount: orderData.amount,
         currency: "INR",
         name: "LeadFlow Plans",
-        description: `Plan: ${planId}`,
+        description: `Activation: ${planId}`,
         order_id: orderData.id,
         handler: async () => {
            alert("Payment Successful! Plan activated.");
@@ -47,23 +47,24 @@ export const Subscription = () => {
     }
   };
 
-  // 👇 CLAUDE'S PSYCHOLOGY-BASED DATA
+  // 👇 NEW PSYCHOLOGY-BASED PRICING
   const plans = {
     monthly: [
       {
         id: 'starter',
         name: 'Starter Plan',
-        subtitle: 'FOR BEGINNERS',
+        subtitle: 'TRIAL PACK',
         price: 999,
         duration: 30,
         dailySpeed: 2,
         totalVolume: 60,
-        perLeadCost: 16.65,
+        perLeadCost: 16.65, // Anchor Price (High)
+        savings: null,
         badge: null,
         features: [
           'Daily Drop: 2 Leads',
           'Valid: 30 Days',
-          '✅ Replacement Guarantee',
+          'Standard Support',
           'Calling Script Included'
         ],
         buttonText: 'Subscribe Now',
@@ -72,42 +73,44 @@ export const Subscription = () => {
         icon: Shield
       },
       {
-        id: 'supervisor', // ⭐ SWEET SPOT
+        id: 'supervisor', 
         name: 'Supervisor Plan',
-        subtitle: 'BEST FOR RECRUITERS',
+        subtitle: 'MOST POPULAR',
         price: 1999,
         duration: 30,
-        dailySpeed: 5,
-        totalVolume: 150,
-        perLeadCost: 13.32, // Lowest Cost
-        badge: 'STEADY GROWTH',
+        dailySpeed: 6, // Increased from 5 to 6 to lower cost
+        totalVolume: 180,
+        perLeadCost: 11.10, // Massive Drop from 16.65
+        savings: 'Save ₹5.5 per lead',
+        badge: 'BEST VALUE',
         features: [
-          'Daily: 5 Leads',
+          'Daily: 6 Leads (High Volume)',
           'Valid: 30 Days',
           '✅ Priority Replacement',
-          'Target: Housewives/Job'
+          'Target: Housewives/Job Seekers'
         ],
         buttonText: 'Subscribe Now',
         buttonColor: 'bg-blue-600 hover:bg-blue-700',
         borderColor: 'border-blue-500',
-        highlight: true, // Visually Popped
+        highlight: true,
         icon: Crown
       },
       {
-        id: 'manager', // DECOY
+        id: 'manager', 
         name: 'Manager Plan',
-        subtitle: 'FOR LEADERS',
+        subtitle: 'FOR TEAM LEADERS',
         price: 4999,
         duration: 30,
-        dailySpeed: 12,
-        totalVolume: 360,
-        perLeadCost: 13.88,
-        badge: null,
+        dailySpeed: 16, // Increased from 12 to 16
+        totalVolume: 480,
+        perLeadCost: 10.41, // Lowest Cost (Profit Maximizer)
+        savings: 'Lowest Cost Per Lead',
+        badge: 'MAX PROFIT',
         features: [
-          'Daily: 12 Bulk Leads',
+          'Daily: 16 Bulk Leads',
           'Valid: 30 Days',
-          '✅ Team Distribution',
-          'Dedicated Support'
+          '✅ Free Replacement Guarantee',
+          'Dedicated Account Manager'
         ],
         buttonText: 'Subscribe Now',
         buttonColor: 'bg-slate-800 hover:bg-slate-900',
@@ -119,18 +122,19 @@ export const Subscription = () => {
       {
         id: 'fast_start',
         name: 'Fast Start',
-        subtitle: 'MORE LEADS THAN MONTHLY',
+        subtitle: 'QUICK TEST',
         price: 999,
         duration: 7,
         dailySpeed: 10,
         totalVolume: 70,
         perLeadCost: 14.27,
+        savings: null,
         badge: 'SPEED',
         features: [
           'Daily: 10 Leads',
           'Valid: 7 Days Only',
           '⚡ High Speed Delivery',
-          'Burn Budget Fast'
+          'Instant Activation'
         ],
         buttonText: 'Activate Boost',
         buttonColor: 'bg-orange-600 hover:bg-orange-700',
@@ -138,20 +142,21 @@ export const Subscription = () => {
         icon: Zap
       },
       {
-        id: 'turbo_weekly', // ⭐ BEST ROI
+        id: 'turbo_weekly',
         name: 'Turbo Weekly',
-        subtitle: 'INSTANT PIPELINE FILL',
+        subtitle: 'RECRUITMENT DRIVE',
         price: 1999,
         duration: 7,
-        dailySpeed: 20,
-        totalVolume: 140,
-        perLeadCost: 14.27,
+        dailySpeed: 25, // Increased to make math better
+        totalVolume: 175,
+        perLeadCost: 11.42, // Great value for weekly
+        savings: 'Best Weekly ROI',
         badge: 'BEST ROI',
         features: [
-          'Daily: 20 Leads',
+          'Daily: 25 Leads (Aggressive)',
           'Valid: 7 Days Only',
-          '🔥 Aggressive Growth',
-          'High Intent Data'
+          '🔥 High Intent Filters',
+          'Priority Queue Allocation'
         ],
         buttonText: 'Activate Boost',
         buttonColor: 'bg-orange-600 hover:bg-orange-700',
@@ -165,20 +170,21 @@ export const Subscription = () => {
         subtitle: 'NUCLEAR MODE',
         price: 2999,
         duration: 7,
-        dailySpeed: 30,
-        totalVolume: 210,
-        perLeadCost: 14.28,
-        badge: 'BEAST',
+        dailySpeed: 40, // Massive volume
+        totalVolume: 280,
+        perLeadCost: 10.71, // Almost match Manager price
+        savings: 'Maximum Volume',
+        badge: 'BEAST MODE',
         features: [
-          'Daily: 30 Leads',
+          'Daily: 40 Leads',
           'Valid: 7 Days Only',
-          '💣 Maximum Blast',
-          'Priority Support'
+          '💣 Exclusive Zone Leads',
+          '24/7 Priority Support'
         ],
         buttonText: 'Activate Boost',
         buttonColor: 'bg-orange-600 hover:bg-orange-700',
         borderColor: 'border-orange-400',
-        icon: Rocket
+        icon: TrendingUp
       }
     ]
   };
@@ -192,19 +198,19 @@ export const Subscription = () => {
         {/* Header */}
         <div className="text-center mb-12">
            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">
-             Choose Your Growth Speed
+             Choose Your Growth Plan
            </h1>
-           <p className="text-lg text-slate-500">
-             Select a <span className="font-bold text-blue-600">Monthly Plan</span> for consistency or a <span className="font-bold text-orange-600">Boost Pack</span> for instant results.
+           <p className="text-lg text-slate-500 max-w-2xl mx-auto">
+             Stop overpaying for leads. Get <span className="font-bold text-blue-600">higher volume</span> at <span className="font-bold text-green-600">lower cost</span> with our premium plans.
            </p>
         </div>
 
-        {/* Strategy Tabs (Toggle) */}
+        {/* Updated Tabs (Renamed as requested) */}
         <div className="flex justify-center mb-12">
           <div className="bg-white p-1.5 rounded-2xl shadow-lg border border-slate-200 inline-flex">
             <button
               onClick={() => setActiveTab('monthly')}
-              className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all ${
+              className={`flex items-center gap-2 px-6 md:px-8 py-3.5 rounded-xl font-bold transition-all ${
                 activeTab === 'monthly'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-500 hover:bg-slate-50'
@@ -214,13 +220,13 @@ export const Subscription = () => {
             </button>
             <button
               onClick={() => setActiveTab('boost')}
-              className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all ${
+              className={`flex items-center gap-2 px-6 md:px-8 py-3.5 rounded-xl font-bold transition-all ${
                 activeTab === 'boost'
                   ? 'bg-orange-600 text-white shadow-md'
                   : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
-              <Zap size={18} /> Boost Packs (Fast)
+              <Zap size={18} /> 7-Day Boost Plan
             </button>
           </div>
         </div>
@@ -241,11 +247,11 @@ export const Subscription = () => {
               {plan.badge && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
                   <span className={`px-4 py-1.5 rounded-full text-xs font-black text-white shadow-lg tracking-wider uppercase flex items-center gap-1 ${
-                    plan.badge === 'STEADY GROWTH' || plan.badge === 'BEST ROI' 
+                    plan.badge === 'BEST VALUE' || plan.badge === 'BEST ROI' 
                       ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
-                      : plan.badge === 'SPEED' || plan.badge === 'BEAST'
+                      : plan.badge === 'SPEED' || plan.badge === 'BEAST MODE'
                       ? 'bg-gradient-to-r from-orange-600 to-red-600'
-                      : 'bg-slate-700'
+                      : 'bg-gradient-to-r from-slate-700 to-slate-800'
                   }`}>
                     {plan.highlight && <Crown size={12} className="fill-current" />}
                     {plan.badge}
@@ -265,19 +271,28 @@ export const Subscription = () => {
               </div>
 
               {/* Price */}
-              <div className="text-center mb-8">
+              <div className="text-center mb-2">
                 <div className="flex items-baseline justify-center gap-1">
                   <span className="text-5xl font-black text-slate-900 tracking-tight">₹{plan.price}</span>
                   <span className="text-slate-500 font-medium">/ {plan.duration} Days</span>
                 </div>
               </div>
 
+              {/* Savings Highlight (Psychology Trigger) */}
+              <div className="text-center mb-6 h-6">
+                {plan.savings && (
+                   <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      🎉 {plan.savings}
+                   </span>
+                )}
+              </div>
+
               {/* Stats Box */}
               <div className="bg-slate-50 rounded-2xl p-5 mb-6 border border-slate-100">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm text-slate-600 font-medium">Daily Speed</span>
-                  <span className={`text-lg font-extrabold ${activeTab === 'boost' ? 'text-orange-600' : 'text-blue-600'}`}>
-                    {plan.dailySpeed} Leads
+                  <span className="text-sm text-slate-600 font-medium">Daily Leads</span>
+                  <span className={`text-xl font-extrabold ${activeTab === 'boost' ? 'text-orange-600' : 'text-blue-600'}`}>
+                    {plan.dailySpeed} / day
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -286,12 +301,20 @@ export const Subscription = () => {
                 </div>
               </div>
 
-              {/* Per Lead Cost (Psychology) */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-8 flex justify-between items-center">
-                <span className="text-xs font-bold text-emerald-800 uppercase flex items-center gap-1">
-                    <Zap size={12} className="fill-current"/> Cost Per Lead
+              {/* Per Lead Cost (The Selling Point) */}
+              <div className={`border-2 rounded-xl p-3 mb-8 flex justify-between items-center ${
+                 plan.perLeadCost < 12 ? 'bg-green-50 border-green-500' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={`text-xs font-bold uppercase flex items-center gap-1 ${
+                    plan.perLeadCost < 12 ? 'text-green-800' : 'text-slate-500'
+                }`}>
+                    <Zap size={12} className="fill-current"/> Effective Cost
                 </span>
-                <span className="text-xl font-black text-emerald-600">₹{plan.perLeadCost.toFixed(2)}</span>
+                <span className={`text-xl font-black ${
+                    plan.perLeadCost < 12 ? 'text-green-600' : 'text-slate-700'
+                }`}>
+                    ₹{plan.perLeadCost.toFixed(2)}<span className="text-xs font-normal text-slate-400">/lead</span>
+                </span>
               </div>
 
               {/* Features List */}
