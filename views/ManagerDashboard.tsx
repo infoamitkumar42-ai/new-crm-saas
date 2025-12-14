@@ -1,17 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Lead } from '../types';
-import { Users, UserPlus, Send, RefreshCw, Phone, MapPin, TrendingUp, CheckCircle } from 'lucide-react';
+import { UserProfile } from '../types';
+import { Users, RefreshCw, CheckCircle, Clock, AlertTriangle, TrendingUp, Search } from 'lucide-react';
+
+interface MemberStats {
+  id: string;
+  name: string;
+  email: string;
+  totalLeads: number;
+  closedLeads: number;
+  pendingLeads: number;
+  lastActive: string;
+}
 
 export const ManagerDashboard = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
+  const [teamStats, setTeamStats] = useState<MemberStats[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Lead Form State
-  const [newLead, setNewLead] = useState({ name: '', phone: '', city: '' });
-  const [selectedMember, setSelectedMember] = useState<string>('');
-  const [statusMsg, setStatusMsg] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchManagerData();
@@ -32,20 +38,43 @@ export const ManagerDashboard = () => {
       
       setProfile(userData);
 
-      // 2. Get My Team Members (Jinhone mera Team Code use kiya hai)
-      // Logic: manager_id = My ID
-      const { data: teamData, error: teamError } = await supabase
+      // 2. Get My Team Members
+      const { data: teamMembers } = await supabase
         .from('users')
-        .select('*')
+        .select('id, name, email, created_at')
         .eq('manager_id', user.id);
 
-      if (teamError) console.error("Team Fetch Error:", teamError);
-      setTeamMembers(teamData || []);
-
-      // Default select first member
-      if (teamData && teamData.length > 0) {
-        setSelectedMember(teamData[0].id);
+      if (!teamMembers || teamMembers.length === 0) {
+        setTeamStats([]);
+        return;
       }
+
+      // 3. Get Leads Data for ALL team members efficiently
+      // Hum sabhi members ki leads ek saath mangwa lenge aur JS mein count karenge
+      const memberIds = teamMembers.map(m => m.id);
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('assigned_to, status, created_at')
+        .in('assigned_to', memberIds);
+
+      // 4. Calculate Stats per Member
+      const stats: MemberStats[] = teamMembers.map(member => {
+        const memberLeads = leadsData?.filter(l => l.assigned_to === member.id) || [];
+        const closed = memberLeads.filter(l => l.status === 'Closed').length;
+        const fresh = memberLeads.filter(l => l.status === 'Fresh').length;
+        
+        return {
+          id: member.id,
+          name: member.name || 'Unknown',
+          email: member.email,
+          totalLeads: memberLeads.length,
+          closedLeads: closed,
+          pendingLeads: fresh,
+          lastActive: new Date(member.created_at).toLocaleDateString() // Real app mein last_login track karenge
+        };
+      });
+
+      setTeamStats(stats);
 
     } catch (error) {
       console.error("Manager Error:", error);
@@ -54,193 +83,133 @@ export const ManagerDashboard = () => {
     }
   };
 
-  // ⚡ Assign Lead Function
-  const handleAssignLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMsg('');
+  // Filter Logic
+  const filteredTeam = teamStats.filter(m => 
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    m.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    if (!selectedMember) {
-        alert("Please select a team member first!");
-        return;
-    }
-
-    try {
-        const { error } = await supabase.from('leads').insert({
-            name: newLead.name,
-            phone: newLead.phone,
-            city: newLead.city,
-            status: 'Fresh',
-            assigned_to: selectedMember,  // 👈 Member ID
-            manager_id: profile?.id       // 👈 My ID (Owner)
-        });
-
-        if (error) throw error;
-
-        setStatusMsg('Lead Assigned Successfully! 🎉');
-        setNewLead({ name: '', phone: '', city: '' }); // Reset Form
-        
-        // Clear success msg after 3s
-        setTimeout(() => setStatusMsg(''), 3000);
-
-    } catch (error: any) {
-        alert("Error: " + error.message);
-    }
-  };
-
-  if (loading) return <div className="p-10 text-center text-slate-500">Loading Manager Panel...</div>;
+  if (loading) return <div className="p-10 text-center text-slate-500">Loading Team Data...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between mb-8 gap-4 items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">👔 Manager Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-900">👔 Team Monitor</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Team Code: <span className="font-mono font-bold bg-yellow-100 px-2 py-1 rounded text-yellow-800 select-all">{profile?.team_code || 'Loading...'}</span>
-            <span className="ml-2 text-xs text-slate-400">(Share this code with your team)</span>
+            Manager Code: <span className="font-mono font-bold bg-yellow-100 px-2 py-0.5 rounded text-yellow-800">{profile?.team_code}</span>
           </p>
         </div>
-        <button onClick={fetchManagerData} className="p-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50">
-            <RefreshCw size={20} className="text-slate-600" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* LEFT COL: Lead Assignment Form */}
-        <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-8">
-                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <UserPlus size={20} className="text-blue-600" /> Assign New Lead
-                </h2>
-
-                <form onSubmit={handleAssignLead} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Select Member</label>
-                        <select 
-                            className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-                            value={selectedMember}
-                            onChange={(e) => setSelectedMember(e.target.value)}
-                        >
-                            <option value="" disabled>-- Select Team Member --</option>
-                            {teamMembers.map(member => (
-                                <option key={member.id} value={member.id}>{member.name} ({member.email})</option>
-                            ))}
-                        </select>
-                        {teamMembers.length === 0 && <p className="text-xs text-red-500 mt-1">No members found. Ask them to join using your Team Code.</p>}
-                    </div>
-
-                    <div className="space-y-3">
-                        <input 
-                            className="w-full border p-2.5 rounded-lg outline-none" 
-                            placeholder="Lead Name" 
-                            value={newLead.name} 
-                            onChange={e => setNewLead({...newLead, name: e.target.value})} 
-                            required 
-                        />
-                        <input 
-                            className="w-full border p-2.5 rounded-lg outline-none" 
-                            placeholder="Phone Number" 
-                            value={newLead.phone} 
-                            onChange={e => setNewLead({...newLead, phone: e.target.value})} 
-                            required 
-                        />
-                        <input 
-                            className="w-full border p-2.5 rounded-lg outline-none" 
-                            placeholder="City (Optional)" 
-                            value={newLead.city} 
-                            onChange={e => setNewLead({...newLead, city: e.target.value})} 
-                        />
-                    </div>
-
-                    <button 
-                        type="submit" 
-                        disabled={teamMembers.length === 0}
-                        className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Send size={18} /> Assign Lead
-                    </button>
-
-                    {statusMsg && (
-                        <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm text-center font-medium animate-pulse">
-                            {statusMsg}
-                        </div>
-                    )}
-                </form>
+        <div className="flex gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                <input 
+                    type="text" 
+                    placeholder="Search member..." 
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
             </div>
+            <button onClick={fetchManagerData} className="p-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50">
+                <RefreshCw size={20} className="text-slate-600" />
+            </button>
         </div>
-
-        {/* RIGHT COL: Team List */}
-        <div className="lg:col-span-2">
-            
-            {/* Stats Row */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-indigo-600 text-white p-5 rounded-2xl shadow-lg">
-                    <p className="text-indigo-200 text-xs font-bold uppercase">Team Size</p>
-                    <h3 className="text-3xl font-bold">{teamMembers.length}</h3>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <p className="text-slate-400 text-xs font-bold uppercase">Active Today</p>
-                    <h3 className="text-3xl font-bold text-green-600 flex items-center gap-2">
-                        {teamMembers.length} <span className="text-xs font-normal text-slate-400">(All Active)</span>
-                    </h3>
-                </div>
-            </div>
-
-            {/* Team Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800">My Team Members</h3>
-                </div>
-
-                {teamMembers.length === 0 ? (
-                    <div className="p-12 text-center text-slate-500">
-                        <Users size={48} className="mx-auto text-slate-300 mb-3" />
-                        <p className="font-medium">You have no team members yet.</p>
-                        <p className="text-sm mt-2 bg-slate-100 inline-block px-3 py-1 rounded">
-                            Share Code: <span className="font-mono font-bold text-slate-800">{profile?.team_code}</span>
-                        </p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 font-semibold border-b uppercase text-xs">
-                                <tr>
-                                    <th className="p-4">Name</th>
-                                    <th className="p-4">Email</th>
-                                    <th className="p-4">Joined On</th>
-                                    <th className="p-4 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {teamMembers.map((member) => (
-                                    <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="p-4 font-bold text-slate-900 flex items-center gap-2">
-                                            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">
-                                                {member.name?.charAt(0) || 'U'}
-                                            </div>
-                                            {member.name || 'Unknown'}
-                                        </td>
-                                        <td className="p-4 text-slate-600">{member.email}</td>
-                                        <td className="p-4 text-slate-500 text-xs">
-                                            {new Date(member.created_at).toLocaleDateString()}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1 justify-end w-fit ml-auto">
-                                                <CheckCircle size={12} /> Active
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-        </div>
-
       </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Users size={24} /></div>
+            <div>
+                <p className="text-xs text-slate-400 font-bold uppercase">Total Team</p>
+                <h3 className="text-2xl font-bold">{teamStats.length}</h3>
+            </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="p-3 bg-green-50 text-green-600 rounded-lg"><TrendingUp size={24} /></div>
+            <div>
+                <p className="text-xs text-slate-400 font-bold uppercase">Total Sales</p>
+                <h3 className="text-2xl font-bold">{teamStats.reduce((acc, curr) => acc + curr.closedLeads, 0)}</h3>
+            </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><AlertTriangle size={24} /></div>
+            <div>
+                <p className="text-xs text-slate-400 font-bold uppercase">Pending Leads</p>
+                <h3 className="text-2xl font-bold">{teamStats.reduce((acc, curr) => acc + curr.pendingLeads, 0)}</h3>
+            </div>
+        </div>
+      </div>
+
+      {/* Team Performance Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800">Live Team Performance</h3>
+        </div>
+
+        {filteredTeam.length === 0 ? (
+          <div className="p-16 text-center text-slate-500">
+            <p className="font-medium">No members found matching your search.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b uppercase text-xs tracking-wider">
+                <tr>
+                  <th className="p-4 pl-6">Member Name</th>
+                  <th className="p-4 text-center">Received Leads</th>
+                  <th className="p-4 text-center">Pending</th>
+                  <th className="p-4 text-center">Closed (Sales)</th>
+                  <th className="p-4 text-right pr-6">Performance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredTeam.map((member) => (
+                  <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 pl-6">
+                        <div className="font-bold text-slate-900">{member.name}</div>
+                        <div className="text-xs text-slate-500">{member.email}</div>
+                    </td>
+                    <td className="p-4 text-center">
+                        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold">
+                            {member.totalLeads}
+                        </span>
+                    </td>
+                    <td className="p-4 text-center">
+                        <span className="text-yellow-600 font-medium">{member.pendingLeads}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                        <span className="text-green-600 font-bold text-lg">{member.closedLeads}</span>
+                    </td>
+                    <td className="p-4 text-right pr-6">
+                        {member.totalLeads > 0 ? (
+                             <div className="flex items-center justify-end gap-2">
+                                <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-green-500" 
+                                        style={{ width: `${(member.closedLeads / member.totalLeads) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <span className="text-xs font-bold text-slate-600">
+                                    {Math.round((member.closedLeads / member.totalLeads) * 100)}%
+                                </span>
+                             </div>
+                        ) : (
+                            <span className="text-xs text-slate-400">No Data</span>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
