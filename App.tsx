@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// Layout ko hum hata rahe hain Dashboard ke liye
-// import { Layout } from './components/Layout'; 
+
+// 👇 Layout ko wapis import karein (Member ke liye)
+import { Layout } from './components/Layout'; 
+
 import { Auth } from './views/Auth';
 import { Landing } from './views/Landing';
+import { FilterSettings } from './views/FilterSettings'; // Target Audience Page
 import { Subscription } from './views/Subscription';
 
-// Direct Imports
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
@@ -27,10 +29,8 @@ function App() {
         .select('*')
         .eq('id', session.user.id)
         .single()
-        .then(({ data, error }) => {
-          if (data) {
-            setFullProfile(data as CustomUser);
-          }
+        .then(({ data }) => {
+          if (data) setFullProfile(data as CustomUser);
           setProfileLoading(false);
         });
     } else {
@@ -49,44 +49,55 @@ function App() {
     );
   }
 
-  // 👇 Role-Based Logic
+  // 👇 The Main Logic Fix: Only Member gets Layout
   const renderDashboard = () => {
     switch (fullProfile?.role) {
       case 'admin':
-        return <AdminDashboard />;
+        return <AdminDashboard />; // Clean Full Screen
       case 'manager':
-        return <ManagerDashboard />;
+        return <ManagerDashboard />; // Clean Full Screen
       case 'member':
       default:
-        // Member Dashboard
-        return <MemberDashboard />;
+        // ✅ Member ko Burger Menu (Layout) ke andar dikhao
+        return (
+            <Layout>
+                <MemberDashboard />
+            </Layout>
+        );
     }
   };
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1. Public Routes */}
+        {/* Public Routes */}
         <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
         
-        {/* 2. PROTECTED DASHBOARD ROUTES (No Layout Wrapper = No Burger Menu) */}
+        {/* Main Dashboard Route */}
         <Route 
           path="/" 
-          element={
-            session ? renderDashboard() : <Navigate to="/login" replace />
-          } 
+          element={session ? renderDashboard() : <Navigate to="/login" replace />} 
         />
 
-        {/* 3. Subscription Route (Members ke liye alag se rakh sakte hain) */}
-        <Route 
-          path="/subscription" 
-          element={
-            session ? <Subscription user={fullProfile!} onPaymentSuccess={() => {}} /> : <Navigate to="/login" />
-          } 
-        />
+        {/* 👇 Member Specific Pages (Wrapped in Layout) */}
+        {session && (
+          <>
+            <Route path="/target" element={
+              <Layout>
+                <FilterSettings user={fullProfile!} onUpdate={() => {}} />
+              </Layout>
+            } />
+            
+            <Route path="/subscription" element={
+              <Layout>
+                <Subscription user={fullProfile!} onPaymentSuccess={() => {}} />
+              </Layout>
+            } />
+          </>
+        )}
 
-        {/* Catch All - Redirect to Home */}
+        {/* Catch All */}
         <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
