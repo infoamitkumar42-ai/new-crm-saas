@@ -1,32 +1,12 @@
-// src/types.ts
+export type UserRole = 'admin' | 'manager' | 'member';
 
-export interface FilterConfig {
-  age_min?: number;       // '?' lagaya hai taaki agar value na ho to error na aaye
-  age_max?: number;
-  cities?: string[];      // City filtering ke liye
-  genders?: string[];
-  professions?: string[];
-  min_income?: number;
-}
-
-export interface User {
+export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  sheet_url?: string;     // '?' lagaya kyunki shuru mein sheet_url null ho sakta hai
-  payment_status: "active" | "inactive" | string;
-  valid_until?: string | null;
-  daily_limit: number;
-  role: "user" | "admin" | string;
-  filters: FilterConfig;  // ✅ Yahan 'any' hata kar 'FilterConfig' kar diya
-}
-
-export interface PaymentPlan {
-  id: string;
-  name: string;
-  price: number;
-  interval: 'daily' | 'weekly' | 'monthly';
-  features: string[];
+  role: UserRole;
+  manager_id?: string | null;
+  created_at: string;
 }
 
 export interface Lead {
@@ -34,8 +14,19 @@ export interface Lead {
   name: string;
   phone: string;
   city: string;
-  profession: string;
-  age: number;
-  status: 'New' | 'Distributed';
-  assigned_to?: string;
+  category: string;
+  status: 'Fresh' | 'Call Back' | 'Interested' | 'Closed' | 'Rejected';
+  notes: string;
+  assigned_to: string; // Member ID
+  manager_id: string;  // Manager ID
+  uploaded_by?: string;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: 'active' | 'expired';
+  end_date: string;
 }
