@@ -3,7 +3,10 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
-import { Users, Briefcase, ShieldCheck } from "lucide-react"; // Icons for pro look
+import { Users, Briefcase, ShieldCheck, FileSpreadsheet } from "lucide-react";
+
+// 🔗 APPS SCRIPT URL (Sheet Creator)
+const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
@@ -14,13 +17,98 @@ export const Auth: React.FC = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   
-  // 👇 New Logic: Team Code
+  // Team Code
   const [teamCode, setTeamCode] = useState(""); 
   
   const [selectedRole, setSelectedRole] = useState<UserRole>("member");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // ═══════════════════════════════════════════════════════════
+  // 📊 AUTO GOOGLE SHEET CREATOR
+  // ═══════════════════════════════════════════════════════════
+  const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
+    try {
+      setStatusMessage("Creating your personal Google Sheet...");
+      
+      const response = await fetch(SHEET_CREATOR_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createSheet',
+          userId: userId,
+          email: userEmail,
+          name: userName
+        }),
+        mode: 'no-cors' // Required for Apps Script
+      });
+
+      // Since no-cors doesn't return readable response,
+      // we'll make a second call with different approach
+      const proxyResponse = await fetch(SHEET_CREATOR_URL + "?callback=?", {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'createSheet',
+          userId: userId,
+          email: userEmail,
+          name: userName
+        })
+      }).catch(() => null);
+
+      if (proxyResponse) {
+        const result = await proxyResponse.json().catch(() => null);
+        if (result?.success && result?.sheetUrl) {
+          console.log("✅ Sheet created:", result.sheetUrl);
+          return result.sheetUrl;
+        }
+      }
+
+      // Fallback: Direct Apps Script call (might work in some cases)
+      return null;
+      
+    } catch (err) {
+      console.error("Sheet creation error:", err);
+      return null;
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // 📊 ALTERNATIVE: CREATE SHEET VIA SUPABASE EDGE FUNCTION
+  // ═══════════════════════════════════════════════════════════
+  const createSheetViaSupabase = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
+    try {
+      // Call Apps Script directly with fetch
+      const response = await fetch(SHEET_CREATOR_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain', // Avoids CORS preflight
+        },
+        body: JSON.stringify({
+          action: 'createSheet',
+          userId: userId,
+          email: userEmail,
+          name: userName
+        })
+      });
+
+      const text = await response.text();
+      
+      try {
+        const result = JSON.parse(text);
+        if (result.success && result.sheetUrl) {
+          return result.sheetUrl;
+        }
+      } catch {
+        console.log("Response not JSON:", text);
+      }
+
+      return null;
+    } catch (err) {
+      console.error("Sheet creation failed:", err);
+      return null;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,13 +132,13 @@ export const Auth: React.FC = () => {
             const { data: managerData, error: managerError } = await supabase
                 .from('users')
                 .select('id, role')
-                .eq('team_code', teamCode) // Check Team Code
+                .eq('team_code', teamCode)
                 .single();
 
             if (managerError || !managerData) throw new Error("Invalid Team Code. Please ask your manager for the correct code.");
             if (managerData.role !== 'manager') throw new Error("This code does not belong to a Manager.");
             
-            managerId = managerData.id; // Found the Manager!
+            managerId = managerData.id;
         }
 
         // 🔍 MANAGER LOGIC: Verify Team Code is unique
@@ -77,32 +165,58 @@ export const Auth: React.FC = () => {
         const user = signUpData.user;
         if (!user) throw new Error("Signup failed.");
 
-        // 2. Prepare Data for DB
+        // ═══════════════════════════════════════════════════════════
+        // 📊 2. CREATE GOOGLE SHEET (NEW!)
+        // ═══════════════════════════════════════════════════════════
+        setStatusMessage("Creating your personal Lead Sheet...");
+        
+        let sheetUrl: string | null = null;
+        
+        // Only create sheet for MEMBERS (not managers)
+        if (selectedRole === 'member') {
+          sheetUrl = await createSheetViaSupabase(user.id, email, name);
+          
+          if (sheetUrl) {
+            setStatusMessage("Sheet created! Saving to database...");
+          } else {
+            console.log("Sheet creation skipped or failed - will be created later");
+          }
+        }
+
+        // 3. Prepare Data for DB
         const userData: any = {
             email: user.email,
             name: name || user.user_metadata?.name,
             id: user.id,
             role: selectedRole,
-            team_code: selectedRole === 'manager' ? teamCode : null, // Only managers have their own code
-            manager_id: managerId // Members get linked here
+            team_code: selectedRole === 'manager' ? teamCode : null,
+            manager_id: managerId,
+            sheet_url: sheetUrl, // 📊 NEW: Save sheet URL
+            payment_status: 'inactive',
+            plan_name: 'none',
+            daily_limit: 0,
+            leads_today: 0,
+            filters: { cities: [] }
         };
 
-        // 3. Save to Database (Using upsert for safety)
+        // 4. Save to Database
+        setStatusMessage("Saving profile...");
+        
         const { error: dbError } = await supabase
             .from('users')
             .upsert(userData);
 
         if (dbError) {
              console.error("DB Error:", dbError);
-             // Fallback: Try API if direct DB fails (Optional)
+             // Fallback: Try API if direct DB fails
              await fetch("/api/init-user", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(userData),
-            });
+            }).catch(err => console.error("API fallback failed:", err));
         }
 
-        await logEvent('user_signup_complete', { email, role: selectedRole });
+        await logEvent('user_signup_complete', { email, role: selectedRole, hasSheet: !!sheetUrl });
         setStatusMessage("Success! Opening dashboard...");
         await refreshProfile();
         
@@ -155,7 +269,7 @@ export const Auth: React.FC = () => {
             <input className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
           </div>
 
-          {/* 👇 Professional Role & Team Code Section */}
+          {/* Role & Team Code Section */}
           {mode === "signup" && (
             <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
               <div>
@@ -180,7 +294,7 @@ export const Auth: React.FC = () => {
                 </div>
               </div>
 
-              {/* 👇 Dynamic Input based on Role */}
+              {/* Dynamic Input based on Role */}
               <div className="animate-fade-in-up">
                 {selectedRole === 'member' ? (
                    <div>
@@ -195,7 +309,10 @@ export const Auth: React.FC = () => {
                          required 
                        />
                      </div>
-                     <p className="text-xs text-slate-500 mt-1">Ask your manager for their Team Code.</p>
+                     <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                       <FileSpreadsheet size={12} />
+                       A personal Google Sheet will be created for you!
+                     </p>
                    </div>
                 ) : (
                    <div>
