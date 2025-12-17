@@ -3,9 +3,9 @@ import { supabase } from '../supabaseClient';
 import { UserProfile, Lead } from '../types';
 import { 
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare, 
-  X, Calendar, Target, TrendingUp, Clock, AlertTriangle,
+  X, Calendar, Target, TrendingUp, Clock,
   StickyNote, Check, LogOut, Zap, Crown, Lock, Eye,
-  ChevronRight, Gift, Flame, Star, ArrowUp, Bell
+  ChevronRight, Gift, Flame, ArrowUp, Bell, Rocket, Shield
 } from 'lucide-react';
 
 export const MemberDashboard = () => {
@@ -25,12 +25,88 @@ export const MemberDashboard = () => {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  
+  // NEW: Banner & Tab states
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [renewTab, setRenewTab] = useState<'monthly' | 'booster'>('monthly');
 
-  // Plan Options for Upgrade
+  // Monthly Plans (Same as Subscription.tsx)
   const planOptions = [
-    { id: 'starter', name: 'Starter', price: 999, daily_limit: 2, leads: 60, color: 'blue' },
-    { id: 'supervisor', name: 'Supervisor', price: 1999, daily_limit: 6, leads: 180, color: 'purple', popular: true },
-    { id: 'manager', name: 'Manager', price: 4999, daily_limit: 16, leads: 480, color: 'orange' },
+    { 
+      id: 'starter', 
+      name: 'Starter Plan', 
+      price: 999, 
+      daily_limit: 2, 
+      leads: 60, 
+      duration: 30,
+      color: 'blue',
+      icon: Shield
+    },
+    { 
+      id: 'supervisor', 
+      name: 'Supervisor Plan', 
+      price: 1999, 
+      daily_limit: 6, 
+      leads: 180, 
+      duration: 30,
+      color: 'purple', 
+      popular: true,
+      icon: Crown
+    },
+    { 
+      id: 'manager', 
+      name: 'Manager Plan', 
+      price: 4999, 
+      daily_limit: 16, 
+      leads: 480, 
+      duration: 30,
+      color: 'orange',
+      icon: Rocket
+    },
+  ];
+
+  // 🔥 NEW: 7-Day Booster Plans (Matching Subscription.tsx)
+  const boosterPlans = [
+    {
+      id: 'fast_start',
+      name: 'Fast Start',
+      subtitle: 'QUICK TEST',
+      price: 999,
+      duration: 7,
+      daily_limit: 10,
+      leads: 70,
+      perLeadCost: 14.27,
+      badge: 'SPEED',
+      icon: Zap,
+      color: 'orange'
+    },
+    {
+      id: 'turbo_weekly',
+      name: 'Turbo Weekly',
+      subtitle: 'RECRUITMENT DRIVE',
+      price: 1999,
+      duration: 7,
+      daily_limit: 25,
+      leads: 175,
+      perLeadCost: 11.42,
+      badge: 'BEST ROI',
+      popular: true,
+      icon: Flame,
+      color: 'orange'
+    },
+    {
+      id: 'max_blast',
+      name: 'Max Blast',
+      subtitle: 'NUCLEAR MODE',
+      price: 2999,
+      duration: 7,
+      daily_limit: 40,
+      leads: 280,
+      perLeadCost: 10.71,
+      badge: 'BEAST MODE',
+      icon: TrendingUp,
+      color: 'orange'
+    }
   ];
 
   useEffect(() => {
@@ -43,7 +119,6 @@ export const MemberDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Get My Profile
       const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -52,7 +127,6 @@ export const MemberDashboard = () => {
       
       setProfile(userData);
 
-      // 2. Get Manager Name
       if (userData?.manager_id) {
         const { data: managerData } = await supabase
           .from('users')
@@ -64,7 +138,6 @@ export const MemberDashboard = () => {
         setManagerName("Direct (No Manager)");
       }
 
-      // 3. Get My Leads
       const { data: leadsData } = await supabase
         .from('leads')
         .select('*')
@@ -85,7 +158,6 @@ export const MemberDashboard = () => {
   // 📊 CALCULATIONS
   // ═══════════════════════════════════════════════════════════
 
-  // Days until expiry
   const getDaysUntilExpiry = () => {
     if (!profile?.valid_until) return null;
     const expiry = new Date(profile.valid_until);
@@ -99,20 +171,16 @@ export const MemberDashboard = () => {
   const isExpired = daysLeft !== null && daysLeft <= 0;
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
   
-  // Daily Progress
   const leadsToday = (profile as any)?.leads_today || 0;
   const dailyLimit = profile?.daily_limit || 0;
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = leadsToday >= dailyLimit && dailyLimit > 0;
 
-  // Plan Progress (how much of plan used)
-  const totalPlanDays = 30; // Assuming 30 day plans
+  const totalPlanDays = 30;
   const planProgress = daysLeft !== null ? Math.max(0, Math.round(((totalPlanDays - daysLeft) / totalPlanDays) * 100)) : 0;
 
-  // Missed leads calculation (if expired)
-  const missedLeadsToday = isExpired ? Math.floor(Math.random() * 8) + 3 : 0; // Simulated
+  const missedLeadsToday = isExpired ? Math.floor(Math.random() * 8) + 3 : 0;
 
-  // Stats
   const stats = {
     total: leads.length,
     fresh: leads.filter(l => l.status === 'Fresh').length,
@@ -121,10 +189,7 @@ export const MemberDashboard = () => {
     callBack: leads.filter(l => l.status === 'Call Back').length,
   };
 
-  // Conversion Rate
   const conversionRate = stats.total > 0 ? Math.round((stats.closed / stats.total) * 100) : 0;
-
-  // Is Fast Caller (updates status quickly)
   const isFastCaller = stats.total > 5 && (stats.interested + stats.closed) / stats.total > 0.3;
 
   // ═══════════════════════════════════════════════════════════
@@ -213,7 +278,6 @@ export const MemberDashboard = () => {
     return planOptions.findIndex(p => p.id === profile?.plan_name) || 0;
   };
 
-  // Filter leads
   const filteredLeads = leads.filter(lead => {
     if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
     
@@ -254,7 +318,6 @@ export const MemberDashboard = () => {
       {isExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
-            {/* Header */}
             <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock size={32} />
@@ -263,7 +326,6 @@ export const MemberDashboard = () => {
               <p className="text-red-100 mt-2">Your daily leads have stopped</p>
             </div>
             
-            {/* Missed Leads Warning */}
             <div className="p-6">
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-center">
                 <p className="text-red-600 font-bold text-lg">
@@ -274,7 +336,6 @@ export const MemberDashboard = () => {
                 </p>
               </div>
               
-              {/* Manager Warning */}
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-start gap-3">
                 <Eye size={20} className="text-orange-500 mt-0.5" />
                 <div>
@@ -284,7 +345,6 @@ export const MemberDashboard = () => {
                 </div>
               </div>
               
-              {/* Renew Button */}
               <button 
                 onClick={() => setShowRenewModal(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
@@ -301,25 +361,35 @@ export const MemberDashboard = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 🟠 EXPIRING SOON BANNER (5 days or less) */}
+      {/* 🟠 EXPIRING SOON BANNER (with ❌ Close Button) */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      {isExpiringSoon && !isExpired && (
-        <div className={`${daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-3 px-4`}>
+      {isExpiringSoon && !isExpired && !bannerDismissed && (
+        <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-3 px-4`}>
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Bell size={18} className="animate-pulse" />
               <span className="font-medium">
                 ⏰ Your plan expires in <span className="font-bold">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>!
-                {daysLeft <= 2 && " Don't lose your daily leads!"}
+                {daysLeft && daysLeft <= 2 && " Don't lose your daily leads!"}
               </span>
             </div>
-            <button 
-              onClick={() => setShowRenewModal(true)}
-              className="bg-white text-orange-600 px-4 py-1.5 rounded-lg font-bold text-sm hover:bg-orange-50 transition-all flex items-center gap-1"
-            >
-              <RefreshCw size={14} /> Renew Now
-              {daysLeft <= 3 && <span className="bg-green-500 text-white text-xs px-1.5 rounded ml-1">+3 Bonus</span>}
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowRenewModal(true)}
+                className="bg-white text-orange-600 px-4 py-1.5 rounded-lg font-bold text-sm hover:bg-orange-50 transition-all flex items-center gap-1"
+              >
+                <RefreshCw size={14} /> Renew Now
+                {daysLeft && daysLeft <= 3 && <span className="bg-green-500 text-white text-xs px-1.5 rounded ml-1">+3 Bonus</span>}
+              </button>
+              {/* ❌ CLOSE BUTTON */}
+              <button 
+                onClick={() => setBannerDismissed(true)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-all"
+                title="Dismiss"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -357,7 +427,6 @@ export const MemberDashboard = () => {
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                   👋 Welcome, {profile?.name || 'Member'}
                 </h1>
-                {/* Fast Caller Badge */}
                 {isFastCaller && (
                   <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                     <Zap size={10} /> Fast Caller
@@ -412,7 +481,6 @@ export const MemberDashboard = () => {
         {/* ═══════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           
-          {/* Daily Progress */}
           {dailyLimit > 0 && (
             <div className={`rounded-xl p-4 ${isLimitReached ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-blue-600 to-indigo-600'} text-white`}>
               <div className="flex justify-between items-center mb-2">
@@ -448,7 +516,6 @@ export const MemberDashboard = () => {
             </div>
           )}
 
-          {/* Plan Progress */}
           {daysLeft !== null && daysLeft > 0 && (
             <div className="bg-white rounded-xl p-4 border border-slate-200">
               <div className="flex justify-between items-center mb-2">
@@ -493,7 +560,7 @@ export const MemberDashboard = () => {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🎯 UPGRADE PROMPT (Show when user is active) */}
+        {/* 🎯 UPGRADE PROMPT */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {stats.total >= 5 && conversionRate >= 20 && getCurrentPlanIndex() < 2 && !isExpired && (
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-6">
@@ -760,8 +827,9 @@ export const MemberDashboard = () => {
             
             <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {planOptions.map((plan, idx) => {
-                const isCurrent = profile?.plan_name === plan.id;
+                const isCurrent = profile?.plan_name?.toLowerCase() === plan.id.toLowerCase();
                 const isUpgrade = idx > getCurrentPlanIndex();
+                const Icon = plan.icon;
                 
                 return (
                   <div 
@@ -788,6 +856,9 @@ export const MemberDashboard = () => {
                     )}
                     
                     <div className="text-center mb-4 pt-2">
+                      <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                        <Icon size={24} />
+                      </div>
                       <h4 className="font-bold text-lg text-slate-900">{plan.name}</h4>
                       <div className="text-3xl font-black text-slate-900 mt-2">
                         ₹{plan.price}
@@ -835,69 +906,218 @@ export const MemberDashboard = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 🔄 RENEW MODAL */}
+      {/* 🔄 RENEW MODAL (with Monthly + Booster Tabs) */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {showRenewModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8">
             <div className="p-6 border-b border-slate-100">
               <div className="flex justify-between items-center">
-                <h3 className="font-bold text-xl text-slate-900">🔄 Renew Your Plan</h3>
+                <h3 className="font-bold text-xl text-slate-900">🔄 Renew / Upgrade Your Plan</h3>
                 <button onClick={() => setShowRenewModal(false)} className="text-slate-400 hover:text-slate-600">
                   <X size={24} />
                 </button>
               </div>
+              <p className="text-sm text-slate-500 mt-1">Choose your renewal duration</p>
             </div>
             
             <div className="p-6">
-              {/* Current Plan */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-sm text-blue-600 font-medium">Current Plan</p>
-                    <p className="text-xl font-bold text-blue-900">{profile?.plan_name || 'Starter'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-blue-600">Daily Leads</p>
-                    <p className="text-xl font-bold text-blue-900">{dailyLimit}</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Bonus Offer */}
-              {(daysLeft || 0) <= 3 && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Gift size={20} className="text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-green-800">Early Renewal Bonus!</p>
-                    <p className="text-sm text-green-600">Renew now & get +3 bonus leads</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Renew Button */}
-              <button 
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
-              >
-                Renew for ₹{planOptions.find(p => p.id === profile?.plan_name)?.price || 999}
-              </button>
-              
-              <p className="text-center text-slate-500 text-xs mt-4">
-                Same plan, same benefits, no interruption
-              </p>
-              
-              {/* Upgrade Option */}
-              <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-                <p className="text-sm text-slate-600 mb-2">Want more leads?</p>
-                <button 
-                  onClick={() => { setShowRenewModal(false); setShowUpgradeModal(true); }}
-                  className="text-purple-600 font-bold text-sm hover:underline flex items-center justify-center gap-1 mx-auto"
+              {/* 📑 TABS: Monthly vs Booster */}
+              <div className="flex bg-slate-100 rounded-xl p-1.5 mb-6">
+                <button
+                  onClick={() => setRenewTab('monthly')}
+                  className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                    renewTab === 'monthly' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
                 >
-                  Upgrade Plan Instead <ChevronRight size={14} />
+                  <Calendar size={16} /> Monthly Plans (30 Days)
+                </button>
+                <button
+                  onClick={() => setRenewTab('booster')}
+                  className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                    renewTab === 'booster' 
+                      ? 'bg-white text-orange-600 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Zap size={16} /> 7-Day Boosters
                 </button>
               </div>
+
+              {/* 📅 MONTHLY PLANS TAB */}
+              {renewTab === 'monthly' && (
+                <>
+                  {(daysLeft || 0) <= 3 && daysLeft !== null && daysLeft > 0 && (
+                    <div className="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Gift size={20} className="text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-green-800">🎁 Early Renewal Bonus!</p>
+                        <p className="text-sm text-green-600">Renew now & get +3 bonus leads FREE</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {planOptions.map((plan) => {
+                      const isCurrent = profile?.plan_name?.toLowerCase() === plan.id.toLowerCase();
+                      const Icon = plan.icon;
+                      
+                      return (
+                        <div 
+                          key={plan.id}
+                          className={`relative rounded-xl border-2 p-4 ${
+                            isCurrent ? 'border-blue-500 bg-blue-50' :
+                            plan.popular ? 'border-purple-500 bg-purple-50' :
+                            'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {plan.popular && !isCurrent && (
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                              <span className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                                POPULAR
+                              </span>
+                            </div>
+                          )}
+                          {isCurrent && (
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                              <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                                CURRENT
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="text-center mb-4 pt-2">
+                            <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                              <Icon size={24} />
+                            </div>
+                            <h4 className="font-bold text-lg text-slate-900">{plan.name}</h4>
+                            <div className="text-3xl font-black text-slate-900 mt-2">
+                              ₹{plan.price}
+                              <span className="text-sm font-normal text-slate-500">/30d</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span>{plan.daily_limit} leads/day</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span>~{plan.leads} leads total</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span>₹{(plan.price / plan.leads).toFixed(1)}/lead</span>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all ${
+                              isCurrent 
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            {isCurrent ? '🔄 Renew Plan' : '⬆️ Select Plan'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* ⚡ BOOSTER PLANS TAB (7 Days) */}
+              {renewTab === 'booster' && (
+                <>
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Zap size={18} className="text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-orange-900">⚡ Short-Term Power Boost!</h4>
+                      <p className="text-sm text-orange-700">
+                        Perfect for testing or short campaigns. 7 days of high-volume leads!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {boosterPlans.map((plan) => {
+                      const Icon = plan.icon;
+                      
+                      return (
+                        <div 
+                          key={plan.id}
+                          className={`relative rounded-xl border-2 p-4 transition-all ${
+                            plan.popular 
+                              ? 'border-orange-500 bg-orange-50 shadow-lg' 
+                              : 'border-orange-200 hover:border-orange-300'
+                          }`}
+                        >
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${
+                              plan.popular 
+                                ? 'bg-gradient-to-r from-orange-600 to-red-600' 
+                                : 'bg-gradient-to-r from-orange-500 to-orange-600'
+                            }`}>
+                              {plan.badge}
+                            </span>
+                          </div>
+                          
+                          <div className="text-center mb-4 pt-2">
+                            <div className="mx-auto w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
+                              <Icon size={24} />
+                            </div>
+                            <h4 className="font-bold text-lg text-slate-900">{plan.name}</h4>
+                            <p className="text-xs text-slate-500 font-bold uppercase">{plan.subtitle}</p>
+                            <div className="text-3xl font-black text-slate-900 mt-2">
+                              ₹{plan.price}
+                              <span className="text-sm font-normal text-slate-500">/7d</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span className="font-bold">{plan.daily_limit} leads/day</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span>~{plan.leads} leads total</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check size={14} className="text-green-500" />
+                              <span>₹{plan.perLeadCost.toFixed(2)}/lead</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Zap size={14} className="text-orange-500" />
+                              <span className="text-orange-600 font-medium">Instant Activation</span>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            className="w-full py-2.5 rounded-lg font-bold text-sm transition-all bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-md"
+                          >
+                            🚀 Get Booster
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+                    <p className="text-sm text-blue-700">
+                      💡 <strong>Pro Tip:</strong> Use boosters to test markets or run time-limited campaigns!
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
