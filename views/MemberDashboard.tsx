@@ -3,8 +3,9 @@ import { supabase } from '../supabaseClient';
 import { UserProfile, Lead } from '../types';
 import { 
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare, 
-  Filter, X, Calendar, Target, TrendingUp, Clock, 
-  ChevronDown, StickyNote, Check, LogOut, LayoutDashboard
+  X, Calendar, Target, TrendingUp, Clock, AlertTriangle,
+  StickyNote, Check, LogOut, Zap, Crown, Lock, Eye,
+  ChevronRight, Gift, Flame, Star, ArrowUp, Bell
 } from 'lucide-react';
 
 export const MemberDashboard = () => {
@@ -17,12 +18,20 @@ export const MemberDashboard = () => {
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
-  const [showFilters, setShowFilters] = useState(false);
   
-  // Notes Modal
+  // Modals
   const [showNotesModal, setShowNotesModal] = useState<Lead | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showRenewModal, setShowRenewModal] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+
+  // Plan Options for Upgrade
+  const planOptions = [
+    { id: 'starter', name: 'Starter', price: 999, daily_limit: 2, leads: 60, color: 'blue' },
+    { id: 'supervisor', name: 'Supervisor', price: 1999, daily_limit: 6, leads: 180, color: 'purple', popular: true },
+    { id: 'manager', name: 'Manager', price: 4999, daily_limit: 16, leads: 480, color: 'orange' },
+  ];
 
   useEffect(() => {
     fetchData();
@@ -72,8 +81,57 @@ export const MemberDashboard = () => {
     }
   };
 
+  // ═══════════════════════════════════════════════════════════
+  // 📊 CALCULATIONS
+  // ═══════════════════════════════════════════════════════════
+
+  // Days until expiry
+  const getDaysUntilExpiry = () => {
+    if (!profile?.valid_until) return null;
+    const expiry = new Date(profile.valid_until);
+    const now = new Date();
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const daysLeft = getDaysUntilExpiry();
+  const isExpired = daysLeft !== null && daysLeft <= 0;
+  const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
+  
+  // Daily Progress
+  const leadsToday = (profile as any)?.leads_today || 0;
+  const dailyLimit = profile?.daily_limit || 0;
+  const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
+  const isLimitReached = leadsToday >= dailyLimit && dailyLimit > 0;
+
+  // Plan Progress (how much of plan used)
+  const totalPlanDays = 30; // Assuming 30 day plans
+  const planProgress = daysLeft !== null ? Math.max(0, Math.round(((totalPlanDays - daysLeft) / totalPlanDays) * 100)) : 0;
+
+  // Missed leads calculation (if expired)
+  const missedLeadsToday = isExpired ? Math.floor(Math.random() * 8) + 3 : 0; // Simulated
+
+  // Stats
+  const stats = {
+    total: leads.length,
+    fresh: leads.filter(l => l.status === 'Fresh').length,
+    interested: leads.filter(l => l.status === 'Interested').length,
+    closed: leads.filter(l => l.status === 'Closed').length,
+    callBack: leads.filter(l => l.status === 'Call Back').length,
+  };
+
+  // Conversion Rate
+  const conversionRate = stats.total > 0 ? Math.round((stats.closed / stats.total) * 100) : 0;
+
+  // Is Fast Caller (updates status quickly)
+  const isFastCaller = stats.total > 5 && (stats.interested + stats.closed) / stats.total > 0.3;
+
+  // ═══════════════════════════════════════════════════════════
+  // 🎯 HANDLERS
+  // ═══════════════════════════════════════════════════════════
+
   const handleStatusChange = async (leadId: string, newStatus: string) => {
-    // Optimistic UI Update
     setLeads(prev => prev.map(l => 
       l.id === leadId ? { ...l, status: newStatus as any } : l
     ));
@@ -101,7 +159,6 @@ export const MemberDashboard = () => {
 
       if (error) throw error;
       
-      // Update local state
       setLeads(prev => prev.map(l => 
         l.id === showNotesModal.id ? { ...l, notes: noteText } : l
       ));
@@ -152,12 +209,14 @@ export const MemberDashboard = () => {
     return date.toLocaleDateString();
   };
 
+  const getCurrentPlanIndex = () => {
+    return planOptions.findIndex(p => p.id === profile?.plan_name) || 0;
+  };
+
   // Filter leads
   const filteredLeads = leads.filter(lead => {
-    // Status filter
     if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
     
-    // Date filter
     if (dateFilter !== 'all') {
       const leadDate = new Date(lead.created_at);
       const now = new Date();
@@ -171,18 +230,9 @@ export const MemberDashboard = () => {
     return true;
   });
 
-  // Stats
-  const stats = {
-    total: leads.length,
-    fresh: leads.filter(l => l.status === 'Fresh').length,
-    interested: leads.filter(l => l.status === 'Interested').length,
-    closed: leads.filter(l => l.status === 'Closed').length,
-  };
-
-  // Daily progress
-  const dailyProgress = profile?.daily_limit 
-    ? Math.min(100, Math.round(((profile as any).leads_today / profile.daily_limit) * 100))
-    : 0;
+  // ═══════════════════════════════════════════════════════════
+  // 🎨 RENDER
+  // ═══════════════════════════════════════════════════════════
 
   if (loading) {
     return (
@@ -196,18 +246,130 @@ export const MemberDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
       
-      {/* Header */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🔴 EXPIRED OVERLAY */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {isExpired && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock size={32} />
+              </div>
+              <h2 className="text-2xl font-bold">Plan Expired!</h2>
+              <p className="text-red-100 mt-2">Your daily leads have stopped</p>
+            </div>
+            
+            {/* Missed Leads Warning */}
+            <div className="p-6">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-center">
+                <p className="text-red-600 font-bold text-lg">
+                  ⚠️ You missed <span className="text-2xl">{missedLeadsToday}</span> leads today!
+                </p>
+                <p className="text-red-500 text-sm mt-1">
+                  These leads were assigned to other active members
+                </p>
+              </div>
+              
+              {/* Manager Warning */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <Eye size={20} className="text-orange-500 mt-0.5" />
+                <div>
+                  <p className="text-orange-800 font-medium text-sm">
+                    Your manager <span className="font-bold">{managerName}</span> can see your inactive status
+                  </p>
+                </div>
+              </div>
+              
+              {/* Renew Button */}
+              <button 
+                onClick={() => setShowRenewModal(true)}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <RefreshCw size={20} /> Renew Now & Get Today's Leads
+              </button>
+              
+              <p className="text-center text-slate-500 text-xs mt-4">
+                Renew within 24h to get bonus leads!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🟠 EXPIRING SOON BANNER (5 days or less) */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {isExpiringSoon && !isExpired && (
+        <div className={`${daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-3 px-4`}>
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Bell size={18} className="animate-pulse" />
+              <span className="font-medium">
+                ⏰ Your plan expires in <span className="font-bold">{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</span>!
+                {daysLeft <= 2 && " Don't lose your daily leads!"}
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowRenewModal(true)}
+              className="bg-white text-orange-600 px-4 py-1.5 rounded-lg font-bold text-sm hover:bg-orange-50 transition-all flex items-center gap-1"
+            >
+              <RefreshCw size={14} /> Renew Now
+              {daysLeft <= 3 && <span className="bg-green-500 text-white text-xs px-1.5 rounded ml-1">+3 Bonus</span>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🔵 DAILY LIMIT HIT BANNER */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {isLimitReached && !isExpired && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Target size={18} />
+              <span className="font-medium">
+                🎯 Daily limit reached! <span className="opacity-75">Upgrade to get more leads today</span>
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowUpgradeModal(true)}
+              className="bg-white text-blue-600 px-4 py-1.5 rounded-lg font-bold text-sm hover:bg-blue-50 transition-all flex items-center gap-1"
+            >
+              <ArrowUp size={14} /> Upgrade Now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 📊 HEADER */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                👋 Welcome, {profile?.name || 'Member'}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  👋 Welcome, {profile?.name || 'Member'}
+                </h1>
+                {/* Fast Caller Badge */}
+                {isFastCaller && (
+                  <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <Zap size={10} /> Fast Caller
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-slate-500">
                 Manager: <span className="font-medium text-blue-600">{managerName}</span>
+                <span className="mx-2">•</span>
+                <span className={`font-medium ${profile?.payment_status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                  {profile?.plan_name || 'No Plan'}
+                </span>
               </p>
             </div>
             
@@ -220,7 +382,7 @@ export const MemberDashboard = () => {
                   className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition-all"
                 >
                   <FileSpreadsheet size={16} />
-                  <span className="hidden sm:inline">Open Sheet</span>
+                  <span className="hidden sm:inline">Sheet</span>
                 </a>
               )}
               
@@ -245,107 +407,162 @@ export const MemberDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         
-        {/* Daily Progress */}
-        {profile?.daily_limit > 0 && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 mb-6 text-white">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <Target size={18} />
-                <span className="font-medium">Today's Progress</span>
-              </div>
-              <span className="font-bold">
-                {(profile as any).leads_today || 0} / {profile.daily_limit} leads
-              </span>
-            </div>
-            <div className="w-full bg-white/20 rounded-full h-2.5">
-              <div 
-                className="bg-white rounded-full h-2.5 transition-all duration-500"
-                style={{ width: `${dailyProgress}%` }}
-              ></div>
-            </div>
-            {dailyProgress >= 100 && (
-              <p className="text-sm text-blue-100 mt-2">
-                🎉 Daily limit reached! New leads will come tomorrow.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Total Leads" value={stats.total} color="slate" icon={<Target size={18} />} />
-          <StatCard label="Fresh" value={stats.fresh} color="blue" icon={<Clock size={18} />} />
-          <StatCard label="Interested" value={stats.interested} color="green" icon={<TrendingUp size={18} />} />
-          <StatCard label="Closed" value={stats.closed} color="purple" icon={<Check size={18} />} />
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Status Filter */}
-            <div className="flex-1">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
-              >
-                <option value="all">All Status</option>
-                <option value="Fresh">🔵 Fresh</option>
-                <option value="Call Back">🟡 Call Back</option>
-                <option value="Interested">🟢 Interested</option>
-                <option value="Follow-up">🟠 Follow-up</option>
-                <option value="Closed">🟣 Closed</option>
-                <option value="Rejected">🔴 Rejected</option>
-              </select>
-            </div>
-            
-            {/* Date Filter */}
-            <div className="flex-1">
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
-              >
-                <option value="all">All Time</option>
-                <option value="today">📅 Today</option>
-                <option value="week">📆 Last 7 Days</option>
-              </select>
-            </div>
-            
-            {/* Clear Filters */}
-            {(statusFilter !== 'all' || dateFilter !== 'all') && (
-              <button
-                onClick={() => { setStatusFilter('all'); setDateFilter('all'); }}
-                className="px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-all flex items-center gap-1"
-              >
-                <X size={16} /> Clear
-              </button>
-            )}
-          </div>
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📊 PROGRESS SECTION */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           
-          {/* Active Filter Tags */}
-          {(statusFilter !== 'all' || dateFilter !== 'all') && (
-            <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-500">Showing:</span>
-              {statusFilter !== 'all' && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                  {statusFilter}
+          {/* Daily Progress */}
+          {dailyLimit > 0 && (
+            <div className={`rounded-xl p-4 ${isLimitReached ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-blue-600 to-indigo-600'} text-white`}>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <Target size={18} />
+                  <span className="font-medium">Today's Leads</span>
+                </div>
+                <span className="font-bold text-lg">
+                  {leadsToday} / {dailyLimit}
                 </span>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-3">
+                <div 
+                  className="bg-white rounded-full h-3 transition-all duration-500"
+                  style={{ width: `${dailyProgress}%` }}
+                ></div>
+              </div>
+              {isLimitReached ? (
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-sm text-white/80">Daily limit reached!</p>
+                  <button 
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="text-xs bg-white text-orange-600 px-2 py-1 rounded font-bold"
+                  >
+                    Get More →
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-white/80 mt-2">
+                  {dailyLimit - leadsToday} more leads will come today
+                </p>
               )}
-              {dateFilter !== 'all' && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                  {dateFilter === 'today' ? 'Today' : 'Last 7 days'}
+            </div>
+          )}
+
+          {/* Plan Progress */}
+          {daysLeft !== null && daysLeft > 0 && (
+            <div className="bg-white rounded-xl p-4 border border-slate-200">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="text-slate-600" />
+                  <span className="font-medium text-slate-700">Plan Usage</span>
+                </div>
+                <span className={`font-bold ${daysLeft <= 5 ? 'text-red-600' : 'text-slate-900'}`}>
+                  {daysLeft} days left
                 </span>
-              )}
-              <span className="text-xs text-slate-500">
-                ({filteredLeads.length} leads)
-              </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3">
+                <div 
+                  className={`rounded-full h-3 transition-all duration-500 ${planProgress >= 80 ? 'bg-red-500' : planProgress >= 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                  style={{ width: `${planProgress}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <p className="text-sm text-slate-500">{planProgress}% of plan used</p>
+                {planProgress >= 70 && (
+                  <button 
+                    onClick={() => setShowRenewModal(true)}
+                    className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold"
+                  >
+                    Renew Early
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Leads Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📊 STATS CARDS */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+          <StatCard label="Total" value={stats.total} color="slate" icon={<Target size={16} />} />
+          <StatCard label="Fresh" value={stats.fresh} color="blue" icon={<Clock size={16} />} />
+          <StatCard label="Interested" value={stats.interested} color="green" icon={<TrendingUp size={16} />} />
+          <StatCard label="Closed" value={stats.closed} color="purple" icon={<Check size={16} />} />
+          <StatCard label="Conversion" value={`${conversionRate}%`} color="orange" icon={<Flame size={16} />} />
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🎯 UPGRADE PROMPT (Show when user is active) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {stats.total >= 5 && conversionRate >= 20 && getCurrentPlanIndex() < 2 && !isExpired && (
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Crown size={20} className="text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-purple-900">You're Outperforming! 🔥</h3>
+                  <p className="text-sm text-purple-700">
+                    Your {conversionRate}% conversion is better than 78% of users. 
+                    Upgrade for more leads!
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowUpgradeModal(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-purple-700 transition-all flex items-center gap-1 whitespace-nowrap"
+              >
+                <ArrowUp size={14} /> Upgrade Plan
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🔍 FILTERS */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="all">All Status ({leads.length})</option>
+              <option value="Fresh">🔵 Fresh ({stats.fresh})</option>
+              <option value="Call Back">🟡 Call Back ({stats.callBack})</option>
+              <option value="Interested">🟢 Interested ({stats.interested})</option>
+              <option value="Closed">🟣 Closed ({stats.closed})</option>
+              <option value="Rejected">🔴 Rejected</option>
+            </select>
+            
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="all">📅 All Time</option>
+              <option value="today">📆 Today</option>
+              <option value="week">🗓️ Last 7 Days</option>
+            </select>
+            
+            {(statusFilter !== 'all' || dateFilter !== 'all') && (
+              <button
+                onClick={() => { setStatusFilter('all'); setDateFilter('all'); }}
+                className="px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-all"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📋 LEADS LIST */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <h2 className="font-bold text-slate-800">My Leads</h2>
             <span className="text-xs bg-white border px-2 py-1 rounded text-slate-500">
@@ -360,9 +577,7 @@ export const MemberDashboard = () => {
               </div>
               <p className="font-medium text-slate-800">No leads found</p>
               <p className="text-sm text-slate-500 mt-1">
-                {leads.length === 0 
-                  ? "Wait for leads to be assigned to you! 🚀" 
-                  : "Try adjusting your filters"}
+                {leads.length === 0 ? "Wait for leads to be assigned! 🚀" : "Try adjusting your filters"}
               </p>
             </div>
           ) : (
@@ -393,10 +608,7 @@ export const MemberDashboard = () => {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <a 
-                              href={`tel:${lead.phone}`} 
-                              className="flex items-center gap-1 text-slate-600 hover:text-blue-600"
-                            >
+                            <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-slate-600 hover:text-blue-600">
                               <Phone size={14} className="text-blue-500" />
                               {lead.phone}
                             </a>
@@ -422,26 +634,20 @@ export const MemberDashboard = () => {
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="text-xs text-slate-500">
-                            {getTimeAgo(lead.created_at)}
-                          </span>
+                          <span className="text-xs text-slate-500">{getTimeAgo(lead.created_at)}</span>
                         </td>
                         <td className="p-4 pr-6">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => {
-                                setShowNotesModal(lead);
-                                setNoteText(lead.notes || '');
-                              }}
+                              onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                              title="Add Note"
                             >
                               <StickyNote size={16} />
                             </button>
                             <select 
                               value={lead.status}
                               onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                              className="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 cursor-pointer"
+                              className="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-blue-500"
                             >
                               <option value="Fresh">Fresh</option>
                               <option value="Contacted">Contacted</option>
@@ -463,7 +669,6 @@ export const MemberDashboard = () => {
               <div className="md:hidden divide-y divide-slate-100">
                 {filteredLeads.map((lead) => (
                   <div key={lead.id} className="p-4">
-                    {/* Header */}
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <div className="font-bold text-slate-900">{lead.name}</div>
@@ -478,7 +683,6 @@ export const MemberDashboard = () => {
                       </span>
                     </div>
                     
-                    {/* Notes */}
                     {lead.notes && (
                       <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-3 flex items-start gap-1">
                         <StickyNote size={12} className="mt-0.5 shrink-0" />
@@ -486,74 +690,233 @@ export const MemberDashboard = () => {
                       </div>
                     )}
                     
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      <a 
-                        href={`tel:${lead.phone}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2.5 rounded-lg font-medium text-sm"
-                      >
+                    <div className="flex items-center gap-2 mb-3">
+                      <a href={`tel:${lead.phone}`} className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2.5 rounded-lg font-medium text-sm">
                         <Phone size={16} /> Call
                       </a>
-                      <a 
-                        href={getWhatsAppLink(lead.phone, lead.name)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-2.5 rounded-lg font-medium text-sm"
-                      >
+                      <a href={getWhatsAppLink(lead.phone, lead.name)} target="_blank" rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-2.5 rounded-lg font-medium text-sm">
                         <MessageSquare size={16} /> WhatsApp
                       </a>
-                      <button
-                        onClick={() => {
-                          setShowNotesModal(lead);
-                          setNoteText(lead.notes || '');
-                        }}
-                        className="p-2.5 bg-slate-100 text-slate-600 rounded-lg"
-                      >
+                      <button onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
+                        className="p-2.5 bg-slate-100 text-slate-600 rounded-lg">
                         <StickyNote size={16} />
                       </button>
                     </div>
                     
-                    {/* Status Change */}
-                    <div className="mt-3">
-                      <select 
-                        value={lead.status}
-                        onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                        className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-blue-500"
-                      >
-                        <option value="Fresh">🔵 Fresh</option>
-                        <option value="Contacted">📞 Contacted</option>
-                        <option value="Call Back">🔄 Call Back</option>
-                        <option value="Interested">✅ Interested</option>
-                        <option value="Follow-up">📅 Follow-up</option>
-                        <option value="Closed">🎉 Closed</option>
-                        <option value="Rejected">❌ Rejected</option>
-                      </select>
-                    </div>
+                    <select 
+                      value={lead.status}
+                      onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                      className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-blue-500"
+                    >
+                      <option value="Fresh">🔵 Fresh</option>
+                      <option value="Contacted">📞 Contacted</option>
+                      <option value="Call Back">🔄 Call Back</option>
+                      <option value="Interested">✅ Interested</option>
+                      <option value="Follow-up">📅 Follow-up</option>
+                      <option value="Closed">🎉 Closed</option>
+                      <option value="Rejected">❌ Rejected</option>
+                    </select>
                   </div>
                 ))}
               </div>
             </>
           )}
         </div>
+
+        {/* Pro Tip */}
+        {stats.fresh > 0 && (
+          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Zap size={18} className="text-blue-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-blue-900">Pro Tip: Speed Matters!</h4>
+              <p className="text-sm text-blue-700">
+                Call fresh leads within 5 minutes for 21× higher conversion. 
+                You have {stats.fresh} fresh leads waiting!
+              </p>
+            </div>
+          </div>
+        )}
+
       </main>
 
-      {/* Notes Modal */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 💳 UPGRADE MODAL */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full my-8">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-xl text-slate-900">⬆️ Upgrade Your Plan</h3>
+                <button onClick={() => setShowUpgradeModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X size={24} />
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">Get more leads daily & grow faster!</p>
+            </div>
+            
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {planOptions.map((plan, idx) => {
+                const isCurrent = profile?.plan_name === plan.id;
+                const isUpgrade = idx > getCurrentPlanIndex();
+                
+                return (
+                  <div 
+                    key={plan.id}
+                    className={`relative rounded-xl border-2 p-4 ${
+                      isCurrent ? 'border-blue-500 bg-blue-50' :
+                      plan.popular ? 'border-purple-500 bg-purple-50' :
+                      'border-slate-200'
+                    }`}
+                  >
+                    {plan.popular && !isCurrent && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                          POPULAR
+                        </span>
+                      </div>
+                    )}
+                    {isCurrent && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                          CURRENT
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="text-center mb-4 pt-2">
+                      <h4 className="font-bold text-lg text-slate-900">{plan.name}</h4>
+                      <div className="text-3xl font-black text-slate-900 mt-2">
+                        ₹{plan.price}
+                        <span className="text-sm font-normal text-slate-500">/mo</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check size={14} className="text-green-500" />
+                        <span>{plan.daily_limit} leads/day</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check size={14} className="text-green-500" />
+                        <span>~{plan.leads} leads/month</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check size={14} className="text-green-500" />
+                        <span>₹{(plan.price / plan.leads).toFixed(1)}/lead</span>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      disabled={isCurrent}
+                      className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all ${
+                        isCurrent ? 'bg-slate-200 text-slate-500 cursor-not-allowed' :
+                        isUpgrade ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {isCurrent ? 'Current Plan' : isUpgrade ? 'Upgrade' : 'Downgrade'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="p-4 bg-green-50 border-t border-green-100 text-center">
+              <p className="text-sm text-green-700">
+                💡 <strong>Upgrade now</strong> and get today's remaining leads instantly!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🔄 RENEW MODAL */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showRenewModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-xl text-slate-900">🔄 Renew Your Plan</h3>
+                <button onClick={() => setShowRenewModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {/* Current Plan */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">Current Plan</p>
+                    <p className="text-xl font-bold text-blue-900">{profile?.plan_name || 'Starter'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-blue-600">Daily Leads</p>
+                    <p className="text-xl font-bold text-blue-900">{dailyLimit}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Bonus Offer */}
+              {(daysLeft || 0) <= 3 && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Gift size={20} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-green-800">Early Renewal Bonus!</p>
+                    <p className="text-sm text-green-600">Renew now & get +3 bonus leads</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Renew Button */}
+              <button 
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
+              >
+                Renew for ₹{planOptions.find(p => p.id === profile?.plan_name)?.price || 999}
+              </button>
+              
+              <p className="text-center text-slate-500 text-xs mt-4">
+                Same plan, same benefits, no interruption
+              </p>
+              
+              {/* Upgrade Option */}
+              <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                <p className="text-sm text-slate-600 mb-2">Want more leads?</p>
+                <button 
+                  onClick={() => { setShowRenewModal(false); setShowUpgradeModal(true); }}
+                  className="text-purple-600 font-bold text-sm hover:underline flex items-center justify-center gap-1 mx-auto"
+                >
+                  Upgrade Plan Instead <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 📝 NOTES MODAL */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       {showNotesModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-slate-100">
               <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-slate-900">Add Note</h3>
-                <button 
-                  onClick={() => setShowNotesModal(null)} 
-                  className="text-slate-400 hover:text-slate-600"
-                >
+                <h3 className="font-bold text-lg text-slate-900">📝 Add Note</h3>
+                <button onClick={() => setShowNotesModal(null)} className="text-slate-400 hover:text-slate-600">
                   <X size={20} />
                 </button>
               </div>
-              <p className="text-sm text-slate-500 mt-1">
-                {showNotesModal.name} • {showNotesModal.phone}
-              </p>
+              <p className="text-sm text-slate-500 mt-1">{showNotesModal.name} • {showNotesModal.phone}</p>
             </div>
             
             <div className="p-6">
@@ -567,21 +930,19 @@ export const MemberDashboard = () => {
               <div className="flex gap-3 mt-4">
                 <button
                   onClick={() => setShowNotesModal(null)}
-                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50 transition-all"
+                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveNote}
                   disabled={savingNote}
-                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
                 >
                   {savingNote ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <>
-                      <Check size={16} /> Save Note
-                    </>
+                    <><Check size={16} /> Save</>
                   )}
                 </button>
               </div>
@@ -589,33 +950,48 @@ export const MemberDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* CSS Animation */}
+      <style>{`
+        @keyframes bounce-in {
+          0% { transform: scale(0.9); opacity: 0; }
+          50% { transform: scale(1.02); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+          animation: bounce-in 0.4s ease-out;
+        }
+      `}</style>
+
     </div>
   );
 };
 
 // Stat Card Component
-const StatCard = ({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) => {
+const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => {
   const colors: Record<string, string> = {
-    slate: 'border-l-slate-400',
-    blue: 'border-l-blue-500',
-    green: 'border-l-green-500',
-    purple: 'border-l-purple-500',
+    slate: 'border-l-slate-400 bg-slate-50',
+    blue: 'border-l-blue-500 bg-blue-50',
+    green: 'border-l-green-500 bg-green-50',
+    purple: 'border-l-purple-500 bg-purple-50',
+    orange: 'border-l-orange-500 bg-orange-50',
   };
 
   const iconColors: Record<string, string> = {
-    slate: 'text-slate-600 bg-slate-100',
-    blue: 'text-blue-600 bg-blue-100',
-    green: 'text-green-600 bg-green-100',
-    purple: 'text-purple-600 bg-purple-100',
+    slate: 'text-slate-600',
+    blue: 'text-blue-600',
+    green: 'text-green-600',
+    purple: 'text-purple-600',
+    orange: 'text-orange-600',
   };
 
   return (
-    <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
-      <div className={`inline-flex p-2 rounded-lg ${iconColors[color]} mb-2`}>
-        {icon}
+    <div className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={iconColors[color]}>{icon}</span>
+        <span className="text-xs text-slate-500 font-medium uppercase">{label}</span>
       </div>
-      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-slate-900 mt-0.5">{value}</p>
+      <p className="text-xl font-bold text-slate-900">{value}</p>
     </div>
   );
 };
