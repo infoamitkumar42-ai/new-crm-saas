@@ -1,76 +1,124 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { Users, UserPlus, Wallet, TrendingUp, Copy, Check, LogOut, LayoutDashboard } from 'lucide-react';
+import { 
+  Users, UserPlus, Wallet, TrendingUp, Copy, Check, LogOut, 
+  LayoutDashboard, RefreshCw, Phone, MessageSquare, Award,
+  Target, UserCheck, Clock, ChevronRight, Share2
+} from 'lucide-react';
+
+// Types
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  payment_status: string;
+  plan_name: string;
+  daily_limit: number;
+  leads_today: number;
+  created_at: string;
+  total_leads?: number;
+  interested_leads?: number;
+  closed_leads?: number;
+}
+
+interface Stats {
+  teamSize: number;
+  activeMembers: number;
+  totalLeads: number;
+  interestedLeads: number;
+  closedLeads: number;
+  conversionRate: number;
+}
 
 export const ManagerDashboard = () => {
-  const { session, signOut } = useAuth(); // 👈 signOut function yahan se liya
-  const [stats, setStats] = useState({
+  const { session, signOut } = useAuth();
+  const [stats, setStats] = useState<Stats>({
     teamSize: 0,
+    activeMembers: 0,
     totalLeads: 0,
-    converted: 0,
-    revenue: 0 
+    interestedLeads: 0,
+    closedLeads: 0,
+    conversionRate: 0
   });
   const [teamCode, setTeamCode] = useState('');
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (session?.user.id) {
-      fetchManagerStats();
+      fetchManagerData();
     }
   }, [session]);
 
-  const fetchManagerStats = async () => {
+  const fetchManagerData = async () => {
     try {
+      setRefreshing(true);
       const managerId = session?.user.id;
 
-      // 1. Get Team Code & Team Size
+      // 1. Get Manager's Team Code
       const { data: managerData } = await supabase
         .from('users')
-        .select('team_code')
+        .select('team_code, name')
         .eq('id', managerId)
         .single();
       
-      if (managerData) setTeamCode(managerData.team_code);
+      if (managerData?.team_code) {
+        setTeamCode(managerData.team_code);
+      }
 
-      const { count: teamCount } = await supabase
+      // 2. Get Team Members
+      const { data: members } = await supabase
         .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('manager_id', managerId);
-
-      // 2. Get Total Leads
-      const { count: leadCount } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('manager_id', managerId);
-
-      // 3. Get Converted
-      const { count: convertedCount } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('manager_id', managerId)
-        .eq('status', 'Converted');
+        .order('created_at', { ascending: false });
 
-      // 4. Real Investment (My Expenses)
-      const { data: payments } = await supabase
-        .from('manager_payments')
-        .select('amount')
-        .eq('manager_id', managerId);
-      
-      const mySpend = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+      // 3. Get Lead Stats for Each Member
+      const membersWithStats = await Promise.all(
+        (members || []).map(async (member) => {
+          const { data: leads } = await supabase
+            .from('leads')
+            .select('status')
+            .eq('user_id', member.id);
+
+          const total = leads?.length || 0;
+          const interested = leads?.filter(l => l.status === 'Interested').length || 0;
+          const closed = leads?.filter(l => l.status === 'Closed').length || 0;
+
+          return {
+            ...member,
+            total_leads: total,
+            interested_leads: interested,
+            closed_leads: closed
+          };
+        })
+      );
+
+      setTeamMembers(membersWithStats);
+
+      // 4. Calculate Overall Stats
+      const totalLeads = membersWithStats.reduce((sum, m) => sum + (m.total_leads || 0), 0);
+      const interestedLeads = membersWithStats.reduce((sum, m) => sum + (m.interested_leads || 0), 0);
+      const closedLeads = membersWithStats.reduce((sum, m) => sum + (m.closed_leads || 0), 0);
+      const activeMembers = membersWithStats.filter(m => m.payment_status === 'active').length;
 
       setStats({
-        teamSize: teamCount || 0,
-        totalLeads: leadCount || 0,
-        converted: convertedCount || 0,
-        revenue: mySpend
+        teamSize: membersWithStats.length,
+        activeMembers,
+        totalLeads,
+        interestedLeads,
+        closedLeads,
+        conversionRate: totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0
       });
 
     } catch (error) {
-      console.error('Error fetching manager stats:', error);
+      console.error('Error fetching manager data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -80,98 +128,300 @@ export const ManagerDashboard = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
+  const shareOnWhatsApp = () => {
+    const message = encodeURIComponent(
+      `🚀 Join my team on LeadFlow!\n\n` +
+      `Use my Team Code: *${teamCode}*\n\n` +
+      `Sign up here: ${window.location.origin}/login\n\n` +
+      `Get daily fresh leads and grow your business! 💰`
+    );
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+  };
+
+  const getStatusColor = (status: string) => {
+    return status === 'active' 
+      ? 'bg-green-100 text-green-700 border-green-200' 
+      : 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  const getPlanColor = (plan: string) => {
+    switch(plan) {
+      case 'starter': return 'bg-blue-50 text-blue-700';
+      case 'supervisor': return 'bg-purple-50 text-purple-700';
+      case 'manager': return 'bg-orange-50 text-orange-700';
+      default: return 'bg-slate-50 text-slate-600';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading Team Data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       
-      {/* 👇 1. TOP NAVBAR ADDED (LOGOUT BUTTON KE SAATH) */}
-      <nav className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 sticky top-0 z-50 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg text-white">
-                <LayoutDashboard size={20} />
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shadow-lg">
+                <LayoutDashboard size={22} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-800">Manager Panel</h1>
+                <p className="text-xs text-slate-500">Team Overview & Analytics</p>
+              </div>
             </div>
-            <div>
-                <h1 className="text-xl font-bold text-slate-800 leading-none">Manager Panel</h1>
-                <p className="text-xs text-slate-500">Team Overview</p>
-            </div>
-        </div>
 
-        <button 
-            onClick={signOut} // 👈 Logout Logic
-            className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium text-sm"
-        >
-            <LogOut size={18} />
-            <span className="hidden sm:inline">Sign Out</span>
-        </button>
-      </nav>
-
-      <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard 
-            icon={<Users className="text-blue-600"/>} 
-            label="My Team" 
-            value={stats.teamSize} 
-            color="bg-blue-50"
-          />
-          <StatCard 
-            icon={<UserPlus className="text-purple-600"/>} 
-            label="Total Leads" 
-            value={stats.totalLeads} 
-            color="bg-purple-50"
-          />
-          <StatCard 
-            icon={<TrendingUp className="text-green-600"/>} 
-            label="Converted" 
-            value={stats.converted} 
-            color="bg-green-50"
-          />
-          
-          {/* 👇 2. EXPENSES SECTION FIXED (Clearer Name) */}
-          <StatCard 
-            icon={<Wallet className="text-orange-600"/>} 
-            label="Total Invested" 
-            value={stats.revenue === 0 ? "Free Tier" : `₹${stats.revenue.toLocaleString()}`} 
-            color="bg-orange-50"
-          />
-        </div>
-
-        {/* Team Code Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 md:p-8 text-white mb-8 shadow-lg relative overflow-hidden">
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Grow Your Team</h2>
-              <p className="text-blue-100">Share this unique code with your sales agents to add them automatically.</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl flex items-center gap-4 border border-white/20 shadow-inner">
-              <span className="text-3xl font-mono font-bold tracking-widest px-4 text-white">{teamCode || '...'}</span>
+            <div className="flex items-center gap-2">
               <button 
-                onClick={copyCode} 
-                className="bg-white text-blue-600 p-3 rounded-lg hover:bg-blue-50 transition-colors shadow-md active:scale-95"
-                title="Copy Code"
+                onClick={fetchManagerData}
+                disabled={refreshing}
+                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
               >
-                {copied ? <Check size={20}/> : <Copy size={20}/>}
+                <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              
+              <button 
+                onClick={signOut}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium text-sm"
+              >
+                <LogOut size={18} />
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-500/30 rounded-full blur-2xl"></div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        
+        {/* Team Code Section */}
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6 shadow-xl relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full -ml-16 -mb-16 blur-xl"></div>
+          
+          <div className="relative z-10">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <Share2 size={24} /> Grow Your Team
+                </h2>
+                <p className="text-blue-100 text-sm max-w-md">
+                  Share your unique code with sales agents. They'll automatically join your team on signup!
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                {/* Team Code Display */}
+                <div className="bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center gap-3 border border-white/20">
+                  <span className="text-2xl sm:text-3xl font-mono font-bold tracking-widest px-2">
+                    {teamCode || 'NO CODE'}
+                  </span>
+                  <button 
+                    onClick={copyCode} 
+                    className="bg-white text-blue-600 p-2.5 rounded-lg hover:bg-blue-50 transition-colors shadow-md"
+                    title="Copy Code"
+                  >
+                    {copied ? <Check size={20}/> : <Copy size={20}/>}
+                  </button>
+                </div>
+                
+                {/* WhatsApp Share */}
+                <button 
+                  onClick={shareOnWhatsApp}
+                  className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg"
+                >
+                  <MessageSquare size={20} />
+                  <span>Share on WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Placeholder for future Charts/Tables */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-           <div className="inline-block p-4 bg-slate-50 rounded-full mb-4">
-              <Users size={32} className="text-slate-400" />
-           </div>
-           <h3 className="text-lg font-bold text-slate-800">Team Performance</h3>
-           <p className="text-slate-500">Member-wise analytics will appear here once they start calling.</p>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <StatCard 
+            icon={<Users size={20} />} 
+            label="Team Size" 
+            value={stats.teamSize} 
+            color="blue"
+          />
+          <StatCard 
+            icon={<UserCheck size={20} />} 
+            label="Active" 
+            value={stats.activeMembers} 
+            color="green"
+          />
+          <StatCard 
+            icon={<Target size={20} />} 
+            label="Total Leads" 
+            value={stats.totalLeads} 
+            color="purple"
+          />
+          <StatCard 
+            icon={<Clock size={20} />} 
+            label="Interested" 
+            value={stats.interestedLeads} 
+            color="orange"
+          />
+          <StatCard 
+            icon={<Award size={20} />} 
+            label="Closed" 
+            value={stats.closedLeads} 
+            color="emerald"
+          />
+          <StatCard 
+            icon={<TrendingUp size={20} />} 
+            label="Conversion" 
+            value={`${stats.conversionRate}%`} 
+            color="pink"
+          />
+        </div>
+
+        {/* Team Members Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Users size={18} /> Team Members ({teamMembers.length})
+            </h3>
+          </div>
+
+          {teamMembers.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserPlus size={32} className="text-slate-400" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">No Team Members Yet</h3>
+              <p className="text-slate-500 mb-4 max-w-sm mx-auto">
+                Share your team code <span className="font-mono font-bold text-blue-600">{teamCode}</span> with agents to grow your team!
+              </p>
+              <button 
+                onClick={shareOnWhatsApp}
+                className="inline-flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-600 transition-all"
+              >
+                <MessageSquare size={18} /> Invite via WhatsApp
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b uppercase text-xs">
+                    <tr>
+                      <th className="p-4 pl-6">Member</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Plan</th>
+                      <th className="p-4 text-center">Total Leads</th>
+                      <th className="p-4 text-center">Interested</th>
+                      <th className="p-4 text-center">Closed</th>
+                      <th className="p-4 text-center">Today</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {teamMembers.map((member) => (
+                      <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-4 pl-6">
+                          <div className="font-bold text-slate-900">{member.name || 'No Name'}</div>
+                          <div className="text-xs text-slate-500">{member.email}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(member.payment_status)}`}>
+                            {member.payment_status === 'active' ? '● Active' : '○ Inactive'}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${getPlanColor(member.plan_name)}`}>
+                            {member.plan_name || 'None'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="font-bold text-slate-900">{member.total_leads}</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="font-bold text-orange-600">{member.interested_leads}</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="font-bold text-green-600">{member.closed_leads}</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="text-slate-600">
+                            {member.leads_today} / {member.daily_limit}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {teamMembers.map((member) => (
+                  <div key={member.id} className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <div className="font-bold text-slate-900">{member.name || 'No Name'}</div>
+                        <div className="text-xs text-slate-500">{member.email}</div>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(member.payment_status)}`}>
+                        {member.payment_status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${getPlanColor(member.plan_name)}`}>
+                        {member.plan_name || 'No Plan'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Today: {member.leads_today}/{member.daily_limit}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-50 p-2 rounded-lg text-center">
+                        <div className="text-lg font-bold text-slate-900">{member.total_leads}</div>
+                        <div className="text-xs text-slate-500">Total</div>
+                      </div>
+                      <div className="bg-orange-50 p-2 rounded-lg text-center">
+                        <div className="text-lg font-bold text-orange-600">{member.interested_leads}</div>
+                        <div className="text-xs text-orange-600">Interested</div>
+                      </div>
+                      <div className="bg-green-50 p-2 rounded-lg text-center">
+                        <div className="text-lg font-bold text-green-600">{member.closed_leads}</div>
+                        <div className="text-xs text-green-600">Closed</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Performance Tip */}
+        <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="p-2 bg-amber-100 rounded-lg">
+            <Award size={20} className="text-amber-600" />
+          </div>
+          <div>
+            <h4 className="font-bold text-amber-800">Pro Tip: Boost Conversions</h4>
+            <p className="text-sm text-amber-700">
+              Members who follow up within 5 minutes have 21x higher conversion rates! 
+              Encourage your team to call leads immediately.
+            </p>
+          </div>
         </div>
 
       </main>
@@ -179,13 +429,26 @@ export const ManagerDashboard = () => {
   );
 };
 
-// Reusable Stat Card Component
-const StatCard = ({ icon, label, value, color }: any) => (
-  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
-    <div className="flex justify-between items-start mb-4">
-      <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
+// Stat Card Component
+const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) => {
+  const colors: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-600',
+    green: 'bg-green-50 text-green-600',
+    purple: 'bg-purple-50 text-purple-600',
+    orange: 'bg-orange-50 text-orange-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    pink: 'bg-pink-50 text-pink-600',
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <div className={`inline-flex p-2 rounded-lg ${colors[color]} mb-2`}>
+        {icon}
+      </div>
+      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
+      <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
     </div>
-    <p className="text-slate-500 text-sm font-medium">{label}</p>
-    <h3 className="text-2xl font-bold text-slate-900 mt-1">{value}</h3>
-  </div>
-);
+  );
+};
+
+export default ManagerDashboard;
