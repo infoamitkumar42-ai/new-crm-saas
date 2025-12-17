@@ -3,6 +3,9 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
 
+// 🔗 Google Apps Script Web App URL
+const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
+
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
@@ -61,6 +64,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     } catch (err) {
         console.warn("Background sync failed, keeping temp profile.");
+    }
+  };
+
+  // 📊 Create Personal Google Sheet for User
+  const createUserSheet = async (userId: string, email: string, name: string) => {
+    try {
+      console.log("📊 Creating personal Google Sheet for:", email);
+      
+      const response = await fetch(SHEET_CREATOR_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Important for Google Apps Script
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createSheet',
+          userId: userId,
+          email: email,
+          name: name
+        })
+      });
+      
+      console.log("✅ Sheet creation request sent");
+      
+      // Note: Due to 'no-cors', we can't read the response
+      // But the script will update Supabase directly with sheet_url
+      
+    } catch (err) {
+      console.warn("⚠️ Sheet creation failed (non-critical):", err);
+      // Continue anyway - sheet can be created manually later
     }
   };
 
@@ -139,11 +172,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (session?.user) await instantLoad(session.user);
   };
 
+  // ✅ UPDATED SIGNUP - Now creates Google Sheet too!
   const signUp = async ({ email, password, name }: any) => {
-    const { error } = await supabase.auth.signUp({ 
-        email, password, options: { data: { name } }
+    // Step 1: Create auth user
+    const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password, 
+        options: { data: { name } }
     });
+    
     if (error) throw error;
+    
+    // Step 2: Create personal Google Sheet (background task)
+    if (data.user) {
+      // Don't await - let it run in background
+      createUserSheet(data.user.id, email, name).catch(err => {
+        console.warn("Sheet creation background task failed:", err);
+      });
+    }
   };
 
   const signIn = async ({ email, password }: any) => {
