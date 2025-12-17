@@ -358,9 +358,14 @@ export const Landing = () => {
         </div>
         <div className="max-w-7xl mx-auto px-4 mt-12 pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
           <p>© 2024 LeadFlow SaaS. All rights reserved.</p>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-slate-400">Privacy Policy</a>
-            <a href="#" className="hover:text-slate-400">Terms of Service</a>
+          
+          {/* 👇 FULL PRIVACY LINKS */}
+          <div className="flex gap-6 flex-wrap">
+            <a href="/privacy" className="hover:text-slate-400">Privacy Policy</a>
+            <a href="/terms" className="hover:text-slate-400">Terms of Service</a>
+            <a href="/refund" className="hover:text-slate-400">Refund Policy</a>
+            <a href="/shipping" className="hover:text-slate-400">Shipping Policy</a>
+            <a href="/contact" className="hover:text-slate-400">Contact Us</a>
           </div>
         </div>
       </footer>
@@ -391,6 +396,7 @@ const BoxIcon = () => (
   </svg>
 );
 
+// ✅ CUSTOM TESTIMONIALS RESTORED
 const testimonials = [
     {
         name: "Rahul Sharma",
