@@ -6,7 +6,7 @@ import { UserRole } from "../types";
 import { Users, Briefcase, ShieldCheck, FileSpreadsheet } from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
-const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
+const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
 
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
