@@ -14,12 +14,19 @@ export const LeadAlert = () => {
   useEffect(() => {
     if (!session?.user) return;
 
-    // 1. Permission (System Notification ke liye)
+    // 1. Service Worker Register karo (Mobile Notification ke liye zaroori hai)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('✅ Service Worker Registered!', reg))
+        .catch(err => console.log('❌ SW Error:', err));
+    }
+
+    // 2. Permission Maango
     if (Notification.permission !== "granted") {
       Notification.requestPermission();
     }
 
-    // 2. Realtime Listener
+    // 3. Realtime Listener
     const channel = supabase
       .channel('public:leads')
       .on(
@@ -42,56 +49,63 @@ export const LeadAlert = () => {
     };
   }, [session]);
 
-  const triggerAlert = (lead: any) => {
+  const triggerAlert = async (lead: any) => {
     // A. Play Sound
     try {
       const audio = new Audio(ALERT_SOUND);
       audio.play().catch(e => console.log("Audio Error:", e));
     } catch(e) {}
 
-    // B. Show In-App Popup (Screen ke upar)
+    // B. Show In-App Banner (Backup ke liye)
     setLastLead(lead);
     setVisible(true);
 
-    // C. System Notification (Agar user app se bahar hai tab dikhega)
-    if (Notification.permission === "granted" && document.hidden) {
-      new Notification("🔥 New Lead Received", {
-        body: `${lead.name} from ${lead.city}`,
-        icon: "/vite.svg"
-      });
+    // C. SYSTEM NOTIFICATION (MOBILE SPECIAL) 📲
+    if (Notification.permission === "granted") {
+      try {
+        // Mobile par Service Worker ke through hi notification aata hai
+        const registration = await navigator.serviceWorker.ready;
+        
+        registration.showNotification("🔥 New Lead Received!", {
+          body: `${lead.name} from ${lead.city}\nTap to call now.`,
+          icon: "/vite.svg", // Logo
+          badge: "/vite.svg", // Small Icon
+          vibrate: [200, 100, 200], // Phone Vibrate karega
+          tag: "new-lead", // Naye notification purane ko replace nahi karenge
+          renotify: true   // Har bar sound bajega
+        });
+        
+      } catch (e) {
+        console.error("Mobile Notification Error:", e);
+        // Agar SW fail ho jaye to Desktop wala try karo
+        new Notification("New Lead!", { body: lead.name });
+      }
     }
 
-    // 10 second baad auto-hide
+    // 10 second baad in-app banner hatao
     setTimeout(() => setVisible(false), 10000);
   };
 
   if (!visible || !lastLead) return null;
 
+  // 👇 In-App Banner (WhatsApp Style)
   return (
-    // 👇 FINAL DESIGN: WhatsApp Style Notification at TOP
-    <div className="fixed top-0 left-0 w-full z-[99999] animate-slide-down">
-      <div className="bg-green-600 text-white px-4 py-3 shadow-2xl flex items-center justify-between gap-3">
-        
-        {/* Left Side: Icon & Text */}
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="bg-white/20 p-2 rounded-full shrink-0">
-             <MessageCircle size={24} className="text-white animate-bounce" />
+    <div className="fixed top-0 left-0 w-full z-[99999] animate-slide-down shadow-xl">
+      <div className="bg-[#25D366] text-white px-4 py-3 flex items-center justify-between border-b border-green-700">
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-2 rounded-full shadow-sm">
+             <MessageCircle size={20} className="text-[#25D366]" />
           </div>
-          <div className="min-w-0">
-             <p className="text-xs font-bold text-green-100 uppercase tracking-wide">New Lead Received!</p>
-             <p className="text-base font-bold truncate text-white leading-tight">{lastLead.name}</p>
-             <p className="text-xs text-green-100 truncate flex items-center gap-1">
+          <div>
+             <p className="text-[10px] font-bold text-green-100 uppercase">LeadFlow • Now</p>
+             <p className="text-sm font-bold text-white">{lastLead.name}</p>
+             <p className="text-xs text-green-50 flex items-center gap-1">
                 <CheckCircle size={10} /> {lastLead.city || 'Waiting for location...'}
              </p>
           </div>
         </div>
-
-        {/* Right Side: Close Button */}
-        <button 
-          onClick={() => setVisible(false)}
-          className="p-2 bg-black/10 rounded-full hover:bg-black/20 shrink-0"
-        >
-          <X size={20} />
+        <button onClick={() => setVisible(false)} className="p-2 bg-black/10 rounded-full">
+          <X size={18} />
         </button>
       </div>
     </div>
