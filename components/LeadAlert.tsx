@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 
-// 🔔 Sound Effect (Professional Ting)
+// 🔔 Sound Effect URL
 const ALERT_SOUND = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"; 
 
 export const LeadAlert = () => {
@@ -16,16 +16,16 @@ export const LeadAlert = () => {
       Notification.requestPermission();
     }
 
-    // 2. Supabase Realtime Listener (Jaasus)
+    // 2. Supabase Realtime Listener
     const channel = supabase
       .channel('public:leads')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT', // Sirf NEW leads par bajega
+          event: 'INSERT',
           schema: 'public',
           table: 'leads',
-          filter: `user_id=eq.${session.user.id}` // 🎯 Sirf meri leads suno
+          filter: `user_id=eq.${session.user.id}` // Sirf meri leads suno
         },
         (payload) => {
           console.log('🔔 New Lead!', payload);
@@ -43,13 +43,13 @@ export const LeadAlert = () => {
     try {
       // 🔊 Play Sound
       const audio = new Audio(ALERT_SOUND);
-      audio.play().catch(e => console.log("Audio play blocked by browser:", e));
+      audio.play().catch(e => console.log("Audio play blocked:", e));
 
       // 💬 Show Popup
       if (Notification.permission === "granted") {
         new Notification("🔥 New Lead Received!", {
           body: `${lead.name} from ${lead.city}\nClick to Call Now!`,
-          icon: "/vite.svg" // Apne logo ka path
+          icon: "/vite.svg"
         });
       }
     } catch (e) {
@@ -57,5 +57,5 @@ export const LeadAlert = () => {
     }
   };
 
-  return null; // Hidden component
+  return null; // Ye screen par dikhta nahi hai
 };
