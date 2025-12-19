@@ -1,17 +1,61 @@
-import React from 'react';
-import { Sidebar } from './Sidebar';
-import { LeadAlert } from './LeadAlert'; // 👈 Import kiya
+import React, { useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+import { useAuth } from '../auth/useAuth';
 
-export const Layout = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <LeadAlert /> {/* 👈 Yahan laga diya. Ab ye har page par active rahega */}
-        <div className="p-8">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
+// 🔔 Sound Effect (Professional Ting)
+const ALERT_SOUND = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"; 
+
+export const LeadAlert = () => {
+  const { session } = useAuth();
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    // 1. Browser se Permission maango
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    // 2. Supabase Realtime Listener (Jaasus)
+    const channel = supabase
+      .channel('public:leads')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT', // Sirf NEW leads par bajega
+          schema: 'public',
+          table: 'leads',
+          filter: `user_id=eq.${session.user.id}` // 🎯 Sirf meri leads suno
+        },
+        (payload) => {
+          console.log('🔔 New Lead!', payload);
+          triggerNotification(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  const triggerNotification = (lead: any) => {
+    try {
+      // 🔊 Play Sound
+      const audio = new Audio(ALERT_SOUND);
+      audio.play().catch(e => console.log("Audio play blocked by browser:", e));
+
+      // 💬 Show Popup
+      if (Notification.permission === "granted") {
+        new Notification("🔥 New Lead Received!", {
+          body: `${lead.name} from ${lead.city}\nClick to Call Now!`,
+          icon: "/vite.svg" // Apne logo ka path
+        });
+      }
+    } catch (e) {
+      console.error("Notification Error:", e);
+    }
+  };
+
+  return null; // Hidden component
 };
