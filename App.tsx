@@ -8,6 +8,7 @@ import { Subscription } from './views/Subscription';
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
+import { NotificationBanner } from './components/NotificationBanner'; // 👈 NEW IMPORT
 import { useAuth } from './auth/useAuth';
 import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
@@ -21,7 +22,6 @@ function App() {
   useEffect(() => {
     const getProfile = async () => {
         if (session?.user) {
-            // Data fetch karte waqt thoda wait logic
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
@@ -29,7 +29,7 @@ function App() {
                 .single();
             
             if (data) {
-                console.log("User Role Found:", data.role); // 👈 Console mein check krne ke liye
+                console.log("User Role Found:", data.role);
                 setFullProfile(data as CustomUser);
             }
         }
@@ -46,16 +46,25 @@ function App() {
     );
   }
 
-  // 👇 Improved Dashboard Logic (Case Insensitive)
+  // 👇 Check if user is PAID member
+  const isPaidMember = (): boolean => {
+    if (!fullProfile) return false;
+    
+    // Check subscription status
+    // Adjust this based on your actual subscription field name
+    const hasActiveSubscription = 
+      fullProfile.subscription_status === 'active' ||
+      fullProfile.is_subscribed === true ||
+      fullProfile.plan_type === 'paid' ||
+      fullProfile.subscription_end && new Date(fullProfile.subscription_end) > new Date();
+    
+    return hasActiveSubscription;
+  };
+
   const getDashboard = () => {
     if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
 
-    // Role ko small letters mein convert karke check karo
     const userRole = fullProfile.role?.toLowerCase().trim(); 
-
-    // 👇 DEBUGGER: Agar mobile pe galti ho rahi hai, to ye upar dikhega
-    // (Launch ke baad ise hata dena)
-    // return <div>Role Detected: {userRole}</div>; 
 
     switch (userRole) {
       case 'admin':
@@ -64,7 +73,6 @@ function App() {
         return <ManagerDashboard />;
       case 'member':
       default:
-        // Agar role kuch ajeeb hai ya 'member' hai, tabhi ye khulega
         return (
             <Layout>
                 <MemberDashboard />
@@ -75,9 +83,17 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* 
+        👇 NOTIFICATION BANNER - Only for LOGGED IN + PAID members 
+        यह Banner तभी दिखेगा जब:
+        1. User logged in है
+        2. User paid member है
+      */}
+      {session && fullProfile && isPaidMember() && (
+        <NotificationBanner />
+      )}
+
       <Routes>
-        
-        {/* Main Route Logic */}
         <Route 
           path="/" 
           element={session ? getDashboard() : <Landing />} 
@@ -86,7 +102,6 @@ function App() {
         <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
         <Route path="/landing" element={<Landing />} />
         
-        {/* Protected Routes */}
         {session && fullProfile && (
             <>
                 <Route path="/target" element={
