@@ -1,12 +1,11 @@
 // =====================================================
 // src/components/LeadAlert.tsx
-// Clean & Professional Lead Alert Component
+// Complete Lead Alert with Sound + Banner + Notification
 // =====================================================
 
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { usePushNotification } from '../hooks/usePushNotification';
 import { X, Volume2, VolumeX } from 'lucide-react';
 
 interface Lead {
@@ -27,14 +26,30 @@ const ONLINE_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
   
-  // Push Notification Hook
-  const pushNotification = usePushNotification();
-  
   // Local State
   const [alert, setAlert] = useState<AlertState>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
+  const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  // ─────────────────────────────────────────────────
+  // Service Worker Setup
+  // ─────────────────────────────────────────────────
+  useEffect(() => {
+    const setupSW = async () => {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          swRegistrationRef.current = registration;
+          console.log("✅ SW Ready for notifications");
+        } catch (e) {
+          console.log("SW setup error:", e);
+        }
+      }
+    };
+    setupSW();
+  }, []);
 
   // ─────────────────────────────────────────────────
   // Audio Setup
@@ -74,7 +89,7 @@ export const LeadAlert: React.FC = () => {
   }, []);
 
   // ─────────────────────────────────────────────────
-  // Supabase Realtime Subscription (In-App Alerts)
+  // Supabase Realtime Subscription
   // ─────────────────────────────────────────────────
   useEffect(() => {
     if (!session?.user) return;
@@ -89,7 +104,7 @@ export const LeadAlert: React.FC = () => {
         async (payload) => {
           console.log("📩 New lead received:", payload.new);
           const lead = payload.new as Lead;
-          await triggerInAppAlert(lead);
+          await triggerAllAlerts(lead);
         }
       )
       .subscribe((status) => {
@@ -97,40 +112,77 @@ export const LeadAlert: React.FC = () => {
       });
     
     return () => { 
-      console.log("📡 Cleaning up Realtime...");
       supabase.removeChannel(channel); 
     };
   }, [session, soundEnabled]);
 
   // ─────────────────────────────────────────────────
-  // Trigger In-App Alert (Sound + Banner)
+  // Trigger ALL Alerts (Sound + Banner + Notification)
   // ─────────────────────────────────────────────────
-  const triggerInAppAlert = async (lead: Lead) => {
-    console.log("🔔 Triggering in-app alert for:", lead.name);
+  const triggerAllAlerts = async (lead: Lead) => {
+    console.log("🔔 Triggering all alerts for:", lead.name);
     
-    // Play Sound
+    // 1️⃣ Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
         console.log("🔊 Sound played");
       } catch (e) {
-        console.log("🔇 Sound play failed:", e);
+        console.log("🔇 Sound failed:", e);
       }
     }
     
-    // Show Banner
+    // 2️⃣ Show In-App Banner
     setAlert({ show: true, lead });
     
-    // Vibrate
+    // 3️⃣ Vibrate
     if ('vibrate' in navigator) {
       navigator.vibrate([200, 100, 200]);
     }
     
-    // Auto-hide after 8 seconds
+    // 4️⃣ Show System Notification (Status Bar)
+    await showSystemNotification(lead);
+    
+    // Auto-hide banner after 8 seconds
     setTimeout(() => {
       setAlert(prev => prev.lead?.id === lead.id ? { show: false, lead: null } : prev);
     }, 8000);
+  };
+
+  // ─────────────────────────────────────────────────
+  // Show System Notification
+  // ─────────────────────────────────────────────────
+  const showSystemNotification = async (lead: Lead) => {
+    // Check permission
+    if (Notification.permission !== 'granted') {
+      console.log("❌ Notification permission not granted");
+      return;
+    }
+
+    // Check SW registration
+    if (!swRegistrationRef.current) {
+      console.log("❌ SW not ready");
+      return;
+    }
+
+    try {
+      await swRegistrationRef.current.showNotification('🔥 New Lead!', {
+        body: `${lead.name}${lead.city ? ` from ${lead.city}` : ''}`,
+        icon: '/vite.svg',
+        badge: '/vite.svg',
+        tag: `lead-${lead.id}`,
+        vibrate: [200, 100, 200],
+        requireInteraction: true,
+        data: {
+          url: '/',
+          leadId: lead.id
+        }
+      });
+      console.log("✅ System notification shown!");
+    } catch (e) {
+      console.error("❌ Notification error:", e);
+    }
   };
 
   // ─────────────────────────────────────────────────
@@ -180,7 +232,7 @@ export const LeadAlert: React.FC = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════
-          SOUND TOGGLE BUTTON (Small, Bottom Corner)
+          SOUND TOGGLE BUTTON
           ═══════════════════════════════════════════════════ */}
       {session && (
         <button 
