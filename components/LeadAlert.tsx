@@ -1,6 +1,6 @@
 // =====================================================
 // src/components/LeadAlert.tsx
-// Complete Lead Alert with Sound + Banner + Notification
+// Lead Alert - Only for Assigned User
 // =====================================================
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -10,9 +10,12 @@ import { X, Volume2, VolumeX } from 'lucide-react';
 
 interface Lead {
   id: string;
+  user_id: string;  // 👈 Important: जिस user को assign हुई
   name: string;
-  mobile?: string;
+  phone?: string;
   city?: string;
+  source?: string;
+  status?: string;
   created_at: string;
 }
 
@@ -21,12 +24,12 @@ interface AlertState {
   lead: Lead | null;
 }
 
-const ONLINE_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+const SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
 
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
   
-  // Local State
+  // State
   const [alert, setAlert] = useState<AlertState>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -42,9 +45,9 @@ export const LeadAlert: React.FC = () => {
         try {
           const registration = await navigator.serviceWorker.ready;
           swRegistrationRef.current = registration;
-          console.log("✅ SW Ready for notifications");
+          console.log("✅ [LeadAlert] SW Ready");
         } catch (e) {
-          console.log("SW setup error:", e);
+          console.log("❌ [LeadAlert] SW error:", e);
         }
       }
     };
@@ -55,7 +58,7 @@ export const LeadAlert: React.FC = () => {
   // Audio Setup
   // ─────────────────────────────────────────────────
   useEffect(() => {
-    audioRef.current = new Audio(ONLINE_SOUND_URL); 
+    audioRef.current = new Audio(SOUND_URL); 
     audioRef.current.volume = 1.0;
     
     return () => {
@@ -66,7 +69,7 @@ export const LeadAlert: React.FC = () => {
     };
   }, []);
 
-  // Unlock audio on first user interaction
+  // Unlock audio on first touch/click
   useEffect(() => {
     const unlockAudio = () => {
       if (!audioUnlockedRef.current && audioRef.current) {
@@ -74,8 +77,8 @@ export const LeadAlert: React.FC = () => {
           audioRef.current!.pause();
           audioRef.current!.currentTime = 0;
           audioUnlockedRef.current = true;
-          console.log("🔊 Audio unlocked");
-        }).catch((e) => console.log("Audio unlock failed", e));
+          console.log("🔊 [LeadAlert] Audio unlocked");
+        }).catch(() => {});
       }
     };
     
@@ -89,47 +92,54 @@ export const LeadAlert: React.FC = () => {
   }, []);
 
   // ─────────────────────────────────────────────────
-  // Supabase Realtime Subscription
+  // 🎯 Supabase Realtime - ONLY MY LEADS
   // ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user?.id) return;
     
-    console.log("📡 Setting up Supabase Realtime...");
+    const currentUserId = session.user.id;
+    console.log("📡 [LeadAlert] Subscribing for user:", currentUserId);
     
     const channel = supabase
-      .channel('leads-realtime-alert')
+      .channel('my-leads-channel')
       .on(
         'postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'leads' },
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'leads',
+          filter: `user_id=eq.${currentUserId}`  // 👈 FILTER: Only MY leads
+        },
         async (payload) => {
-          console.log("📩 New lead received:", payload.new);
+          console.log("📩 [LeadAlert] New lead for ME:", payload.new);
           const lead = payload.new as Lead;
-          await triggerAllAlerts(lead);
+          await triggerAlert(lead);
         }
       )
       .subscribe((status) => {
-        console.log("📡 Realtime status:", status);
+        console.log("📡 [LeadAlert] Subscription status:", status);
       });
     
     return () => { 
+      console.log("📡 [LeadAlert] Unsubscribing...");
       supabase.removeChannel(channel); 
     };
-  }, [session, soundEnabled]);
+  }, [session?.user?.id, soundEnabled]);
 
   // ─────────────────────────────────────────────────
-  // Trigger ALL Alerts (Sound + Banner + Notification)
+  // Trigger All Alerts
   // ─────────────────────────────────────────────────
-  const triggerAllAlerts = async (lead: Lead) => {
-    console.log("🔔 Triggering all alerts for:", lead.name);
+  const triggerAlert = async (lead: Lead) => {
+    console.log("🔔 [LeadAlert] Triggering alert for:", lead.name);
     
     // 1️⃣ Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
-        console.log("🔊 Sound played");
+        console.log("🔊 [LeadAlert] Sound played");
       } catch (e) {
-        console.log("🔇 Sound failed:", e);
+        console.log("🔇 [LeadAlert] Sound failed");
       }
     }
     
@@ -138,58 +148,49 @@ export const LeadAlert: React.FC = () => {
     
     // 3️⃣ Vibrate
     if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200]);
+      navigator.vibrate([200, 100, 200, 100, 200]);
     }
     
-    // 4️⃣ Show System Notification (Status Bar)
+    // 4️⃣ System Notification (Status Bar)
     await showSystemNotification(lead);
     
-    // Auto-hide banner after 8 seconds
+    // Auto-hide after 10 seconds
     setTimeout(() => {
       setAlert(prev => prev.lead?.id === lead.id ? { show: false, lead: null } : prev);
-    }, 8000);
+    }, 10000);
   };
 
   // ─────────────────────────────────────────────────
-  // Show System Notification
+  // System Notification
   // ─────────────────────────────────────────────────
   const showSystemNotification = async (lead: Lead) => {
-    // Check permission
     if (Notification.permission !== 'granted') {
-      console.log("❌ Notification permission not granted");
+      console.log("❌ [LeadAlert] Permission not granted");
       return;
     }
 
-    // Check SW registration
     if (!swRegistrationRef.current) {
-      console.log("❌ SW not ready");
+      console.log("❌ [LeadAlert] SW not ready");
       return;
     }
 
     try {
-      await swRegistrationRef.current.showNotification('🔥 New Lead!', {
-        body: `${lead.name}${lead.city ? ` from ${lead.city}` : ''}`,
+      await swRegistrationRef.current.showNotification('🔥 New Lead Assigned!', {
+        body: `${lead.name}${lead.city ? ` from ${lead.city}` : ''}\n${lead.source ? `Source: ${lead.source}` : ''}`,
         icon: '/vite.svg',
         badge: '/vite.svg',
         tag: `lead-${lead.id}`,
-        vibrate: [200, 100, 200],
+        vibrate: [200, 100, 200, 100, 200],
         requireInteraction: true,
         data: {
           url: '/',
           leadId: lead.id
         }
       });
-      console.log("✅ System notification shown!");
+      console.log("✅ [LeadAlert] System notification shown!");
     } catch (e) {
-      console.error("❌ Notification error:", e);
+      console.error("❌ [LeadAlert] Notification error:", e);
     }
-  };
-
-  // ─────────────────────────────────────────────────
-  // Dismiss Alert
-  // ─────────────────────────────────────────────────
-  const dismissAlert = () => {
-    setAlert({ show: false, lead: null });
   };
 
   // ─────────────────────────────────────────────────
@@ -201,28 +202,39 @@ export const LeadAlert: React.FC = () => {
           IN-APP LEAD ALERT BANNER
           ═══════════════════════════════════════════════════ */}
       {alert.show && alert.lead && (
-        <div className="fixed top-16 left-0 w-full z-[9998] flex justify-center pointer-events-none px-4">
-          <div className="pointer-events-auto w-full max-w-sm bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 rounded-2xl shadow-2xl border border-green-400/30"
-               style={{ animation: 'slideDown 0.3s ease-out' }}>
-            <div className="flex items-start justify-between gap-3">
-              {/* Lead Info */}
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-                  <span className="text-2xl">🔥</span>
-                </div>
-                <div>
-                  <p className="font-bold text-lg leading-tight">New Lead!</p>
-                  <p className="font-semibold text-white/95">{alert.lead.name}</p>
+        <div className="fixed top-14 left-0 w-full z-[9998] flex justify-center pointer-events-none px-3">
+          <div 
+            className="pointer-events-auto w-full max-w-md bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500 text-white p-4 rounded-2xl shadow-2xl border border-white/20"
+            style={{ animation: 'slideDown 0.4s ease-out' }}
+          >
+            <div className="flex items-start gap-3">
+              {/* Icon */}
+              <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-3xl">🔥</span>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-lg">New Lead!</p>
+                <p className="font-semibold text-white/95 truncate">{alert.lead.name}</p>
+                <div className="flex flex-wrap gap-2 mt-1">
                   {alert.lead.city && (
-                    <p className="text-sm text-green-100 mt-0.5">📍 {alert.lead.city}</p>
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                      📍 {alert.lead.city}
+                    </span>
+                  )}
+                  {alert.lead.source && (
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                      📣 {alert.lead.source}
+                    </span>
                   )}
                 </div>
               </div>
               
-              {/* Close Button */}
+              {/* Close */}
               <button 
-                onClick={dismissAlert} 
-                className="p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors"
+                onClick={() => setAlert({ show: false, lead: null })} 
+                className="p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors flex-shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -237,7 +249,7 @@ export const LeadAlert: React.FC = () => {
       {session && (
         <button 
           onClick={() => setSoundEnabled(prev => !prev)}
-          className="fixed bottom-6 right-6 z-50 p-3 bg-white rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+          className="fixed bottom-6 right-6 z-50 p-3 bg-white rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all active:scale-95"
           title={soundEnabled ? "Mute Sound" : "Enable Sound"}
         >
           {soundEnabled ? (
@@ -248,16 +260,16 @@ export const LeadAlert: React.FC = () => {
         </button>
       )}
 
-      {/* Animation Keyframes */}
+      {/* Animation */}
       <style>{`
         @keyframes slideDown {
           from {
             opacity: 0;
-            transform: translateY(-20px);
+            transform: translateY(-30px) scale(0.95);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
         }
       `}</style>
