@@ -1,5 +1,3 @@
-// Service Worker for Push Notifications
-
 self.addEventListener('install', () => {
   console.log('[SW] Installed');
   self.skipWaiting();
@@ -12,9 +10,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received');
-  
   const data = event.data ? event.data.json() : {};
-  
   event.waitUntil(
     self.registration.showNotification(data.title || '🔥 New Lead!', {
       body: data.body || 'You have a new lead',
@@ -27,7 +23,5 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+  event.waitUntil(clients.openWindow('/'));
 });
