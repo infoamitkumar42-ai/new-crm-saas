@@ -9,6 +9,7 @@ import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
 import { NotificationBanner } from './components/NotificationBanner';
+import { LeadAlert } from './components/LeadAlert';
 import { useAuth } from './auth/useAuth';
 import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
@@ -29,7 +30,7 @@ function App() {
                 .single();
             
             if (data) {
-                console.log("User Role Found:", data.role);
+                console.log("User Profile:", data);
                 setFullProfile(data as CustomUser);
             }
         }
@@ -45,6 +46,32 @@ function App() {
       </div>
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔐 PAID MEMBER CHECK
+  // ═══════════════════════════════════════════════════════════════
+  const isPaidMember = (): boolean => {
+    if (!fullProfile) return false;
+    
+    // Check 1: payment_status must be 'active'
+    const hasActivePayment = fullProfile.payment_status === 'active';
+    
+    // Check 2: valid_until must be in future
+    const hasValidSubscription = fullProfile.valid_until 
+      ? new Date(fullProfile.valid_until) > new Date() 
+      : false;
+    
+    // Both conditions must be true
+    const isPaid = hasActivePayment && hasValidSubscription;
+    
+    console.log("💳 Paid Member Check:", {
+      payment_status: fullProfile.payment_status,
+      valid_until: fullProfile.valid_until,
+      isPaid: isPaid
+    });
+    
+    return isPaid;
+  };
 
   const getDashboard = () => {
     if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
@@ -68,8 +95,19 @@ function App() {
 
   return (
     <BrowserRouter>
-      {/* 👇 ALL logged-in users के लिए Notification Banner */}
-      {session && fullProfile && <NotificationBanner />}
+      {/* ═══════════════════════════════════════════════════════════════
+          🔔 NOTIFICATIONS - ONLY FOR PAID MEMBERS
+          ═══════════════════════════════════════════════════════════════ */}
+      
+      {/* Push Notification Banner - Enable करने के लिए */}
+      {session && fullProfile && isPaidMember() && (
+        <NotificationBanner />
+      )}
+      
+      {/* Lead Alert - Sound + In-App Banner */}
+      {session && fullProfile && isPaidMember() && (
+        <LeadAlert />
+      )}
 
       <Routes>
         <Route 
