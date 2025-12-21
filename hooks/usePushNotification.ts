@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-// 👇 AAPKI PUBLIC KEY
+// 👇 AAPKI PUBLIC KEY (Jo aapne di thi)
 const VAPID_PUBLIC_KEY = "BOi4O_qTZndnapSjTjiI8k3KfrT6rCkCkj0a4uoA6tVr2-mbEEypXnLcSlUmMuvzjrXY2Ixv2iIUWBwawFN7TXU";
 
 export function usePushNotification() {
   const [loading, setLoading] = useState(false);
 
-  // Helper: Convert Key
   function urlBase64ToUint8Array(base64String: string) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -19,13 +18,11 @@ export function usePushNotification() {
     return outputArray;
   }
 
-  // Main Function to Subscribe
   const subscribeToPush = async (userId: string) => {
     if (!('serviceWorker' in navigator)) return;
     setLoading(true);
 
     try {
-      console.log("Requesting Notification Permission...");
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         alert("Permission denied!");
@@ -34,16 +31,11 @@ export function usePushNotification() {
       }
 
       const registration = await navigator.serviceWorker.ready;
-      
-      // 1. Google se subscription lo
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
 
-      console.log("✅ Got Subscription from Google:", subscription);
-
-      // 2. Supabase DB mein save karo
       const subJson = subscription.toJSON();
       
       const { error } = await supabase.from('push_subscriptions').upsert({
@@ -54,13 +46,11 @@ export function usePushNotification() {
       }, { onConflict: 'user_id, endpoint' });
 
       if (error) throw error;
-
-      console.log("✅ Saved to Database!");
-      alert("Notifications Enabled Successfully! 🚀");
+      alert("✅ Notifications Enabled! (Database Updated)");
       
-    } catch (error) {
-      console.error("❌ Setup Failed:", error);
-      alert("Failed to enable notifications. Check console.");
+    } catch (error: any) {
+      console.error("❌ Error:", error);
+      alert("Failed: " + error.message);
     } finally {
       setLoading(false);
     }
