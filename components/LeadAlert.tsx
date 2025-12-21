@@ -1,6 +1,6 @@
 // =====================================================
 // src/components/LeadAlert.tsx
-// FIXED VERSION - Simple Realtime
+// FIXED VERSION - Server-Side Filtering (Fixes Mismatch Error)
 // =====================================================
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -25,17 +25,8 @@ export const LeadAlert: React.FC = () => {
   const [alert, setAlert] = useState<{ show: boolean; lead: Lead | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const channelRef = useRef<any>(null);
 
-  // Component Mount Log
-  useEffect(() => {
-    console.log("🚀 [LeadAlert] Component MOUNTED");
-    return () => {
-      console.log("💀 [LeadAlert] Component UNMOUNTED");
-    };
-  }, []);
-
-  // Audio Setup
+  // Audio Setup (Same as before - works well)
   useEffect(() => {
     audioRef.current = new Audio(SOUND_URL);
     audioRef.current.volume = 1.0;
@@ -44,7 +35,6 @@ export const LeadAlert: React.FC = () => {
       audioRef.current?.play().then(() => {
         audioRef.current?.pause();
         if (audioRef.current) audioRef.current.currentTime = 0;
-        console.log("🔊 [LeadAlert] Audio unlocked");
       }).catch(() => {});
     };
 
@@ -57,102 +47,71 @@ export const LeadAlert: React.FC = () => {
     };
   }, []);
 
-  // Supabase Realtime - FIXED VERSION
+  // ✅ SUPABASE REALTIME (The Fix)
   useEffect(() => {
-    if (!session?.user?.id) {
-      console.log("❌ [LeadAlert] No session");
-      return;
-    }
+    if (!session?.user?.id) return;
 
     const userId = session.user.id;
-    console.log("📡 [LeadAlert] Setting up for user:", userId);
+    console.log("📡 [LeadAlert] Subscribing for User:", userId);
 
-    // Create unique channel name
-    const channelName = `leads-${userId}-${Date.now()}`;
-
-    // Simple subscription without filter
-    channelRef.current = supabase
-      .channel(channelName)
+    const channel = supabase
+      .channel(`leads-tracker-${userId}`) 
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'leads'
+          table: 'leads',
+          // 👇 KEY FIX: Server-Side Filter!
+          // This tells Supabase: "Only send events where user_id matches MY ID"
+          // This prevents the "mismatch bindings" error.
+          filter: `user_id=eq.${userId}` 
         },
         (payload) => {
-          console.log("📩 [LeadAlert] New lead received:", payload.new);
-          const lead = payload.new as Lead;
-
-          // Manual filter - check if lead is for this user
-          if (lead.user_id === userId) {
-            console.log("✅ [LeadAlert] Lead is for ME! Triggering alert...");
-            triggerAlert(lead);
-          } else {
-            console.log("⏭️ [LeadAlert] Lead for other user, ignoring");
-          }
+          console.log("🔥 [LeadAlert] Realtime Event:", payload);
+          const newLead = payload.new as Lead;
+          triggerAlert(newLead);
         }
       )
-      .subscribe((status, err) => {
-        console.log("📡 [LeadAlert] Status:", status);
-        if (err) {
-          console.error("❌ [LeadAlert] Error:", err);
-        }
+      .subscribe((status) => {
+        console.log(`📡 [LeadAlert] Connection Status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log("✅ [LeadAlert] Successfully subscribed!");
+          console.log("✅ Ready to receive leads!");
         }
       });
 
-    // Cleanup
     return () => {
-      console.log("🔌 [LeadAlert] Cleaning up channel");
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
+      console.log("🔌 Disconnecting...");
+      supabase.removeChannel(channel);
     };
   }, [session?.user?.id]);
 
-  // Trigger Alert
   const triggerAlert = async (lead: Lead) => {
-    console.log("🔔 [LeadAlert] ALERT TRIGGERED for:", lead.name);
-
     // 1. Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
-        console.log("🔊 Sound played!");
-      } catch (e) {
-        console.log("🔇 Sound failed");
-      }
+      } catch (e) { console.error("Audio error", e); }
     }
 
     // 2. Show Banner
     setAlert({ show: true, lead });
 
     // 3. Vibrate
-    if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200]);
     }
 
     // 4. System Notification
     if (Notification.permission === 'granted') {
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.showNotification('🔥 New Lead!', {
-          body: `${lead.name}${lead.city ? ` from ${lead.city}` : ''}`,
-          icon: '/vite.svg',
-          tag: `lead-${lead.id}`,
-          vibrate: [200, 100, 200],
-          requireInteraction: true
-        });
-        console.log("✅ System notification shown!");
-      } catch (e) {
-        console.error("❌ Notification error:", e);
-      }
+      new Notification('🔥 New Lead Assigned!', {
+        body: `${lead.name} from ${lead.city || 'Website'}`,
+        icon: '/vite.svg' 
+      });
     }
 
-    // Auto hide after 10 seconds
+    // Auto hide
     setTimeout(() => {
       setAlert((prev) => (prev.lead?.id === lead.id ? { show: false, lead: null } : prev));
     }, 10000);
@@ -162,26 +121,16 @@ export const LeadAlert: React.FC = () => {
     <>
       {/* Alert Banner */}
       {alert.show && alert.lead && (
-        <div className="fixed top-14 left-0 w-full z-[9999] flex justify-center px-3">
-          <div className="w-full max-w-md bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 rounded-2xl shadow-2xl animate-bounce">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">
-                🔥
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-lg">New Lead!</p>
-                <p className="font-medium">{alert.lead.name}</p>
-                {alert.lead.city && (
-                  <p className="text-sm text-green-100">📍 {alert.lead.city}</p>
-                )}
-              </div>
-              <button
-                onClick={() => setAlert({ show: false, lead: null })}
-                className="p-2 bg-black/10 hover:bg-black/20 rounded-full"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed top-14 left-0 w-full z-[9999] flex justify-center px-3 pointer-events-none">
+          <div className="pointer-events-auto w-full max-w-md bg-green-600 text-white p-4 rounded-xl shadow-2xl animate-bounce flex items-center gap-3">
+             <div className="text-3xl">🔥</div>
+             <div className="flex-1">
+               <p className="font-bold">New Lead Assigned!</p>
+               <p>{alert.lead.name} <span className="opacity-75 text-sm">({alert.lead.city})</span></p>
+             </div>
+             <button onClick={() => setAlert({ show: false, lead: null })}>
+               <X className="w-6 h-6" />
+             </button>
           </div>
         </div>
       )}
@@ -189,14 +138,9 @@ export const LeadAlert: React.FC = () => {
       {/* Sound Toggle */}
       <button
         onClick={() => setSoundEnabled((p) => !p)}
-        className="fixed bottom-6 right-6 z-50 p-3 bg-white rounded-full shadow-lg border"
-        title={soundEnabled ? "Mute" : "Unmute"}
+        className="fixed bottom-6 right-6 z-50 p-3 bg-white text-gray-800 rounded-full shadow-lg border border-gray-200"
       >
-        {soundEnabled ? (
-          <Volume2 className="w-5 h-5 text-green-600" />
-        ) : (
-          <VolumeX className="w-5 h-5 text-gray-400" />
-        )}
+        {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
       </button>
     </>
   );
