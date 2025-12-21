@@ -19,26 +19,44 @@ function App() {
   const { session, loading } = useAuth();
   const [fullProfile, setFullProfile] = useState<CustomUser | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [isPaid, setIsPaid] = useState(false);
 
+  // Fetch user profile
   useEffect(() => {
     const getProfile = async () => {
-        if (session?.user) {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-            
-            if (data) {
-                console.log("User Profile:", data);
-                setFullProfile(data as CustomUser);
-            }
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data) {
+          console.log("✅ User Profile:", data);
+          setFullProfile(data as CustomUser);
+
+          // Check paid status
+          const hasActivePayment = data.payment_status === 'active';
+          const hasValidSubscription = data.valid_until
+            ? new Date(data.valid_until) > new Date()
+            : false;
+          const paidStatus = hasActivePayment && hasValidSubscription;
+
+          console.log("💳 Paid Status:", {
+            payment_status: data.payment_status,
+            valid_until: data.valid_until,
+            isPaid: paidStatus
+          });
+
+          setIsPaid(paidStatus);
         }
-        setProfileLoading(false);
+      }
+      setProfileLoading(false);
     };
     getProfile();
   }, [session]);
 
+  // Loading state
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -47,36 +65,11 @@ function App() {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // 🔐 PAID MEMBER CHECK
-  // ═══════════════════════════════════════════════════════════════
-  const isPaidMember = (): boolean => {
-    if (!fullProfile) return false;
-    
-    // Check 1: payment_status must be 'active'
-    const hasActivePayment = fullProfile.payment_status === 'active';
-    
-    // Check 2: valid_until must be in future
-    const hasValidSubscription = fullProfile.valid_until 
-      ? new Date(fullProfile.valid_until) > new Date() 
-      : false;
-    
-    // Both conditions must be true
-    const isPaid = hasActivePayment && hasValidSubscription;
-    
-    console.log("💳 Paid Member Check:", {
-      payment_status: fullProfile.payment_status,
-      valid_until: fullProfile.valid_until,
-      isPaid: isPaid
-    });
-    
-    return isPaid;
-  };
-
+  // Dashboard based on role
   const getDashboard = () => {
     if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
 
-    const userRole = fullProfile.role?.toLowerCase().trim(); 
+    const userRole = fullProfile.role?.toLowerCase().trim();
 
     switch (userRole) {
       case 'admin':
@@ -86,51 +79,64 @@ function App() {
       case 'member':
       default:
         return (
-            <Layout>
-                <MemberDashboard />
-            </Layout>
+          <Layout>
+            <MemberDashboard />
+          </Layout>
         );
     }
   };
 
+  // Debug log
+  console.log("🔔 Render Check:", {
+    hasSession: !!session,
+    hasProfile: !!fullProfile,
+    isPaid: isPaid
+  });
+
   return (
     <BrowserRouter>
-      {/* ═══════════════════════════════════════════════════════════════
-          🔔 NOTIFICATIONS - ONLY FOR PAID MEMBERS
-          ═══════════════════════════════════════════════════════════════ */}
-      
-      {/* Push Notification Banner - Enable करने के लिए */}
-      {session && fullProfile && isPaidMember() && (
-        <NotificationBanner />
-      )}
-      
-      {/* Lead Alert - Sound + In-App Banner */}
-      {session && fullProfile && isPaidMember() && (
-        <LeadAlert />
+      {/* ════════════════════════════════════════════════════════
+          🔔 NOTIFICATIONS - FOR PAID MEMBERS ONLY
+          ════════════════════════════════════════════════════════ */}
+      {session && fullProfile && isPaid && (
+        <>
+          <NotificationBanner />
+          <LeadAlert />
+        </>
       )}
 
       <Routes>
-        <Route 
-          path="/" 
-          element={session ? getDashboard() : <Landing />} 
+        <Route
+          path="/"
+          element={session ? getDashboard() : <Landing />}
         />
 
-        <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
-        <Route path="/landing" element={<Landing />} />
+        <Route
+          path="/login"
+          element={!session ? <Auth /> : <Navigate to="/" replace />}
+        />
         
+        <Route path="/landing" element={<Landing />} />
+
         {session && fullProfile && (
-            <>
-                <Route path="/target" element={
-                    <Layout>
-                        <FilterSettings user={fullProfile} onUpdate={() => {}} />
-                    </Layout>
-                } />
-                <Route path="/subscription" element={
-                    <Layout>
-                        <Subscription user={fullProfile} onPaymentSuccess={() => {}} />
-                    </Layout>
-                } />
-            </>
+          <>
+            <Route
+              path="/target"
+              element={
+                <Layout>
+                  <FilterSettings user={fullProfile} onUpdate={() => {}} />
+                </Layout>
+              }
+            />
+            <Route
+              path="/subscription"
+              element={
+                <Layout>
+                  <Subscription user={fullProfile} onPaymentSuccess={() => {}} />
+                </Layout>
+              }
+            />
+          </>
         )}
 
         <Route path="*" element={<Navigate to="/" replace />} />
