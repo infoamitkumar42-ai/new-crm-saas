@@ -27,8 +27,8 @@ const ONLINE_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
   
-  // Push Notification Hook - Check if already subscribed
-  const { isSubscribed } = usePushNotification();
+  // Push Notification Hook
+  const pushNotification = usePushNotification();
   
   // Local State
   const [alert, setAlert] = useState<AlertState>({ show: false, lead: null });
@@ -59,6 +59,7 @@ export const LeadAlert: React.FC = () => {
           audioRef.current!.pause();
           audioRef.current!.currentTime = 0;
           audioUnlockedRef.current = true;
+          console.log("🔊 Audio unlocked");
         }).catch((e) => console.log("Audio unlock failed", e));
       }
     };
@@ -78,19 +79,25 @@ export const LeadAlert: React.FC = () => {
   useEffect(() => {
     if (!session?.user) return;
     
+    console.log("📡 Setting up Supabase Realtime...");
+    
     const channel = supabase
       .channel('leads-realtime-alert')
       .on(
         'postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'leads' },
         async (payload) => {
+          console.log("📩 New lead received:", payload.new);
           const lead = payload.new as Lead;
           await triggerInAppAlert(lead);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("📡 Realtime status:", status);
+      });
     
     return () => { 
+      console.log("📡 Cleaning up Realtime...");
       supabase.removeChannel(channel); 
     };
   }, [session, soundEnabled]);
@@ -99,13 +106,16 @@ export const LeadAlert: React.FC = () => {
   // Trigger In-App Alert (Sound + Banner)
   // ─────────────────────────────────────────────────
   const triggerInAppAlert = async (lead: Lead) => {
+    console.log("🔔 Triggering in-app alert for:", lead.name);
+    
     // Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
+        console.log("🔊 Sound played");
       } catch (e) {
-        console.log("Sound play failed:", e);
+        console.log("🔇 Sound play failed:", e);
       }
     }
     
@@ -171,9 +181,8 @@ export const LeadAlert: React.FC = () => {
 
       {/* ═══════════════════════════════════════════════════
           SOUND TOGGLE BUTTON (Small, Bottom Corner)
-          Only shows when NOT subscribed to push
           ═══════════════════════════════════════════════════ */}
-      {session && !isSubscribed && (
+      {session && (
         <button 
           onClick={() => setSoundEnabled(prev => !prev)}
           className="fixed bottom-6 right-6 z-50 p-3 bg-white rounded-full shadow-lg border border-gray-200 hover:shadow-xl transition-all"
