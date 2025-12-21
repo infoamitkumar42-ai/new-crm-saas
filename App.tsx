@@ -8,7 +8,7 @@ import { Subscription } from './views/Subscription';
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
-import { NotificationBanner } from './components/NotificationBanner'; // 👈 NEW IMPORT
+import { NotificationBanner } from './components/NotificationBanner';
 import { useAuth } from './auth/useAuth';
 import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
@@ -46,21 +46,6 @@ function App() {
     );
   }
 
-  // 👇 Check if user is PAID member
-  const isPaidMember = (): boolean => {
-    if (!fullProfile) return false;
-    
-    // Check subscription status
-    // Adjust this based on your actual subscription field name
-    const hasActiveSubscription = 
-      fullProfile.subscription_status === 'active' ||
-      fullProfile.is_subscribed === true ||
-      fullProfile.plan_type === 'paid' ||
-      fullProfile.subscription_end && new Date(fullProfile.subscription_end) > new Date();
-    
-    return hasActiveSubscription;
-  };
-
   const getDashboard = () => {
     if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
 
@@ -83,15 +68,8 @@ function App() {
 
   return (
     <BrowserRouter>
-      {/* 
-        👇 NOTIFICATION BANNER - Only for LOGGED IN + PAID members 
-        यह Banner तभी दिखेगा जब:
-        1. User logged in है
-        2. User paid member है
-      */}
-      {session && fullProfile && isPaidMember() && (
-        <NotificationBanner />
-      )}
+      {/* 👇 ALL logged-in users के लिए Notification Banner */}
+      {session && fullProfile && <NotificationBanner />}
 
       <Routes>
         <Route 
