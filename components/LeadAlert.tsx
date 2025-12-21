@@ -1,6 +1,6 @@
 // =====================================================
 // src/components/LeadAlert.tsx
-// SIMPLIFIED VERSION - FOR DEBUGGING
+// FIXED VERSION - Simple Realtime
 // =====================================================
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -25,27 +25,21 @@ export const LeadAlert: React.FC = () => {
   const [alert, setAlert] = useState<{ show: boolean; lead: Lead | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const channelRef = useRef<any>(null);
 
-  // ─────────────────────────────────────────────────
   // Component Mount Log
-  // ─────────────────────────────────────────────────
   useEffect(() => {
     console.log("🚀 [LeadAlert] Component MOUNTED");
-    console.log("🔑 [LeadAlert] Session:", session?.user?.id ? "YES" : "NO");
-    
     return () => {
       console.log("💀 [LeadAlert] Component UNMOUNTED");
     };
   }, []);
 
-  // ─────────────────────────────────────────────────
   // Audio Setup
-  // ─────────────────────────────────────────────────
   useEffect(() => {
     audioRef.current = new Audio(SOUND_URL);
     audioRef.current.volume = 1.0;
-    
-    // Unlock audio on click
+
     const unlock = () => {
       audioRef.current?.play().then(() => {
         audioRef.current?.pause();
@@ -53,28 +47,32 @@ export const LeadAlert: React.FC = () => {
         console.log("🔊 [LeadAlert] Audio unlocked");
       }).catch(() => {});
     };
-    
+
     document.addEventListener('click', unlock, { once: true });
-    
+    document.addEventListener('touchstart', unlock, { once: true });
+
     return () => {
       document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
     };
   }, []);
 
-  // ─────────────────────────────────────────────────
-  // Supabase Realtime - SIMPLE VERSION
-  // ─────────────────────────────────────────────────
+  // Supabase Realtime - FIXED VERSION
   useEffect(() => {
     if (!session?.user?.id) {
-      console.log("❌ [LeadAlert] No session, skipping subscription");
+      console.log("❌ [LeadAlert] No session");
       return;
     }
 
     const userId = session.user.id;
-    console.log("📡 [LeadAlert] Setting up Realtime for user:", userId);
+    console.log("📡 [LeadAlert] Setting up for user:", userId);
 
-    const channel = supabase
-      .channel('leads-channel-v2')
+    // Create unique channel name
+    const channelName = `leads-${userId}-${Date.now()}`;
+
+    // Simple subscription without filter
+    channelRef.current = supabase
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -83,54 +81,58 @@ export const LeadAlert: React.FC = () => {
           table: 'leads'
         },
         (payload) => {
-          console.log("📩 [LeadAlert] INSERT received:", payload);
+          console.log("📩 [LeadAlert] New lead received:", payload.new);
           const lead = payload.new as Lead;
-          
-          // Check if this lead is for current user
+
+          // Manual filter - check if lead is for this user
           if (lead.user_id === userId) {
-            console.log("✅ [LeadAlert] This lead is for ME!");
+            console.log("✅ [LeadAlert] Lead is for ME! Triggering alert...");
             triggerAlert(lead);
           } else {
-            console.log("⏭️ [LeadAlert] Lead is for another user:", lead.user_id);
+            console.log("⏭️ [LeadAlert] Lead for other user, ignoring");
           }
         }
       )
       .subscribe((status, err) => {
-        console.log("📡 [LeadAlert] Channel Status:", status);
+        console.log("📡 [LeadAlert] Status:", status);
         if (err) {
-          console.error("❌ [LeadAlert] Channel Error:", err);
+          console.error("❌ [LeadAlert] Error:", err);
+        }
+        if (status === 'SUBSCRIBED') {
+          console.log("✅ [LeadAlert] Successfully subscribed!");
         }
       });
 
+    // Cleanup
     return () => {
-      console.log("🔌 [LeadAlert] Removing channel");
-      supabase.removeChannel(channel);
+      console.log("🔌 [LeadAlert] Cleaning up channel");
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
   }, [session?.user?.id]);
 
-  // ─────────────────────────────────────────────────
   // Trigger Alert
-  // ─────────────────────────────────────────────────
   const triggerAlert = async (lead: Lead) => {
-    console.log("🔔 [LeadAlert] TRIGGERING ALERT FOR:", lead.name);
+    console.log("🔔 [LeadAlert] ALERT TRIGGERED for:", lead.name);
 
-    // 1. Sound
+    // 1. Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
-        console.log("🔊 [LeadAlert] Sound played!");
+        console.log("🔊 Sound played!");
       } catch (e) {
-        console.log("🔇 [LeadAlert] Sound failed");
+        console.log("🔇 Sound failed");
       }
     }
 
-    // 2. Banner
+    // 2. Show Banner
     setAlert({ show: true, lead });
 
     // 3. Vibrate
     if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200]);
+      navigator.vibrate([200, 100, 200, 100, 200]);
     }
 
     // 4. System Notification
@@ -144,27 +146,24 @@ export const LeadAlert: React.FC = () => {
           vibrate: [200, 100, 200],
           requireInteraction: true
         });
-        console.log("✅ [LeadAlert] System notification shown!");
+        console.log("✅ System notification shown!");
       } catch (e) {
-        console.error("❌ [LeadAlert] System notification failed:", e);
+        console.error("❌ Notification error:", e);
       }
     }
 
-    // Auto hide
+    // Auto hide after 10 seconds
     setTimeout(() => {
-      setAlert({ show: false, lead: null });
+      setAlert((prev) => (prev.lead?.id === lead.id ? { show: false, lead: null } : prev));
     }, 10000);
   };
 
-  // ─────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────
   return (
     <>
       {/* Alert Banner */}
       {alert.show && alert.lead && (
         <div className="fixed top-14 left-0 w-full z-[9999] flex justify-center px-3">
-          <div className="w-full max-w-md bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 rounded-2xl shadow-2xl">
+          <div className="w-full max-w-md bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 rounded-2xl shadow-2xl animate-bounce">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">
                 🔥
@@ -191,6 +190,7 @@ export const LeadAlert: React.FC = () => {
       <button
         onClick={() => setSoundEnabled((p) => !p)}
         className="fixed bottom-6 right-6 z-50 p-3 bg-white rounded-full shadow-lg border"
+        title={soundEnabled ? "Mute" : "Unmute"}
       >
         {soundEnabled ? (
           <Volume2 className="w-5 h-5 text-green-600" />
