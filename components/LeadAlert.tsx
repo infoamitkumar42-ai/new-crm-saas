@@ -1,10 +1,8 @@
-// src/components/LeadAlert.tsx
-
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 import { useNotification } from '../hooks/useNotification';
-import { X, Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
+import { X, Bell, Volume2, VolumeX } from 'lucide-react';
 
 interface Lead {
   id: string;
@@ -18,6 +16,9 @@ interface AlertState {
   show: boolean;
   lead: Lead | null;
 }
+
+// 🔔 Online Sound Link (Mixkit - Professional Ping)
+const ONLINE_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
 
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
@@ -35,11 +36,12 @@ export const LeadAlert: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
 
-  // Pre-load audio
+  // 1. Pre-load Audio from Online URL
   useEffect(() => {
-    audioRef.current = new Audio('/notification.mp3'); // Put audio in public folder
+    // Local file ki jagah Online URL use kar rahe hain
+    audioRef.current = new Audio(ONLINE_SOUND_URL); 
     audioRef.current.preload = 'auto';
-    audioRef.current.volume = 0.7;
+    audioRef.current.volume = 1.0; // Volume Full
     
     return () => {
       if (audioRef.current) {
@@ -49,7 +51,7 @@ export const LeadAlert: React.FC = () => {
     };
   }, []);
 
-  // Unlock audio on first user interaction
+  // 2. Unlock Audio on First Interaction (Android/iOS requirement)
   useEffect(() => {
     const unlockAudio = () => {
       if (!audioUnlockedRef.current && audioRef.current) {
@@ -57,8 +59,8 @@ export const LeadAlert: React.FC = () => {
           audioRef.current!.pause();
           audioRef.current!.currentTime = 0;
           audioUnlockedRef.current = true;
-          console.log('🔊 Audio unlocked');
-        }).catch(() => {});
+          console.log('🔊 Audio system unlocked');
+        }).catch((e) => console.log("Audio unlock silently failed (normal)", e));
       }
     };
 
@@ -71,18 +73,18 @@ export const LeadAlert: React.FC = () => {
     };
   }, []);
 
-  // Show permission banner if needed
+  // 3. Check Permissions
   useEffect(() => {
     if (isSupported && permission === 'default') {
       setShowPermissionBanner(true);
     }
   }, [isSupported, permission]);
 
-  // Subscribe to Supabase Realtime
+  // 4. Supabase Realtime Listener
   useEffect(() => {
     if (!session?.user) return;
 
-    console.log('📡 Setting up Supabase subscription...');
+    console.log('📡 Connecting to Supabase Realtime...');
 
     const channel = supabase
       .channel('leads-realtime')
@@ -91,145 +93,135 @@ export const LeadAlert: React.FC = () => {
         { 
           event: 'INSERT', 
           schema: 'public', 
-          table: 'leads' 
+          table: 'leads'
+          // Note: Filter hata diya hai taaki aap easily test kar sako
         },
         async (payload) => {
-          console.log('📩 New lead received:', payload.new);
+          console.log('📩 New lead received!', payload.new);
           const lead = payload.new as Lead;
-          
-          // Trigger all notifications
           await triggerAllNotifications(lead);
         }
       )
       .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
+        console.log('📡 Realtime Status:', status);
       });
 
     return () => {
-      console.log('📡 Cleaning up subscription...');
       supabase.removeChannel(channel);
     };
   }, [session, permission, isReady, soundEnabled]);
 
-  // Trigger all notification types
+  // 5. Trigger Notifications (Sound + Popup + Mobile Bar)
   const triggerAllNotifications = async (lead: Lead) => {
-    // 1. Play Sound
+    // A. Play Sound
     if (soundEnabled && audioRef.current) {
       try {
         audioRef.current.currentTime = 0;
         await audioRef.current.play();
-        console.log('🔊 Sound played');
+        console.log('🔊 Sound played successfully');
       } catch (e) {
-        console.warn('🔇 Sound failed:', e);
+        console.warn('🔇 Sound play failed:', e);
       }
     }
 
-    // 2. Show In-App Alert
+    // B. Show In-App Banner
     setAlert({ show: true, lead });
 
-    // 3. Vibrate (if supported)
+    // C. Vibrate Phone
     if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200]);
+      try { navigator.vibrate([200, 100, 200]); } catch(e) {}
     }
 
-    // 4. Show System Notification (Status Bar)
+    // D. Show System Notification (Mobile Status Bar)
     if (permission === 'granted' && isReady) {
       const success = await showNotification(
         '🔥 New Lead Received!',
         {
-          body: `${lead.name}${lead.city ? ` from ${lead.city}` : ''}`,
-          icon: '/icon-192.png',
+          body: `${lead.name} from ${lead.city || 'Website'}`,
+          icon: '/vite.svg', // Icon path
           tag: `lead-${lead.id}`,
-          url: `/leads/${lead.id}`,
+          url: '/', // Click karne par app khulega
           leadId: lead.id
         }
       );
-      
-      if (success) {
-        console.log('✅ System notification shown');
-      } else {
-        console.warn('❌ System notification failed');
-      }
-    } else {
-      console.warn('⚠️ Cannot show system notification:', { permission, isReady });
+      console.log(success ? '✅ System notification sent' : '❌ System notification failed');
     }
 
-    // Auto-hide in-app alert after 8 seconds
+    // Auto-hide In-App Alert after 8 seconds
     setTimeout(() => {
       setAlert(prev => prev.lead?.id === lead.id ? { show: false, lead: null } : prev);
     }, 8000);
   };
 
-  // Handle permission request (on button click)
+  // Handle Enable Button
   const handleEnableNotifications = async () => {
     const granted = await requestPermission();
     if (granted) {
       setShowPermissionBanner(false);
-      // Show test notification
-      await showNotification('🎉 Notifications Enabled!', {
-        body: 'You will now receive lead alerts',
+      // Test Sound
+      if (audioRef.current) {
+        audioRef.current.play().catch(e => console.log(e));
+      }
+      await showNotification('🎉 Notifications Active!', {
+        body: 'You are ready to receive leads.',
         tag: 'test'
       });
     }
   };
 
-  const dismissAlert = () => {
-    setAlert({ show: false, lead: null });
-  };
-
   return (
     <>
-      {/* Permission Banner */}
+      {/* 🟢 Permission Banner (Top) - Only shows if not allowed yet */}
       {showPermissionBanner && (
-        <div className="fixed top-4 left-4 right-4 z-[9999] bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-xl shadow-2xl animate-slideDown">
-          <div className="flex items-center justify-between">
+        <div className="fixed top-0 left-0 w-full z-[9999] bg-indigo-600 text-white p-3 shadow-lg animate-slideDown">
+          <div className="flex items-center justify-between max-w-4xl mx-auto px-2">
             <div className="flex items-center gap-3">
-              <Bell className="w-6 h-6 animate-bounce" />
+              <div className="bg-white/20 p-2 rounded-full">
+                <Bell className="w-5 h-5 animate-pulse" />
+              </div>
               <div>
-                <p className="font-semibold">Enable Notifications</p>
-                <p className="text-sm text-indigo-200">
-                  Get instant alerts when new leads arrive
-                </p>
+                <p className="font-bold text-sm">Enable Lead Alerts</p>
+                <p className="text-xs text-indigo-100">Don't miss new customers!</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleEnableNotifications}
-                className="px-4 py-2 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-indigo-50 transition-colors"
+                className="px-3 py-1.5 bg-white text-indigo-600 rounded-lg text-xs font-bold shadow-sm"
               >
-                Enable
+                ALLOW
               </button>
               <button
                 onClick={() => setShowPermissionBanner(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-white/10 rounded-full"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* In-App Lead Alert */}
+      {/* 🟢 In-App Lead Alert (Floating Banner) */}
       {alert.show && alert.lead && (
-        <div className="fixed top-4 left-4 right-4 z-[9998] animate-slideDown">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl shadow-2xl">
+        <div className="fixed top-4 left-0 w-full z-[9998] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto w-[92%] max-w-sm bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-2xl shadow-2xl animate-bounce-in border-2 border-green-400/30">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">🔥</span>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-inner">
+                  <span className="text-xl">🔥</span>
                 </div>
                 <div>
-                  <p className="font-bold text-lg">New Lead!</p>
-                  <p className="text-green-100">{alert.lead.name}</p>
-                  {alert.lead.city && (
-                    <p className="text-sm text-green-200">📍 {alert.lead.city}</p>
-                  )}
+                  <p className="font-bold text-lg leading-tight">New Lead!</p>
+                  <p className="font-medium text-white/90">{alert.lead.name}</p>
+                  <p className="text-xs text-green-100 mt-0.5">
+                     📍 {alert.lead.city || 'India'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={dismissAlert}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                onClick={() => setAlert({ show: false, lead: null })}
+                className="p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -238,19 +230,10 @@ export const LeadAlert: React.FC = () => {
         </div>
       )}
 
-      {/* Debug Panel (Remove in production) */}
+      {/* 🛠️ Debug Panel (Optional - Development Mode Only) */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white p-3 rounded-lg text-xs space-y-1">
-          <div>SW: {isReady ? '✅ Ready' : '⏳ Loading'}</div>
-          <div>Permission: {permission}</div>
-          <div>Supported: {isSupported ? '✅' : '❌'}</div>
-          <button
-            onClick={() => setSoundEnabled(s => !s)}
-            className="flex items-center gap-1 text-gray-400 hover:text-white"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            Sound
-          </button>
+        <div className="fixed bottom-2 right-2 z-50 bg-black/80 text-white p-2 rounded text-[10px] backdrop-blur-sm">
+           Status: {isReady ? '✅ Ready' : '⏳ Loading'} | Perm: {permission}
         </div>
       )}
     </>
