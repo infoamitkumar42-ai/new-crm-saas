@@ -96,9 +96,10 @@ function App() {
   return (
     <BrowserRouter>
       {/* ════════════════════════════════════════════════════════
-          🔔 NOTIFICATIONS - FOR PAID MEMBERS ONLY
+          🔔 NOTIFICATIONS - TESTING MODE (ALL USERS)
+          isPaid check temporarily removed for testing
           ════════════════════════════════════════════════════════ */}
-      {session && fullProfile && isPaid && (
+      {session && fullProfile && (
         <>
           <NotificationBanner />
           <LeadAlert />
