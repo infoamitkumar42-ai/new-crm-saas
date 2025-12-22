@@ -4,7 +4,7 @@ import {
   CheckCircle, Zap, Shield, ArrowRight, 
   Star, Lock, X, Menu, 
   MessageCircle, Clock, BadgeCheck, IndianRupee,
-  Gift, ChevronDown, ChevronRight, ChevronLeft
+  Gift, ChevronDown, Bell, Users
 } from 'lucide-react';
 
 export const Landing = () => {
@@ -12,7 +12,6 @@ export const Landing = () => {
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
 
   // WhatsApp Number
   const WHATSAPP_NUMBER = "917009064038";
@@ -36,65 +35,60 @@ export const Landing = () => {
     return () => document.removeEventListener('mouseleave', handleMouseLeave);
   }, [showExitPopup]);
 
-  // Testimonial Auto-Scroll
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial(prev => (prev + 1) % testimonials.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
+  // Forever Living (FLP) Specific Testimonials
   const testimonials = [
     {
-      name: "Sandeep Verma",
-      role: "Vestige Diamond Director, Delhi",
-      image: "https://randomuser.me/api/portraits/men/32.jpg",
-      text: "Meri team daily struggle karti thi leads ke liye. Ab LeadFlow se daily fresh leads milti hain. Meri team ki closing ratio 3x ho gayi hai!",
-      rating: 5
+      name: "Rahul Verma",
+      role: "Assistant Supervisor (2cc Done)",
+      text: "2cc karne ke baad leads ki bohot dikkat thi. LeadFlow se daily 5 fresh leads milti hain. Meri team active ho gayi hai!",
+      image: "https://randomuser.me/api/portraits/men/32.jpg"
     },
     {
-      name: "Anjali Gupta",
-      role: "Herbalife Associate, Mumbai",
-      image: "https://randomuser.me/api/portraits/women/44.jpg",
-      text: "MLM mein sabse mushkil kaam hai nayi leads dhundna. LeadFlow ne ye problem solve kar di. ₹16 mein quality lead milna impossible tha pehle!",
-      rating: 5
+      name: "Sneha Kapoor",
+      role: "FLP Manager",
+      text: "Manager level par team sambhalna mushkil tha. Is dashboard se main dekh sakti hu kaun call kar raha hai. Best tool for Forever Business.",
+      image: "https://randomuser.me/api/portraits/women/44.jpg"
     },
     {
-      name: "Rahul Mehta",
-      role: "Forex Team Leader, Bangalore",
-      image: "https://randomuser.me/api/portraits/men/67.jpg",
-      text: "Main manager plan use kar raha hu. Meri 15 logo ki team hai aur sabko automatic leads assign ho jati hain. Best CRM for Network Marketing!",
-      rating: 5
+      name: "Amit Singh",
+      role: "Supervisor",
+      text: "Cold calling se pareshan tha. Ab log khud puchte hain 'Work from home' ke baare mein. Conversion rate 3x ho gaya.",
+      image: "https://randomuser.me/api/portraits/men/67.jpg"
     },
     {
-      name: "Pooja Singh",
-      role: "Modicare Leader, Lucknow",
-      image: "https://randomuser.me/api/portraits/women/68.jpg",
-      text: "Pehle main Facebook ads pe ₹1000 daily lagati thi aur result zero tha. LeadFlow ka 'Supervisor Plan' best hai, daily 6 solid leads milti hain.",
-      rating: 5
+      name: "Pooja Mishra",
+      role: "Assistant Manager",
+      text: "Mere downline mein sab 'Starter Plan' use kar rahe hain. Duplicate karna aasaan ho gaya hai. Sabko result mil raha hai.",
+      image: "https://randomuser.me/api/portraits/women/68.jpg"
+    },
+    {
+      name: "Vikram Gill",
+      role: "Soaring Manager",
+      text: "Passive income badhani hai to automation zaruri hai. LeadFlow ne meri recruitment process ko automate kar diya.",
+      image: "https://randomuser.me/api/portraits/men/22.jpg"
     }
   ];
 
   const faqs = [
     { 
-      q: "Kya ye leads MLM/Network Marketing ke liye hain?", 
-      a: "Bilkul! Humari leads specifically un logo ki hoti hain jo 'Business Opportunity', 'Part Time Work', ya 'Extra Income' dhund rahe hain." 
+      q: "Kya ye leads Forever Living business ke liye hain?", 
+      a: "Bilkul! Ye leads wahi log hain jo 'Work From Home', 'Passive Income' aur 'Business Opportunity' dhund rahe hain." 
     },
     { 
-      q: "Leads kahan se aati hain?", 
-      a: "Hum Facebook aur Google Ads use karte hain 'Work From Home' aur 'Business' keywords par. Sab leads fresh aur verified hoti hain." 
+      q: "Leads kahan se generate hoti hain?", 
+      a: "Hum Facebook aur Instagram Ads use karte hain specific 'Network Marketing' interest targeting ke saath." 
     },
     { 
-      q: "Payment ke baad setup mein kitna time lagta hai?", 
-      a: "0 Minutes. Sign up karte hi dashboard ready ho jata hai. Instant access!" 
+      q: "Setup mein kitna time lagta hai?", 
+      a: "Sirf 2 Minute. Plan choose karo aur turant Dashboard mil jayega. Leads subah 10 baje se aani shuru ho jayengi." 
     },
     { 
-      q: "Kya refund milta hai?", 
-      a: "Haan, 7 days money back guarantee. Agar aapko leads pasand nahi aayi, toh hum bina sawal kiye paise wapas kar denge." 
+      q: "Agar leads phone na uthaye toh?", 
+      a: "Humare 'Supervisor' aur 'Manager' plan mein Lead Replacement Guarantee milti hai." 
     },
     { 
-      q: "WhatsApp pe leads aati hain?", 
-      a: "Haan! Dashboard ke saath-saath WhatsApp notification bhi milti hai har lead ki." 
+      q: "Kya main apni purani leads upload kar sakta hu?", 
+      a: "Haan, Manager plan mein Bulk Upload aur Team Distribution ka feature available hai." 
     }
   ];
 
@@ -111,15 +105,13 @@ export const Landing = () => {
           0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
           50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
         }
-        @keyframes shake {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(-5deg); }
-          75% { transform: rotate(5deg); }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
         .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-shake { animation: shake 0.5s ease-in-out infinite; }
+        .animate-marquee { animation: marquee 30s linear infinite; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* ═══════════════════════════════════════════════════════════
@@ -127,9 +119,9 @@ export const Landing = () => {
           ═══════════════════════════════════════════════════════════ */}
       <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 text-center text-sm font-medium">
         <span className="animate-pulse">🔥</span>
-        {" "}Limited Offer: Join Today & Get <strong>5 Bonus Leads FREE!</strong>
+        {" "}New User Offer: Get <strong>3 BONUS Leads</strong> on First Recharge!
         <span className="ml-2 bg-white/20 px-2 py-0.5 rounded text-xs font-bold hidden sm:inline-block">
-          Ends Tonight
+          Valid Today
         </span>
       </div>
 
@@ -147,12 +139,12 @@ export const Landing = () => {
             </div>
             
             <div className="hidden md:flex items-center gap-6">
-              <a href="#how-it-works" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">कैसे काम करता है</a>
+              <a href="#how-it-works" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">How it Works</a>
               <a href="#pricing" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Pricing</a>
-              <a href="#testimonials" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Results</a>
+              <a href="#testimonials" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Success Stories</a>
               <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Login</Link>
               <Link to="/login" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-full font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:-translate-y-0.5 flex items-center gap-2">
-                Start Free Trial <ArrowRight size={16} />
+                Start Now <ArrowRight size={16} />
               </Link>
             </div>
 
@@ -165,9 +157,9 @@ export const Landing = () => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-3 shadow-xl absolute w-full">
-            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">कैसे काम करता है</a>
+            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">How it Works</a>
             <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Pricing</a>
-            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Results</a>
+            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Success Stories</a>
             <Link to="/login" className="block py-2 font-semibold text-slate-600">Login</Link>
             <Link to="/login" className="block w-full text-center bg-blue-600 text-white py-3 rounded-xl font-bold mt-2">
               Start Free Trial
@@ -177,7 +169,7 @@ export const Landing = () => {
       </nav>
 
       {/* ═══════════════════════════════════════════════════════════
-          🚀 HERO SECTION (MLM OPTIMIZED)
+          🚀 HERO SECTION (FLP OPTIMIZED)
           ═══════════════════════════════════════════════════════════ */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 relative overflow-hidden px-4">
         {/* Background Gradient */}
@@ -193,29 +185,29 @@ export const Landing = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                 </span>
-                {liveLeadsCount.toLocaleString()} MLM leads distributed today
+                {liveLeadsCount.toLocaleString()} FLP leads distributed today
               </div>
               
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
-                Network Marketing के लिए
+                Forever Business के लिए
                 <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">100% Quality Leads</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">High Quality Leads</span>
               </h1>
               
               <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-                Ab team banana hua aasaan. 
-                <strong className="text-slate-800"> ₹10-16/lead</strong> mein 'Business Interested' log seedha 
+                Ab <strong>2cc Complete</strong> karna hua aasaan. 
+                <strong className="text-slate-800"> ₹11/lead</strong> mein 'Business Interested' log seedha 
                 aapke WhatsApp aur Dashboard par.
               </p>
 
               <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-8">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>Verified Numbers</span>
+                  <span>No Rejections</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>Money Back Guarantee</span>
+                  <span>Auto-Followup</span>
                 </div>
               </div>
               
@@ -225,10 +217,10 @@ export const Landing = () => {
                   className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                 >
                   <Zap size={20} className="group-hover:animate-shake" /> 
-                  Start Free Trial
+                  Get Leads Now
                 </Link>
                 <a 
-                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi,%20I%20want%20to%20know%20about%20LeadFlow%20leads`}
+                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi,%20I%20want%20to%20know%20about%20Forever%20Leads`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
@@ -256,13 +248,13 @@ export const Landing = () => {
                     ))}
                   </div>
                   <p className="text-sm text-slate-600">
-                    Trusted by <strong>500+ Networkers</strong>
+                    Used by <strong>500+ FLP Distributors</strong>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Right - Dashboard Preview (Same as before but with updated text if needed) */}
+            {/* Right - Dashboard Preview */}
             <div className="relative animate-float hidden lg:block">
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur-2xl opacity-20"></div>
               <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 overflow-hidden">
@@ -273,7 +265,7 @@ export const Landing = () => {
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                   </div>
                   <div className="ml-4 px-3 py-1 bg-white rounded text-xs text-slate-500 font-mono flex items-center gap-2">
-                    <Lock size={10} className="text-green-500"/> LeadFlow Dashboard
+                    <Lock size={10} className="text-green-500"/> app.leadflowcrm.in
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-b-xl p-6">
@@ -288,14 +280,14 @@ export const Landing = () => {
                       <p className="text-2xl font-bold text-green-600">5</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <p className="text-xs text-slate-500 mb-1">Joinings</p>
+                      <p className="text-xs text-slate-500 mb-1">2cc Done</p>
                       <p className="text-2xl font-bold text-purple-600">2</p>
                     </div>
                   </div>
                   
                   {/* Lead Cards Preview */}
                   <div className="space-y-2">
-                    {['Rohan (Interested in Biz)', 'Suman (Part Time)', 'Amit (Work from Home)'].map((name, i) => (
+                    {['Rohan (Interested in Biz)', 'Suman (Part Time)', 'Amit (Student)'].map((name, i) => (
                       <div key={i} className="bg-white p-3 rounded-lg shadow-sm flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
@@ -318,77 +310,49 @@ export const Landing = () => {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          ⭐ TESTIMONIALS SLIDESHOW (Auto-Scrolling)
+          ⭐ TESTIMONIALS SLIDESHOW (Infinite Scroll)
           ═══════════════════════════════════════════════════════════ */}
       <section id="testimonials" className="py-20 bg-slate-50 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
-              ⭐ SUCCESS STORIES
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Network Marketing Leaders की पसंद
-            </h2>
-            <p className="text-slate-500 text-lg">500+ Top Earners use LeadFlow</p>
-          </div>
+        <div className="text-center mb-12 px-4">
+          <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
+            ⭐ SUCCESS STORIES
+          </span>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            Forever Leaders ki Pasand
+          </h2>
+          <p className="text-slate-500 text-lg">Top Earners ye system use kar rahe hain</p>
+        </div>
 
-          <div className="relative max-w-4xl mx-auto">
-            {/* Cards Container */}
-            <div className="overflow-hidden relative h-[300px] md:h-[250px]">
-              {testimonials.map((t, i) => (
-                <div 
-                  key={i}
-                  className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${
-                    i === activeTestimonial 
-                      ? 'opacity-100 translate-x-0' 
-                      : i < activeTestimonial 
-                        ? 'opacity-0 -translate-x-full' 
-                        : 'opacity-0 translate-x-full'
-                  }`}
-                >
-                  <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-lg mx-4">
-                    <div className="flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left">
-                      <img 
-                        src={t.image} 
-                        alt={t.name} 
-                        className="w-20 h-20 rounded-full object-cover border-4 border-slate-100"
-                      />
-                      <div>
-                        <div className="flex items-center justify-center md:justify-start gap-1 mb-3">
-                          {[1,2,3,4,5].map(s => (
-                            <Star key={s} size={18} className="text-yellow-400 fill-yellow-400" />
-                          ))}
-                        </div>
-                        <p className="text-slate-700 text-lg mb-4 italic">"{t.text}"</p>
-                        <div>
-                          <p className="font-bold text-slate-900 text-lg">{t.name}</p>
-                          <p className="text-blue-600 font-medium">{t.role}</p>
-                        </div>
-                      </div>
+        <div className="relative w-full max-w-[100vw] overflow-hidden">
+          {/* Fading Edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-r from-slate-50 to-transparent z-10"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-l from-slate-50 to-transparent z-10"></div>
+
+          {/* Marquee Track */}
+          <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
+            {[...testimonials, ...testimonials].map((t, i) => (
+              <div key={i} className="w-[300px] md:w-[400px] mx-4 flex-shrink-0">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
+                  <div className="flex items-center gap-4 mb-4">
+                    <img src={t.image} alt={t.name} className="w-14 h-14 rounded-full object-cover" />
+                    <div>
+                      <p className="font-bold text-slate-900">{t.name}</p>
+                      <p className="text-xs font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
                     </div>
                   </div>
+                  <div className="flex gap-1 mb-3">
+                    {[1,2,3,4,5].map(s => <Star key={s} size={14} className="text-yellow-400 fill-yellow-400" />)}
+                  </div>
+                  <p className="text-slate-600 text-sm leading-relaxed">"{t.text}"</p>
                 </div>
-              ))}
-            </div>
-
-            {/* Dots */}
-            <div className="flex justify-center gap-2 mt-4">
-              {testimonials.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTestimonial(i)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    i === activeTestimonial ? 'bg-blue-600 w-6' : 'bg-slate-300'
-                  }`}
-                />
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          💰 PRICING PLANS (UPDATED)
+          💰 PRICING PLANS (Synced with Subscription.tsx)
           ═══════════════════════════════════════════════════════════ */}
       <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4">
@@ -397,7 +361,7 @@ export const Landing = () => {
               💰 SIMPLE PRICING
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Daily Lead Limit Choose Karein
+              Choose Your Daily Lead Limit
             </h2>
             <p className="text-slate-400 text-lg">High quality leads at lowest cost.</p>
           </div>
@@ -408,7 +372,7 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-400">For Beginners</p>
+                <p className="text-sm text-slate-400">For Assistant Supervisors</p>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
@@ -429,7 +393,7 @@ export const Landing = () => {
             <div className="bg-gradient-to-b from-blue-600 to-indigo-700 p-8 rounded-3xl border-2 border-blue-400 transform md:-translate-y-4 shadow-2xl shadow-blue-500/25 flex flex-col relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-4 py-1 rounded-full shadow-lg">
-                  ⚡ MOST POPULAR
+                  ⚡ SUPERVISOR PLAN
                 </span>
               </div>
               <div className="mb-6 mt-2">
@@ -472,6 +436,14 @@ export const Landing = () => {
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">
                 Go Premium
               </Link>
+            </div>
+          </div>
+
+          {/* Money Back Guarantee */}
+          <div className="mt-12 text-center">
+            <div className="inline-flex items-center gap-3 bg-green-500/20 border border-green-500/30 px-6 py-3 rounded-full">
+              <Shield size={24} className="text-green-400" />
+              <span className="text-green-300 font-medium">7-Day Money Back Guarantee. No questions asked.</span>
             </div>
           </div>
         </div>
@@ -522,10 +494,10 @@ export const Landing = () => {
       <section className="py-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Apna MLM Business Grow Karein 🚀
+            Ready to Get Daily Fresh Leads?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Daily fresh leads se apni team size double karein.
+            Join 500+ agents who are growing their business with LeadFlow
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -535,7 +507,7 @@ export const Landing = () => {
               <Zap size={20} /> Start 7-Day Free Trial
             </Link>
             <a 
-              href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi,%20I%20have%20questions%20about%20LeadFlow`}
+              href={`https://wa.me/${WHATSAPP_NUMBER}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
@@ -557,11 +529,11 @@ export const Landing = () => {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">LF</div>
                 <span className="font-bold text-white text-lg">LeadFlow</span>
               </div>
-              <p className="text-sm">Best CRM for Network Marketers.</p>
+              <p className="text-sm">Daily fresh leads for serious agents.</p>
             </div>
             
             <div>
-              <h4 className="text-white font-bold mb-4">Links</h4>
+              <h4 className="text-white font-bold mb-4">Product</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="#how-it-works" className="hover:text-white">How it Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
@@ -573,8 +545,8 @@ export const Landing = () => {
               <h4 className="text-white font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
-                <li><a href="#" className="hover:text-white">Refund</a></li>
+                <li><a href="#" className="hover:text-white">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-white">Refund Policy</a></li>
               </ul>
             </div>
 
@@ -615,7 +587,7 @@ export const Landing = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          🚪 EXIT INTENT POPUP
+          🚪 EXIT INTENT POPUP (PROFIT PSYCHOLOGY)
           ═══════════════════════════════════════════════════════════ */}
       {showExitPopup && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -631,25 +603,30 @@ export const Landing = () => {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Gift size={32} className="text-red-500" />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! 🎁</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! Don't Miss Out 🎁</h3>
               <p className="text-slate-600 mb-6">
-                Jane se pehle special offer le lijiye:
+                Jane se pehle yeh special offer claim karein:
                 <br />
-                <strong className="text-red-600 text-xl">5 Bonus Leads FREE!</strong>
+                <strong className="text-green-600 text-xl">Get 3 EXTRA Leads FREE!</strong>
+                <br/>
+                <span className="text-sm text-slate-500">On your first recharge. No extra cost.</span>
               </p>
               <Link 
                 to="/login"
                 onClick={() => setShowExitPopup(false)}
-                className="block w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-4 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all"
+                className="block w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
               >
-                Claim Free Leads Now
+                Claim My Bonus Leads
               </Link>
+              <p className="text-xs text-slate-400 mt-4">
+                * Limited time offer. Valid for first purchase only.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Animation for popup */}
+      {/* Animation for popup & marquee */}
       <style>{`
         @keyframes bounce-in {
           0% { transform: scale(0.9); opacity: 0; }
