@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  CheckCircle, Zap, BarChart3, Shield, ArrowRight, 
-  Star, Lock, Play, Users, Clock, X, Menu, 
-  Phone, MessageCircle, TrendingUp, Award, 
-  ChevronDown, Sparkles, Target, Bell,
-  BadgeCheck, Flame, Gift, Timer, IndianRupee
+  CheckCircle, Zap, Shield, ArrowRight, 
+  Star, Lock, X, Menu, 
+  MessageCircle, Clock, BadgeCheck, IndianRupee,
+  Gift, ChevronDown, ChevronRight, ChevronLeft
 } from 'lucide-react';
 
 export const Landing = () => {
@@ -13,6 +12,10 @@ export const Landing = () => {
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  // WhatsApp Number
+  const WHATSAPP_NUMBER = "917009064038";
 
   // Live counter animation
   useEffect(() => {
@@ -33,38 +36,53 @@ export const Landing = () => {
     return () => document.removeEventListener('mouseleave', handleMouseLeave);
   }, [showExitPopup]);
 
+  // Testimonial Auto-Scroll
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveTestimonial(prev => (prev + 1) % testimonials.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   const testimonials = [
     {
-      name: "Rajesh Kumar",
-      role: "Insurance Agent, Delhi",
+      name: "Sandeep Verma",
+      role: "Vestige Diamond Director, Delhi",
       image: "https://randomuser.me/api/portraits/men/32.jpg",
-      text: "Pehle din mein 50 leads forward karta tha manually. Ab sab automatic hai. Team ki productivity 3x ho gayi!",
+      text: "Meri team daily struggle karti thi leads ke liye. Ab LeadFlow se daily fresh leads milti hain. Meri team ki closing ratio 3x ho gayi hai!",
       rating: 5
     },
     {
-      name: "Priya Sharma",
-      role: "Real Estate, Mumbai",
+      name: "Anjali Gupta",
+      role: "Herbalife Associate, Mumbai",
       image: "https://randomuser.me/api/portraits/women/44.jpg",
-      text: "₹16 per lead mil rahi hai quality leads. Pehle ₹50+ lagta tha. ROI amazing hai!",
+      text: "MLM mein sabse mushkil kaam hai nayi leads dhundna. LeadFlow ne ye problem solve kar di. ₹16 mein quality lead milna impossible tha pehle!",
       rating: 5
     },
     {
-      name: "Amit Patel",
-      role: "Network Marketing, Ahmedabad",
+      name: "Rahul Mehta",
+      role: "Forex Team Leader, Bangalore",
       image: "https://randomuser.me/api/portraits/men/67.jpg",
-      text: "Meri team ab daily targets hit karti hai. Manager dashboard se sab track hota hai live.",
+      text: "Main manager plan use kar raha hu. Meri 15 logo ki team hai aur sabko automatic leads assign ho jati hain. Best CRM for Network Marketing!",
+      rating: 5
+    },
+    {
+      name: "Pooja Singh",
+      role: "Modicare Leader, Lucknow",
+      image: "https://randomuser.me/api/portraits/women/68.jpg",
+      text: "Pehle main Facebook ads pe ₹1000 daily lagati thi aur result zero tha. LeadFlow ka 'Supervisor Plan' best hai, daily 6 solid leads milti hain.",
       rating: 5
     }
   ];
 
   const faqs = [
     { 
-      q: "Leads kahan se aati hain?", 
-      a: "Facebook & Google Ads se verified leads aati hain. Sab fresh hoti hain, recycled nahi." 
+      q: "Kya ye leads MLM/Network Marketing ke liye hain?", 
+      a: "Bilkul! Humari leads specifically un logo ki hoti hain jo 'Business Opportunity', 'Part Time Work', ya 'Extra Income' dhund rahe hain." 
     },
     { 
-      q: "Kya main apni purani leads upload kar sakta hu?", 
-      a: "Haan, Manager plan mein Bulk Upload feature available hai." 
+      q: "Leads kahan se aati hain?", 
+      a: "Hum Facebook aur Google Ads use karte hain 'Work From Home' aur 'Business' keywords par. Sab leads fresh aur verified hoti hain." 
     },
     { 
       q: "Payment ke baad setup mein kitna time lagta hai?", 
@@ -72,7 +90,7 @@ export const Landing = () => {
     },
     { 
       q: "Kya refund milta hai?", 
-      a: "7 days money back guarantee. Agar satisfied nahi, full refund no questions asked." 
+      a: "Haan, 7 days money back guarantee. Agar aapko leads pasand nahi aayi, toh hum bina sawal kiye paise wapas kar denge." 
     },
     { 
       q: "WhatsApp pe leads aati hain?", 
@@ -99,8 +117,9 @@ export const Landing = () => {
           75% { transform: rotate(5deg); }
         }
         .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
         .animate-shake { animation: shake 0.5s ease-in-out infinite; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* ═══════════════════════════════════════════════════════════
@@ -108,9 +127,9 @@ export const Landing = () => {
           ═══════════════════════════════════════════════════════════ */}
       <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 text-center text-sm font-medium">
         <span className="animate-pulse">🔥</span>
-        {" "}Limited Time: First 100 Users Get <strong>₹200 OFF</strong> + 3 Bonus Leads FREE!
-        <span className="ml-2 bg-white/20 px-2 py-0.5 rounded text-xs font-bold">
-          47 spots left
+        {" "}Limited Offer: Join Today & Get <strong>5 Bonus Leads FREE!</strong>
+        <span className="ml-2 bg-white/20 px-2 py-0.5 rounded text-xs font-bold hidden sm:inline-block">
+          Ends Tonight
         </span>
       </div>
 
@@ -130,10 +149,10 @@ export const Landing = () => {
             <div className="hidden md:flex items-center gap-6">
               <a href="#how-it-works" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">कैसे काम करता है</a>
               <a href="#pricing" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Pricing</a>
-              <a href="#testimonials" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Reviews</a>
+              <a href="#testimonials" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Results</a>
               <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Login</Link>
               <Link to="/login" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-full font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:-translate-y-0.5 flex items-center gap-2">
-                Start Free <ArrowRight size={16} />
+                Start Free Trial <ArrowRight size={16} />
               </Link>
             </div>
 
@@ -145,10 +164,10 @@ export const Landing = () => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-3 shadow-xl">
+          <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-3 shadow-xl absolute w-full">
             <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">कैसे काम करता है</a>
             <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Pricing</a>
-            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Reviews</a>
+            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Results</a>
             <Link to="/login" className="block py-2 font-semibold text-slate-600">Login</Link>
             <Link to="/login" className="block w-full text-center bg-blue-600 text-white py-3 rounded-xl font-bold mt-2">
               Start Free Trial
@@ -158,7 +177,7 @@ export const Landing = () => {
       </nav>
 
       {/* ═══════════════════════════════════════════════════════════
-          🚀 HERO SECTION
+          🚀 HERO SECTION (MLM OPTIMIZED)
           ═══════════════════════════════════════════════════════════ */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 relative overflow-hidden px-4">
         {/* Background Gradient */}
@@ -169,65 +188,56 @@ export const Landing = () => {
             
             {/* Left Content */}
             <div className="text-center lg:text-left">
-              {/* Live Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 text-green-700 rounded-full text-sm font-bold mb-6">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                 </span>
-                {liveLeadsCount.toLocaleString()} leads distributed today
+                {liveLeadsCount.toLocaleString()} MLM leads distributed today
               </div>
               
-              {/* Main Headline */}
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
-                रोज़ाना <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Fresh Leads</span>
+                Network Marketing के लिए
                 <br />
-                <span className="text-3xl md:text-4xl lg:text-5xl">Automatically आपके Dashboard में</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">100% Quality Leads</span>
               </h1>
               
-              {/* Subheadline */}
               <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-                Manual forwarding बंद करो। 
-                <strong className="text-slate-800"> ₹16/lead</strong> में quality leads सीधे 
-                आपके Dashboard + WhatsApp पर।
+                Ab team banana hua aasaan. 
+                <strong className="text-slate-800"> ₹10-16/lead</strong> mein 'Business Interested' log seedha 
+                aapke WhatsApp aur Dashboard par.
               </p>
 
-              {/* Trust Points */}
               <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-8">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>No Setup Fee</span>
+                  <span>Verified Numbers</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>7-Day Money Back</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <CheckCircle size={18} className="text-green-500" />
-                  <span>Cancel Anytime</span>
+                  <span>Money Back Guarantee</span>
                 </div>
               </div>
               
-              {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
                 <Link 
                   to="/login" 
                   className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                 >
                   <Zap size={20} className="group-hover:animate-shake" /> 
-                  Start 7-Day Free Trial
+                  Start Free Trial
                 </Link>
                 <a 
-                  href="https://wa.me/919876543210?text=Hi,%20I%20want%20to%20know%20about%20LeadFlow"
+                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi,%20I%20want%20to%20know%20about%20LeadFlow%20leads`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
                 >
-                  <MessageCircle size={20} /> WhatsApp पर बात करें
+                  <MessageCircle size={20} /> Chat on WhatsApp
                 </a>
               </div>
 
-              {/* Social Proof Micro */}
+              {/* Social Proof */}
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
                   {[1,2,3,4,5].map(i => (
@@ -246,13 +256,13 @@ export const Landing = () => {
                     ))}
                   </div>
                   <p className="text-sm text-slate-600">
-                    <strong>500+</strong> agents trust LeadFlow
+                    Trusted by <strong>500+ Networkers</strong>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Right - Dashboard Preview */}
+            {/* Right - Dashboard Preview (Same as before but with updated text if needed) */}
             <div className="relative animate-float hidden lg:block">
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur-2xl opacity-20"></div>
               <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 overflow-hidden">
@@ -263,7 +273,7 @@ export const Landing = () => {
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                   </div>
                   <div className="ml-4 px-3 py-1 bg-white rounded text-xs text-slate-500 font-mono flex items-center gap-2">
-                    <Lock size={10} className="text-green-500"/> app.leadflowcrm.in
+                    <Lock size={10} className="text-green-500"/> LeadFlow Dashboard
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-b-xl p-6">
@@ -278,14 +288,14 @@ export const Landing = () => {
                       <p className="text-2xl font-bold text-green-600">5</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <p className="text-xs text-slate-500 mb-1">Closed</p>
+                      <p className="text-xs text-slate-500 mb-1">Joinings</p>
                       <p className="text-2xl font-bold text-purple-600">2</p>
                     </div>
                   </div>
                   
                   {/* Lead Cards Preview */}
                   <div className="space-y-2">
-                    {['Rahul Verma', 'Priya Singh', 'Amit Kumar'].map((name, i) => (
+                    {['Rohan (Interested in Biz)', 'Suman (Part Time)', 'Amit (Work from Home)'].map((name, i) => (
                       <div key={i} className="bg-white p-3 rounded-lg shadow-sm flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
@@ -293,198 +303,92 @@ export const Landing = () => {
                           </div>
                           <div>
                             <p className="font-semibold text-sm text-slate-800">{name}</p>
-                            <p className="text-xs text-slate-500">Delhi • Just now</p>
+                            <p className="text-xs text-slate-500">Just now • Facebook Ad</p>
                           </div>
                         </div>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">Fresh</span>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">Fresh</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              
-              {/* Floating Elements */}
-              <div className="absolute -right-4 top-1/4 bg-white px-4 py-2 rounded-lg shadow-lg border border-slate-200 animate-bounce">
-                <div className="flex items-center gap-2">
-                  <Bell size={16} className="text-blue-600" />
-                  <span className="text-sm font-semibold">New Lead! 🔥</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          🏆 TRUST BADGES
+          ⭐ TESTIMONIALS SLIDESHOW (Auto-Scrolling)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-8 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
-            <div className="flex items-center gap-2 text-slate-500">
-              <Shield size={24} className="text-green-500" />
-              <span className="text-sm font-medium">SSL Secure</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <BadgeCheck size={24} className="text-blue-500" />
-              <span className="text-sm font-medium">Verified Business</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <IndianRupee size={24} className="text-orange-500" />
-              <span className="text-sm font-medium">UPI & Cards Accepted</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <Clock size={24} className="text-purple-500" />
-              <span className="text-sm font-medium">24/7 Support</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════
-          📊 PROBLEM → SOLUTION
-          ═══════════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <span className="inline-block px-4 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold mb-4">
-              😫 THE PROBLEM
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              क्या आप भी इन Problems से परेशान हैं?
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
-            {/* Problems */}
-            <div className="space-y-4">
-              {[
-                "WhatsApp पर manually leads forward करना",
-                "Team track नहीं होती - कौन call कर रहा है?",
-                "Excel sheets में leads खो जाती हैं",
-                "महंगी leads खरीदो फिर भी conversion कम"
-              ].map((problem, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
-                  <X size={20} className="text-red-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-slate-700">{problem}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Solutions */}
-            <div className="space-y-4">
-              {[
-                "Auto-assignment: Leads सीधे agent के dashboard में",
-                "Live Tracking: Manager देखे कौन call कर रहा है",
-                "CRM Dashboard: सब एक जगह, कुछ नहीं खोता",
-                "₹16/lead: Quality leads at lowest cost"
-              ].map((solution, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
-                  <CheckCircle size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-slate-700">{solution}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════
-          🔄 HOW IT WORKS
-          ═══════════════════════════════════════════════════════════ */}
-      <section id="how-it-works" className="py-20 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">
-              ⚡ HOW IT WORKS
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              3 Simple Steps में शुरू करें
-            </h2>
-            <p className="text-slate-500 text-lg">Setup में 2 minute लगते हैं। फिर leads automatic आती हैं।</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            {/* Connecting Line */}
-            <div className="hidden md:block absolute top-16 left-[20%] right-[20%] h-0.5 bg-gradient-to-r from-blue-200 via-blue-400 to-blue-200"></div>
-
-            {[
-              {
-                step: "1",
-                icon: "📱",
-                title: "Sign Up करें",
-                desc: "2 minute में account बनाएं। कोई documents नहीं चाहिए।",
-                color: "blue"
-              },
-              {
-                step: "2",
-                icon: "🎯",
-                title: "Plan Choose करें",
-                desc: "अपने budget के हिसाब से daily lead limit set करें।",
-                color: "indigo"
-              },
-              {
-                step: "3",
-                icon: "🚀",
-                title: "Leads पाएं",
-                desc: "रोज़ सुबह 9 बजे fresh leads आपके dashboard में!",
-                color: "purple"
-              }
-            ].map((item, i) => (
-              <div key={i} className="relative bg-white p-8 rounded-2xl border border-slate-200 text-center hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl">
-                <div className={`w-20 h-20 bg-${item.color}-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl border-4 border-white shadow-lg relative z-10`}>
-                  {item.icon}
-                </div>
-                <div className="absolute top-6 right-6 w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                  {item.step}
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">{item.title}</h3>
-                <p className="text-slate-500">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════
-          ⭐ TESTIMONIALS
-          ═══════════════════════════════════════════════════════════ */}
-      <section id="testimonials" className="py-20 bg-white">
+      <section id="testimonials" className="py-20 bg-slate-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
-              ⭐ TESTIMONIALS
+              ⭐ SUCCESS STORIES
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              500+ Agents का भरोसा
+              Network Marketing Leaders की पसंद
             </h2>
-            <p className="text-slate-500 text-lg">देखिए हमारे users क्या कहते हैं</p>
+            <p className="text-slate-500 text-lg">500+ Top Earners use LeadFlow</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
-              <div key={i} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 hover:shadow-lg transition-shadow">
-                <div className="flex items-center gap-1 mb-4">
-                  {[1,2,3,4,5].map(s => (
-                    <Star key={s} size={18} className="text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-slate-700 mb-6 leading-relaxed">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <img src={t.image} alt={t.name} className="w-12 h-12 rounded-full object-cover" />
-                  <div>
-                    <p className="font-bold text-slate-900">{t.name}</p>
-                    <p className="text-sm text-slate-500">{t.role}</p>
+          <div className="relative max-w-4xl mx-auto">
+            {/* Cards Container */}
+            <div className="overflow-hidden relative h-[300px] md:h-[250px]">
+              {testimonials.map((t, i) => (
+                <div 
+                  key={i}
+                  className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${
+                    i === activeTestimonial 
+                      ? 'opacity-100 translate-x-0' 
+                      : i < activeTestimonial 
+                        ? 'opacity-0 -translate-x-full' 
+                        : 'opacity-0 translate-x-full'
+                  }`}
+                >
+                  <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-lg mx-4">
+                    <div className="flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left">
+                      <img 
+                        src={t.image} 
+                        alt={t.name} 
+                        className="w-20 h-20 rounded-full object-cover border-4 border-slate-100"
+                      />
+                      <div>
+                        <div className="flex items-center justify-center md:justify-start gap-1 mb-3">
+                          {[1,2,3,4,5].map(s => (
+                            <Star key={s} size={18} className="text-yellow-400 fill-yellow-400" />
+                          ))}
+                        </div>
+                        <p className="text-slate-700 text-lg mb-4 italic">"{t.text}"</p>
+                        <div>
+                          <p className="font-bold text-slate-900 text-lg">{t.name}</p>
+                          <p className="text-blue-600 font-medium">{t.role}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Dots */}
+            <div className="flex justify-center gap-2 mt-4">
+              {testimonials.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveTestimonial(i)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    i === activeTestimonial ? 'bg-blue-600 w-6' : 'bg-slate-300'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          💰 PRICING
+          💰 PRICING PLANS (UPDATED)
           ═══════════════════════════════════════════════════════════ */}
       <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4">
@@ -493,9 +397,9 @@ export const Landing = () => {
               💰 SIMPLE PRICING
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Choose Your Daily Lead Limit
+              Daily Lead Limit Choose Karein
             </h2>
-            <p className="text-slate-400 text-lg">No hidden fees. Cancel anytime.</p>
+            <p className="text-slate-400 text-lg">High quality leads at lowest cost.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
@@ -504,24 +408,24 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-400">For solo agents</p>
+                <p className="text-sm text-slate-400">For Beginners</p>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
                 <span className="text-slate-400">/month</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> 2 Leads/Day</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> 2 Fresh Leads/Day</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> ~60 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Dashboard Access</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> WhatsApp Alerts</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Basic Dashboard</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> WhatsApp Support</li>
               </ul>
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">
-                Start Free Trial
+                Start Now
               </Link>
             </div>
 
-            {/* Pro - Highlighted */}
+            {/* Supervisor - Highlighted */}
             <div className="bg-gradient-to-b from-blue-600 to-indigo-700 p-8 rounded-3xl border-2 border-blue-400 transform md:-translate-y-4 shadow-2xl shadow-blue-500/25 flex flex-col relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-4 py-1 rounded-full shadow-lg">
@@ -530,21 +434,21 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Supervisor</h3>
-                <p className="text-sm text-blue-200">Best value for serious agents</p>
+                <p className="text-sm text-blue-200">For Serious Networkers</p>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹1,999</span>
                 <span className="text-blue-200">/month</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0"/> <strong>6 Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0"/> <strong>6 Fresh Leads/Day</strong></li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> ~180 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Priority Support</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Call Recording</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Export Reports</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Lead Replacement Guarantee</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Performance Analytics</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Cost: ₹11/lead only</li>
               </ul>
               <Link to="/login" className="block w-full py-4 bg-white text-blue-700 rounded-xl hover:bg-blue-50 transition-all font-bold text-center shadow-lg">
-                🚀 Start Free Trial
+                🚀 Get Best Value
               </Link>
             </div>
 
@@ -552,7 +456,7 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-400">For team leaders</p>
+                <p className="text-sm text-slate-400">For Team Leaders</p>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹4,999</span>
@@ -561,21 +465,13 @@ export const Landing = () => {
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> 16 Leads/Day</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> ~480 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Team Management</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Auto Lead Assignment</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Analytics Dashboard</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Team Dashboard (5 members)</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Auto Assignment</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0"/> Priority Support</li>
               </ul>
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">
-                Start Free Trial
+                Go Premium
               </Link>
-            </div>
-          </div>
-
-          {/* Money Back Guarantee */}
-          <div className="mt-12 text-center">
-            <div className="inline-flex items-center gap-3 bg-green-500/20 border border-green-500/30 px-6 py-3 rounded-full">
-              <Shield size={24} className="text-green-400" />
-              <span className="text-green-300 font-medium">7-Day Money Back Guarantee. No questions asked.</span>
             </div>
           </div>
         </div>
@@ -584,7 +480,7 @@ export const Landing = () => {
       {/* ═══════════════════════════════════════════════════════════
           ❓ FAQ
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-slate-50">
+      <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-12">
             <span className="inline-block px-4 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold mb-4">
@@ -626,10 +522,10 @@ export const Landing = () => {
       <section className="py-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Ready to Get Daily Fresh Leads?
+            Apna MLM Business Grow Karein 🚀
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join 500+ agents who are growing their business with LeadFlow
+            Daily fresh leads se apni team size double karein.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -639,7 +535,7 @@ export const Landing = () => {
               <Zap size={20} /> Start 7-Day Free Trial
             </Link>
             <a 
-              href="https://wa.me/919876543210"
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hi,%20I%20have%20questions%20about%20LeadFlow`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
@@ -661,11 +557,11 @@ export const Landing = () => {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">LF</div>
                 <span className="font-bold text-white text-lg">LeadFlow</span>
               </div>
-              <p className="text-sm">Daily fresh leads for serious agents.</p>
+              <p className="text-sm">Best CRM for Network Marketers.</p>
             </div>
             
             <div>
-              <h4 className="text-white font-bold mb-4">Product</h4>
+              <h4 className="text-white font-bold mb-4">Links</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="#how-it-works" className="hover:text-white">How it Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
@@ -677,8 +573,8 @@ export const Landing = () => {
               <h4 className="text-white font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-white">Refund Policy</a></li>
+                <li><a href="#" className="hover:text-white">Terms</a></li>
+                <li><a href="#" className="hover:text-white">Refund</a></li>
               </ul>
             </div>
 
@@ -686,7 +582,7 @@ export const Landing = () => {
               <h4 className="text-white font-bold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
                 <li>support@leadflowcrm.in</li>
-                <li>+91 98765 43210</li>
+                <li>+91 {WHATSAPP_NUMBER.replace("91", "")}</li>
                 <li>Gurugram, India</li>
               </ul>
             </div>
@@ -710,7 +606,7 @@ export const Landing = () => {
             Start Free Trial
           </Link>
           <a 
-            href="https://wa.me/919876543210"
+            href={`https://wa.me/${WHATSAPP_NUMBER}`}
             className="px-4 bg-green-500 text-white rounded-xl flex items-center justify-center"
           >
             <MessageCircle size={20} />
@@ -735,22 +631,19 @@ export const Landing = () => {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Gift size={32} className="text-red-500" />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">रुकिए! 🎁</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! 🎁</h3>
               <p className="text-slate-600 mb-6">
-                जाने से पहले यह special offer लीजिए:
+                Jane se pehle special offer le lijiye:
                 <br />
-                <strong className="text-red-600 text-xl">₹200 OFF + 5 Bonus Leads FREE!</strong>
+                <strong className="text-red-600 text-xl">5 Bonus Leads FREE!</strong>
               </p>
               <Link 
                 to="/login"
                 onClick={() => setShowExitPopup(false)}
                 className="block w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-4 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all"
               >
-                Claim My Discount Now
+                Claim Free Leads Now
               </Link>
-              <p className="text-xs text-slate-400 mt-4">
-                * Limited time offer. Valid for first purchase only.
-              </p>
             </div>
           </div>
         </div>
