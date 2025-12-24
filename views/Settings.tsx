@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { User } from '../types'; // Ensure types exist or define them below
-import { Save, MapPin, User as UserIcon, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Save, MapPin, User as UserIcon, CheckCircle, AlertTriangle, Bell, BellOff } from 'lucide-react';
+import { usePushNotification } from '../hooks/usePushNotification'; // Import the hook
 
-// Temporary type fix if types file is missing
 interface SettingsProps {
   user: any;
   onUpdate: (filters: any) => Promise<void>;
@@ -16,13 +15,11 @@ export const Settings: React.FC<SettingsProps> = ({ user, onUpdate }) => {
   // Profile State
   const [name, setName] = useState(user.name || '');
   const [whatsapp, setWhatsapp] = useState(user.phone || '');
+  const [selectedState, setSelectedState] = useState<string>(user.filters?.states?.[0] || '');
 
-  // Filter State (State Selection Logic)
-  const [selectedState, setSelectedState] = useState<string>(
-    user.filters?.states?.[0] || ''
-  );
+  // Push Notification Hook
+  const { subscribe, isSubscribed, testNotification, permission } = usePushNotification();
 
-  // Supported States List (Same as Database)
   const availableStates = [
     'Punjab', 'Haryana', 'Delhi', 'Maharashtra', 'Himachal Pradesh', 
     'Uttarakhand', 'Uttar Pradesh', 'Rajasthan', 'Gujarat', 
@@ -34,15 +31,13 @@ export const Settings: React.FC<SettingsProps> = ({ user, onUpdate }) => {
     setLoading(true);
     setSuccess(false);
     try {
-      // Logic: If State selected -> Use State. Else -> Pan India.
       const newFilters = {
         ...user.filters,
-        states: selectedState ? [selectedState] : [], // Single state for now
-        cities: [], // Clear specific cities to avoid conflict
-        pan_india: selectedState === '' // True if no state selected
+        states: selectedState ? [selectedState] : [],
+        cities: [],
+        pan_india: selectedState === ''
       };
 
-      // 1. Update Supabase
       const { error } = await supabase
         .from('users')
         .update({ 
@@ -54,17 +49,11 @@ export const Settings: React.FC<SettingsProps> = ({ user, onUpdate }) => {
         .eq('id', user.id);
 
       if (error) throw error;
-
-      // 2. Update Local State
       await onUpdate(newFilters);
       setSuccess(true);
-      
-      // Auto hide success message
       setTimeout(() => setSuccess(false), 3000);
-
     } catch (error: any) {
-      console.error('Error saving settings:', error);
-      alert('Failed to save settings: ' + error.message);
+      alert('Error: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -72,70 +61,55 @@ export const Settings: React.FC<SettingsProps> = ({ user, onUpdate }) => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-12">
-      
-      {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Settings</h2>
-          <p className="text-slate-500">Manage your profile and targeting preferences.</p>
+        <h2 className="text-3xl font-bold text-slate-900">Settings</h2>
+        {success && <div className="text-green-600 bg-green-50 px-4 py-2 rounded-lg font-bold flex items-center gap-2"><CheckCircle size={20} /> Saved!</div>}
+      </div>
+
+      {/* 🔔 NOTIFICATION SETTINGS (The Missing Piece) */}
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 ring-2 ring-blue-500 ring-offset-2">
+        <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+          <Bell className="text-blue-600" /> Mobile Notifications
+        </h3>
+        <p className="text-sm text-slate-500 mb-6">Enable this on your phone to get instant "TING" alerts even when phone is locked.</p>
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          {!isSubscribed ? (
+            <button 
+              onClick={subscribe}
+              className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
+            >
+              <Bell size={20} /> Enable Mobile Alerts
+            </button>
+          ) : (
+            <div className="flex-1 bg-green-50 text-green-700 p-4 rounded-xl border border-green-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold">
+                <CheckCircle size={20} /> Alerts are Active
+              </div>
+              <button onClick={testNotification} className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg">Test Push</button>
+            </div>
+          )}
         </div>
-        {success && (
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg animate-fade-in">
-            <CheckCircle size={20} /> Saved!
-          </div>
+        {permission === 'denied' && (
+          <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
+            <BellOff size={12} /> Notification permission denied. Please reset Chrome settings.
+          </p>
         )}
       </div>
 
-      {/* 📍 TARGETING SECTION (Main Feature) */}
+      {/* 📍 TARGETING SECTION */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           <MapPin className="text-blue-600" /> Lead Targeting
         </h3>
-        
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">
-              Preferred State
-            </label>
-            <div className="relative">
-              <select
-                value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
-                className="w-full p-4 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-medium text-slate-700"
-              >
-                <option value="">🌍 All India (Pan-India Leads)</option>
-                <option disabled>──────────</option>
-                {availableStates.map(state => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
-              <div className="absolute right-4 top-4 pointer-events-none text-slate-400">
-                ▼
-              </div>
-            </div>
-            
-            {/* Context Message */}
-            <div className={`mt-4 p-4 rounded-lg text-sm border ${selectedState ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-              {selectedState ? (
-                <div className="flex gap-2">
-                  <CheckCircle size={18} className="shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Great choice!</strong> You will receive leads from <strong>ALL cities</strong> in {selectedState}.
-                    <br/><span className="opacity-80 text-xs">(e.g., if Punjab: Ludhiana, Amritsar, Moga, etc. included automatically)</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Pan-India Mode:</strong> You will receive leads from <strong>ANYWHERE</strong> in India.
-                    <br/><span className="opacity-80 text-xs">Select a state above if you want local leads only.</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <select
+          value={selectedState}
+          onChange={(e) => setSelectedState(e.target.value)}
+          className="w-full p-4 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+        >
+          <option value="">🌍 All India (Pan-India Leads)</option>
+          {availableStates.map(state => <option key={state} value={state}>{state}</option>)}
+        </select>
       </div>
 
       {/* 👤 PROFILE SECTION */}
@@ -143,61 +117,15 @@ export const Settings: React.FC<SettingsProps> = ({ user, onUpdate }) => {
         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           <UserIcon className="text-blue-600" /> Personal Details
         </h3>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Your Name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">WhatsApp Number</label>
-            <input
-              type="text"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="e.g. 9876543210"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
-            <input
-              type="text"
-              value={user.email}
-              disabled
-              className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
-            />
-            <p className="text-xs text-slate-400 mt-1">Email cannot be changed.</p>
-          </div>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-3 border border-slate-300 rounded-xl" placeholder="Full Name" />
+          <input type="text" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="w-full p-3 border border-slate-300 rounded-xl" placeholder="WhatsApp Number" />
         </div>
       </div>
 
-      {/* SAVE BUTTON */}
-      <div className="sticky bottom-4">
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 active:scale-[0.99] transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Saving...
-            </span>
-          ) : (
-            <>
-              <Save size={20} /> Save Changes
-            </>
-          )}
-        </button>
-      </div>
-
+      <button onClick={handleSave} disabled={loading} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800">
+        {loading ? 'Saving...' : 'Save All Settings'}
+      </button>
     </div>
   );
 };
