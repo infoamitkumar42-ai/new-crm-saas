@@ -1,3 +1,4 @@
+// src/App.tsx
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -13,6 +14,7 @@ import { LeadAlert } from './components/LeadAlert';
 import { useAuth } from './auth/useAuth';
 import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
+import { keepServiceWorkerAlive } from './utils/keepServiceWorkerAlive';
 import { Loader2 } from 'lucide-react';
 
 function App() {
@@ -20,6 +22,11 @@ function App() {
   const [fullProfile, setFullProfile] = useState<CustomUser | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
+
+  // ✅ NEW: Keep Service Worker Alive
+  useEffect(() => {
+    keepServiceWorkerAlive();
+  }, []);
 
   // Fetch user profile
   useEffect(() => {
