@@ -23,6 +23,7 @@ interface UsePushNotificationReturn {
   subscribe: () => Promise<boolean>;
   unsubscribe: () => Promise<boolean>;
   testNotification: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 export function usePushNotification(): UsePushNotificationReturn {
@@ -33,17 +34,17 @@ export function usePushNotification(): UsePushNotificationReturn {
 
   const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
-  // Debug logger
+  // Debug logger (reduced logging for performance)
   const log = (message: string, data?: any) => {
-    console.log(`[PushNotification] ${message}`, data || '');
+    if (import.meta.env.DEV) {
+      console.log(`[Push] ${message}`, data || '');
+    }
   };
 
   // Initialize service worker and check existing subscription
   useEffect(() => {
     const init = async () => {
       try {
-        log('Initializing...');
-        
         if (!('serviceWorker' in navigator)) {
           log('Service Worker not supported');
           return;
@@ -58,29 +59,45 @@ export function usePushNotification(): UsePushNotificationReturn {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/'
         });
-        log('Service Worker registered', registration);
         
         // Wait for service worker to be ready
         await navigator.serviceWorker.ready;
-        log('Service Worker is ready');
+        log('SW ready');
         
         swRegistrationRef.current = registration;
 
         // Check existing subscription
         const existingSubscription = await registration.pushManager.getSubscription();
         if (existingSubscription) {
-          log('Existing subscription found', existingSubscription.endpoint);
+          log('Existing subscription found');
           setIsSubscribed(true);
-        } else {
-          log('No existing subscription');
         }
       } catch (err) {
         log('Init error', err);
-        console.error(err);
       }
     };
 
     init();
+  }, []);
+
+  // Keep service worker alive (prevent sleep)
+  useEffect(() => {
+    const keepAlive = async () => {
+      try {
+        if (swRegistrationRef.current?.active) {
+          const messageChannel = new MessageChannel();
+          swRegistrationRef.current.active.postMessage('KEEP_ALIVE', [messageChannel.port2]);
+        }
+      } catch (err) {
+        // Silent fail - don't spam console
+      }
+    };
+
+    // Ping every 25 seconds
+    const interval = setInterval(keepAlive, 25000);
+    keepAlive(); // Initial ping
+
+    return () => clearInterval(interval);
   }, []);
 
   // Subscribe to push notifications
@@ -89,42 +106,32 @@ export function usePushNotification(): UsePushNotificationReturn {
     setError(null);
 
     try {
-      log('Starting subscription process...');
-
       // Step 1: Check VAPID key
       if (!VAPID_KEY) {
-        throw new Error('VAPID public key is not configured. Check VITE_VAPID_PUBLIC_KEY in .env');
+        throw new Error('VAPID key not configured');
       }
-      log('VAPID key found', VAPID_KEY.substring(0, 20) + '...');
 
       // Step 2: Request notification permission
-      log('Requesting notification permission...');
       const permission = await Notification.requestPermission();
-      log('Permission result:', permission);
 
       if (permission !== 'granted') {
-        throw new Error(`Notification permission ${permission}. Please allow notifications in browser settings.`);
+        throw new Error('Notification permission denied');
       }
 
       // Step 3: Check service worker
       if (!swRegistrationRef.current) {
-        log('SW not ready, waiting...');
         await navigator.serviceWorker.ready;
         swRegistrationRef.current = await navigator.serviceWorker.getRegistration();
       }
 
       if (!swRegistrationRef.current) {
-        throw new Error('Service Worker registration failed. Try refreshing the page.');
+        throw new Error('Service Worker not ready');
       }
-      log('Service Worker ready');
 
       // Step 4: Create push subscription
-      log('Creating push subscription...');
-      
       // Unsubscribe from any existing subscription first
       const existingSub = await swRegistrationRef.current.pushManager.getSubscription();
       if (existingSub) {
-        log('Removing existing browser subscription...');
         await existingSub.unsubscribe();
       }
 
@@ -134,34 +141,20 @@ export function usePushNotification(): UsePushNotificationReturn {
       });
       
       const subJson = subscription.toJSON();
-      log('Push subscription created:', {
-        endpoint: subJson.endpoint?.substring(0, 50) + '...',
-        hasP256dh: !!subJson.keys?.p256dh,
-        hasAuth: !!subJson.keys?.auth
-      });
 
       // Validate subscription data
       if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-        throw new Error('Invalid subscription data from browser. Missing endpoint or keys.');
+        throw new Error('Invalid subscription data');
       }
 
       // Step 5: Check authentication
-      log('Checking authentication...');
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (authError) {
-        log('Auth error', authError);
-        throw new Error(`Authentication error: ${authError.message}`);
+      if (authError || !user) {
+        throw new Error('Not logged in');
       }
-      
-      if (!user) {
-        throw new Error('You must be logged in to enable notifications. Please log in first.');
-      }
-      log('User authenticated:', user.id);
 
       // Step 6: Save to database using RPC function
-      log('Saving subscription to database...');
-      
       const { data: rpcResult, error: rpcError } = await supabase.rpc('upsert_push_subscription', {
         p_endpoint: subJson.endpoint,
         p_p256dh: subJson.keys.p256dh,
@@ -169,48 +162,26 @@ export function usePushNotification(): UsePushNotificationReturn {
         p_user_agent: navigator.userAgent
       });
 
-      log('RPC result:', rpcResult);
-
       if (rpcError) {
-        log('RPC error:', rpcError);
         throw new Error(`Database error: ${rpcError.message}`);
       }
 
       // Check if the function returned success
-      if (rpcResult && typeof rpcResult === 'object') {
-        if (!rpcResult.success) {
-          throw new Error(rpcResult.error || 'Unknown database error');
-        }
-      }
-
-      // Step 7: Verify the subscription was saved
-      log('Verifying subscription in database...');
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('push_subscriptions')
-        .select('id, endpoint')
-        .eq('user_id', user.id)
-        .single();
-
-      if (verifyError) {
-        log('Verification warning:', verifyError);
-        // Don't throw - the insert might have succeeded
-      } else {
-        log('Subscription verified in database:', verifyData);
+      if (rpcResult && typeof rpcResult === 'object' && !rpcResult.success) {
+        throw new Error(rpcResult.error || 'Database save failed');
       }
 
       setIsSubscribed(true);
-      log('✅ Subscription complete!');
+      log('✅ Subscribed successfully');
       
       return true;
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Unknown error occurred';
+      const errorMessage = err.message || 'Unknown error';
       log('❌ Subscribe error:', errorMessage);
-      console.error('Full error:', err);
       setError(errorMessage);
       
-      // Show user-friendly alert
-      alert(`❌ Notification Setup Failed:\n\n${errorMessage}`);
+      alert(`❌ Notification setup failed:\n\n${errorMessage}`);
       
       return false;
     } finally {
@@ -224,30 +195,22 @@ export function usePushNotification(): UsePushNotificationReturn {
     setError(null);
 
     try {
-      log('Starting unsubscribe process...');
-
-      // Get current subscription
       if (swRegistrationRef.current) {
         const subscription = await swRegistrationRef.current.pushManager.getSubscription();
         
         if (subscription) {
           // Remove from database first
-          const { error: rpcError } = await supabase.rpc('remove_push_subscription', {
+          await supabase.rpc('remove_push_subscription', {
             p_endpoint: subscription.endpoint
           });
 
-          if (rpcError) {
-            log('RPC unsubscribe error:', rpcError);
-          }
-
           // Unsubscribe from browser
           await subscription.unsubscribe();
-          log('Unsubscribed from browser');
         }
       }
 
       setIsSubscribed(false);
-      log('✅ Unsubscribe complete');
+      log('✅ Unsubscribed');
       return true;
 
     } catch (err: any) {
@@ -259,11 +222,51 @@ export function usePushNotification(): UsePushNotificationReturn {
     }
   }, []);
 
+  // Refresh subscription if stale (auto-renew)
+  const refreshSubscription = useCallback(async () => {
+    try {
+      if (!swRegistrationRef.current) return;
+      
+      const existingSub = await swRegistrationRef.current.pushManager.getSubscription();
+      
+      if (existingSub) {
+        // Check if subscription is stale (> 7 days old)
+        const { data: dbSub } = await supabase
+          .from('push_subscriptions')
+          .select('created_at')
+          .eq('endpoint', existingSub.endpoint)
+          .single();
+        
+        if (dbSub) {
+          const age = Date.now() - new Date(dbSub.created_at).getTime();
+          const sevenDays = 7 * 24 * 60 * 60 * 1000;
+          
+          if (age > sevenDays) {
+            log('Subscription stale, refreshing...');
+            await existingSub.unsubscribe();
+            await subscribe(); // Re-subscribe
+          }
+        }
+      }
+    } catch (err) {
+      log('Refresh error', err);
+    }
+  }, [subscribe]);
+
+  // Auto-refresh on mount and daily
+  useEffect(() => {
+    // Initial refresh check
+    refreshSubscription();
+    
+    // Daily refresh
+    const interval = setInterval(refreshSubscription, 24 * 60 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [refreshSubscription]);
+
   // Test notification (client-side only)
   const testNotification = useCallback(async () => {
     try {
-      log('Sending test notification...');
-      
       if (!swRegistrationRef.current) {
         alert('Service Worker not ready');
         return;
@@ -273,8 +276,9 @@ export function usePushNotification(): UsePushNotificationReturn {
         body: 'Push notifications are working correctly!',
         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
         badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        vibrate: [200, 100, 200],
-        tag: 'test-notification'
+        vibrate: [300, 100, 300],
+        tag: 'test-notification',
+        requireInteraction: true
       });
 
       log('Test notification sent');
@@ -290,6 +294,7 @@ export function usePushNotification(): UsePushNotificationReturn {
     error,
     subscribe,
     unsubscribe,
-    testNotification
+    testNotification,
+    refreshSubscription
   };
 }
