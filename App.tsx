@@ -14,8 +14,27 @@ import { LeadAlert } from './components/LeadAlert';
 import { useAuth } from './auth/useAuth';
 import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
-import { keepServiceWorkerAlive } from './utils/keepServiceWorkerAlive';
 import { Loader2 } from 'lucide-react';
+
+// ✅ Keep Service Worker Alive - Inline Implementation
+function initServiceWorkerKeepAlive() {
+  if (!('serviceWorker' in navigator)) return;
+
+  const keepAlive = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration.active) {
+        const messageChannel = new MessageChannel();
+        registration.active.postMessage('KEEP_ALIVE', [messageChannel.port2]);
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  };
+
+  setInterval(keepAlive, 25000);
+  keepAlive();
+}
 
 function App() {
   const { session, loading } = useAuth();
@@ -23,9 +42,9 @@ function App() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
 
-  // ✅ NEW: Keep Service Worker Alive
+  // ✅ Initialize Service Worker Keep-Alive
   useEffect(() => {
-    keepServiceWorkerAlive();
+    initServiceWorkerKeepAlive();
   }, []);
 
   // Fetch user profile
