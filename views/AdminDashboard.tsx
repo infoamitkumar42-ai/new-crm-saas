@@ -200,7 +200,7 @@ export const AdminDashboard = () => {
         ...prev,
         totalUsers: userCount || 0,
         dailyActiveUsers: dau,
-        monthlyActiveUsers: activeUsers.length, // Simplified
+        monthlyActiveUsers: activeUsers.length,
         onlineNow: onlineUsers,
         managers: managers,
         leads: leadCount || 0,
@@ -211,10 +211,10 @@ export const AdminDashboard = () => {
         leadsDistributedToday: leadsToday || 0
       }));
 
-      // 5. Generate Charts (Simplified)
+      // 5. Generate Charts (Simplified for demo, replace with real aggregation if needed)
       const hourlyData: HourlyActivity[] = Array.from({ length: 24 }, (_, i) => ({
         hour: i,
-        logins: Math.floor(Math.random() * 10), // Replace with real data if available
+        logins: Math.floor(Math.random() * 10),
         leads: Math.floor(Math.random() * 20),
         activeUsers: Math.floor(Math.random() * 5)
       }));
@@ -336,7 +336,7 @@ export const AdminDashboard = () => {
   };
 
   // ============================================================
-  // RENDER
+  // RENDER HELPERS
   // ============================================================
 
   const filteredUsers = users.filter(u => {
@@ -348,6 +348,16 @@ export const AdminDashboard = () => {
   });
 
   const activeMembers = users.filter(u => u.role === 'member' && u.payment_status === 'active');
+
+  const exportAnalytics = () => {
+    const data = { timestamp: new Date().toISOString(), stats, users };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `admin_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
 
   if (loading) return <div className="p-8 text-center">Loading Admin Panel...</div>;
 
@@ -483,7 +493,7 @@ export const AdminDashboard = () => {
                 <option value="manager">Manager</option>
                 <option value="member">Member</option>
               </select>
-              <button className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
+              <button onClick={exportAnalytics} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
                 <Download size={16} /> Export CSV
               </button>
             </div>
@@ -494,7 +504,7 @@ export const AdminDashboard = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                     <tr>
-                      <th className="p-4">User</th>
+                      <th className="p-4 pl-6">User</th>
                       <th className="p-4">Role</th>
                       <th className="p-4">Plan</th>
                       <th className="p-4">Status</th>
@@ -505,7 +515,7 @@ export const AdminDashboard = () => {
                   <tbody className="divide-y divide-slate-100">
                     {filteredUsers.map(user => (
                       <tr key={user.id} className="hover:bg-slate-50">
-                        <td className="p-4">
+                        <td className="p-4 pl-6">
                           <div className="font-bold text-slate-900">{user.name}</div>
                           <div className="text-xs text-slate-500">{user.email}</div>
                         </td>
