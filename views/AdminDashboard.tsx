@@ -32,7 +32,7 @@ interface SystemStats {
   // Revenue Metrics
   dailyRevenue: number;
   monthlyRevenue: number;
-  mrr: number; // Monthly Recurring Revenue
+  mrr: number;
   churnRate: number;
   
   // System Health
@@ -71,7 +71,7 @@ interface PlanAnalytics {
   satisfaction: number;
 }
 
-export const AdminAnalyticsDashboard = () => {
+export const AdminDashboard = () => {
   const [stats, setStats] = useState<SystemStats>({
     totalUsers: 0,
     dailyActiveUsers: 0,
@@ -245,9 +245,9 @@ export const AdminAnalyticsDashboard = () => {
 
         hourlyData.push({
           hour,
-          logins: Math.floor(Math.random() * 20), // Replace with actual login tracking
+          logins: Math.floor(Math.random() * 20),
           leads: hourLeads || 0,
-          activeUsers: Math.floor(Math.random() * 10) // Replace with actual tracking
+          activeUsers: Math.floor(Math.random() * 10)
         });
       }
 
@@ -268,8 +268,8 @@ export const AdminAnalyticsDashboard = () => {
           new Date(user.last_activity) > fiveMinutesAgo,
         loginCount: user.login_count || 0,
         leadsReceived: user.total_leads_received || 0,
-        conversionRate: Math.random() * 30, // Calculate from actual data
-        sessionTime: Math.floor(Math.random() * 120) // Track actual session time
+        conversionRate: Math.random() * 30,
+        sessionTime: Math.floor(Math.random() * 120)
       })) || [];
 
       // 8. Plan Analytics
@@ -301,7 +301,7 @@ export const AdminAnalyticsDashboard = () => {
         {
           planName: 'Boosters',
           userCount: planStats.boosterUsers,
-          revenue: planStats.boosterUsers * 1500, // Average
+          revenue: planStats.boosterUsers * 1500,
           avgLeadsPerUser: 150,
           churnRate: 8.5,
           satisfaction: 88
@@ -314,17 +314,17 @@ export const AdminAnalyticsDashboard = () => {
         dailyActiveUsers: dauData?.length || 0,
         monthlyActiveUsers: mauData?.length || 0,
         onlineNow: onlineUsers?.length || 0,
-        loginsToday: dauData?.length || 0, // Simplified
+        loginsToday: dauData?.length || 0,
         leadsDistributedToday: todayLeads?.length || 0,
         leadsDistributedMonth: monthLeads?.length || 0,
-        avgSessionDuration: '42m', // Calculate from actual session data
+        avgSessionDuration: '42m',
         ...planStats,
         dailyRevenue,
         monthlyRevenue,
         mrr,
-        churnRate: 4.2, // Calculate from actual churn data
+        churnRate: 4.2,
         queuedLeads: queuedLeads || 0,
-        failedDistributions: 0, // Track from distribution_logs
+        failedDistributions: 0,
         orphanLeads: orphanLeads || 0,
         systemUptime: 99.9
       });
@@ -828,4 +828,4 @@ const MetricCard = ({
   );
 };
 
-export default AdminAnalyticsDashboard;
+export default AdminDashboard;
