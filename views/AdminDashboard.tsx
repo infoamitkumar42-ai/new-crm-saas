@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
-  Users, DollarSign, Database, RefreshCw, Upload, Trash2, 
+import {
+  Users, DollarSign, Database, RefreshCw, Upload, Trash2,
   Search, CheckCircle, LogOut, XCircle, Filter, Download,
   AlertTriangle, UserCheck, UserX, ChevronDown, X, Eye,
   TrendingUp, Activity, BarChart3, Clock, Calendar,
@@ -10,60 +10,52 @@ import {
 } from 'lucide-react';
 
 // ============================================================
-// TYPES
+// Types (your existing types)
 // ============================================================
 
 interface SystemStats {
+  // User Metrics
   totalUsers: number;
   dailyActiveUsers: number;
   monthlyActiveUsers: number;
   onlineNow: number;
+
+  // Activity Metrics
   loginsToday: number;
   leadsDistributedToday: number;
   leadsDistributedMonth: number;
   avgSessionDuration: string;
+
+  // Plan Metrics
   starterUsers: number;
   supervisorUsers: number;
   managerUsers: number;
   boosterUsers: number;
+
+  // Revenue Metrics
   dailyRevenue: number;
   monthlyRevenue: number;
   mrr: number;
   churnRate: number;
+
+  // System Health
   queuedLeads: number;
   failedDistributions: number;
   orphanLeads: number;
   systemUptime: number;
-  managers: number;
-  leads: number;
 }
 
-interface User {
-  id: string;
+interface UserActivity {
+  userId: string;
+  name: string;
   email: string;
-  name: string;
-  role: 'admin' | 'manager' | 'member';
-  payment_status: 'active' | 'inactive' | 'pending';
-  plan_name: string;
-  daily_limit: number;
-  leads_today: number;
-  valid_until: string;
-  manager_id: string | null;
-  team_code: string | null;
-  created_at: string;
-  last_login: string;
-  last_activity: string;
-  login_count: number;
-}
-
-interface OrphanLead {
-  id: string;
-  name: string;
-  phone: string;
-  city: string;
-  miss_reason: string;
-  status: string;
-  created_at: string;
+  plan: string;
+  lastActive: string;
+  isOnline: boolean;
+  loginCount: number;
+  leadsReceived: number;
+  conversionRate: number;
+  sessionTime: number;
 }
 
 interface HourlyActivity {
@@ -82,590 +74,1368 @@ interface PlanAnalytics {
   satisfaction: number;
 }
 
+// ============================================================
+// OLD FEATURES TYPES (added, only for modals)
+// ============================================================
+
+type Role = 'admin' | 'manager' | 'member';
+
+interface AdminUserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  payment_status: 'active' | 'inactive' | 'pending' | string;
+  plan_name: string | null;
+  daily_limit: number | null;
+  leads_today: number | null;
+  valid_until: string | null;
+  manager_id: string | null;
+  team_code: string | null;
+  created_at: string;
+}
+
+interface OrphanLeadRow {
+  id: string;
+  name: string;
+  phone: string;
+  city: string | null;
+  miss_reason: string | null;
+  status: string;
+  created_at: string;
+}
+
 export const AdminDashboard = () => {
-  // ============================================================
-  // STATE MANAGEMENT
-  // ============================================================
-  
-  // Stats & Data
   const [stats, setStats] = useState<SystemStats>({
-    totalUsers: 0, dailyActiveUsers: 0, monthlyActiveUsers: 0, onlineNow: 0,
-    loginsToday: 0, leadsDistributedToday: 0, leadsDistributedMonth: 0, avgSessionDuration: '0m',
-    starterUsers: 0, supervisorUsers: 0, managerUsers: 0, boosterUsers: 0,
-    dailyRevenue: 0, monthlyRevenue: 0, mrr: 0, churnRate: 0,
-    queuedLeads: 0, failedDistributions: 0, orphanLeads: 0, systemUptime: 99.9,
-    managers: 0, leads: 0
+    totalUsers: 0,
+    dailyActiveUsers: 0,
+    monthlyActiveUsers: 0,
+    onlineNow: 0,
+    loginsToday: 0,
+    leadsDistributedToday: 0,
+    leadsDistributedMonth: 0,
+    avgSessionDuration: '0m',
+    starterUsers: 0,
+    supervisorUsers: 0,
+    managerUsers: 0,
+    boosterUsers: 0,
+    dailyRevenue: 0,
+    monthlyRevenue: 0,
+    mrr: 0,
+    churnRate: 0,
+    queuedLeads: 0,
+    failedDistributions: 0,
+    orphanLeads: 0,
+    systemUptime: 99.9
   });
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [orphanLeads, setOrphanLeads] = useState<OrphanLead[]>([]);
+  const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
   const [hourlyActivity, setHourlyActivity] = useState<HourlyActivity[]>([]);
   const [planAnalytics, setPlanAnalytics] = useState<PlanAnalytics[]>([]);
-  
-  // UI State
+
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'orphans'>('analytics');
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
 
-  // Filters (User Management)
+  // ============================================================
+  // OLD FEATURES STATE (added - does NOT change analytics UI)
+  // ============================================================
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showOrphansModal, setShowOrphansModal] = useState(false);
+
+  const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
+  const [orphanLeads, setOrphanLeads] = useState<OrphanLeadRow[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showFilters, setShowFilters] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // Modals
+  // Plan modal
+  const [showPlanModal, setShowPlanModal] = useState<AdminUserRow | null>(null);
+
+  // Bulk upload
   const [showUpload, setShowUpload] = useState(false);
-  const [showPlanModal, setShowPlanModal] = useState<User | null>(null);
   const [bulkData, setBulkData] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
 
-  // Plan Options
+  // Plan options (same as your old admin)
   const planOptions = [
-    { id: 'none', name: 'No Plan', daily_limit: 0, days: 0 },
-    { id: 'starter', name: 'Starter', daily_limit: 2, days: 30 },
-    { id: 'supervisor', name: 'Supervisor', daily_limit: 6, days: 30 },
-    { id: 'manager', name: 'Manager', daily_limit: 16, days: 30 },
-    { id: 'fast_start', name: 'Fast Start', daily_limit: 10, days: 7 },
-    { id: 'turbo_weekly', name: 'Turbo Weekly', daily_limit: 25, days: 7 },
-    { id: 'max_blast', name: 'Max Blast', daily_limit: 40, days: 7 },
-  ];
+    { id: 'none', name: 'No Plan', daily_limit: 0, days: 0, plan_weight: 0 },
+    { id: 'starter', name: 'Starter', daily_limit: 2, days: 30, plan_weight: 1 },
+    { id: 'supervisor', name: 'Supervisor', daily_limit: 6, days: 30, plan_weight: 3 },
+    { id: 'manager', name: 'Manager', daily_limit: 16, days: 30, plan_weight: 5 },
+    { id: 'fast_start', name: 'Fast Start', daily_limit: 10, days: 7, plan_weight: 8 },
+    { id: 'turbo_weekly', name: 'Turbo Weekly', daily_limit: 25, days: 7, plan_weight: 10 },
+    { id: 'max_blast', name: 'Max Blast', daily_limit: 40, days: 7, plan_weight: 12 },
+  ] as const;
 
   // ============================================================
-  // DATA FETCHING
+  // Track user activity (your existing function - kept)
   // ============================================================
+  const trackUserActivity = async (userId: string, action: string) => {
+    try {
+      // NOTE: ipify call can fail on Vercel sometimes; safe fallback
+      let ip = 'unknown';
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipJson = await ipRes.json();
+        ip = ipJson?.ip || 'unknown';
+      } catch {
+        ip = 'unknown';
+      }
 
-  const fetchAdminData = async () => {
+      await supabase.from('user_activity_logs').insert({
+        user_id: userId,
+        action,
+        timestamp: new Date().toISOString(),
+        session_id: sessionStorage.getItem('session_id'),
+        ip_address: ip
+      });
+    } catch (error) {
+      console.error('Activity tracking error:', error);
+    }
+  };
+
+  // ============================================================
+  // Analytics Fetch (your existing logic - kept)
+  // ============================================================
+  const fetchAnalytics = async () => {
     try {
       setRefreshing(true);
-      
+
       const now = new Date();
       const todayStart = new Date(now.setHours(0, 0, 0, 0));
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // 1. Fetch Users
-      const { data: allUsers, count: userCount } = await supabase
+      // 1. User Metrics
+      const { count: totalUsers } = await supabase
         .from('users')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-      
-      setUsers(allUsers || []);
-
-      // 2. Fetch Orphan Leads
-      const { data: orphans, count: orphanCount } = await supabase
-        .from('orphan_leads')
-        .select('*', { count: 'exact' })
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-      
-      setOrphanLeads(orphans || []);
-
-      // 3. Fetch Leads Stats
-      const { count: leadCount } = await supabase
-        .from('leads')
         .select('*', { count: 'exact', head: true });
 
-      const { count: leadsToday } = await supabase
+      // Daily Active Users (logged in today)
+      const { data: dauData } = await supabase
+        .from('users')
+        .select('id')
+        .gte('last_login', todayStart.toISOString());
+
+      // Monthly Active Users (logged in this month)
+      const { data: mauData } = await supabase
+        .from('users')
+        .select('id')
+        .gte('last_login', monthStart.toISOString());
+
+      // Online Now (last activity within 5 minutes)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const { data: onlineUsers } = await supabase
+        .from('users')
+        .select('id')
+        .gte('last_activity', fiveMinutesAgo.toISOString());
+
+      // 2. Activity Metrics
+      const { data: todayLeads } = await supabase
         .from('leads')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .gte('created_at', todayStart.toISOString());
 
-      // 4. Calculate Stats
-      const activeUsers = allUsers?.filter(u => u.payment_status === 'active') || [];
-      const managers = allUsers?.filter(u => u.role === 'manager').length || 0;
-      const onlineUsers = allUsers?.filter(u => new Date(u.last_activity) > new Date(Date.now() - 5 * 60 * 1000)).length || 0;
-      const dau = allUsers?.filter(u => new Date(u.last_login) >= todayStart).length || 0;
+      const { data: monthLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .gte('created_at', monthStart.toISOString());
 
-      // Revenue Calculation
+      // 3. Plan Distribution
+      const { data: planCounts } = await supabase
+        .from('users')
+        .select('plan_name')
+        .eq('payment_status', 'active');
+
+      const planStats = {
+        starterUsers: 0,
+        supervisorUsers: 0,
+        managerUsers: 0,
+        boosterUsers: 0
+      };
+
+      planCounts?.forEach((u: any) => {
+        switch (u.plan_name) {
+          case 'starter': planStats.starterUsers++; break;
+          case 'supervisor': planStats.supervisorUsers++; break;
+          case 'manager': planStats.managerUsers++; break;
+          case 'fast_start':
+          case 'turbo_weekly':
+          case 'max_blast': planStats.boosterUsers++; break;
+        }
+      });
+
+      // 4. Revenue Calculation (kept)
       const planPricing: Record<string, number> = {
-        starter: 999, supervisor: 1999, manager: 4999,
-        fast_start: 999, turbo_weekly: 1999, max_blast: 2999
+        starter: 999,
+        supervisor: 1999,
+        manager: 4999,
+        fast_start: 999,
+        turbo_weekly: 1999,
+        max_blast: 2999
       };
 
       let dailyRevenue = 0;
       let monthlyRevenue = 0;
-      let mrr = 0;
 
-      activeUsers.forEach(u => {
-        const price = planPricing[u.plan_name] || 0;
-        mrr += price;
-        monthlyRevenue += price;
-        if (new Date(u.created_at) >= todayStart) dailyRevenue += price;
+      const { data: activeSubscriptions } = await supabase
+        .from('users')
+        .select('plan_name, created_at')
+        .eq('payment_status', 'active');
+
+      activeSubscriptions?.forEach((sub: any) => {
+        const revenue = planPricing[sub.plan_name] || 0;
+        monthlyRevenue += revenue;
+
+        if (new Date(sub.created_at) >= todayStart) {
+          dailyRevenue += revenue;
+        }
       });
 
-      // Update Stats State
-      setStats(prev => ({
-        ...prev,
-        totalUsers: userCount || 0,
-        dailyActiveUsers: dau,
-        monthlyActiveUsers: activeUsers.length,
-        onlineNow: onlineUsers,
-        managers: managers,
-        leads: leadCount || 0,
-        orphanLeads: orphanCount || 0,
+      const mrr = activeSubscriptions?.reduce((sum: number, sub: any) =>
+        sum + (planPricing[sub.plan_name] || 0), 0) || 0;
+
+      // 5. System Health
+      const { count: queuedLeads } = await supabase
+        .from('lead_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      const { count: orphanLeadsCount } = await supabase
+        .from('orphan_leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      // 6. Hourly Activity Pattern (kept)
+      const hourlyData: HourlyActivity[] = [];
+      for (let hour = 0; hour < 24; hour++) {
+        const hourStart = new Date(todayStart);
+        hourStart.setHours(hour);
+        const hourEnd = new Date(todayStart);
+        hourEnd.setHours(hour + 1);
+
+        const { count: hourLeads } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', hourStart.toISOString())
+          .lt('created_at', hourEnd.toISOString());
+
+        hourlyData.push({
+          hour,
+          logins: Math.floor(Math.random() * 20),
+          leads: hourLeads || 0,
+          activeUsers: Math.floor(Math.random() * 10)
+        });
+      }
+
+      // 7. User Activity Details (kept)
+      const { data: users } = await supabase
+        .from('users')
+        .select('*')
+        .order('last_login', { ascending: false })
+        .limit(50);
+
+      const activities: UserActivity[] = users?.map((u: any) => ({
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        plan: u.plan_name || 'none',
+        lastActive: u.last_login || u.created_at,
+        isOnline: u.last_activity ? (new Date(u.last_activity) > fiveMinutesAgo) : false,
+        loginCount: u.login_count || 0,
+        leadsReceived: u.total_leads_received || 0,
+        conversionRate: Math.random() * 30,
+        sessionTime: Math.floor(Math.random() * 120)
+      })) || [];
+
+      // 8. Plan Analytics (kept)
+      const plans: PlanAnalytics[] = [
+        {
+          planName: 'Starter',
+          userCount: planStats.starterUsers,
+          revenue: planStats.starterUsers * 999,
+          avgLeadsPerUser: 60,
+          churnRate: 5.2,
+          satisfaction: 85
+        },
+        {
+          planName: 'Supervisor',
+          userCount: planStats.supervisorUsers,
+          revenue: planStats.supervisorUsers * 1999,
+          avgLeadsPerUser: 180,
+          churnRate: 3.1,
+          satisfaction: 92
+        },
+        {
+          planName: 'Manager',
+          userCount: planStats.managerUsers,
+          revenue: planStats.managerUsers * 4999,
+          avgLeadsPerUser: 480,
+          churnRate: 2.0,
+          satisfaction: 95
+        },
+        {
+          planName: 'Boosters',
+          userCount: planStats.boosterUsers,
+          revenue: planStats.boosterUsers * 1500,
+          avgLeadsPerUser: 150,
+          churnRate: 8.5,
+          satisfaction: 88
+        }
+      ];
+
+      // Update all states
+      setStats({
+        totalUsers: totalUsers || 0,
+        dailyActiveUsers: dauData?.length || 0,
+        monthlyActiveUsers: mauData?.length || 0,
+        onlineNow: onlineUsers?.length || 0,
+        loginsToday: dauData?.length || 0,
+        leadsDistributedToday: todayLeads?.length || 0,
+        leadsDistributedMonth: monthLeads?.length || 0,
+        avgSessionDuration: '42m',
+        ...planStats,
         dailyRevenue,
         monthlyRevenue,
         mrr,
-        leadsDistributedToday: leadsToday || 0
-      }));
+        churnRate: 4.2,
+        queuedLeads: queuedLeads || 0,
+        failedDistributions: 0,
+        orphanLeads: orphanLeadsCount || 0,
+        systemUptime: 99.9
+      });
 
-      // 5. Generate Charts (Simplified for demo, replace with real aggregation if needed)
-      const hourlyData: HourlyActivity[] = Array.from({ length: 24 }, (_, i) => ({
-        hour: i,
-        logins: Math.floor(Math.random() * 10),
-        leads: Math.floor(Math.random() * 20),
-        activeUsers: Math.floor(Math.random() * 5)
-      }));
+      setUserActivities(activities);
       setHourlyActivity(hourlyData);
+      setPlanAnalytics(plans);
 
     } catch (error) {
-      console.error("Admin Fetch Error:", error);
+      console.error('Analytics error:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Auto-refresh (kept)
   useEffect(() => {
-    fetchAdminData();
-    const interval = autoRefresh ? setInterval(fetchAdminData, 30000) : null;
-    return () => { if (interval) clearInterval(interval); };
-  }, [autoRefresh]);
+    fetchAnalytics();
+
+    const interval = autoRefresh ? setInterval(fetchAnalytics, 30000) : null;
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, timeRange]);
 
   // ============================================================
-  // ACTIONS (USER MANAGEMENT)
+  // OLD FEATURES: fetch users & orphans (only for modals)
   // ============================================================
+  const fetchOpsData = async () => {
+    try {
+      const { data: allUsers } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const toggleUserStatus = async (user: User) => {
+      setAdminUsers((allUsers || []) as AdminUserRow[]);
+
+      const { data: orphans } = await supabase
+        .from('orphan_leads')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      setOrphanLeads((orphans || []) as OrphanLeadRow[]);
+    } catch (e) {
+      console.error('Ops fetch error:', e);
+    }
+  };
+
+  // ============================================================
+  // OLD FEATURES: actions
+  // ============================================================
+  const toggleUserStatus = async (user: AdminUserRow) => {
     const newStatus = user.payment_status === 'active' ? 'inactive' : 'active';
     setActionLoading(user.id);
+
     try {
-      await supabase.from('users').update({ 
+      const payload: any = {
         payment_status: newStatus,
-        daily_limit: newStatus === 'inactive' ? 0 : user.daily_limit
-      }).eq('id', user.id);
-      
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, payment_status: newStatus } : u));
+      };
+
+      // if inactive -> force daily_limit 0
+      if (newStatus === 'inactive') payload.daily_limit = 0;
+
+      const { error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      await fetchOpsData();
+      await fetchAnalytics();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert('Error: ' + err.message);
     } finally {
       setActionLoading(null);
     }
   };
 
-  const activatePlan = async (user: User, planId: string) => {
+  const activatePlan = async (user: AdminUserRow, planId: string) => {
     const plan = planOptions.find(p => p.id === planId);
     if (!plan) return;
+
     setActionLoading(user.id);
+
     try {
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + plan.days);
-      await supabase.from('users').update({ 
+
+      const payload: any = {
         plan_name: plan.id,
         payment_status: plan.id === 'none' ? 'inactive' : 'active',
         daily_limit: plan.daily_limit,
         valid_until: plan.id === 'none' ? null : validUntil.toISOString(),
-        leads_today: 0
-      }).eq('id', user.id);
+        leads_today: 0,
+      };
+
+      // If you have plan_weight column, set it too (hybrid system)
+      payload.plan_weight = plan.plan_weight;
+
+      const { error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
       setShowPlanModal(null);
-      fetchAdminData();
+      await fetchOpsData();
+      await fetchAnalytics();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert('Error: ' + err.message);
     } finally {
       setActionLoading(null);
     }
   };
 
   const deleteUser = async (userId: string) => {
-    if (!window.confirm("Are you sure? This will permanently delete this user.")) return;
+    if (!window.confirm('Are you sure? This will permanently delete this user and their data.')) return;
+
     setActionLoading(userId);
     try {
-      await supabase.from('users').delete().eq('id', userId);
-      fetchAdminData();
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      await fetchOpsData();
+      await fetchAnalytics();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert('Error deleting: ' + err.message);
     } finally {
       setActionLoading(null);
     }
   };
 
-  // ============================================================
-  // ACTIONS (ORPHAN LEADS)
-  // ============================================================
-
-  const assignOrphanLead = async (orphan: OrphanLead, userId: string) => {
+  const assignOrphanLead = async (orphan: OrphanLeadRow, userId: string) => {
+    setActionLoading(orphan.id);
     try {
-      await supabase.from('leads').insert({
-        user_id: userId,
-        name: orphan.name,
-        phone: orphan.phone,
-        city: orphan.city,
-        status: 'Fresh',
-        source: 'orphan_assigned'
-      });
-      await supabase.from('orphan_leads').update({ status: 'assigned', assigned_to: userId }).eq('id', orphan.id);
-      fetchAdminData();
+      // 1) insert into leads
+      const { error: insertError } = await supabase
+        .from('leads')
+        .insert({
+          user_id: userId,
+          name: orphan.name,
+          phone: orphan.phone,
+          city: orphan.city || 'Unknown',
+          status: 'Fresh',
+          source: 'orphan_assigned',
+        });
+
+      if (insertError) throw insertError;
+
+      // 2) update orphan status (try with assigned_to, fallback if column missing)
+      const { error: upd1 } = await supabase
+        .from('orphan_leads')
+        .update({ status: 'assigned', assigned_to: userId } as any)
+        .eq('id', orphan.id);
+
+      if (upd1) {
+        // fallback
+        const { error: upd2 } = await supabase
+          .from('orphan_leads')
+          .update({ status: 'assigned' } as any)
+          .eq('id', orphan.id);
+        if (upd2) throw upd2;
+      }
+
+      await fetchOpsData();
+      await fetchAnalytics();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert('Error: ' + err.message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleBulkUpload = async () => {
     if (!bulkData.trim()) return;
-    setUploadStatus("Processing...");
+    setUploadStatus('Processing...');
+
     try {
       const lines = bulkData.trim().split('\n');
       let successCount = 0;
+
       for (const line of lines) {
-        const [name, phone, city] = line.split(',').map(s => s.trim());
-        if (name && phone) {
-          const { error } = await supabase.from('orphan_leads').insert({
-            name, phone, city: city || 'Unknown', status: 'pending', miss_reason: 'bulk_upload'
+        const [nameRaw, phoneRaw, cityRaw] = line.split(',').map(s => (s || '').trim());
+        const name = nameRaw;
+        const phone = (phoneRaw || '').replace(/\D/g, '').slice(-10);
+        const city = cityRaw || 'Unknown';
+
+        if (!name || phone.length < 10) continue;
+
+        const { error } = await supabase
+          .from('orphan_leads')
+          .insert({
+            name,
+            phone,
+            city,
+            status: 'pending',
+            miss_reason: 'bulk_upload',
           });
-          if (!error) successCount++;
-        }
+
+        if (!error) successCount++;
       }
+
       setUploadStatus(`✅ Uploaded ${successCount} leads`);
-      setTimeout(() => { setShowUpload(false); setUploadStatus(''); setBulkData(''); }, 2000);
-      fetchAdminData();
+      setTimeout(() => {
+        setBulkData('');
+        setUploadStatus('');
+      }, 1500);
+
+      await fetchOpsData();
+      await fetchAnalytics();
     } catch (err: any) {
-      setUploadStatus("❌ Error: " + err.message);
+      setUploadStatus('❌ Error: ' + err.message);
     }
   };
 
+  const exportUsersCSV = () => {
+    const headers = ['Name', 'Email', 'Role', 'Plan', 'Status', 'Daily Limit', 'Leads Today', 'Valid Until', 'Created'];
+    const rows = filteredAdminUsers.map(u => [
+      u.name || '',
+      u.email || '',
+      u.role || '',
+      u.plan_name || '',
+      u.payment_status || '',
+      String(u.daily_limit ?? ''),
+      String(u.leads_today ?? ''),
+      u.valid_until ? new Date(u.valid_until).toLocaleDateString() : '',
+      u.created_at ? new Date(u.created_at).toLocaleDateString() : ''
+    ]);
+
+    const csv = [headers, ...rows].map(r =>
+      r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
   // ============================================================
-  // RENDER HELPERS
+  // Derived data for modals
   // ============================================================
+  const activeMembers = useMemo(
+    () => adminUsers.filter(u => u.role === 'member' && u.payment_status === 'active'),
+    [adminUsers]
+  );
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          u.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' || u.payment_status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const filteredAdminUsers = useMemo(() => {
+    return adminUsers.filter(u => {
+      const s = searchTerm.toLowerCase();
+      const matchesSearch =
+        (u.name || '').toLowerCase().includes(s) ||
+        (u.email || '').toLowerCase().includes(s);
 
-  const activeMembers = users.filter(u => u.role === 'member' && u.payment_status === 'active');
+      const matchesRole = roleFilter === 'all' ? true : u.role === roleFilter;
+      const matchesStatus = statusFilter === 'all' ? true : u.payment_status === statusFilter;
 
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [adminUsers, searchTerm, roleFilter, statusFilter]);
+
+  // ============================================================
+  // Export analytics (your existing function - kept)
+  // ============================================================
   const exportAnalytics = () => {
-    const data = { timestamp: new Date().toISOString(), stats, users };
+    const data = {
+      timestamp: new Date().toISOString(),
+      stats,
+      hourlyActivity,
+      planAnalytics
+    };
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `admin_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
   };
 
-  if (loading) return <div className="p-8 text-center">Loading Admin Panel...</div>;
+  // ============================================================
+  // RENDER (your analytics UI kept)
+  // ============================================================
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading Analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+
+      {/* Header (SAME UI) */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <BarChart3 className="text-blue-600" />
-                Admin Command Center
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
+                <BarChart3 size={28} />
+                Analytics & Control Center
               </h1>
-              <p className="text-xs text-slate-500">
-                {activeTab === 'analytics' ? 'System Overview' : activeTab === 'users' ? 'User Management' : 'Lead Operations'}
+              <p className="text-sm text-slate-500 mt-1">
+                Real-time system analytics and user tracking
               </p>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setActiveTab('analytics')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+
+            <div className="flex items-center gap-3">
+              {/* Time Range Selector */}
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as any)}
+                className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white"
               >
-                Analytics
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+              </select>
+
+              {/* Auto Refresh Toggle */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="rounded"
+                />
+                Live
+              </label>
+
+              {/* Export Button */}
+              <button
+                onClick={exportAnalytics}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+              >
+                <Download size={16} />
+                Export
               </button>
-              <button 
-                onClick={() => setActiveTab('users')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+
+              {/* Refresh Button */}
+              <button
+                onClick={fetchAnalytics}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
               >
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+
+              {/* ===== ADD-ON BUTTONS (old features) ===== */}
+              <button
+                onClick={async () => { await fetchOpsData(); setShowUsersModal(true); }}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium"
+                title="User Management"
+              >
+                <Users size={16} />
                 Users
               </button>
-              <button 
-                onClick={() => setActiveTab('orphans')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'orphans' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+
+              <button
+                onClick={async () => { await fetchOpsData(); setShowOrphansModal(true); }}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium"
+                title="Orphan Leads"
               >
+                <AlertTriangle size={16} className="text-orange-500" />
                 Orphans
-                {stats.orphanLeads > 0 && <span className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{stats.orphanLeads}</span>}
+                {stats.orphanLeads > 0 && (
+                  <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                    {stats.orphanLeads}
+                  </span>
+                )}
               </button>
-              <button 
-                onClick={fetchAdminData}
-                disabled={refreshing}
-                className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                title="Sign Out"
               >
-                <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+                <LogOut size={16} />
               </button>
+
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
-        {/* ======================= ANALYTICS TAB ======================= */}
-        {activeTab === 'analytics' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Real-time Status */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 shadow-lg">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-6">
-                  <div className="flex items-center gap-2">
-                    <Wifi size={20} className="text-green-300 animate-pulse" />
-                    <span className="font-bold">{stats.onlineNow} Online</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity size={20} />
-                    <span>{stats.dailyActiveUsers} Active Today</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-blue-200">Revenue Today</p>
-                  <p className="text-2xl font-bold">₹{stats.dailyRevenue.toLocaleString()}</p>
-                </div>
+
+        {/* Real-time Status Bar (SAME UI) */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Wifi size={20} className="text-green-300 animate-pulse" />
+                <span className="font-medium">
+                  {stats.onlineNow} Users Online Now
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Activity size={20} />
+                <span>
+                  {stats.dailyActiveUsers} DAU / {stats.monthlyActiveUsers} MAU
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Timer size={20} />
+                <span>Avg Session: {stats.avgSessionDuration}</span>
               </div>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <MetricCard icon={<Users />} label="Total Users" value={stats.totalUsers} color="blue" />
-              <MetricCard icon={<CheckCircle />} label="Active Members" value={stats.monthlyActiveUsers} color="green" />
-              <MetricCard icon={<Crown />} label="Managers" value={stats.managers} color="purple" />
-              <MetricCard icon={<Target />} label="Leads Today" value={stats.leadsDistributedToday} color="orange" />
-              <MetricCard icon={<AlertTriangle />} label="Orphans" value={stats.orphanLeads} color="red" />
-              <MetricCard icon={<DollarSign />} label="MRR" value={`₹${(stats.mrr/1000).toFixed(1)}k`} color="emerald" />
+            <div className="flex items-center gap-4">
+              <span className="text-green-300 font-bold text-lg">
+                ₹{stats.dailyRevenue.toLocaleString()} Today
+              </span>
+              <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                MRR: ₹{stats.mrr.toLocaleString()}
+              </span>
             </div>
+          </div>
+        </div>
 
-            {/* Hourly Activity */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Clock size={18} /> 24-Hour Activity
-              </h3>
-              <div className="flex items-end justify-between h-32 gap-1">
-                {hourlyActivity.map((h, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center group relative">
-                    <div 
-                      className={`w-full rounded-t transition-all ${h.hour >= 8 && h.hour < 22 ? 'bg-blue-500' : 'bg-slate-300'}`}
-                      style={{ height: `${Math.max(5, (h.leads / 20) * 100)}%` }}
-                    />
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs p-2 rounded z-10 whitespace-nowrap">
-                      {h.hour}:00 - {h.leads} leads
-                    </div>
-                  </div>
+        {/* Main Metrics Grid (SAME UI) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+          <MetricCard
+            icon={<Users />}
+            label="Total Users"
+            value={stats.totalUsers}
+            change={`+${Math.floor(Math.random() * 20)} this week`}
+            color="blue"
+          />
+
+          <MetricCard
+            icon={<UserCheck />}
+            label="Active Today"
+            value={stats.dailyActiveUsers}
+            subValue={`${stats.totalUsers ? Math.round((stats.dailyActiveUsers / stats.totalUsers) * 100) : 0}% of total`}
+            color="green"
+          />
+
+          <MetricCard
+            icon={<Globe />}
+            label="Online Now"
+            value={stats.onlineNow}
+            subValue="Live"
+            color="emerald"
+            pulse
+          />
+
+          <MetricCard
+            icon={<Target />}
+            label="Leads Today"
+            value={stats.leadsDistributedToday}
+            subValue={`${stats.leadsDistributedMonth} this month`}
+            color="orange"
+          />
+
+          <MetricCard
+            icon={<DollarSign />}
+            label="Revenue Today"
+            value={`₹${stats.dailyRevenue.toLocaleString()}`}
+            subValue={`₹${stats.monthlyRevenue.toLocaleString()}/mo`}
+            color="purple"
+          />
+
+          <MetricCard
+            icon={<AlertTriangle />}
+            label="Queue/Orphan"
+            value={`${stats.queuedLeads}/${stats.orphanLeads}`}
+            subValue={stats.queuedLeads > 10 ? 'Needs attention' : 'Healthy'}
+            color={stats.queuedLeads > 10 ? 'red' : 'green'}
+          />
+        </div>
+
+        {/* User Activity & Plan Distribution (SAME UI) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Hourly Activity Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+            <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <Clock size={18} />
+              24-Hour Activity Pattern
+            </h2>
+
+            <div className="space-y-4">
+              {/* Login Activity */}
+              <div>
+                <p className="text-xs text-slate-500 mb-2">User Logins</p>
+                <div className="flex items-end justify-between h-20 gap-0.5">
+                  {hourlyActivity.map((hour) => {
+                    const maxLogins = Math.max(...hourlyActivity.map(h => h.logins));
+                    const height = maxLogins > 0 ? (hour.logins / maxLogins) * 100 : 0;
+                    const isCurrentHour = new Date().getHours() === hour.hour;
+                    const isWorkingHour = hour.hour >= 8 && hour.hour < 22;
+
+                    return (
+                      <div key={hour.hour} className="flex-1 flex flex-col items-center">
+                        <div
+                          className={`w-full transition-all rounded-t ${isCurrentHour ? 'bg-blue-600' :
+                            isWorkingHour ? 'bg-green-500' : 'bg-slate-300'
+                            }`}
+                          style={{ height: `${height}px`, minHeight: hour.logins > 0 ? '2px' : '0' }}
+                          title={`${hour.hour}:00 - ${hour.logins} logins`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Lead Distribution */}
+              <div>
+                <p className="text-xs text-slate-500 mb-2">Lead Distribution</p>
+                <div className="flex items-end justify-between h-20 gap-0.5">
+                  {hourlyActivity.map((hour) => {
+                    const maxLeads = Math.max(...hourlyActivity.map(h => h.leads));
+                    const height = maxLeads > 0 ? (hour.leads / maxLeads) * 100 : 0;
+
+                    return (
+                      <div key={hour.hour} className="flex-1 flex flex-col items-center">
+                        <div
+                          className="w-full bg-orange-500 transition-all rounded-t"
+                          style={{ height: `${height}px`, minHeight: hour.leads > 0 ? '2px' : '0' }}
+                          title={`${hour.hour}:00 - ${hour.leads} leads`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-between text-xs text-slate-400">
+                {[0, 6, 12, 18, 23].map(h => (
+                  <span key={h}>{h}:00</span>
                 ))}
-              </div>
-              <div className="flex justify-between text-xs text-slate-400 mt-2">
-                <span>00:00</span><span>12:00</span><span>23:00</span>
               </div>
             </div>
           </div>
-        )}
 
-        {/* ======================= USERS TAB ======================= */}
-        {activeTab === 'users' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
+          {/* Plan Distribution */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+            <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <PieChart size={18} />
+              Plan Distribution & Revenue
+            </h2>
+
+            <div className="space-y-4">
+              {planAnalytics.map((plan) => (
+                <div key={plan.planName} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-slate-800">{plan.planName}</span>
+                      {plan.planName === 'Supervisor' && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                      <span>{plan.userCount} users</span>
+                      <span>₹{plan.revenue.toLocaleString()}</span>
+                      <span>{plan.avgLeadsPerUser} leads/user</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-xs text-slate-500">Churn</div>
+                    <div className={`font-semibold ${plan.churnRate < 5 ? 'text-green-600' : 'text-orange-600'}`}>
+                      {plan.churnRate}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="pt-4 border-t border-slate-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-slate-600">Total MRR</span>
+                  <span className="text-xl font-bold text-slate-900">
+                    ₹{stats.mrr.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Users Table (SAME UI) */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100">
+          <div className="p-6 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Activity size={18} />
+              User Activity Monitor
+            </h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
+                <tr>
+                  <th className="p-4">User</th>
+                  <th className="p-4">Plan</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Last Active</th>
+                  <th className="p-4">Logins</th>
+                  <th className="p-4">Leads</th>
+                  <th className="p-4">Conversion</th>
+                  <th className="p-4">Session Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {userActivities.slice(0, 10).map((activity) => (
+                  <tr key={activity.userId} className="hover:bg-slate-50">
+                    <td className="p-4">
+                      <div>
+                        <div className="font-medium text-slate-900">{activity.name}</div>
+                        <div className="text-xs text-slate-500">{activity.email}</div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        activity.plan === 'manager' ? 'bg-purple-100 text-purple-700' :
+                          activity.plan === 'supervisor' ? 'bg-blue-100 text-blue-700' :
+                            activity.plan === 'starter' ? 'bg-green-100 text-green-700' :
+                              'bg-slate-100 text-slate-600'
+                        }`}>
+                        {activity.plan}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      {activity.isOnline ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <Wifi size={14} />
+                          Online
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-slate-400">
+                          <WifiOff size={14} />
+                          Offline
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <span className="text-slate-600">
+                        {new Date(activity.lastActive).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="font-medium">{activity.loginCount}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="font-medium">{activity.leadsReceived}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`font-medium ${activity.conversionRate > 20 ? 'text-green-600' :
+                        activity.conversionRate > 10 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                        {activity.conversionRate.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-slate-600">{activity.sessionTime}m</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-4 bg-slate-50 text-center">
+            <button className="text-sm text-blue-600 font-medium hover:underline">
+              View All Users →
+            </button>
+          </div>
+        </div>
+
+        {/* System Health (SAME UI) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100">System Uptime</p>
+                <p className="text-3xl font-bold">{stats.systemUptime}%</p>
+              </div>
+              <CheckCircle size={32} className="text-green-200" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100">Queue Status</p>
+                <p className="text-3xl font-bold">{stats.queuedLeads}</p>
+                <p className="text-xs text-orange-200">leads pending</p>
+              </div>
+              <Timer size={32} className="text-orange-200" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100">Avg Response Time</p>
+                <p className="text-3xl font-bold">1.2s</p>
+                <p className="text-xs text-purple-200">API latency</p>
+              </div>
+              <Zap size={32} className="text-purple-200" />
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      {/* ============================================================
+          USERS MODAL (old feature added)
+      ============================================================ */}
+      {showUsersModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">👑 User Management</h3>
+                <p className="text-xs text-slate-500">Search • Activate/Deactivate • Change Plan • Delete</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportUsersCSV}
+                  className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 flex items-center gap-2"
+                >
+                  <Download size={16} /> Export CSV
+                </button>
+                <button
+                  onClick={() => { setShowUsersModal(false); }}
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
-                  placeholder="Search users..."
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                  placeholder="Search by name/email..."
                   value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <select 
-                className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+
+              <select
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                 value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
+                onChange={(e) => setRoleFilter(e.target.value as any)}
               >
                 <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
                 <option value="manager">Manager</option>
                 <option value="member">Member</option>
               </select>
-              <button onClick={exportAnalytics} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
-                <Download size={16} /> Export CSV
+
+              <select
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <button
+                onClick={fetchOpsData}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm hover:bg-slate-50 flex items-center gap-2"
+              >
+                <RefreshCw size={16} /> Refresh
               </button>
             </div>
 
-            {/* Users Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
-                    <tr>
-                      <th className="p-4 pl-6">User</th>
-                      <th className="p-4">Role</th>
-                      <th className="p-4">Plan</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Leads</th>
-                      <th className="p-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredUsers.map(user => (
-                      <tr key={user.id} className="hover:bg-slate-50">
-                        <td className="p-4 pl-6">
-                          <div className="font-bold text-slate-900">{user.name}</div>
-                          <div className="text-xs text-slate-500">{user.email}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-                            user.role === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                          }`}>{user.role}</span>
-                        </td>
-                        <td className="p-4">{user.plan_name}</td>
-                        <td className="p-4">
-                          <button 
-                            onClick={() => toggleUserStatus(user)}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold ${
-                              user.payment_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            }`}
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
+                  <tr>
+                    <th className="p-3 text-left">User</th>
+                    <th className="p-3">Role</th>
+                    <th className="p-3">Plan</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Leads</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredAdminUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900">{u.name || 'No Name'}</div>
+                        <div className="text-xs text-slate-500">{u.email}</div>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
+                          u.role === 'admin' ? 'bg-red-100 text-red-700' :
+                          u.role === 'manager' ? 'bg-purple-100 text-purple-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => setShowPlanModal(u)}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium"
+                        >
+                          {u.plan_name || 'none'} <ChevronDown size={14} />
+                        </button>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          disabled={actionLoading === u.id || u.role === 'admin'}
+                          onClick={() => toggleUserStatus(u)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${
+                            u.payment_status === 'active'
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          } ${u.role === 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {actionLoading === u.id ? (
+                            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          ) : u.payment_status === 'active' ? (
+                            <UserCheck size={14} />
+                          ) : (
+                            <UserX size={14} />
+                          )}
+                          {u.payment_status === 'active' ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="p-3 text-center font-medium">
+                        {(u.leads_today ?? 0)}/{(u.daily_limit ?? 0)}
+                      </td>
+                      <td className="p-3 text-right">
+                        {u.role !== 'admin' && (
+                          <button
+                            disabled={actionLoading === u.id}
+                            onClick={() => deleteUser(u.id)}
+                            className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                            title="Delete user"
                           >
-                            {user.payment_status === 'active' ? <UserCheck size={12}/> : <UserX size={12}/>}
-                            {user.payment_status}
-                          </button>
-                        </td>
-                        <td className="p-4 font-medium">{user.leads_today} / {user.daily_limit}</td>
-                        <td className="p-4 text-right flex justify-end gap-2">
-                          <button onClick={() => setShowPlanModal(user)} className="p-2 text-blue-600 hover:bg-blue-50 rounded">
-                            <RefreshCw size={16} />
-                          </button>
-                          <button onClick={() => deleteUser(user.id)} className="p-2 text-red-600 hover:bg-red-50 rounded">
                             <Trash2 size={16} />
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredAdminUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                        No users found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
+              Showing {filteredAdminUsers.length} users
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ======================= ORPHANS TAB ======================= */}
-        {activeTab === 'orphans' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Bulk Upload */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Upload size={20} className="text-blue-600" />
-                  Bulk Upload Leads
-                </h3>
-                <button 
-                  onClick={() => setShowUpload(!showUpload)}
-                  className="text-sm text-blue-600 hover:underline"
+      {/* ============================================================
+          ORPHANS MODAL (old feature added)
+      ============================================================ */}
+      {showOrphansModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">⚠️ Orphan Leads</h3>
+                <p className="text-xs text-slate-500">Bulk Upload • Assign to members</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowUpload(v => !v)}
+                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
                 >
-                  {showUpload ? 'Hide' : 'Show'} Upload
+                  <Upload size={16} /> Bulk Upload
+                </button>
+                <button
+                  onClick={() => { setShowOrphansModal(false); }}
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
+                  <X size={20} />
                 </button>
               </div>
-              
-              {showUpload && (
-                <div className="space-y-4">
-                  <textarea 
-                    className="w-full h-32 p-3 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Rahul, 9999999999, Delhi&#10;Amit, 8888888888, Mumbai"
-                    value={bulkData}
-                    onChange={e => setBulkData(e.target.value)}
-                  />
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">Format: Name, Phone, City</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">{uploadStatus}</span>
-                      <button 
-                        onClick={handleBulkUpload}
-                        className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-medium"
-                      >
-                        Upload Leads
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Orphan List */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <AlertTriangle size={20} className="text-orange-500" />
-                Orphan Leads ({orphanLeads.length})
-              </h3>
-              
+            {showUpload && (
+              <div className="p-4 border-b border-slate-100 bg-slate-50">
+                <div className="text-xs text-slate-600 mb-2">
+                  Format: <b>Name, Phone, City</b> (one per line)
+                </div>
+                <textarea
+                  className="w-full h-28 p-3 border border-slate-200 rounded-lg text-sm font-mono outline-none focus:border-blue-500 bg-white"
+                  placeholder="Rahul Kumar, 9999999999, Delhi&#10;Amit Singh, 8888888888, Mumbai"
+                  value={bulkData}
+                  onChange={(e) => setBulkData(e.target.value)}
+                />
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-sm font-medium text-slate-600">{uploadStatus}</div>
+                  <button
+                    onClick={handleBulkUpload}
+                    className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-sm hover:bg-slate-800"
+                  >
+                    Upload
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-auto p-4">
               {orphanLeads.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <CheckCircle size={48} className="mx-auto mb-4 text-green-500" />
-                  <p>No orphan leads pending!</p>
+                <div className="p-10 text-center text-slate-500">
+                  <CheckCircle size={42} className="mx-auto mb-3 text-green-500" />
+                  No orphan leads pending 🎉
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                <div className="space-y-3">
                   {orphanLeads.map(orphan => (
-                    <div key={orphan.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div key={orphan.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <div>
                         <div className="font-bold text-slate-900">{orphan.name}</div>
-                        <div className="text-sm text-slate-500">{orphan.phone} • {orphan.city}</div>
-                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded mt-1 inline-block">
-                          Reason: {orphan.miss_reason}
-                        </span>
+                        <div className="text-sm text-slate-600">
+                          {orphan.phone} • {orphan.city || 'Unknown'}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Reason: {orphan.miss_reason || 'unknown'} • {new Date(orphan.created_at).toLocaleString()}
+                        </div>
                       </div>
-                      
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <select 
-                          className="flex-1 sm:w-48 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          disabled={actionLoading === orphan.id}
                           onChange={(e) => {
                             if (e.target.value) assignOrphanLead(orphan, e.target.value);
                           }}
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white min-w-[240px]"
                           defaultValue=""
                         >
-                          <option value="" disabled>Assign to member...</option>
+                          <option value="" disabled>
+                            Assign to member...
+                          </option>
                           {activeMembers.map(m => (
                             <option key={m.id} value={m.id}>
-                              {m.name} ({m.leads_today}/{m.daily_limit})
+                              {m.name} ({m.leads_today ?? 0}/{m.daily_limit ?? 0})
                             </option>
                           ))}
                         </select>
+
+                        {actionLoading === orphan.id && (
+                          <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
 
-      </main>
-
-      {/* Plan Modal */}
-      {showPlanModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg">Change Plan for {showPlanModal.name}</h3>
-              <button onClick={() => setShowPlanModal(null)}><X size={20} /></button>
+            <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
+              Pending orphan leads: {orphanLeads.length}
             </div>
-            <div className="space-y-2">
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          PLAN CHANGE MODAL (old feature added)
+      ============================================================ */}
+      {showPlanModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900">Change Plan</h3>
+                <p className="text-xs text-slate-500">{showPlanModal.name} • {showPlanModal.email}</p>
+              </div>
+              <button onClick={() => setShowPlanModal(null)} className="p-2 rounded-lg hover:bg-slate-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-2">
               {planOptions.map(plan => (
                 <button
                   key={plan.id}
-                  onClick={() => activatePlan(showPlanModal, plan.id)}
                   disabled={actionLoading === showPlanModal.id}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    showPlanModal.plan_name === plan.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'
+                  onClick={() => activatePlan(showPlanModal, plan.id)}
+                  className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
+                    (showPlanModal.plan_name || 'none') === plan.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-blue-300'
                   }`}
                 >
-                  <div className="font-bold">{plan.name}</div>
-                  <div className="text-xs text-slate-500">{plan.daily_limit} leads/day • {plan.days} days</div>
+                  <div className="text-left">
+                    <div className="font-bold text-slate-900">{plan.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {plan.daily_limit} leads/day • {plan.days} days • weight {plan.plan_weight}
+                    </div>
+                  </div>
+
+                  {(showPlanModal.plan_name || 'none') === plan.id && (
+                    <CheckCircle size={20} className="text-blue-600" />
+                  )}
                 </button>
               ))}
             </div>
@@ -677,22 +1447,58 @@ export const AdminDashboard = () => {
   );
 };
 
-const MetricCard = ({ icon, label, value, color }: { icon: any, label: string, value: string | number, color: string }) => {
-  const colors: any = {
-    blue: 'text-blue-600 bg-blue-50 border-blue-200',
-    green: 'text-green-600 bg-green-50 border-green-200',
-    purple: 'text-purple-600 bg-purple-50 border-purple-200',
-    orange: 'text-orange-600 bg-orange-50 border-orange-200',
-    red: 'text-red-600 bg-red-50 border-red-200',
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+// ============================================================
+// Metric Card Component (your existing signature kept)
+// ============================================================
+const MetricCard = ({
+  icon,
+  label,
+  value,
+  change,
+  subValue,
+  color,
+  pulse
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  change?: string;
+  subValue?: string;
+  color: string;
+  pulse?: boolean;
+}) => {
+  const colors: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+    red: 'bg-red-50 text-red-600 border-red-200',
   };
+
   return (
-    <div className={`p-4 rounded-xl border ${colors[color]} shadow-sm`}>
-      <div className="flex items-center gap-2 mb-2">
-        {React.cloneElement(icon, { size: 18 })}
-        <span className="text-xs font-bold uppercase opacity-70">{label}</span>
+    <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 relative`}>
+      {pulse && (
+        <div className="absolute top-2 right-2">
+          <span className="flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+          </span>
+        </div>
+      )}
+
+      <div className={`inline-flex p-2 rounded-lg ${colors[color]} mb-2`}>
+        {React.cloneElement(icon as React.ReactElement, { size: 20 })}
       </div>
-      <div className="text-2xl font-black">{value}</div>
+
+      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
+      <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
+
+      {(change || subValue) && (
+        <p className="text-xs text-slate-500 mt-1">
+          {change || subValue}
+        </p>
+      )}
     </div>
   );
 };
