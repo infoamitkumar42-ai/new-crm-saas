@@ -3,7 +3,7 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
-import { Users, Briefcase, ShieldCheck, FileSpreadsheet } from "lucide-react";
+import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle } from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
@@ -19,6 +19,8 @@ export const Auth: React.FC = () => {
   
   // Team Code
   const [teamCode, setTeamCode] = useState(""); 
+  const [teamCodeStatus, setTeamCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [managerInfo, setManagerInfo] = useState<{ id: string; name: string } | null>(null);
   
   const [selectedRole, setSelectedRole] = useState<UserRole>("member");
   const [loading, setLoading] = useState(false);
@@ -26,63 +28,101 @@ export const Auth: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // ═══════════════════════════════════════════════════════════
-  // 📊 AUTO GOOGLE SHEET CREATOR
+  // 🔍 TEAM CODE VERIFICATION (Using Secure RPC Function)
   // ═══════════════════════════════════════════════════════════
-  const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
+  
+  const verifyTeamCode = async (code: string) => {
+    if (!code || code.length < 3) {
+      setTeamCodeStatus('idle');
+      setManagerInfo(null);
+      return;
+    }
+
+    setTeamCodeStatus('checking');
+
     try {
-      setStatusMessage("Creating your personal Google Sheet...");
-      
-      const response = await fetch(SHEET_CREATOR_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createSheet',
-          userId: userId,
-          email: userEmail,
-          name: userName
-        }),
-        mode: 'no-cors' // Required for Apps Script
+      // ✅ Use RPC function - works WITHOUT authentication!
+      const { data, error } = await supabase.rpc('verify_team_code', { 
+        code: code.toUpperCase() 
       });
 
-      // Since no-cors doesn't return readable response,
-      // we'll make a second call with different approach
-      const proxyResponse = await fetch(SHEET_CREATOR_URL + "?callback=?", {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'createSheet',
-          userId: userId,
-          email: userEmail,
-          name: userName
-        })
-      }).catch(() => null);
-
-      if (proxyResponse) {
-        const result = await proxyResponse.json().catch(() => null);
-        if (result?.success && result?.sheetUrl) {
-          console.log("✅ Sheet created:", result.sheetUrl);
-          return result.sheetUrl;
-        }
+      if (error) {
+        console.error('Team code verification error:', error);
+        setTeamCodeStatus('invalid');
+        setManagerInfo(null);
+        return;
       }
 
-      // Fallback: Direct Apps Script call (might work in some cases)
-      return null;
-      
+      // Check if valid
+      if (data && data.length > 0 && data[0].is_valid) {
+        setTeamCodeStatus('valid');
+        setManagerInfo({
+          id: data[0].manager_id,
+          name: data[0].manager_name || 'Manager'
+        });
+      } else {
+        setTeamCodeStatus('invalid');
+        setManagerInfo(null);
+      }
+
     } catch (err) {
-      console.error("Sheet creation error:", err);
-      return null;
+      console.error('Team code check failed:', err);
+      setTeamCodeStatus('invalid');
+      setManagerInfo(null);
+    }
+  };
+
+  const checkTeamCodeAvailability = async (code: string): Promise<boolean> => {
+    if (!code || code.length < 3) return false;
+
+    try {
+      const { data, error } = await supabase.rpc('check_team_code_available', { 
+        code: code.toUpperCase() 
+      });
+
+      if (error) {
+        console.error('Code availability check error:', error);
+        return false;
+      }
+
+      return data === true;
+
+    } catch (err) {
+      console.error('Code check failed:', err);
+      return false;
+    }
+  };
+
+  // Debounced team code check
+  const handleTeamCodeChange = (value: string) => {
+    const upperValue = value.toUpperCase().replace(/\s/g, '');
+    setTeamCode(upperValue);
+    setTeamCodeStatus('idle');
+    setManagerInfo(null);
+
+    // Debounce the verification
+    if (selectedRole === 'member' && upperValue.length >= 3) {
+      const timeoutId = setTimeout(() => {
+        verifyTeamCode(upperValue);
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
   };
 
   // ═══════════════════════════════════════════════════════════
-  // 📊 ALTERNATIVE: CREATE SHEET VIA SUPABASE EDGE FUNCTION
+  // 📊 GOOGLE SHEET CREATOR (Fixed for CORS)
   // ═══════════════════════════════════════════════════════════
-  const createSheetViaSupabase = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
+  
+  const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
     try {
-      // Call Apps Script directly with fetch
+      setStatusMessage("Creating your personal Google Sheet...");
+      
+      // Method 1: Using POST with text/plain to avoid CORS preflight
       const response = await fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain', // Avoids CORS preflight
+          'Content-Type': 'text/plain',
         },
         body: JSON.stringify({
           action: 'createSheet',
@@ -92,23 +132,49 @@ export const Auth: React.FC = () => {
         })
       });
 
-      const text = await response.text();
-      
-      try {
-        const result = JSON.parse(text);
-        if (result.success && result.sheetUrl) {
-          return result.sheetUrl;
+      if (response.ok) {
+        const text = await response.text();
+        try {
+          const result = JSON.parse(text);
+          if (result.success && result.sheetUrl) {
+            console.log("✅ Sheet created:", result.sheetUrl);
+            return result.sheetUrl;
+          }
+        } catch {
+          console.log("Response:", text);
         }
-      } catch {
-        console.log("Response not JSON:", text);
       }
 
+      // Method 2: Try GET request as fallback
+      const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${userId}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
+      
+      const getResponse = await fetch(getUrl, { method: 'GET' });
+      
+      if (getResponse.ok) {
+        const text = await getResponse.text();
+        try {
+          const result = JSON.parse(text);
+          if (result.success && result.sheetUrl) {
+            console.log("✅ Sheet created via GET:", result.sheetUrl);
+            return result.sheetUrl;
+          }
+        } catch {
+          console.log("GET Response:", text);
+        }
+      }
+
+      console.log("Sheet creation will be handled by background job");
       return null;
+      
     } catch (err) {
-      console.error("Sheet creation failed:", err);
+      console.error("Sheet creation error:", err);
       return null;
     }
   };
+
+  // ═══════════════════════════════════════════════════════════
+  // 📝 FORM SUBMISSION
+  // ═══════════════════════════════════════════════════════════
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,42 +185,56 @@ export const Auth: React.FC = () => {
     try {
       if (mode === "signup") {
         
-        // Validation
-        if (selectedRole === 'member' && !teamCode) throw new Error("Please enter a Team Code to join.");
-        if (selectedRole === 'manager' && !teamCode) throw new Error("Please create a unique Team Code for your team.");
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // VALIDATION
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (selectedRole === 'member' && !teamCode) {
+          throw new Error("Please enter a Team Code to join.");
+        }
+        if (selectedRole === 'manager' && !teamCode) {
+          throw new Error("Please create a unique Team Code for your team.");
+        }
 
         setStatusMessage("Verifying details...");
 
-        let managerId = null;
+        let managerId: string | null = null;
 
-        // 🔍 MEMBER LOGIC: Verify Team Code exists
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🔍 MEMBER: Verify Team Code (Using RPC!)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'member') {
-            const { data: managerData, error: managerError } = await supabase
-                .from('users')
-                .select('id, role')
-                .eq('team_code', teamCode)
-                .single();
+          const { data, error: rpcError } = await supabase.rpc('verify_team_code', { 
+            code: teamCode 
+          });
 
-            if (managerError || !managerData) throw new Error("Invalid Team Code. Please ask your manager for the correct code.");
-            if (managerData.role !== 'manager') throw new Error("This code does not belong to a Manager.");
-            
-            managerId = managerData.id;
+          if (rpcError) {
+            throw new Error("Unable to verify team code. Please try again.");
+          }
+
+          if (!data || data.length === 0 || !data[0].is_valid) {
+            throw new Error("Invalid Team Code. Please ask your manager for the correct code.");
+          }
+
+          managerId = data[0].manager_id;
+          setStatusMessage(`Joining ${data[0].manager_name}'s team...`);
         }
 
-        // 🔍 MANAGER LOGIC: Verify Team Code is unique
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🔍 MANAGER: Verify Code is Available (Using RPC!)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'manager') {
-            const { data: existingCode } = await supabase
-                .from('users')
-                .select('id')
-                .eq('team_code', teamCode)
-                .single();
-            
-            if (existingCode) throw new Error("This Team Code is already taken. Please choose another.");
+          const isAvailable = await checkTeamCodeAvailability(teamCode);
+          
+          if (!isAvailable) {
+            throw new Error("This Team Code is already taken. Please choose another.");
+          }
         }
 
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 1. CREATE AUTH USER
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Creating account...");
         
-        // 1. Create Auth User
         const { data: signUpData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -163,78 +243,101 @@ export const Auth: React.FC = () => {
 
         if (authError) throw authError;
         const user = signUpData.user;
-        if (!user) throw new Error("Signup failed.");
+        if (!user) throw new Error("Signup failed. Please try again.");
 
-        // ═══════════════════════════════════════════════════════════
-        // 📊 2. CREATE GOOGLE SHEET (NEW!)
-        // ═══════════════════════════════════════════════════════════
-        setStatusMessage("Creating your personal Lead Sheet...");
-        
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 2. CREATE GOOGLE SHEET (For Members Only)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         let sheetUrl: string | null = null;
         
-        // Only create sheet for MEMBERS (not managers)
         if (selectedRole === 'member') {
-          sheetUrl = await createSheetViaSupabase(user.id, email, name);
+          setStatusMessage("Creating your personal Lead Sheet...");
+          sheetUrl = await createUserSheet(user.id, email, name);
           
           if (sheetUrl) {
-            setStatusMessage("Sheet created! Saving to database...");
+            setStatusMessage("✅ Sheet created successfully!");
           } else {
-            console.log("Sheet creation skipped or failed - will be created later");
+            setStatusMessage("Sheet will be created shortly...");
           }
         }
 
-        // 3. Prepare Data for DB
-        const userData: any = {
-            email: user.email,
-            name: name || user.user_metadata?.name,
-            id: user.id,
-            role: selectedRole,
-            team_code: selectedRole === 'manager' ? teamCode : null,
-            manager_id: managerId,
-            sheet_url: sheetUrl, // 📊 NEW: Save sheet URL
-            payment_status: 'inactive',
-            plan_name: 'none',
-            daily_limit: 0,
-            leads_today: 0,
-            filters: { cities: [] }
-        };
-
-        // 4. Save to Database
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 3. SAVE USER TO DATABASE
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Saving profile...");
         
+        const userData = {
+          id: user.id,
+          email: user.email,
+          name: name || user.user_metadata?.name || '',
+          role: selectedRole,
+          team_code: selectedRole === 'manager' ? teamCode : null,
+          manager_id: managerId,
+          sheet_url: sheetUrl,
+          payment_status: 'inactive',
+          plan_name: 'none',
+          daily_limit: 0,
+          leads_today: 0,
+          filters: { cities: [] },
+          created_at: new Date().toISOString()
+        };
+
         const { error: dbError } = await supabase
-            .from('users')
-            .upsert(userData);
+          .from('users')
+          .upsert(userData);
 
         if (dbError) {
-             console.error("DB Error:", dbError);
-             // Fallback: Try API if direct DB fails
-             await fetch("/api/init-user", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(userData),
-            }).catch(err => console.error("API fallback failed:", err));
+          console.error("DB Error:", dbError);
+          // User created in auth but DB failed - log for admin
+          await logEvent('user_db_error', { 
+            userId: user.id, 
+            email, 
+            error: dbError.message 
+          });
         }
 
-        await logEvent('user_signup_complete', { email, role: selectedRole, hasSheet: !!sheetUrl });
+        await logEvent('user_signup_complete', { 
+          email, 
+          role: selectedRole, 
+          hasSheet: !!sheetUrl,
+          hasManager: !!managerId
+        });
+        
         setStatusMessage("Success! Opening dashboard...");
         await refreshProfile();
         
       } else {
-        // Login Logic
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // LOGIN LOGIC
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Logging in...");
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password 
+        });
+        
         if (error) throw error;
+        
         await refreshProfile();
       }
+      
     } catch (err: any) {
       setError(err.message);
-      if (mode === "signup" && err.message.includes("Signup failed")) await supabase.auth.signOut();
+      
+      // Cleanup on signup failure
+      if (mode === "signup" && err.message.includes("Signup failed")) {
+        await supabase.auth.signOut();
+      }
     } finally {
       setLoading(false);
       setStatusMessage("");
     }
   };
+
+  // ═══════════════════════════════════════════════════════════
+  // 🎨 RENDER
+  // ═══════════════════════════════════════════════════════════
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
@@ -255,38 +358,79 @@ export const Auth: React.FC = () => {
           {mode === "signup" && (
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
-              <input className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Rahul Kumar" required />
+              <input 
+                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+                placeholder="e.g. Rahul Kumar" 
+                required 
+              />
             </div>
           )}
 
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-            <input className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" required />
+            <input 
+              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+              type="email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              placeholder="name@company.com" 
+              required 
+            />
           </div>
 
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
-            <input className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+            <input 
+              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              placeholder="••••••••" 
+              required 
+              minLength={6}
+            />
           </div>
 
           {/* Role & Team Code Section */}
           {mode === "signup" && (
             <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Select Your Role</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                  Select Your Role
+                </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setSelectedRole("member")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${selectedRole === 'member' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'}`}
+                    onClick={() => {
+                      setSelectedRole("member");
+                      setTeamCode("");
+                      setTeamCodeStatus('idle');
+                      setManagerInfo(null);
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                      selectedRole === 'member' 
+                        ? 'bg-blue-600 border-blue-600 text-white' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                    }`}
                   >
                     <Users size={20} className="mb-1" />
                     <span className="text-xs font-bold">Team Member</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedRole("manager")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${selectedRole === 'manager' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+                    onClick={() => {
+                      setSelectedRole("manager");
+                      setTeamCode("");
+                      setTeamCodeStatus('idle');
+                      setManagerInfo(null);
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                      selectedRole === 'manager' 
+                        ? 'bg-indigo-600 border-indigo-600 text-white' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                    }`}
                   >
                     <Briefcase size={20} className="mb-1" />
                     <span className="text-xs font-bold">Manager</span>
@@ -297,63 +441,139 @@ export const Auth: React.FC = () => {
               {/* Dynamic Input based on Role */}
               <div className="animate-fade-in-up">
                 {selectedRole === 'member' ? (
-                   <div>
-                     <label className="block text-sm font-bold text-slate-700 mb-1">Enter Team Code <span className="text-red-500">*</span></label>
-                     <div className="relative">
-                       <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
-                       <input 
-                         className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase placeholder:normal-case"
-                         value={teamCode} 
-                         onChange={e => setTeamCode(e.target.value.toUpperCase())} 
-                         placeholder="e.g. HIMANSHU100" 
-                         required 
-                       />
-                     </div>
-                     <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                       <FileSpreadsheet size={12} />
-                       A personal Google Sheet will be created for you!
-                     </p>
-                   </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                      Enter Team Code <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
+                      <input 
+                        className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${
+                          teamCodeStatus === 'valid' 
+                            ? 'border-green-500 focus:ring-green-500 bg-green-50' 
+                            : teamCodeStatus === 'invalid'
+                            ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                            : 'focus:ring-blue-500'
+                        }`}
+                        value={teamCode} 
+                        onChange={e => handleTeamCodeChange(e.target.value)} 
+                        placeholder="e.g. WIN11" 
+                        required 
+                      />
+                      
+                      {/* Status Icon */}
+                      <div className="absolute right-3 top-3">
+                        {teamCodeStatus === 'checking' && (
+                          <Loader2 size={18} className="text-blue-500 animate-spin" />
+                        )}
+                        {teamCodeStatus === 'valid' && (
+                          <CheckCircle size={18} className="text-green-500" />
+                        )}
+                        {teamCodeStatus === 'invalid' && (
+                          <XCircle size={18} className="text-red-500" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Status Message */}
+                    {teamCodeStatus === 'valid' && managerInfo && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <CheckCircle size={12} />
+                        Joining {managerInfo.name}'s team
+                      </p>
+                    )}
+                    {teamCodeStatus === 'invalid' && (
+                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                        <XCircle size={12} />
+                        Invalid code. Ask your manager for the correct code.
+                      </p>
+                    )}
+                    {teamCodeStatus === 'idle' && teamCode.length === 0 && (
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <FileSpreadsheet size={12} />
+                        A personal Google Sheet will be created for you!
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                   <div>
-                     <label className="block text-sm font-bold text-slate-700 mb-1">Create Your Team Code <span className="text-red-500">*</span></label>
-                     <div className="relative">
-                       <Users className="absolute left-3 top-3 text-slate-400" size={18} />
-                       <input 
-                         className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
-                         value={teamCode} 
-                         onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
-                         placeholder="e.g. WINNERS_CLUB" 
-                         required 
-                       />
-                     </div>
-                     <p className="text-xs text-slate-500 mt-1">This is the code your team will use to join.</p>
-                   </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                      Create Your Team Code <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-3 text-slate-400" size={18} />
+                      <input 
+                        className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
+                        value={teamCode} 
+                        onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
+                        placeholder="e.g. WINNERS_CLUB" 
+                        required 
+                        minLength={3}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      This is the code your team members will use to join.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-          {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">⚠️ {error}</div>}
-          {statusMessage && <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">🔄 {statusMessage}</div>}
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+              <XCircle size={18} />
+              {error}
+            </div>
+          )}
+          
+          {/* Status Message */}
+          {statusMessage && (
+            <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" />
+              {statusMessage}
+            </div>
+          )}
 
+          {/* Submit Button */}
           <button 
             type="submit" 
-            disabled={loading} 
+            disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
             className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                mode === 'signup' && selectedRole === 'manager' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'
+              mode === 'signup' && selectedRole === 'manager' 
+                ? 'bg-indigo-600 hover:bg-indigo-700' 
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {loading ? "Processing..." : mode === "login" ? "Log In" : selectedRole === 'manager' ? "Create Manager Account" : "Join Team"}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 size={18} className="animate-spin" />
+                Processing...
+              </span>
+            ) : mode === "login" ? (
+              "Log In"
+            ) : selectedRole === 'manager' ? (
+              "Create Manager Account"
+            ) : (
+              "Join Team"
+            )}
           </button>
         </form>
 
+        {/* Mode Toggle */}
         <div className="mt-8 text-center">
           <p className="text-slate-500 text-sm">
             {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
             <button 
               className="ml-2 font-bold text-blue-600 hover:underline" 
-              onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(null); }}
+              onClick={() => { 
+                setMode(mode === "login" ? "signup" : "login"); 
+                setError(null);
+                setTeamCode("");
+                setTeamCodeStatus('idle');
+                setManagerInfo(null);
+              }}
             >
               {mode === "login" ? "Create Account" : "Login Here"}
             </button>
