@@ -1,16 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-  Users, DollarSign, Database, RefreshCw, Upload, Trash2,
-  Search, CheckCircle, LogOut, XCircle, Filter, Download,
-  AlertTriangle, UserCheck, UserX, ChevronDown, X, Eye,
-  TrendingUp, Activity, BarChart3, Clock, Calendar,
-  Zap, Target, Shield, Crown, Rocket, PieChart,
-  Globe, Wifi, WifiOff, Timer, Bell, Hash
+  Users, DollarSign, RefreshCw, Upload, Trash2,
+  Search, CheckCircle, LogOut, Download,
+  AlertTriangle, UserCheck, UserX, ChevronDown, X,
+  Activity, BarChart3, Clock, Zap, Target, PieChart,
+  Globe, Wifi, WifiOff, Timer
 } from 'lucide-react';
 
 // ============================================================
-// Types
+// Types & Interfaces
 // ============================================================
 
 interface SystemStats {
@@ -18,10 +17,8 @@ interface SystemStats {
   dailyActiveUsers: number;
   monthlyActiveUsers: number;
   onlineNow: number;
-  loginsToday: number;
   leadsDistributedToday: number;
   leadsDistributedMonth: number;
-  avgSessionDuration: string;
   starterUsers: number;
   supervisorUsers: number;
   managerUsers: number;
@@ -29,11 +26,23 @@ interface SystemStats {
   dailyRevenue: number;
   monthlyRevenue: number;
   mrr: number;
-  churnRate: number;
   queuedLeads: number;
   failedDistributions: number;
   orphanLeads: number;
   systemUptime: number;
+}
+
+interface HourlyActivity {
+  hour: number;
+  logins: number;
+  leads: number;
+}
+
+interface PlanAnalytics {
+  planName: string;
+  userCount: number;
+  revenue: number;
+  avgLeadsPerUser: number;
 }
 
 interface UserActivity {
@@ -46,23 +55,6 @@ interface UserActivity {
   loginCount: number;
   leadsReceived: number;
   conversionRate: number;
-  sessionTime: number;
-}
-
-interface HourlyActivity {
-  hour: number;
-  logins: number;
-  leads: number;
-  activeUsers: number;
-}
-
-interface PlanAnalytics {
-  planName: string;
-  userCount: number;
-  revenue: number;
-  avgLeadsPerUser: number;
-  churnRate: number;
-  satisfaction: number;
 }
 
 type Role = 'admin' | 'manager' | 'member';
@@ -72,7 +64,7 @@ interface AdminUserRow {
   email: string;
   name: string;
   role: Role;
-  payment_status: 'active' | 'inactive' | 'pending' | string;
+  payment_status: 'active' | 'inactive' | 'pending';
   plan_name: string | null;
   daily_limit: number | null;
   leads_today: number | null;
@@ -92,16 +84,77 @@ interface OrphanLeadRow {
   created_at: string;
 }
 
-export const AdminDashboard = () => {
+// DB View Types
+interface DashboardStatsRow {
+  total_users: number;
+  active_users: number;
+  daily_active_users: number;
+  monthly_active_users: number;
+  online_now: number;
+  starter_users: number;
+  supervisor_users: number;
+  manager_users: number;
+  booster_users: number;
+  mrr: number;
+  daily_revenue: number;
+}
+
+interface HourlyLeadsRow {
+  hour: number;
+  lead_count: number;
+}
+
+interface HourlyLoginsRow {
+  hour: number;
+  login_count: number;
+}
+
+interface LeadsStatsRow {
+  leads_today: number;
+  leads_this_month: number;
+  total_leads: number;
+}
+
+interface QueueStatsRow {
+  queued_leads: number;
+  orphan_leads: number;
+  failed_distributions: number;
+}
+
+interface PlanAnalyticsRow {
+  plan_name: string;
+  user_count: number;
+  revenue: number;
+  avg_leads_per_user: number;
+}
+
+interface UserActivityRow {
+  user_id: string;
+  name: string;
+  email: string;
+  plan: string;
+  last_active: string;
+  is_online: boolean;
+  login_count: number;
+  leads_received: number;
+  conversion_rate: number;
+}
+
+type ColorType = 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'red';
+
+// ============================================================
+// Component
+// ============================================================
+
+export const AdminDashboard: React.FC = () => {
+  // State
   const [stats, setStats] = useState<SystemStats>({
     totalUsers: 0,
     dailyActiveUsers: 0,
     monthlyActiveUsers: 0,
     onlineNow: 0,
-    loginsToday: 0,
     leadsDistributedToday: 0,
     leadsDistributedMonth: 0,
-    avgSessionDuration: '0m',
     starterUsers: 0,
     supervisorUsers: 0,
     managerUsers: 0,
@@ -109,7 +162,6 @@ export const AdminDashboard = () => {
     dailyRevenue: 0,
     monthlyRevenue: 0,
     mrr: 0,
-    churnRate: 0,
     queuedLeads: 0,
     failedDistributions: 0,
     orphanLeads: 0,
@@ -121,25 +173,30 @@ export const AdminDashboard = () => {
   const [planAnalytics, setPlanAnalytics] = useState<PlanAnalytics[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // OLD FEATURES STATE
+  // Modal States
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [showOrphansModal, setShowOrphansModal] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
   const [orphanLeads, setOrphanLeads] = useState<OrphanLeadRow[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showPlanModal, setShowPlanModal] = useState<AdminUserRow | null>(null);
 
+  // Upload
   const [showUpload, setShowUpload] = useState(false);
   const [bulkData, setBulkData] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
+
+  // Refs for cleanup
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const planOptions = [
     { id: 'none', name: 'No Plan', daily_limit: 0, days: 0, plan_weight: 0 },
@@ -151,228 +208,147 @@ export const AdminDashboard = () => {
     { id: 'max_blast', name: 'Max Blast', daily_limit: 40, days: 7, plan_weight: 12 },
   ] as const;
 
-  // Track activity
-  const trackUserActivity = async (userId: string, action: string) => {
-    try {
-      let ip = 'unknown';
-      try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipJson = await ipRes.json();
-        ip = ipJson?.ip || 'unknown';
-      } catch {
-        ip = 'unknown';
-      }
-
-      await supabase.from('user_activity_logs').insert({
-        user_id: userId,
-        action,
-        timestamp: new Date().toISOString(),
-        session_id: sessionStorage.getItem('session_id'),
-        ip_address: ip
-      });
-    } catch (error) {
-      console.error('Activity tracking error:', error);
-    }
-  };
-
   // ============================================================
-  // OPTIMIZED Analytics Fetch
+  // OPTIMIZED Analytics Fetch (Uses SQL Views)
   // ============================================================
-  const fetchAnalytics = async () => {
+
+  const fetchAnalytics = useCallback(async () => {
     try {
       setRefreshing(true);
+      setError(null);
 
-      const now = new Date();
-      const todayStart = new Date(now.setHours(0, 0, 0, 0));
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // ✅ 1. Main Dashboard Stats (ONE query - all user/revenue data)
+      const { data: dashboardStats, error: statsError } = await supabase
+        .from('admin_dashboard_stats')
+        .select('*')
+        .single();
 
-      // 1. User Metrics (Lightweight)
-      const { count: totalUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
+      if (statsError) throw new Error('Failed to fetch dashboard stats');
 
-      const { data: dauData } = await supabase
-        .from('users')
-        .select('id')
-        .gte('last_login', todayStart.toISOString());
+      const dbStats = dashboardStats as DashboardStatsRow;
 
-      const { data: onlineUsers } = await supabase
-        .from('users')
-        .select('id')
-        .gte('last_activity', fiveMinutesAgo.toISOString());
+      // ✅ 2. Leads Stats (ONE query)
+      const { data: leadsStats, error: leadsError } = await supabase
+        .from('leads_stats')
+        .select('*')
+        .single();
 
-      // 2. Leads Metrics
-      const { count: leadsTodayCount } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayStart.toISOString());
+      if (leadsError) throw new Error('Failed to fetch leads stats');
 
-      // 3. Plan Distribution (Get data once, calc in JS)
-      const { data: allUsers } = await supabase
-        .from('users')
-        .select('plan_name')
-        .eq('payment_status', 'active');
+      const dbLeads = leadsStats as LeadsStatsRow;
 
-      const planStats = {
-        starterUsers: 0,
-        supervisorUsers: 0,
-        managerUsers: 0,
-        boosterUsers: 0
-      };
-      let mrr = 0;
+      // ✅ 3. Queue Stats (ONE query)
+      const { data: queueStats, error: queueError } = await supabase
+        .from('queue_stats')
+        .select('*')
+        .single();
 
-      allUsers?.forEach((u: any) => {
-        // Count plan types
-        if (u.plan_name === 'starter') planStats.starterUsers++;
-        else if (u.plan_name === 'supervisor') planStats.supervisorUsers++;
-        else if (u.plan_name === 'manager') planStats.managerUsers++;
-        else if (['fast_start', 'turbo_weekly', 'max_blast'].includes(u.plan_name)) planStats.boosterUsers++;
-        
-        // Add to MRR directly here to save one loop later
-        if (u.plan_name === 'starter') mrr += 999;
-        else if (u.plan_name === 'supervisor') mrr += 1999;
-        else if (u.plan_name === 'manager') mrr += 4999;
-        else if (u.plan_name === 'fast_start') mrr += 999;
-        else if (u.plan_name === 'turbo_weekly') mrr += 1999;
-        else if (u.plan_name === 'max_blast') mrr += 2999;
+      if (queueError) throw new Error('Failed to fetch queue stats');
+
+      const dbQueue = queueStats as QueueStatsRow;
+
+      // ✅ 4. Hourly Leads (ONE query instead of 24!)
+      const { data: hourlyLeads } = await supabase
+        .from('hourly_leads_today')
+        .select('*');
+
+      // ✅ 5. Hourly Logins (ONE query)
+      const { data: hourlyLogins } = await supabase
+        .from('hourly_logins_today')
+        .select('*');
+
+      // ✅ 6. Plan Analytics (ONE query)
+      const { data: planData } = await supabase
+        .from('plan_analytics')
+        .select('*');
+
+      // ✅ 7. User Activity (ONE query - limited to 50)
+      const { data: activityData } = await supabase
+        .from('user_activity_view')
+        .select('*');
+
+      // Build hourly data map
+      const leadsMap = new Map<number, number>();
+      const loginsMap = new Map<number, number>();
+
+      (hourlyLeads as HourlyLeadsRow[] || []).forEach(h => {
+        leadsMap.set(h.hour, h.lead_count);
       });
 
-      // Daily Revenue calculation (Optimized: check plan pricing only for today's active subs if needed, but simple approach below is fine for now)
-      // To strictly optimize: Use SQL View. But here using JS loop on active users count is acceptable for 500 users.
-      const dailyRevenue = mrr; // Assuming active subs revenue is MRR for simplicity in display
+      (hourlyLogins as HourlyLoginsRow[] || []).forEach(h => {
+        loginsMap.set(h.hour, h.login_count);
+      });
 
-      // 4. System Health
-      const { count: queuedLeads } = await supabase
-        .from('lead_queue')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      const { count: orphanLeadsCount } = await supabase
-        .from('orphan_leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      // 5. Hourly Activity Pattern
+      // Generate 24-hour data
       const hourlyData: HourlyActivity[] = [];
       for (let hour = 0; hour < 24; hour++) {
-        const hourStart = new Date(todayStart);
-        hourStart.setHours(hour);
-        const hourEnd = new Date(todayStart);
-        hourEnd.setHours(hour + 1);
-
-        const { count: hourLeads } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', hourStart.toISOString())
-          .lt('created_at', hourEnd.toISOString());
-
         hourlyData.push({
           hour,
-          logins: Math.floor(Math.random() * 20),
-          leads: hourLeads || 0,
-          activeUsers: Math.floor(Math.random() * 10)
+          leads: leadsMap.get(hour) || 0,
+          logins: loginsMap.get(hour) || 0
         });
       }
 
-      // 6. User Activity Details (Top 50)
-      const { data: users } = await supabase
-        .from('users')
-        .select('*')
-        .order('last_login', { ascending: false })
-        .limit(50);
+      // Transform plan analytics
+      const plans: PlanAnalytics[] = (planData as PlanAnalyticsRow[] || []).map(p => ({
+        planName: p.plan_name || 'Unknown',
+        userCount: p.user_count || 0,
+        revenue: p.revenue || 0,
+        avgLeadsPerUser: p.avg_leads_per_user || 0
+      }));
 
-      const activities: UserActivity[] = users?.map((u: any) => ({
-        userId: u.id,
-        name: u.name,
-        email: u.email,
-        plan: u.plan_name || 'none',
-        lastActive: u.last_login || u.created_at,
-        isOnline: u.last_activity ? (new Date(u.last_activity) > fiveMinutesAgo) : false,
+      // Transform user activities
+      const activities: UserActivity[] = (activityData as UserActivityRow[] || []).map(u => ({
+        userId: u.user_id,
+        name: u.name || 'Unknown',
+        email: u.email || '',
+        plan: u.plan || 'none',
+        lastActive: u.last_active || '',
+        isOnline: u.is_online || false,
         loginCount: u.login_count || 0,
-        leadsReceived: u.total_leads_received || 0,
-        conversionRate: Math.random() * 30,
-        sessionTime: Math.floor(Math.random() * 120)
-      })) || [];
+        leadsReceived: u.leads_received || 0,
+        conversionRate: u.conversion_rate || 0
+      }));
 
-      // 7. Plan Analytics
-      const plans: PlanAnalytics[] = [
-        {
-          planName: 'Starter',
-          userCount: planStats.starterUsers,
-          revenue: planStats.starterUsers * 999,
-          avgLeadsPerUser: 60,
-          churnRate: 5.2,
-          satisfaction: 85
-        },
-        {
-          planName: 'Supervisor',
-          userCount: planStats.supervisorUsers,
-          revenue: planStats.supervisorUsers * 1999,
-          avgLeadsPerUser: 180,
-          churnRate: 3.1,
-          satisfaction: 92
-        },
-        {
-          planName: 'Manager',
-          userCount: planStats.managerUsers,
-          revenue: planStats.managerUsers * 4999,
-          avgLeadsPerUser: 480,
-          churnRate: 2.0,
-          satisfaction: 95
-        },
-        {
-          planName: 'Boosters',
-          userCount: planStats.boosterUsers,
-          revenue: planStats.boosterUsers * 1500,
-          avgLeadsPerUser: 150,
-          churnRate: 8.5,
-          satisfaction: 88
-        }
-      ];
-
+      // Set all states
       setStats({
-        totalUsers: totalUsers || 0,
-        dailyActiveUsers: dauData?.length || 0,
-        monthlyActiveUsers: 0, // Not fetched to save queries
-        onlineNow: onlineUsers?.length || 0,
-        loginsToday: dauData?.length || 0,
-        leadsDistributedToday: leadsTodayCount || 0,
-        leadsDistributedMonth: 0,
-        avgSessionDuration: '42m',
-        ...planStats,
-        dailyRevenue,
-        monthlyRevenue: mrr,
-        mrr,
-        churnRate: 4.2,
-        queuedLeads: queuedLeads || 0,
-        failedDistributions: 0,
-        orphanLeads: orphanLeadsCount || 0,
+        totalUsers: dbStats?.total_users || 0,
+        dailyActiveUsers: dbStats?.daily_active_users || 0,
+        monthlyActiveUsers: dbStats?.monthly_active_users || 0,
+        onlineNow: dbStats?.online_now || 0,
+        leadsDistributedToday: dbLeads?.leads_today || 0,
+        leadsDistributedMonth: dbLeads?.leads_this_month || 0,
+        starterUsers: dbStats?.starter_users || 0,
+        supervisorUsers: dbStats?.supervisor_users || 0,
+        managerUsers: dbStats?.manager_users || 0,
+        boosterUsers: dbStats?.booster_users || 0,
+        dailyRevenue: dbStats?.daily_revenue || 0,
+        monthlyRevenue: dbStats?.mrr || 0,
+        mrr: dbStats?.mrr || 0,
+        queuedLeads: dbQueue?.queued_leads || 0,
+        failedDistributions: dbQueue?.failed_distributions || 0,
+        orphanLeads: dbQueue?.orphan_leads || 0,
         systemUptime: 99.9
       });
 
-      setUserActivities(activities);
       setHourlyActivity(hourlyData);
       setPlanAnalytics(plans);
+      setUserActivities(activities);
 
-    } catch (error) {
-      console.error('Analytics error:', error);
+    } catch (err) {
+      console.error('Analytics error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load analytics');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    fetchAnalytics();
-    const interval = autoRefresh ? setInterval(fetchAnalytics, 30000) : null;
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, timeRange]);
+  // ============================================================
+  // Operations Data Fetch
+  // ============================================================
 
-  // OLD FEATURES: fetch users & orphans
-  const fetchOpsData = async () => {
+  const fetchOpsData = useCallback(async () => {
     try {
       const { data: allUsers } = await supabase
         .from('users')
@@ -391,18 +367,23 @@ export const AdminDashboard = () => {
     } catch (e) {
       console.error('Ops fetch error:', e);
     }
-  };
+  }, []);
 
-  // Actions
-  const toggleUserStatus = async (user: AdminUserRow) => {
+  // ============================================================
+  // User Actions
+  // ============================================================
+
+  const toggleUserStatus = useCallback(async (user: AdminUserRow) => {
     const newStatus = user.payment_status === 'active' ? 'inactive' : 'active';
     setActionLoading(user.id);
 
     try {
-      const payload: any = {
+      const payload: Partial<AdminUserRow> = {
         payment_status: newStatus,
       };
-      if (newStatus === 'inactive') payload.daily_limit = 0;
+      if (newStatus === 'inactive') {
+        payload.daily_limit = 0;
+      }
 
       const { error } = await supabase
         .from('users')
@@ -410,16 +391,17 @@ export const AdminDashboard = () => {
         .eq('id', user.id);
 
       if (error) throw error;
+
       await fetchOpsData();
       await fetchAnalytics();
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchOpsData, fetchAnalytics]);
 
-  const activatePlan = async (user: AdminUserRow, planId: string) => {
+  const activatePlan = useCallback(async (user: AdminUserRow, planId: string) => {
     const plan = planOptions.find(p => p.id === planId);
     if (!plan) return;
 
@@ -429,14 +411,14 @@ export const AdminDashboard = () => {
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + plan.days);
 
-      const payload: any = {
+      const payload = {
         plan_name: plan.id,
         payment_status: plan.id === 'none' ? 'inactive' : 'active',
         daily_limit: plan.daily_limit,
         valid_until: plan.id === 'none' ? null : validUntil.toISOString(),
         leads_today: 0,
+        plan_weight: plan.plan_weight
       };
-      payload.plan_weight = plan.plan_weight;
 
       const { error } = await supabase
         .from('users')
@@ -448,34 +430,39 @@ export const AdminDashboard = () => {
       setShowPlanModal(null);
       await fetchOpsData();
       await fetchAnalytics();
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchOpsData, fetchAnalytics]);
 
-  const deleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure?')) return;
+  const deleteUser = useCallback(async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    
     setActionLoading(userId);
     try {
       const { error } = await supabase
         .from('users')
         .delete()
         .eq('id', userId);
+
       if (error) throw error;
+
       await fetchOpsData();
       await fetchAnalytics();
-    } catch (err: any) {
-      alert('Error deleting: ' + err.message);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchOpsData, fetchAnalytics]);
 
-  const assignOrphanLead = async (orphan: OrphanLeadRow, userId: string) => {
+  const assignOrphanLead = useCallback(async (orphan: OrphanLeadRow, userId: string) => {
     setActionLoading(orphan.id);
+    
     try {
+      // Insert lead
       const { error: insertError } = await supabase
         .from('leads')
         .insert({
@@ -489,29 +476,24 @@ export const AdminDashboard = () => {
 
       if (insertError) throw insertError;
 
-      const { error: upd1 } = await supabase
+      // Update orphan status
+      const { error: updateError } = await supabase
         .from('orphan_leads')
-        .update({ status: 'assigned', assigned_to: userId } as any)
+        .update({ status: 'assigned' })
         .eq('id', orphan.id);
 
-      if (upd1) {
-        const { error: upd2 } = await supabase
-          .from('orphan_leads')
-          .update({ status: 'assigned' } as any)
-          .eq('id', orphan.id);
-        if (upd2) throw upd2;
-      }
+      if (updateError) throw updateError;
 
       await fetchOpsData();
       await fetchAnalytics();
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchOpsData, fetchAnalytics]);
 
-  const handleBulkUpload = async () => {
+  const handleBulkUpload = useCallback(async () => {
     if (!bulkData.trim()) return;
     setUploadStatus('Processing...');
 
@@ -541,30 +523,40 @@ export const AdminDashboard = () => {
       }
 
       setUploadStatus(`✅ Uploaded ${successCount} leads`);
+      
       setTimeout(() => {
         setBulkData('');
         setUploadStatus('');
-      }, 1500);
+      }, 2000);
 
       await fetchOpsData();
       await fetchAnalytics();
-    } catch (err: any) {
-      setUploadStatus('❌ Error: ' + err.message);
+    } catch (err) {
+      setUploadStatus('❌ Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
-  };
+  }, [bulkData, fetchOpsData, fetchAnalytics]);
 
-  const exportUsersCSV = () => {
+  // ============================================================
+  // Export Functions
+  // ============================================================
+
+  const exportUsersCSV = useCallback(() => {
     const headers = ['Name', 'Email', 'Role', 'Plan', 'Status', 'Daily Limit', 'Leads Today', 'Valid Until', 'Created'];
     const rows = filteredAdminUsers.map(u => [
-      u.name || '', u.email || '', u.role || '', u.plan_name || '', u.payment_status || '',
-      String(u.daily_limit ?? ''), String(u.leads_today ?? ''),
+      u.name || '',
+      u.email || '',
+      u.role || '',
+      u.plan_name || '',
+      u.payment_status || '',
+      String(u.daily_limit ?? ''),
+      String(u.leads_today ?? ''),
       u.valid_until ? new Date(u.valid_until).toLocaleDateString() : '',
       u.created_at ? new Date(u.created_at).toLocaleDateString() : ''
     ]);
 
-    const csv = [headers, ...rows].map(r =>
-      r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
+    const csv = [headers, ...rows]
+      .map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -572,28 +564,10 @@ export const AdminDashboard = () => {
     a.href = url;
     a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-  };
+    URL.revokeObjectURL(url);
+  }, []);
 
-  const activeMembers = useMemo(
-    () => adminUsers.filter(u => u.role === 'member' && u.payment_status === 'active'),
-    [adminUsers]
-  );
-
-  const filteredAdminUsers = useMemo(() => {
-    return adminUsers.filter(u => {
-      const s = searchTerm.toLowerCase();
-      const matchesSearch =
-        (u.name || '').toLowerCase().includes(s) ||
-        (u.email || '').toLowerCase().includes(s);
-
-      const matchesRole = roleFilter === 'all' ? true : u.role === roleFilter;
-      const matchesStatus = statusFilter === 'all' ? true : u.payment_status === statusFilter;
-
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [adminUsers, searchTerm, roleFilter, statusFilter]);
-
-  const exportAnalytics = () => {
+  const exportAnalytics = useCallback(() => {
     const data = {
       timestamp: new Date().toISOString(),
       stats,
@@ -607,7 +581,85 @@ export const AdminDashboard = () => {
     a.href = url;
     a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
+    URL.revokeObjectURL(url);
+  }, [stats, hourlyActivity, planAnalytics]);
+
+  // ============================================================
+  // Memoized Values
+  // ============================================================
+
+  const activeMembers = useMemo(
+    () => adminUsers.filter(u => u.role === 'member' && u.payment_status === 'active'),
+    [adminUsers]
+  );
+
+  const filteredAdminUsers = useMemo(() => {
+    return adminUsers.filter(u => {
+      const s = searchTerm.toLowerCase();
+      const matchesSearch =
+        (u.name || '').toLowerCase().includes(s) ||
+        (u.email || '').toLowerCase().includes(s);
+
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      const matchesStatus = statusFilter === 'all' || u.payment_status === statusFilter;
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [adminUsers, searchTerm, roleFilter, statusFilter]);
+
+  // ============================================================
+  // Effects
+  // ============================================================
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  useEffect(() => {
+    if (autoRefresh) {
+      refreshIntervalRef.current = setInterval(fetchAnalytics, 30000);
+    } else if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [autoRefresh, fetchAnalytics]);
+
+  // ============================================================
+  // Helper Functions
+  // ============================================================
+
+  const getStatusColorClass = (status: string): string => {
+    return status === 'active'
+      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+      : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
   };
+
+  const getRoleColorClass = (role: Role): string => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-700';
+      case 'manager': return 'bg-purple-100 text-purple-700';
+      default: return 'bg-blue-100 text-blue-700';
+    }
+  };
+
+  const getPlanColorClass = (plan: string): string => {
+    switch (plan) {
+      case 'manager': return 'bg-purple-100 text-purple-700';
+      case 'supervisor': return 'bg-blue-100 text-blue-700';
+      case 'starter': return 'bg-green-100 text-green-700';
+      default: return 'bg-slate-100 text-slate-600';
+    }
+  };
+
+  // ============================================================
+  // Render: Loading State
+  // ============================================================
 
   if (loading) {
     return (
@@ -620,11 +672,17 @@ export const AdminDashboard = () => {
     );
   }
 
+  // ============================================================
+  // Render: Main UI
+  // ============================================================
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
+      
+      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 <BarChart3 size={28} />
@@ -635,25 +693,15 @@ export const AdminDashboard = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as any)}
-                className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-              >
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
-
-              <label className="flex items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm bg-slate-100 px-3 py-2 rounded-lg">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={(e) => setAutoRefresh(e.target.checked)}
                   className="rounded"
                 />
-                Live
+                Live Updates
               </label>
 
               <button
@@ -676,7 +724,6 @@ export const AdminDashboard = () => {
               <button
                 onClick={async () => { await fetchOpsData(); setShowUsersModal(true); }}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium"
-                title="User Management"
               >
                 <Users size={16} />
                 Users
@@ -685,12 +732,11 @@ export const AdminDashboard = () => {
               <button
                 onClick={async () => { await fetchOpsData(); setShowOrphansModal(true); }}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium"
-                title="Orphan Leads"
               >
                 <AlertTriangle size={16} className="text-orange-500" />
                 Orphans
                 {stats.orphanLeads > 0 && (
-                  <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                  <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
                     {stats.orphanLeads}
                   </span>
                 )}
@@ -699,20 +745,36 @@ export const AdminDashboard = () => {
               <button
                 onClick={() => supabase.auth.signOut()}
                 className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
-                title="Sign Out"
               >
                 <LogOut size={16} />
               </button>
-
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="text-red-500" size={20} />
+              <p className="text-red-700 font-medium text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={fetchAnalytics}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Live Stats Banner */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2">
                 <Wifi size={20} className="text-green-300 animate-pulse" />
                 <span className="font-medium">{stats.onlineNow} Users Online Now</span>
@@ -725,7 +787,7 @@ export const AdminDashboard = () => {
 
               <div className="flex items-center gap-2">
                 <Timer size={20} />
-                <span>Avg Session: {stats.avgSessionDuration}</span>
+                <span>Uptime: {stats.systemUptime}%</span>
               </div>
             </div>
 
@@ -740,12 +802,13 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <MetricCard
             icon={<Users />}
             label="Total Users"
             value={stats.totalUsers}
-            change={`+${Math.floor(Math.random() * 20)} this week`}
+            subValue={`${stats.dailyActiveUsers} active today`}
             color="blue"
           />
 
@@ -778,7 +841,7 @@ export const AdminDashboard = () => {
             icon={<DollarSign />}
             label="Revenue Today"
             value={`₹${stats.dailyRevenue.toLocaleString()}`}
-            subValue={`₹${stats.monthlyRevenue.toLocaleString()}/mo`}
+            subValue={`MRR: ₹${stats.mrr.toLocaleString()}`}
             color="purple"
           />
 
@@ -791,7 +854,10 @@ export const AdminDashboard = () => {
           />
         </div>
 
+        {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Hourly Activity Chart */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Clock size={18} />
@@ -799,22 +865,24 @@ export const AdminDashboard = () => {
             </h2>
 
             <div className="space-y-4">
+              {/* Logins Chart */}
               <div>
                 <p className="text-xs text-slate-500 mb-2">User Logins</p>
                 <div className="flex items-end justify-between h-20 gap-0.5">
                   {hourlyActivity.map((hour) => {
-                    const maxLogins = Math.max(...hourlyActivity.map(h => h.logins));
-                    const height = maxLogins > 0 ? (hour.logins / maxLogins) * 100 : 0;
+                    const maxLogins = Math.max(...hourlyActivity.map(h => h.logins), 1);
+                    const height = (hour.logins / maxLogins) * 100;
                     const isCurrentHour = new Date().getHours() === hour.hour;
                     const isWorkingHour = hour.hour >= 8 && hour.hour < 22;
 
                     return (
                       <div key={hour.hour} className="flex-1 flex flex-col items-center">
                         <div
-                          className={`w-full transition-all rounded-t ${isCurrentHour ? 'bg-blue-600' :
+                          className={`w-full transition-all rounded-t ${
+                            isCurrentHour ? 'bg-blue-600' :
                             isWorkingHour ? 'bg-green-500' : 'bg-slate-300'
-                            }`}
-                          style={{ height: `${height}px`, minHeight: hour.logins > 0 ? '2px' : '0' }}
+                          }`}
+                          style={{ height: `${height}%`, minHeight: hour.logins > 0 ? '2px' : '0' }}
                           title={`${hour.hour}:00 - ${hour.logins} logins`}
                         />
                       </div>
@@ -823,18 +891,19 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Leads Chart */}
               <div>
                 <p className="text-xs text-slate-500 mb-2">Lead Distribution</p>
                 <div className="flex items-end justify-between h-20 gap-0.5">
                   {hourlyActivity.map((hour) => {
-                    const maxLeads = Math.max(...hourlyActivity.map(h => h.leads));
-                    const height = maxLeads > 0 ? (hour.leads / maxLeads) * 100 : 0;
+                    const maxLeads = Math.max(...hourlyActivity.map(h => h.leads), 1);
+                    const height = (hour.leads / maxLeads) * 100;
 
                     return (
                       <div key={hour.hour} className="flex-1 flex flex-col items-center">
                         <div
                           className="w-full bg-orange-500 transition-all rounded-t"
-                          style={{ height: `${height}px`, minHeight: hour.leads > 0 ? '2px' : '0' }}
+                          style={{ height: `${height}%`, minHeight: hour.leads > 0 ? '2px' : '0' }}
                           title={`${hour.hour}:00 - ${hour.leads} leads`}
                         />
                       </div>
@@ -843,6 +912,7 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Time Labels */}
               <div className="flex justify-between text-xs text-slate-400">
                 {[0, 6, 12, 18, 23].map(h => (
                   <span key={h}>{h}:00</span>
@@ -851,39 +921,39 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
+          {/* Plan Distribution */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <PieChart size={18} />
               Plan Distribution & Revenue
             </h2>
 
-            <div className="space-y-4">
-              {planAnalytics.map((plan) => (
-                <div key={plan.planName} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-slate-800">{plan.planName}</span>
-                      {plan.planName === 'Supervisor' && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
-                          Popular
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>{plan.userCount} users</span>
-                      <span>₹{plan.revenue.toLocaleString()}</span>
-                      <span>{plan.avgLeadsPerUser} leads/user</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-xs text-slate-500">Churn</div>
-                    <div className={`font-semibold ${plan.churnRate < 5 ? 'text-green-600' : 'text-orange-600'}`}>
-                      {plan.churnRate}%
+            <div className="space-y-3">
+              {planAnalytics.length > 0 ? (
+                planAnalytics.map((plan) => (
+                  <div key={plan.planName} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-800 capitalize">{plan.planName}</span>
+                        {plan.planName === 'supervisor' && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                            Popular
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>{plan.userCount} users</span>
+                        <span>₹{plan.revenue.toLocaleString()}</span>
+                        <span>{plan.avgLeadsPerUser} leads/user</span>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  No active plans found
                 </div>
-              ))}
+              )}
 
               <div className="pt-4 border-t border-slate-200">
                 <div className="flex justify-between items-center">
@@ -897,6 +967,7 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* User Activity Table */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100">
           <div className="p-6 border-b border-slate-100">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -916,7 +987,6 @@ export const AdminDashboard = () => {
                   <th className="p-4">Logins</th>
                   <th className="p-4">Leads</th>
                   <th className="p-4">Conversion</th>
-                  <th className="p-4">Session Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -929,12 +999,7 @@ export const AdminDashboard = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        activity.plan === 'manager' ? 'bg-purple-100 text-purple-700' :
-                          activity.plan === 'supervisor' ? 'bg-blue-100 text-blue-700' :
-                            activity.plan === 'starter' ? 'bg-green-100 text-green-700' :
-                              'bg-slate-100 text-slate-600'
-                        }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getPlanColorClass(activity.plan)}`}>
                         {activity.plan}
                       </span>
                     </td>
@@ -953,7 +1018,7 @@ export const AdminDashboard = () => {
                     </td>
                     <td className="p-4">
                       <span className="text-slate-600">
-                        {new Date(activity.lastActive).toLocaleString()}
+                        {activity.lastActive ? new Date(activity.lastActive).toLocaleString() : 'Never'}
                       </span>
                     </td>
                     <td className="p-4">
@@ -963,14 +1028,12 @@ export const AdminDashboard = () => {
                       <span className="font-medium">{activity.leadsReceived}</span>
                     </td>
                     <td className="p-4">
-                      <span className={`font-medium ${activity.conversionRate > 20 ? 'text-green-600' :
+                      <span className={`font-medium ${
+                        activity.conversionRate > 20 ? 'text-green-600' :
                         activity.conversionRate > 10 ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
+                      }`}>
                         {activity.conversionRate.toFixed(1)}%
                       </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-slate-600">{activity.sessionTime}m</span>
                     </td>
                   </tr>
                 ))}
@@ -978,13 +1041,14 @@ export const AdminDashboard = () => {
             </table>
           </div>
 
-          <div className="p-4 bg-slate-50 text-center">
-            <button className="text-sm text-blue-600 font-medium hover:underline">
-              View All Users →
-            </button>
-          </div>
+          {userActivities.length === 0 && (
+            <div className="p-8 text-center text-slate-500">
+              No user activity data available
+            </div>
+          )}
         </div>
 
+        {/* System Health Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
@@ -996,7 +1060,9 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl p-4">
+          <div className={`bg-gradient-to-r ${
+            stats.queuedLeads > 10 ? 'from-red-500 to-orange-500' : 'from-orange-400 to-amber-500'
+          } text-white rounded-xl p-4`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100">Queue Status</p>
@@ -1010,9 +1076,9 @@ export const AdminDashboard = () => {
           <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100">Avg Response Time</p>
-                <p className="text-3xl font-bold">1.2s</p>
-                <p className="text-xs text-purple-200">API latency</p>
+                <p className="text-purple-100">Orphan Leads</p>
+                <p className="text-3xl font-bold">{stats.orphanLeads}</p>
+                <p className="text-xs text-purple-200">need assignment</p>
               </div>
               <Zap size={32} className="text-purple-200" />
             </div>
@@ -1027,21 +1093,30 @@ export const AdminDashboard = () => {
       {showUsersModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">👑 User Management</h3>
                 <p className="text-xs text-slate-500">Search • Activate/Deactivate • Change Plan • Delete</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={exportUsersCSV} className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 flex items-center gap-2">
+                <button 
+                  onClick={exportUsersCSV} 
+                  className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 flex items-center gap-2"
+                >
                   <Download size={16} /> Export CSV
                 </button>
-                <button onClick={() => { setShowUsersModal(false); }} className="p-2 rounded-lg hover:bg-slate-100">
+                <button 
+                  onClick={() => setShowUsersModal(false)} 
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
                   <X size={20} />
                 </button>
               </div>
             </div>
 
+            {/* Filters */}
             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -1053,27 +1128,39 @@ export const AdminDashboard = () => {
                 />
               </div>
 
-              <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as any)}>
+              <select 
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" 
+                value={roleFilter} 
+                onChange={(e) => setRoleFilter(e.target.value as 'all' | Role)}
+              >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="manager">Manager</option>
                 <option value="member">Member</option>
               </select>
 
-              <select className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+              <select 
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
 
-              <button onClick={fetchOpsData} className="px-3 py-2 border border-slate-200 rounded-lg text-sm hover:bg-slate-50 flex items-center gap-2">
+              <button 
+                onClick={fetchOpsData} 
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm hover:bg-slate-50 flex items-center gap-2"
+              >
                 <RefreshCw size={16} /> Refresh
               </button>
             </div>
 
+            {/* Table */}
             <div className="flex-1 overflow-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b sticky top-0">
                   <tr>
                     <th className="p-3 text-left">User</th>
                     <th className="p-3">Role</th>
@@ -1091,16 +1178,15 @@ export const AdminDashboard = () => {
                         <div className="text-xs text-slate-500">{u.email}</div>
                       </td>
                       <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-                          u.role === 'admin' ? 'bg-red-100 text-red-700' :
-                          u.role === 'manager' ? 'bg-purple-100 text-purple-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getRoleColorClass(u.role)}`}>
                           {u.role}
                         </span>
                       </td>
                       <td className="p-3 text-center">
-                        <button onClick={() => setShowPlanModal(u)} className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium">
+                        <button 
+                          onClick={() => setShowPlanModal(u)} 
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium"
+                        >
                           {u.plan_name || 'none'} <ChevronDown size={14} />
                         </button>
                       </td>
@@ -1108,11 +1194,7 @@ export const AdminDashboard = () => {
                         <button
                           disabled={actionLoading === u.id || u.role === 'admin'}
                           onClick={() => toggleUserStatus(u)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${
-                            u.payment_status === 'active'
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          } ${u.role === 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${getStatusColorClass(u.payment_status)} ${u.role === 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {actionLoading === u.id ? (
                             <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -1125,11 +1207,15 @@ export const AdminDashboard = () => {
                         </button>
                       </td>
                       <td className="p-3 text-center font-medium">
-                        {(u.leads_today ?? 0)}/{(u.daily_limit ?? 0)}
+                        {u.leads_today ?? 0}/{u.daily_limit ?? 0}
                       </td>
                       <td className="p-3 text-right">
                         {u.role !== 'admin' && (
-                          <button disabled={actionLoading === u.id} onClick={() => deleteUser(u.id)} className="p-2 rounded-lg text-red-600 hover:bg-red-50">
+                          <button 
+                            disabled={actionLoading === u.id} 
+                            onClick={() => deleteUser(u.id)} 
+                            className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                          >
                             <Trash2 size={16} />
                           </button>
                         )}
@@ -1138,15 +1224,18 @@ export const AdminDashboard = () => {
                   ))}
                   {filteredAdminUsers.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-500">No users found.</td>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                        No users found.
+                      </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
 
+            {/* Footer */}
             <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
-              Showing {filteredAdminUsers.length} users
+              Showing {filteredAdminUsers.length} of {adminUsers.length} users
             </div>
           </div>
         </div>
@@ -1158,21 +1247,30 @@ export const AdminDashboard = () => {
       {showOrphansModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">⚠️ Orphan Leads</h3>
                 <p className="text-xs text-slate-500">Bulk Upload • Assign to members</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShowUpload(v => !v)} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 flex items-center gap-2">
+                <button 
+                  onClick={() => setShowUpload(v => !v)} 
+                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
+                >
                   <Upload size={16} /> Bulk Upload
                 </button>
-                <button onClick={() => { setShowOrphansModal(false); }} className="p-2 rounded-lg hover:bg-slate-100">
+                <button 
+                  onClick={() => setShowOrphansModal(false)} 
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
                   <X size={20} />
                 </button>
               </div>
             </div>
 
+            {/* Bulk Upload Section */}
             {showUpload && (
               <div className="p-4 border-b border-slate-100 bg-slate-50">
                 <div className="text-xs text-slate-600 mb-2">
@@ -1188,7 +1286,8 @@ export const AdminDashboard = () => {
                   <div className="text-sm font-medium text-slate-600">{uploadStatus}</div>
                   <button
                     onClick={handleBulkUpload}
-                    className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-sm hover:bg-slate-800"
+                    disabled={!bulkData.trim()}
+                    className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 disabled:opacity-50"
                   >
                     Upload
                   </button>
@@ -1196,6 +1295,7 @@ export const AdminDashboard = () => {
               </div>
             )}
 
+            {/* Orphan Leads List */}
             <div className="flex-1 overflow-auto p-4">
               {orphanLeads.length === 0 ? (
                 <div className="p-10 text-center text-slate-500">
@@ -1205,7 +1305,10 @@ export const AdminDashboard = () => {
               ) : (
                 <div className="space-y-3">
                   {orphanLeads.map(orphan => (
-                    <div key={orphan.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div 
+                      key={orphan.id} 
+                      className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
                       <div>
                         <div className="font-bold text-slate-900">{orphan.name}</div>
                         <div className="text-sm text-slate-600">
@@ -1245,6 +1348,7 @@ export const AdminDashboard = () => {
               )}
             </div>
 
+            {/* Footer */}
             <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
               Pending orphan leads: {orphanLeads.length}
             </div>
@@ -1258,16 +1362,22 @@ export const AdminDashboard = () => {
       {showPlanModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
+            
+            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Change Plan</h3>
                 <p className="text-xs text-slate-500">{showPlanModal.name} • {showPlanModal.email}</p>
               </div>
-              <button onClick={() => setShowPlanModal(null)} className="p-2 rounded-lg hover:bg-slate-100">
+              <button 
+                onClick={() => setShowPlanModal(null)} 
+                className="p-2 rounded-lg hover:bg-slate-100"
+              >
                 <X size={20} />
               </button>
             </div>
 
+            {/* Plan Options */}
             <div className="p-4 space-y-2">
               {planOptions.map(plan => (
                 <button
@@ -1304,34 +1414,28 @@ export const AdminDashboard = () => {
 // ============================================================
 // Metric Card Component
 // ============================================================
-const MetricCard = ({
-  icon,
-  label,
-  value,
-  change,
-  subValue,
-  color,
-  pulse
-}: {
+
+interface MetricCardProps {
   icon: React.ReactNode;
   label: string;
   value: string | number;
-  change?: string;
   subValue?: string;
-  color: string;
+  color: ColorType;
   pulse?: boolean;
-}) => {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-200',
-    green: 'bg-green-50 text-green-600 border-green-200',
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    purple: 'bg-purple-50 text-purple-600 border-purple-200',
-    orange: 'bg-orange-50 text-orange-600 border-orange-200',
-    red: 'bg-red-50 text-red-600 border-red-200',
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ icon, label, value, subValue, color, pulse }) => {
+  const colors: Record<ColorType, string> = {
+    blue: 'bg-blue-50 text-blue-600',
+    green: 'bg-green-50 text-green-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    purple: 'bg-purple-50 text-purple-600',
+    orange: 'bg-orange-50 text-orange-600',
+    red: 'bg-red-50 text-red-600',
   };
 
   return (
-    <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 relative`}>
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 relative">
       {pulse && (
         <div className="absolute top-2 right-2">
           <span className="flex h-2 w-2">
@@ -1348,10 +1452,8 @@ const MetricCard = ({
       <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
       <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
 
-      {(change || subValue) && (
-        <p className="text-xs text-slate-500 mt-1">
-          {change || subValue}
-        </p>
+      {subValue && (
+        <p className="text-xs text-slate-500 mt-1">{subValue}</p>
       )}
     </div>
   );
