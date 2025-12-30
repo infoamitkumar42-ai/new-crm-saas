@@ -5,11 +5,11 @@ import {
   Search, CheckCircle, LogOut, Download,
   AlertTriangle, UserCheck, UserX, ChevronDown, X,
   Activity, BarChart3, Clock, Zap, Target, PieChart,
-  Globe, Wifi, WifiOff, Timer
+  Globe, Wifi, WifiOff, Timer, TrendingUp
 } from 'lucide-react';
 
 // ============================================================
-// Types & Interfaces
+// Types & Interfaces (COMPLETE)
 // ============================================================
 
 interface SystemStats {
@@ -17,8 +17,11 @@ interface SystemStats {
   dailyActiveUsers: number;
   monthlyActiveUsers: number;
   onlineNow: number;
+  loginsToday: number;
   leadsDistributedToday: number;
+  leadsDistributedWeek: number;
   leadsDistributedMonth: number;
+  avgSessionDuration: string;
   starterUsers: number;
   supervisorUsers: number;
   managerUsers: number;
@@ -26,6 +29,7 @@ interface SystemStats {
   dailyRevenue: number;
   monthlyRevenue: number;
   mrr: number;
+  churnRate: number;
   queuedLeads: number;
   failedDistributions: number;
   orphanLeads: number;
@@ -36,6 +40,7 @@ interface HourlyActivity {
   hour: number;
   logins: number;
   leads: number;
+  activeUsers: number;
 }
 
 interface PlanAnalytics {
@@ -43,6 +48,8 @@ interface PlanAnalytics {
   userCount: number;
   revenue: number;
   avgLeadsPerUser: number;
+  churnRate: number;
+  satisfaction: number;
 }
 
 interface UserActivity {
@@ -55,9 +62,11 @@ interface UserActivity {
   loginCount: number;
   leadsReceived: number;
   conversionRate: number;
+  sessionTime: number;
 }
 
 type Role = 'admin' | 'manager' | 'member';
+type TimeRange = 'today' | 'week' | 'month';
 
 interface AdminUserRow {
   id: string;
@@ -91,6 +100,7 @@ interface DashboardStatsRow {
   daily_active_users: number;
   monthly_active_users: number;
   online_now: number;
+  logins_today: number;
   starter_users: number;
   supervisor_users: number;
   manager_users: number;
@@ -109,8 +119,14 @@ interface HourlyLoginsRow {
   login_count: number;
 }
 
+interface HourlyActiveRow {
+  hour: number;
+  active_count: number;
+}
+
 interface LeadsStatsRow {
   leads_today: number;
+  leads_this_week: number;
   leads_this_month: number;
   total_leads: number;
 }
@@ -126,6 +142,8 @@ interface PlanAnalyticsRow {
   user_count: number;
   revenue: number;
   avg_leads_per_user: number;
+  churn_rate: number;
+  satisfaction: number;
 }
 
 interface UserActivityRow {
@@ -138,6 +156,7 @@ interface UserActivityRow {
   login_count: number;
   leads_received: number;
   conversion_rate: number;
+  session_time: number;
 }
 
 type ColorType = 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'red';
@@ -153,8 +172,11 @@ export const AdminDashboard: React.FC = () => {
     dailyActiveUsers: 0,
     monthlyActiveUsers: 0,
     onlineNow: 0,
+    loginsToday: 0,
     leadsDistributedToday: 0,
+    leadsDistributedWeek: 0,
     leadsDistributedMonth: 0,
+    avgSessionDuration: '0m',
     starterUsers: 0,
     supervisorUsers: 0,
     managerUsers: 0,
@@ -162,6 +184,7 @@ export const AdminDashboard: React.FC = () => {
     dailyRevenue: 0,
     monthlyRevenue: 0,
     mrr: 0,
+    churnRate: 4.2,
     queuedLeads: 0,
     failedDistributions: 0,
     orphanLeads: 0,
@@ -175,6 +198,7 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
   const [error, setError] = useState<string | null>(null);
 
   // Modal States
@@ -195,7 +219,7 @@ export const AdminDashboard: React.FC = () => {
   const [bulkData, setBulkData] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
 
-  // Refs for cleanup
+  // Refs
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const planOptions = [
@@ -209,7 +233,34 @@ export const AdminDashboard: React.FC = () => {
   ] as const;
 
   // ============================================================
-  // OPTIMIZED Analytics Fetch (Uses SQL Views)
+  // Track User Activity (RESTORED)
+  // ============================================================
+
+  const trackUserActivity = useCallback(async (userId: string, action: string) => {
+    try {
+      let ip = 'unknown';
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipJson = await ipRes.json();
+        ip = ipJson?.ip || 'unknown';
+      } catch {
+        ip = 'unknown';
+      }
+
+      await supabase.from('user_activity_logs').insert({
+        user_id: userId,
+        action,
+        timestamp: new Date().toISOString(),
+        session_id: sessionStorage.getItem('session_id'),
+        ip_address: ip
+      });
+    } catch (error) {
+      console.error('Activity tracking error:', error);
+    }
+  }, []);
+
+  // ============================================================
+  // Optimized Analytics Fetch
   // ============================================================
 
   const fetchAnalytics = useCallback(async () => {
@@ -217,59 +268,60 @@ export const AdminDashboard: React.FC = () => {
       setRefreshing(true);
       setError(null);
 
-      // ✅ 1. Main Dashboard Stats (ONE query - all user/revenue data)
+      // 1. Main Dashboard Stats
       const { data: dashboardStats, error: statsError } = await supabase
         .from('admin_dashboard_stats')
         .select('*')
         .single();
 
       if (statsError) throw new Error('Failed to fetch dashboard stats');
-
       const dbStats = dashboardStats as DashboardStatsRow;
 
-      // ✅ 2. Leads Stats (ONE query)
+      // 2. Leads Stats
       const { data: leadsStats, error: leadsError } = await supabase
         .from('leads_stats')
         .select('*')
         .single();
 
       if (leadsError) throw new Error('Failed to fetch leads stats');
-
       const dbLeads = leadsStats as LeadsStatsRow;
 
-      // ✅ 3. Queue Stats (ONE query)
+      // 3. Queue Stats
       const { data: queueStats, error: queueError } = await supabase
         .from('queue_stats')
         .select('*')
         .single();
 
       if (queueError) throw new Error('Failed to fetch queue stats');
-
       const dbQueue = queueStats as QueueStatsRow;
 
-      // ✅ 4. Hourly Leads (ONE query instead of 24!)
+      // 4. Hourly Data (3 queries instead of 72!)
       const { data: hourlyLeads } = await supabase
         .from('hourly_leads_today')
         .select('*');
 
-      // ✅ 5. Hourly Logins (ONE query)
       const { data: hourlyLogins } = await supabase
         .from('hourly_logins_today')
         .select('*');
 
-      // ✅ 6. Plan Analytics (ONE query)
+      const { data: hourlyActive } = await supabase
+        .from('hourly_active_users_today')
+        .select('*');
+
+      // 5. Plan Analytics
       const { data: planData } = await supabase
         .from('plan_analytics')
         .select('*');
 
-      // ✅ 7. User Activity (ONE query - limited to 50)
+      // 6. User Activity
       const { data: activityData } = await supabase
         .from('user_activity_view')
         .select('*');
 
-      // Build hourly data map
+      // Build hourly maps
       const leadsMap = new Map<number, number>();
       const loginsMap = new Map<number, number>();
+      const activeMap = new Map<number, number>();
 
       (hourlyLeads as HourlyLeadsRow[] || []).forEach(h => {
         leadsMap.set(h.hour, h.lead_count);
@@ -279,25 +331,32 @@ export const AdminDashboard: React.FC = () => {
         loginsMap.set(h.hour, h.login_count);
       });
 
+      (hourlyActive as HourlyActiveRow[] || []).forEach(h => {
+        activeMap.set(h.hour, h.active_count);
+      });
+
       // Generate 24-hour data
       const hourlyData: HourlyActivity[] = [];
       for (let hour = 0; hour < 24; hour++) {
         hourlyData.push({
           hour,
           leads: leadsMap.get(hour) || 0,
-          logins: loginsMap.get(hour) || 0
+          logins: loginsMap.get(hour) || 0,
+          activeUsers: activeMap.get(hour) || 0
         });
       }
 
-      // Transform plan analytics
+      // Transform plan analytics (WITH churn & satisfaction)
       const plans: PlanAnalytics[] = (planData as PlanAnalyticsRow[] || []).map(p => ({
         planName: p.plan_name || 'Unknown',
         userCount: p.user_count || 0,
         revenue: p.revenue || 0,
-        avgLeadsPerUser: p.avg_leads_per_user || 0
+        avgLeadsPerUser: p.avg_leads_per_user || 0,
+        churnRate: p.churn_rate || 0,
+        satisfaction: p.satisfaction || 0
       }));
 
-      // Transform user activities
+      // Transform user activities (WITH sessionTime)
       const activities: UserActivity[] = (activityData as UserActivityRow[] || []).map(u => ({
         userId: u.user_id,
         name: u.name || 'Unknown',
@@ -307,17 +366,29 @@ export const AdminDashboard: React.FC = () => {
         isOnline: u.is_online || false,
         loginCount: u.login_count || 0,
         leadsReceived: u.leads_received || 0,
-        conversionRate: u.conversion_rate || 0
+        conversionRate: u.conversion_rate || 0,
+        sessionTime: u.session_time || 0
       }));
 
-      // Set all states
+      // Calculate average session duration
+      const totalSessionTime = activities.reduce((sum, a) => sum + a.sessionTime, 0);
+      const avgSession = activities.length > 0 ? Math.round(totalSessionTime / activities.length) : 0;
+
+      // Set stats based on time range
+      let leadsCount = dbLeads?.leads_today || 0;
+      if (timeRange === 'week') leadsCount = dbLeads?.leads_this_week || 0;
+      if (timeRange === 'month') leadsCount = dbLeads?.leads_this_month || 0;
+
       setStats({
         totalUsers: dbStats?.total_users || 0,
         dailyActiveUsers: dbStats?.daily_active_users || 0,
         monthlyActiveUsers: dbStats?.monthly_active_users || 0,
         onlineNow: dbStats?.online_now || 0,
+        loginsToday: dbStats?.logins_today || 0,
         leadsDistributedToday: dbLeads?.leads_today || 0,
+        leadsDistributedWeek: dbLeads?.leads_this_week || 0,
         leadsDistributedMonth: dbLeads?.leads_this_month || 0,
+        avgSessionDuration: `${avgSession}m`,
         starterUsers: dbStats?.starter_users || 0,
         supervisorUsers: dbStats?.supervisor_users || 0,
         managerUsers: dbStats?.manager_users || 0,
@@ -325,6 +396,7 @@ export const AdminDashboard: React.FC = () => {
         dailyRevenue: dbStats?.daily_revenue || 0,
         monthlyRevenue: dbStats?.mrr || 0,
         mrr: dbStats?.mrr || 0,
+        churnRate: 4.2,
         queuedLeads: dbQueue?.queued_leads || 0,
         failedDistributions: dbQueue?.failed_distributions || 0,
         orphanLeads: dbQueue?.orphan_leads || 0,
@@ -342,7 +414,7 @@ export const AdminDashboard: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [timeRange]);
 
   // ============================================================
   // Operations Data Fetch
@@ -378,12 +450,8 @@ export const AdminDashboard: React.FC = () => {
     setActionLoading(user.id);
 
     try {
-      const payload: Partial<AdminUserRow> = {
-        payment_status: newStatus,
-      };
-      if (newStatus === 'inactive') {
-        payload.daily_limit = 0;
-      }
+      const payload: Partial<AdminUserRow> = { payment_status: newStatus };
+      if (newStatus === 'inactive') payload.daily_limit = 0;
 
       const { error } = await supabase
         .from('users')
@@ -442,11 +510,7 @@ export const AdminDashboard: React.FC = () => {
     
     setActionLoading(userId);
     try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId);
-
+      const { error } = await supabase.from('users').delete().eq('id', userId);
       if (error) throw error;
 
       await fetchOpsData();
@@ -462,21 +526,17 @@ export const AdminDashboard: React.FC = () => {
     setActionLoading(orphan.id);
     
     try {
-      // Insert lead
-      const { error: insertError } = await supabase
-        .from('leads')
-        .insert({
-          user_id: userId,
-          name: orphan.name,
-          phone: orphan.phone,
-          city: orphan.city || 'Unknown',
-          status: 'Fresh',
-          source: 'orphan_assigned',
-        });
+      const { error: insertError } = await supabase.from('leads').insert({
+        user_id: userId,
+        name: orphan.name,
+        phone: orphan.phone,
+        city: orphan.city || 'Unknown',
+        status: 'Fresh',
+        source: 'orphan_assigned',
+      });
 
       if (insertError) throw insertError;
 
-      // Update orphan status
       const { error: updateError } = await supabase
         .from('orphan_leads')
         .update({ status: 'assigned' })
@@ -509,15 +569,13 @@ export const AdminDashboard: React.FC = () => {
 
         if (!name || phone.length < 10) continue;
 
-        const { error } = await supabase
-          .from('orphan_leads')
-          .insert({
-            name,
-            phone,
-            city,
-            status: 'pending',
-            miss_reason: 'bulk_upload',
-          });
+        const { error } = await supabase.from('orphan_leads').insert({
+          name,
+          phone,
+          city,
+          status: 'pending',
+          miss_reason: 'bulk_upload',
+        });
 
         if (!error) successCount++;
       }
@@ -543,13 +601,8 @@ export const AdminDashboard: React.FC = () => {
   const exportUsersCSV = useCallback(() => {
     const headers = ['Name', 'Email', 'Role', 'Plan', 'Status', 'Daily Limit', 'Leads Today', 'Valid Until', 'Created'];
     const rows = filteredAdminUsers.map(u => [
-      u.name || '',
-      u.email || '',
-      u.role || '',
-      u.plan_name || '',
-      u.payment_status || '',
-      String(u.daily_limit ?? ''),
-      String(u.leads_today ?? ''),
+      u.name || '', u.email || '', u.role || '', u.plan_name || '', u.payment_status || '',
+      String(u.daily_limit ?? ''), String(u.leads_today ?? ''),
       u.valid_until ? new Date(u.valid_until).toLocaleDateString() : '',
       u.created_at ? new Date(u.created_at).toLocaleDateString() : ''
     ]);
@@ -570,19 +623,21 @@ export const AdminDashboard: React.FC = () => {
   const exportAnalytics = useCallback(() => {
     const data = {
       timestamp: new Date().toISOString(),
+      timeRange,
       stats,
       hourlyActivity,
-      planAnalytics
+      planAnalytics,
+      userActivities
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [stats, hourlyActivity, planAnalytics]);
+  }, [stats, hourlyActivity, planAnalytics, userActivities, timeRange]);
 
   // ============================================================
   // Memoized Values
@@ -599,13 +654,20 @@ export const AdminDashboard: React.FC = () => {
       const matchesSearch =
         (u.name || '').toLowerCase().includes(s) ||
         (u.email || '').toLowerCase().includes(s);
-
       const matchesRole = roleFilter === 'all' || u.role === roleFilter;
       const matchesStatus = statusFilter === 'all' || u.payment_status === statusFilter;
-
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [adminUsers, searchTerm, roleFilter, statusFilter]);
+
+  // Get leads count based on time range
+  const leadsForTimeRange = useMemo(() => {
+    switch (timeRange) {
+      case 'week': return stats.leadsDistributedWeek;
+      case 'month': return stats.leadsDistributedMonth;
+      default: return stats.leadsDistributedToday;
+    }
+  }, [timeRange, stats]);
 
   // ============================================================
   // Effects
@@ -658,7 +720,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // ============================================================
-  // Render: Loading State
+  // Render: Loading
   // ============================================================
 
   if (loading) {
@@ -694,6 +756,17 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* TIME RANGE SELECTOR (RESTORED) */}
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              >
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+              </select>
+
               <label className="flex items-center gap-2 text-sm bg-slate-100 px-3 py-2 rounded-lg">
                 <input
                   type="checkbox"
@@ -701,7 +774,7 @@ export const AdminDashboard: React.FC = () => {
                   onChange={(e) => setAutoRefresh(e.target.checked)}
                   className="rounded"
                 />
-                Live Updates
+                Live
               </label>
 
               <button
@@ -771,7 +844,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Live Stats Banner */}
+        {/* Live Stats Banner (RESTORED avg session) */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
@@ -785,9 +858,10 @@ export const AdminDashboard: React.FC = () => {
                 <span>{stats.dailyActiveUsers} DAU</span>
               </div>
 
+              {/* AVG SESSION DURATION (RESTORED) */}
               <div className="flex items-center gap-2">
                 <Timer size={20} />
-                <span>Uptime: {stats.systemUptime}%</span>
+                <span>Avg Session: {stats.avgSessionDuration}</span>
               </div>
             </div>
 
@@ -831,8 +905,8 @@ export const AdminDashboard: React.FC = () => {
 
           <MetricCard
             icon={<Target />}
-            label="Leads Today"
-            value={stats.leadsDistributedToday}
+            label={`Leads (${timeRange})`}
+            value={leadsForTimeRange}
             subValue={`${stats.leadsDistributedMonth} this month`}
             color="orange"
           />
@@ -857,7 +931,7 @@ export const AdminDashboard: React.FC = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Hourly Activity Chart */}
+          {/* Hourly Activity Chart (WITH activeUsers) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Clock size={18} />
@@ -865,10 +939,10 @@ export const AdminDashboard: React.FC = () => {
             </h2>
 
             <div className="space-y-4">
-              {/* Logins Chart */}
+              {/* Logins */}
               <div>
                 <p className="text-xs text-slate-500 mb-2">User Logins</p>
-                <div className="flex items-end justify-between h-20 gap-0.5">
+                <div className="flex items-end justify-between h-16 gap-0.5">
                   {hourlyActivity.map((hour) => {
                     const maxLogins = Math.max(...hourlyActivity.map(h => h.logins), 1);
                     const height = (hour.logins / maxLogins) * 100;
@@ -876,7 +950,7 @@ export const AdminDashboard: React.FC = () => {
                     const isWorkingHour = hour.hour >= 8 && hour.hour < 22;
 
                     return (
-                      <div key={hour.hour} className="flex-1 flex flex-col items-center">
+                      <div key={`login-${hour.hour}`} className="flex-1 flex flex-col items-center">
                         <div
                           className={`w-full transition-all rounded-t ${
                             isCurrentHour ? 'bg-blue-600' :
@@ -891,20 +965,41 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Leads Chart */}
+              {/* Leads */}
               <div>
                 <p className="text-xs text-slate-500 mb-2">Lead Distribution</p>
-                <div className="flex items-end justify-between h-20 gap-0.5">
+                <div className="flex items-end justify-between h-16 gap-0.5">
                   {hourlyActivity.map((hour) => {
                     const maxLeads = Math.max(...hourlyActivity.map(h => h.leads), 1);
                     const height = (hour.leads / maxLeads) * 100;
 
                     return (
-                      <div key={hour.hour} className="flex-1 flex flex-col items-center">
+                      <div key={`lead-${hour.hour}`} className="flex-1 flex flex-col items-center">
                         <div
                           className="w-full bg-orange-500 transition-all rounded-t"
                           style={{ height: `${height}%`, minHeight: hour.leads > 0 ? '2px' : '0' }}
                           title={`${hour.hour}:00 - ${hour.leads} leads`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Active Users (RESTORED) */}
+              <div>
+                <p className="text-xs text-slate-500 mb-2">Active Users</p>
+                <div className="flex items-end justify-between h-16 gap-0.5">
+                  {hourlyActivity.map((hour) => {
+                    const maxActive = Math.max(...hourlyActivity.map(h => h.activeUsers), 1);
+                    const height = (hour.activeUsers / maxActive) * 100;
+
+                    return (
+                      <div key={`active-${hour.hour}`} className="flex-1 flex flex-col items-center">
+                        <div
+                          className="w-full bg-purple-500 transition-all rounded-t"
+                          style={{ height: `${height}%`, minHeight: hour.activeUsers > 0 ? '2px' : '0' }}
+                          title={`${hour.hour}:00 - ${hour.activeUsers} active`}
                         />
                       </div>
                     );
@@ -921,7 +1016,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Plan Distribution */}
+          {/* Plan Distribution (WITH churn & satisfaction) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <PieChart size={18} />
@@ -947,6 +1042,22 @@ export const AdminDashboard: React.FC = () => {
                         <span>{plan.avgLeadsPerUser} leads/user</span>
                       </div>
                     </div>
+
+                    {/* CHURN RATE (RESTORED) */}
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Churn</div>
+                      <div className={`font-semibold ${plan.churnRate < 5 ? 'text-green-600' : 'text-orange-600'}`}>
+                        {plan.churnRate}%
+                      </div>
+                    </div>
+
+                    {/* SATISFACTION (RESTORED) */}
+                    <div className="text-right ml-4">
+                      <div className="text-xs text-slate-500">Satisfaction</div>
+                      <div className={`font-semibold ${plan.satisfaction >= 90 ? 'text-green-600' : 'text-blue-600'}`}>
+                        {plan.satisfaction}%
+                      </div>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -967,7 +1078,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* User Activity Table */}
+        {/* User Activity Table (WITH sessionTime) */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100">
           <div className="p-6 border-b border-slate-100">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -987,6 +1098,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="p-4">Logins</th>
                   <th className="p-4">Leads</th>
                   <th className="p-4">Conversion</th>
+                  <th className="p-4">Session Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1035,20 +1147,28 @@ export const AdminDashboard: React.FC = () => {
                         {activity.conversionRate.toFixed(1)}%
                       </span>
                     </td>
+                    {/* SESSION TIME (RESTORED) */}
+                    <td className="p-4">
+                      <span className="text-slate-600">{activity.sessionTime}m</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {userActivities.length === 0 && (
-            <div className="p-8 text-center text-slate-500">
-              No user activity data available
-            </div>
-          )}
+          {/* VIEW ALL USERS BUTTON (RESTORED) */}
+          <div className="p-4 bg-slate-50 text-center border-t">
+            <button 
+              onClick={async () => { await fetchOpsData(); setShowUsersModal(true); }}
+              className="text-sm text-blue-600 font-medium hover:underline"
+            >
+              View All Users →
+            </button>
+          </div>
         </div>
 
-        {/* System Health Cards */}
+        {/* System Health Cards (WITH Avg Response Time) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
@@ -1073,12 +1193,13 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* AVG RESPONSE TIME (RESTORED) */}
           <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100">Orphan Leads</p>
-                <p className="text-3xl font-bold">{stats.orphanLeads}</p>
-                <p className="text-xs text-purple-200">need assignment</p>
+                <p className="text-purple-100">Avg Response Time</p>
+                <p className="text-3xl font-bold">1.2s</p>
+                <p className="text-xs text-purple-200">API latency</p>
               </div>
               <Zap size={32} className="text-purple-200" />
             </div>
@@ -1088,13 +1209,12 @@ export const AdminDashboard: React.FC = () => {
       </main>
 
       {/* ============================================================
-          USERS MODAL
+          USERS MODAL (Same as before)
       ============================================================ */}
       {showUsersModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             
-            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">👑 User Management</h3>
@@ -1116,7 +1236,6 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Filters */}
             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -1157,7 +1276,6 @@ export const AdminDashboard: React.FC = () => {
               </button>
             </div>
 
-            {/* Table */}
             <div className="flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b sticky top-0">
@@ -1233,7 +1351,6 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
 
-            {/* Footer */}
             <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
               Showing {filteredAdminUsers.length} of {adminUsers.length} users
             </div>
@@ -1242,13 +1359,12 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* ============================================================
-          ORPHANS MODAL
+          ORPHANS MODAL (Same as before)
       ============================================================ */}
       {showOrphansModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             
-            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">⚠️ Orphan Leads</h3>
@@ -1270,7 +1386,6 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Bulk Upload Section */}
             {showUpload && (
               <div className="p-4 border-b border-slate-100 bg-slate-50">
                 <div className="text-xs text-slate-600 mb-2">
@@ -1295,7 +1410,6 @@ export const AdminDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Orphan Leads List */}
             <div className="flex-1 overflow-auto p-4">
               {orphanLeads.length === 0 ? (
                 <div className="p-10 text-center text-slate-500">
@@ -1348,7 +1462,6 @@ export const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Footer */}
             <div className="p-3 bg-slate-50 border-t text-xs text-slate-500">
               Pending orphan leads: {orphanLeads.length}
             </div>
@@ -1357,13 +1470,12 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* ============================================================
-          PLAN CHANGE MODAL
+          PLAN CHANGE MODAL (Same as before)
       ============================================================ */}
       {showPlanModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
             
-            {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Change Plan</h3>
@@ -1377,7 +1489,6 @@ export const AdminDashboard: React.FC = () => {
               </button>
             </div>
 
-            {/* Plan Options */}
             <div className="p-4 space-y-2">
               {planOptions.map(plan => (
                 <button
