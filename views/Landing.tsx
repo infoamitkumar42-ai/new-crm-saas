@@ -4,7 +4,7 @@ import {
   CheckCircle, Zap, Shield, ArrowRight, 
   Star, Lock, X, Menu, 
   MessageCircle, Clock, BadgeCheck, IndianRupee,
-  Gift, ChevronDown, Bell, Users
+  Gift, ChevronDown, Bell, Users, Play
 } from 'lucide-react';
 
 export const Landing = () => {
@@ -12,9 +12,21 @@ export const Landing = () => {
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   // WhatsApp Number
   const WHATSAPP_NUMBER = "917009064038";
+
+  // Scroll Progress Indicator
+  useEffect(() => {
+    const handleScroll = () => {
+      const totalHeight = document.body.scrollHeight - window.innerHeight;
+      const progress = (window.scrollY / totalHeight) * 100;
+      setScrollProgress(progress);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Live counter animation
   useEffect(() => {
@@ -24,15 +36,33 @@ export const Landing = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Exit intent popup (desktop only)
+  // Smart Exit Intent (Desktop + Mobile + LocalStorage)
   useEffect(() => {
+    const exitPopupShown = localStorage.getItem('exitPopupShown');
+    if (exitPopupShown) return; // Agar pehle dikh chuka hai to mat dikhao
+
+    // Desktop: Mouse Leave
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY < 10 && !showExitPopup) {
         setShowExitPopup(true);
+        localStorage.setItem('exitPopupShown', 'true');
       }
     };
+
+    // Mobile: Show after 20 seconds
+    const timer = setTimeout(() => {
+      if (!showExitPopup && !exitPopupShown) {
+        setShowExitPopup(true);
+        localStorage.setItem('exitPopupShown', 'true');
+      }
+    }, 20000); 
+
     document.addEventListener('mouseleave', handleMouseLeave);
-    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+    
+    return () => {
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      clearTimeout(timer);
+    };
   }, [showExitPopup]);
 
   // Forever Living (FLP) Specific Testimonials
@@ -109,24 +139,34 @@ export const Landing = () => {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-2px) rotate(-1deg); }
+          75% { transform: translateX(2px) rotate(1deg); }
+        }
         .animate-float { animation: float 6s ease-in-out infinite; }
         .animate-marquee { animation: marquee 30s linear infinite; }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
+        html { scroll-behavior: smooth; }
       `}</style>
 
       {/* ═══════════════════════════════════════════════════════════
           🔔 TOP ANNOUNCEMENT BAR
           ═══════════════════════════════════════════════════════════ */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 text-center text-sm font-medium">
-        <span className="animate-pulse">🔥</span>
-        {" "}New User Offer: Get <strong>3 BONUS Leads</strong> on First Recharge!
-        <span className="ml-2 bg-white/20 px-2 py-0.5 rounded text-xs font-bold hidden sm:inline-block">
-          Valid Today
-        </span>
+      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <span className="animate-pulse">🔥</span>
+          <span>New User Offer:</span>
+          <strong>3 BONUS Leads FREE!</strong>
+          <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hidden sm:inline-block">
+            Valid Today Only
+          </span>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          📍 NAV BAR
+          📍 NAV BAR WITH SCROLL INDICATOR
           ═══════════════════════════════════════════════════════════ */}
       <nav className="sticky top-0 w-full bg-white/95 backdrop-blur-md z-50 border-b border-slate-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -153,6 +193,8 @@ export const Landing = () => {
             </button>
           </div>
         </div>
+        {/* Scroll Progress Bar */}
+        <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 z-50 transition-all" style={{ width: `${scrollProgress}%` }} />
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
@@ -254,8 +296,8 @@ export const Landing = () => {
               </div>
             </div>
 
-            {/* Right - Dashboard Preview */}
-            <div className="relative animate-float hidden lg:block">
+            {/* Right - Dashboard Preview (Fixed for Tablet) */}
+            <div className="relative animate-float hidden md:block">
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur-2xl opacity-20"></div>
               <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 overflow-hidden">
                 <div className="h-8 bg-slate-100 rounded-t-xl flex items-center px-4 gap-2 border-b border-slate-200">
@@ -310,9 +352,84 @@ export const Landing = () => {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
+          📊 STATS SECTION (NEW)
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="py-12 bg-white border-y border-slate-100">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div>
+              <p className="text-4xl md:text-5xl font-black text-blue-600">500+</p>
+              <p className="text-slate-600 font-medium mt-1">Active Agents</p>
+            </div>
+            <div>
+              <p className="text-4xl md:text-5xl font-black text-green-600">50K+</p>
+              <p className="text-slate-600 font-medium mt-1">Leads Delivered</p>
+            </div>
+            <div>
+              <p className="text-4xl md:text-5xl font-black text-purple-600">₹11</p>
+              <p className="text-slate-600 font-medium mt-1">Per Lead Only</p>
+            </div>
+            <div>
+              <p className="text-4xl md:text-5xl font-black text-orange-600">4.8★</p>
+              <p className="text-slate-600 font-medium mt-1">User Rating</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          🔧 HOW IT WORKS SECTION (NEW)
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="how-it-works" className="py-20 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">
+              🔧 3 SIMPLE STEPS
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Leads pana start karein
+            </h2>
+            <p className="text-slate-500 text-lg">Koi technical setup nahi. Sirf 2 minute mein shuru.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-500/25 group-hover:scale-110 transition-transform">
+                <span className="text-3xl font-black text-white">1</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Plan Choose Karein</h3>
+              <p className="text-slate-600">
+                Apni requirement ke hisab se daily lead limit select karein (Starter, Supervisor ya Manager).
+              </p>
+            </div>
+            {/* Step 2 */}
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-500/25 group-hover:scale-110 transition-transform">
+                <span className="text-3xl font-black text-white">2</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Dashboard Payein</h3>
+              <p className="text-slate-600">
+                Instant access milega aapke personal Dashboard aur Google Sheet ka.
+              </p>
+            </div>
+            {/* Step 3 */}
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-purple-500/25 group-hover:scale-110 transition-transform">
+                <span className="text-3xl font-black text-white">3</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Calls Shuru Karein</h3>
+              <p className="text-slate-600">
+                Daily subah 10 baje se fresh leads aani shuru. Call karein aur team badhayein!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
           ⭐ TESTIMONIALS SLIDESHOW (Infinite Scroll)
           ═══════════════════════════════════════════════════════════ */}
-      <section id="testimonials" className="py-20 bg-slate-50 overflow-hidden">
+      <section id="testimonials" className="py-20 bg-white overflow-hidden">
         <div className="text-center mb-12 px-4">
           <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
             ⭐ SUCCESS STORIES
@@ -325,19 +442,19 @@ export const Landing = () => {
 
         <div className="relative w-full max-w-[100vw] overflow-hidden">
           {/* Fading Edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-r from-slate-50 to-transparent z-10"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-l from-slate-50 to-transparent z-10"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-r from-white to-transparent z-10"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-l from-white to-transparent z-10"></div>
 
           {/* Marquee Track */}
           <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
             {[...testimonials, ...testimonials].map((t, i) => (
               <div key={i} className="w-[300px] md:w-[400px] mx-4 flex-shrink-0">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
                   <div className="flex items-center gap-4 mb-4">
                     <img src={t.image} alt={t.name} className="w-14 h-14 rounded-full object-cover" />
                     <div>
                       <p className="font-bold text-slate-900">{t.name}</p>
-                      <p className="text-xs font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
+                      <p className="text-xs font-bold text-blue-600 uppercase bg-blue-100 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
                     </div>
                   </div>
                   <div className="flex gap-1 mb-3">
