@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 import { 
-  Users, UserPlus, Wallet, TrendingUp, Copy, Check, LogOut, 
-  LayoutDashboard, RefreshCw, Phone, MessageSquare, Award,
-  Target, UserCheck, Clock, ChevronRight, Share2
+  Users, UserPlus, Copy, Check, LogOut, 
+  LayoutDashboard, RefreshCw, MessageSquare, Award,
+  Target, UserCheck, Clock, Share2, TrendingUp
 } from 'lucide-react';
 
-// Types
+// ============================================================
+// Types & Interfaces
+// ============================================================
+
 interface TeamMember {
   id: string;
   name: string;
@@ -31,6 +34,19 @@ interface Stats {
   conversionRate: number;
 }
 
+// Lead data structure for type safety
+interface Lead {
+  user_id: string;
+  status: string;
+}
+
+// Strict color type
+type ColorType = 'blue' | 'green' | 'purple' | 'orange' | 'emerald' | 'pink';
+
+// ============================================================
+// Component
+// ============================================================
+
 export const ManagerDashboard = () => {
   const { session, signOut } = useAuth();
   const [stats, setStats] = useState<Stats>({
@@ -46,17 +62,26 @@ export const ManagerDashboard = () => {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Ref for setTimeout cleanup to prevent memory leaks
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  useEffect(() => {
-    if (session?.user.id) {
-      fetchManagerData();
-    }
-  }, [session]);
-
-  const fetchManagerData = async () => {
+  // ============================================================
+  // Optimized Data Fetch (N+1 Fixed)
+  // ============================================================
+  
+  const fetchManagerData = useCallback(async () => {
     try {
       setRefreshing(true);
+      setError(null); // Clear previous errors
+      
       const managerId = session?.user.id;
+
+      if (!managerId) {
+        setError("User session not found. Please login again.");
+        return;
+      }
 
       // 1. Get Manager's Team Code
       const { data: managerData } = await supabase
@@ -76,30 +101,45 @@ export const ManagerDashboard = () => {
         .eq('manager_id', managerId)
         .order('created_at', { ascending: false });
 
-      // 3. Get Lead Stats for Each Member
-      const membersWithStats = await Promise.all(
-        (members || []).map(async (member) => {
-          const { data: leads } = await supabase
-            .from('leads')
-            .select('status')
-            .eq('user_id', member.id);
+      // 3. OPTIMIZATION: Fetch leads in ONE query (N+1 Fix)
+      const memberIds = (members || []).map(m => m.id);
+      
+      let leadsMap: { [key: string]: { total: number; interested: number; closed: number } } = {};
+      
+      if (memberIds.length > 0) {
+        // Fetch all leads for the team at once
+        const { data: leads } = await supabase
+          .from('leads')
+          .select('user_id, status')
+          .in('user_id', memberIds);
 
-          const total = leads?.length || 0;
-          const interested = leads?.filter(l => l.status === 'Interested').length || 0;
-          const closed = leads?.filter(l => l.status === 'Closed').length || 0;
+        // Aggregate counts in JS (Fast & Memory Efficient)
+        if (leads) {
+          leads.forEach((lead: Lead) => {
+            if (!leadsMap[lead.user_id]) {
+              leadsMap[lead.user_id] = { total: 0, interested: 0, closed: 0 };
+            }
+            leadsMap[lead.user_id].total++;
+            if (lead.status === 'Interested') leadsMap[lead.user_id].interested++;
+            if (lead.status === 'Closed') leadsMap[lead.user_id].closed++;
+          });
+        }
+      }
 
-          return {
-            ...member,
-            total_leads: total,
-            interested_leads: interested,
-            closed_leads: closed
-          };
-        })
-      );
+      // 4. Merge stats back into member list
+      const membersWithStats = (members || []).map((member) => {
+        const stats = leadsMap[member.id] || { total: 0, interested: 0, closed: 0 };
+        return {
+          ...member,
+          total_leads: stats.total,
+          interested_leads: stats.interested,
+          closed_leads: stats.closed
+        };
+      });
 
       setTeamMembers(membersWithStats);
 
-      // 4. Calculate Overall Stats
+      // 5. Calculate Overall Stats
       const totalLeads = membersWithStats.reduce((sum, m) => sum + (m.total_leads || 0), 0);
       const interestedLeads = membersWithStats.reduce((sum, m) => sum + (m.interested_leads || 0), 0);
       const closedLeads = membersWithStats.reduce((sum, m) => sum + (m.closed_leads || 0), 0);
@@ -114,21 +154,35 @@ export const ManagerDashboard = () => {
         conversionRate: totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0
       });
 
-    } catch (error) {
-      console.error('Error fetching manager data:', error);
+    } catch (err) {
+      console.error('Error fetching manager data:', err);
+      setError("Unable to load team data. Please refresh.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [session?.user.id]);
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(teamCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // ============================================================
+  // Helper Functions (With Fixes)
+  // ============================================================
+  
+  const copyCode = useCallback(() => {
+    if (!teamCode) return;
+    navigator.clipboard.writeText(teamCode).then(() => {
+      setCopied(true);
+      
+      // Cleanup previous timeout to prevent memory leak
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      
+      timeoutRef.current = setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    });
+  }, [teamCode]);
 
-  const shareOnWhatsApp = () => {
+  const shareOnWhatsApp = useCallback(() => {
+    if (!teamCode) return;
     const message = encodeURIComponent(
       `🚀 Join my team on LeadFlow!\n\n` +
       `Use my Team Code: *${teamCode}*\n\n` +
@@ -136,7 +190,7 @@ export const ManagerDashboard = () => {
       `Get daily fresh leads and grow your business! 💰`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
-  };
+  }, [teamCode]);
 
   const getStatusColor = (status: string) => {
     return status === 'active' 
@@ -153,6 +207,27 @@ export const ManagerDashboard = () => {
     }
   };
 
+  // ============================================================
+  // Effects (With Cleanup)
+  // ============================================================
+  
+  useEffect(() => {
+    if (session?.user.id) {
+      fetchManagerData();
+    }
+  }, [session?.user.id, fetchManagerData]);
+
+  // Cleanup effect for timers
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  // ============================================================
+  // Render
+  // ============================================================
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -204,9 +279,26 @@ export const ManagerDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         
+        {/* Error Alert (New Feature) */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-red-500 p-2 bg-white rounded-full">
+                <RefreshCw size={20} />
+              </div>
+              <p className="text-red-700 font-medium text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={fetchManagerData}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Team Code Section */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6 shadow-xl relative overflow-hidden">
-          {/* Background decoration */}
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full -ml-16 -mb-16 blur-xl"></div>
           
@@ -222,7 +314,6 @@ export const ManagerDashboard = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-                {/* Team Code Display */}
                 <div className="bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center gap-3 border border-white/20">
                   <span className="text-2xl sm:text-3xl font-mono font-bold tracking-widest px-2">
                     {teamCode || 'NO CODE'}
@@ -236,7 +327,6 @@ export const ManagerDashboard = () => {
                   </button>
                 </div>
                 
-                {/* WhatsApp Share */}
                 <button 
                   onClick={shareOnWhatsApp}
                   className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg"
@@ -429,9 +519,22 @@ export const ManagerDashboard = () => {
   );
 };
 
-// Stat Card Component
-const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) => {
-  const colors: Record<string, string> = {
+// ============================================================
+// Stat Card Component (Type-Safe)
+// ============================================================
+
+const StatCard = ({ 
+  icon, 
+  label, 
+  value, 
+  color 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  value: string | number; 
+  color: ColorType; // Strict type checking
+}) => {
+  const colors: Record<ColorType, string> = {
     blue: 'bg-blue-50 text-blue-600',
     green: 'bg-green-50 text-green-600',
     purple: 'bg-purple-50 text-purple-600',
