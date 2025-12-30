@@ -5,11 +5,11 @@ import {
   Search, CheckCircle, LogOut, Download,
   AlertTriangle, UserCheck, UserX, ChevronDown, X,
   Activity, BarChart3, Clock, Zap, Target, PieChart,
-  Globe, Wifi, WifiOff, Timer, TrendingUp
+  Globe, Wifi, WifiOff, Timer
 } from 'lucide-react';
 
 // ============================================================
-// Types & Interfaces (COMPLETE)
+// Types & Interfaces
 // ============================================================
 
 interface SystemStats {
@@ -93,70 +93,57 @@ interface OrphanLeadRow {
   created_at: string;
 }
 
-// DB View Types
-interface DashboardStatsRow {
-  total_users: number;
-  active_users: number;
-  daily_active_users: number;
-  monthly_active_users: number;
-  online_now: number;
-  logins_today: number;
-  starter_users: number;
-  supervisor_users: number;
-  manager_users: number;
-  booster_users: number;
-  mrr: number;
-  daily_revenue: number;
-}
-
-interface HourlyLeadsRow {
-  hour: number;
-  lead_count: number;
-}
-
-interface HourlyLoginsRow {
-  hour: number;
-  login_count: number;
-}
-
-interface HourlyActiveRow {
-  hour: number;
-  active_count: number;
-}
-
-interface LeadsStatsRow {
-  leads_today: number;
-  leads_this_week: number;
-  leads_this_month: number;
-  total_leads: number;
-}
-
-interface QueueStatsRow {
-  queued_leads: number;
-  orphan_leads: number;
-  failed_distributions: number;
-}
-
-interface PlanAnalyticsRow {
-  plan_name: string;
-  user_count: number;
-  revenue: number;
-  avg_leads_per_user: number;
-  churn_rate: number;
-  satisfaction: number;
-}
-
-interface UserActivityRow {
-  user_id: string;
-  name: string;
-  email: string;
-  plan: string;
-  last_active: string;
-  is_online: boolean;
-  login_count: number;
-  leads_received: number;
-  conversion_rate: number;
-  session_time: number;
+// API Response Types
+interface DashboardAPIResponse {
+  user_stats: {
+    total_users: number;
+    active_users: number;
+    daily_active_users: number;
+    monthly_active_users: number;
+    online_now: number;
+    logins_today: number;
+    starter_users: number;
+    supervisor_users: number;
+    manager_users: number;
+    booster_users: number;
+    mrr: number;
+    daily_revenue: number;
+  };
+  leads_stats: {
+    leads_today: number;
+    leads_this_week: number;
+    leads_this_month: number;
+    total_leads: number;
+  };
+  queue_stats: {
+    queued_leads: number;
+    orphan_leads: number;
+    failed_distributions: number;
+  };
+  hourly_leads: Array<{ hour: number; lead_count: number }>;
+  hourly_logins: Array<{ hour: number; login_count: number }>;
+  hourly_active: Array<{ hour: number; active_count: number }>;
+  plan_analytics: Array<{
+    plan_name: string;
+    user_count: number;
+    revenue: number;
+    avg_leads_per_user: number;
+    churn_rate: number;
+    satisfaction: number;
+  }>;
+  user_activities: Array<{
+    user_id: string;
+    name: string;
+    email: string;
+    plan: string;
+    last_active: string;
+    is_online: boolean;
+    login_count: number;
+    leads_received: number;
+    conversion_rate: number;
+    session_time: number;
+  }>;
+  fetched_at: string;
 }
 
 type ColorType = 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'red';
@@ -221,6 +208,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Refs
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const planOptions = [
     { id: 'none', name: 'No Plan', daily_limit: 0, days: 0, plan_weight: 0 },
@@ -233,105 +221,51 @@ export const AdminDashboard: React.FC = () => {
   ] as const;
 
   // ============================================================
-  // Track User Activity (RESTORED)
-  // ============================================================
-
-  const trackUserActivity = useCallback(async (userId: string, action: string) => {
-    try {
-      let ip = 'unknown';
-      try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipJson = await ipRes.json();
-        ip = ipJson?.ip || 'unknown';
-      } catch {
-        ip = 'unknown';
-      }
-
-      await supabase.from('user_activity_logs').insert({
-        user_id: userId,
-        action,
-        timestamp: new Date().toISOString(),
-        session_id: sessionStorage.getItem('session_id'),
-        ip_address: ip
-      });
-    } catch (error) {
-      console.error('Activity tracking error:', error);
-    }
-  }, []);
-
-  // ============================================================
-  // Optimized Analytics Fetch
+  // OPTIMIZED: Single RPC Call for ALL Analytics Data
   // ============================================================
 
   const fetchAnalytics = useCallback(async () => {
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     try {
       setRefreshing(true);
       setError(null);
 
-      // 1. Main Dashboard Stats
-      const { data: dashboardStats, error: statsError } = await supabase
-        .from('admin_dashboard_stats')
-        .select('*')
-        .single();
+      // ✅ SINGLE RPC CALL - All data in ONE query!
+      const { data, error: rpcError } = await supabase.rpc('get_admin_dashboard_data');
 
-      if (statsError) throw new Error('Failed to fetch dashboard stats');
-      const dbStats = dashboardStats as DashboardStatsRow;
+      if (rpcError) {
+        // Check if it's an access denied error
+        if (rpcError.message.includes('Access denied')) {
+          throw new Error('Access denied. Admin privileges required.');
+        }
+        throw new Error(rpcError.message);
+      }
 
-      // 2. Leads Stats
-      const { data: leadsStats, error: leadsError } = await supabase
-        .from('leads_stats')
-        .select('*')
-        .single();
+      if (!data) {
+        throw new Error('No data received from server');
+      }
 
-      if (leadsError) throw new Error('Failed to fetch leads stats');
-      const dbLeads = leadsStats as LeadsStatsRow;
-
-      // 3. Queue Stats
-      const { data: queueStats, error: queueError } = await supabase
-        .from('queue_stats')
-        .select('*')
-        .single();
-
-      if (queueError) throw new Error('Failed to fetch queue stats');
-      const dbQueue = queueStats as QueueStatsRow;
-
-      // 4. Hourly Data (3 queries instead of 72!)
-      const { data: hourlyLeads } = await supabase
-        .from('hourly_leads_today')
-        .select('*');
-
-      const { data: hourlyLogins } = await supabase
-        .from('hourly_logins_today')
-        .select('*');
-
-      const { data: hourlyActive } = await supabase
-        .from('hourly_active_users_today')
-        .select('*');
-
-      // 5. Plan Analytics
-      const { data: planData } = await supabase
-        .from('plan_analytics')
-        .select('*');
-
-      // 6. User Activity
-      const { data: activityData } = await supabase
-        .from('user_activity_view')
-        .select('*');
+      const response = data as DashboardAPIResponse;
 
       // Build hourly maps
       const leadsMap = new Map<number, number>();
       const loginsMap = new Map<number, number>();
       const activeMap = new Map<number, number>();
 
-      (hourlyLeads as HourlyLeadsRow[] || []).forEach(h => {
+      (response.hourly_leads || []).forEach(h => {
         leadsMap.set(h.hour, h.lead_count);
       });
 
-      (hourlyLogins as HourlyLoginsRow[] || []).forEach(h => {
+      (response.hourly_logins || []).forEach(h => {
         loginsMap.set(h.hour, h.login_count);
       });
 
-      (hourlyActive as HourlyActiveRow[] || []).forEach(h => {
+      (response.hourly_active || []).forEach(h => {
         activeMap.set(h.hour, h.active_count);
       });
 
@@ -346,8 +280,8 @@ export const AdminDashboard: React.FC = () => {
         });
       }
 
-      // Transform plan analytics (WITH churn & satisfaction)
-      const plans: PlanAnalytics[] = (planData as PlanAnalyticsRow[] || []).map(p => ({
+      // Transform plan analytics
+      const plans: PlanAnalytics[] = (response.plan_analytics || []).map(p => ({
         planName: p.plan_name || 'Unknown',
         userCount: p.user_count || 0,
         revenue: p.revenue || 0,
@@ -356,8 +290,8 @@ export const AdminDashboard: React.FC = () => {
         satisfaction: p.satisfaction || 0
       }));
 
-      // Transform user activities (WITH sessionTime)
-      const activities: UserActivity[] = (activityData as UserActivityRow[] || []).map(u => ({
+      // Transform user activities
+      const activities: UserActivity[] = (response.user_activities || []).map(u => ({
         userId: u.user_id,
         name: u.name || 'Unknown',
         email: u.email || '',
@@ -374,32 +308,32 @@ export const AdminDashboard: React.FC = () => {
       const totalSessionTime = activities.reduce((sum, a) => sum + a.sessionTime, 0);
       const avgSession = activities.length > 0 ? Math.round(totalSessionTime / activities.length) : 0;
 
-      // Set stats based on time range
-      let leadsCount = dbLeads?.leads_today || 0;
-      if (timeRange === 'week') leadsCount = dbLeads?.leads_this_week || 0;
-      if (timeRange === 'month') leadsCount = dbLeads?.leads_this_month || 0;
+      // Set all stats
+      const userStats = response.user_stats;
+      const leadsStats = response.leads_stats;
+      const queueStats = response.queue_stats;
 
       setStats({
-        totalUsers: dbStats?.total_users || 0,
-        dailyActiveUsers: dbStats?.daily_active_users || 0,
-        monthlyActiveUsers: dbStats?.monthly_active_users || 0,
-        onlineNow: dbStats?.online_now || 0,
-        loginsToday: dbStats?.logins_today || 0,
-        leadsDistributedToday: dbLeads?.leads_today || 0,
-        leadsDistributedWeek: dbLeads?.leads_this_week || 0,
-        leadsDistributedMonth: dbLeads?.leads_this_month || 0,
+        totalUsers: userStats?.total_users || 0,
+        dailyActiveUsers: userStats?.daily_active_users || 0,
+        monthlyActiveUsers: userStats?.monthly_active_users || 0,
+        onlineNow: userStats?.online_now || 0,
+        loginsToday: userStats?.logins_today || 0,
+        leadsDistributedToday: leadsStats?.leads_today || 0,
+        leadsDistributedWeek: leadsStats?.leads_this_week || 0,
+        leadsDistributedMonth: leadsStats?.leads_this_month || 0,
         avgSessionDuration: `${avgSession}m`,
-        starterUsers: dbStats?.starter_users || 0,
-        supervisorUsers: dbStats?.supervisor_users || 0,
-        managerUsers: dbStats?.manager_users || 0,
-        boosterUsers: dbStats?.booster_users || 0,
-        dailyRevenue: dbStats?.daily_revenue || 0,
-        monthlyRevenue: dbStats?.mrr || 0,
-        mrr: dbStats?.mrr || 0,
+        starterUsers: userStats?.starter_users || 0,
+        supervisorUsers: userStats?.supervisor_users || 0,
+        managerUsers: userStats?.manager_users || 0,
+        boosterUsers: userStats?.booster_users || 0,
+        dailyRevenue: userStats?.daily_revenue || 0,
+        monthlyRevenue: userStats?.mrr || 0,
+        mrr: userStats?.mrr || 0,
         churnRate: 4.2,
-        queuedLeads: dbQueue?.queued_leads || 0,
-        failedDistributions: dbQueue?.failed_distributions || 0,
-        orphanLeads: dbQueue?.orphan_leads || 0,
+        queuedLeads: queueStats?.queued_leads || 0,
+        failedDistributions: queueStats?.failed_distributions || 0,
+        orphanLeads: queueStats?.orphan_leads || 0,
         systemUptime: 99.9
       });
 
@@ -408,13 +342,17 @@ export const AdminDashboard: React.FC = () => {
       setUserActivities(activities);
 
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error('Analytics error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analytics');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [timeRange]);
+  }, []);
 
   // ============================================================
   // Operations Data Fetch
@@ -660,7 +598,6 @@ export const AdminDashboard: React.FC = () => {
     });
   }, [adminUsers, searchTerm, roleFilter, statusFilter]);
 
-  // Get leads count based on time range
   const leadsForTimeRange = useMemo(() => {
     switch (timeRange) {
       case 'week': return stats.leadsDistributedWeek;
@@ -675,6 +612,13 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchAnalytics();
+
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchAnalytics]);
 
   useEffect(() => {
@@ -756,7 +700,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* TIME RANGE SELECTOR (RESTORED) */}
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as TimeRange)}
@@ -767,7 +710,7 @@ export const AdminDashboard: React.FC = () => {
                 <option value="month">This Month</option>
               </select>
 
-              <label className="flex items-center gap-2 text-sm bg-slate-100 px-3 py-2 rounded-lg">
+              <label className="flex items-center gap-2 text-sm bg-slate-100 px-3 py-2 rounded-lg cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -844,7 +787,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Live Stats Banner (RESTORED avg session) */}
+        {/* Live Stats Banner */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
@@ -858,7 +801,6 @@ export const AdminDashboard: React.FC = () => {
                 <span>{stats.dailyActiveUsers} DAU</span>
               </div>
 
-              {/* AVG SESSION DURATION (RESTORED) */}
               <div className="flex items-center gap-2">
                 <Timer size={20} />
                 <span>Avg Session: {stats.avgSessionDuration}</span>
@@ -931,7 +873,7 @@ export const AdminDashboard: React.FC = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Hourly Activity Chart (WITH activeUsers) */}
+          {/* Hourly Activity Chart */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Clock size={18} />
@@ -986,7 +928,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Active Users (RESTORED) */}
+              {/* Active Users */}
               <div>
                 <p className="text-xs text-slate-500 mb-2">Active Users</p>
                 <div className="flex items-end justify-between h-16 gap-0.5">
@@ -1016,7 +958,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Plan Distribution (WITH churn & satisfaction) */}
+          {/* Plan Distribution */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <PieChart size={18} />
@@ -1043,7 +985,6 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* CHURN RATE (RESTORED) */}
                     <div className="text-right">
                       <div className="text-xs text-slate-500">Churn</div>
                       <div className={`font-semibold ${plan.churnRate < 5 ? 'text-green-600' : 'text-orange-600'}`}>
@@ -1051,7 +992,6 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* SATISFACTION (RESTORED) */}
                     <div className="text-right ml-4">
                       <div className="text-xs text-slate-500">Satisfaction</div>
                       <div className={`font-semibold ${plan.satisfaction >= 90 ? 'text-green-600' : 'text-blue-600'}`}>
@@ -1078,7 +1018,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* User Activity Table (WITH sessionTime) */}
+        {/* User Activity Table */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100">
           <div className="p-6 border-b border-slate-100">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -1098,7 +1038,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="p-4">Logins</th>
                   <th className="p-4">Leads</th>
                   <th className="p-4">Conversion</th>
-                  <th className="p-4">Session Time</th>
+                  <th className="p-4">Session</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1147,7 +1087,6 @@ export const AdminDashboard: React.FC = () => {
                         {activity.conversionRate.toFixed(1)}%
                       </span>
                     </td>
-                    {/* SESSION TIME (RESTORED) */}
                     <td className="p-4">
                       <span className="text-slate-600">{activity.sessionTime}m</span>
                     </td>
@@ -1157,7 +1096,6 @@ export const AdminDashboard: React.FC = () => {
             </table>
           </div>
 
-          {/* VIEW ALL USERS BUTTON (RESTORED) */}
           <div className="p-4 bg-slate-50 text-center border-t">
             <button 
               onClick={async () => { await fetchOpsData(); setShowUsersModal(true); }}
@@ -1168,7 +1106,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* System Health Cards (WITH Avg Response Time) */}
+        {/* System Health Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
@@ -1193,7 +1131,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* AVG RESPONSE TIME (RESTORED) */}
           <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1209,7 +1146,7 @@ export const AdminDashboard: React.FC = () => {
       </main>
 
       {/* ============================================================
-          USERS MODAL (Same as before)
+          USERS MODAL
       ============================================================ */}
       {showUsersModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
@@ -1359,7 +1296,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* ============================================================
-          ORPHANS MODAL (Same as before)
+          ORPHANS MODAL
       ============================================================ */}
       {showOrphansModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
@@ -1470,7 +1407,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* ============================================================
-          PLAN CHANGE MODAL (Same as before)
+          PLAN CHANGE MODAL
       ============================================================ */}
       {showPlanModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
