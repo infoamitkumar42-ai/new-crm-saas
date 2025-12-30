@@ -5,8 +5,9 @@ import {
   X, Calendar, Target, TrendingUp, Clock,
   StickyNote, Check, LogOut, Zap, Crown, Lock, Eye,
   Gift, Flame, ArrowUp, Bell, Rocket, Shield,
-  AlertCircle, Award
+  AlertCircle, Award, ChevronDown, Menu
 } from 'lucide-react';
+import { Subscription } from './Subscription';
 
 // Types
 interface UserProfile {
@@ -66,6 +67,7 @@ export const MemberDashboard = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
 
   const [noteText, setNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -73,6 +75,9 @@ export const MemberDashboard = () => {
   // Banners
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [renewTab, setRenewTab] = useState<'monthly' | 'booster'>('monthly');
+
+  // Mobile menu
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const planOptions = [
     {
@@ -203,14 +208,14 @@ export const MemberDashboard = () => {
     }
 
     if (!isWithinWorkingHours()) {
-      return { title: 'Off Hours', subtitle: 'Leads will deliver at 8 AM (working hours).' };
+      return { title: 'Off Hours', subtitle: 'Leads will deliver at 8 AM.' };
     }
 
     if (isLimitReached) {
-      return { title: 'Daily Limit Reached', subtitle: 'More leads will come tomorrow during working hours.' };
+      return { title: 'Limit Reached', subtitle: 'More leads tomorrow.' };
     }
 
-    return { title: 'Delivering Leads', subtitle: `You can receive up to ${remainingToday} more leads today.` };
+    return { title: 'Delivering Leads', subtitle: `${remainingToday} more leads today.` };
   }, [profile, isLimitReached, remainingToday]);
 
   const performanceStats: PerformanceStats = useMemo(() => {
@@ -271,10 +276,8 @@ export const MemberDashboard = () => {
 
       setProfile(userData);
 
-      // last_activity ping
       await supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id);
 
-      // manager name
       if (userData?.manager_id) {
         const { data: managerData } = await supabase
           .from('users')
@@ -303,8 +306,9 @@ export const MemberDashboard = () => {
 
   useEffect(() => {
     fetchData();
+  }, []);
 
-    // realtime updates
+  useEffect(() => {
     if (!profile?.id) return;
 
     const channel = supabase
@@ -319,7 +323,6 @@ export const MemberDashboard = () => {
       })
       .subscribe();
 
-    // keep last_activity fresh
     const activityInterval = setInterval(() => {
       supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', profile.id);
     }, 60000);
@@ -401,6 +404,15 @@ export const MemberDashboard = () => {
     return date.toLocaleDateString();
   };
 
+  // Calculate total banner height for content offset
+  const getBannerCount = () => {
+    let count = 0;
+    if (!isWithinWorkingHours() && !isExpired && !bannerDismissed) count++;
+    if (isExpiringSoon && !isExpired && !bannerDismissed) count++;
+    if (isLimitReached && !isExpired) count++;
+    return count;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -415,7 +427,16 @@ export const MemberDashboard = () => {
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
 
-      {/* Expired Overlay (same) */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SUBSCRIPTION MODAL (Full Screen)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {showSubscription && (
+        <Subscription onClose={() => setShowSubscription(false)} />
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EXPIRED OVERLAY
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {isExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
@@ -434,7 +455,7 @@ export const MemberDashboard = () => {
               </div>
 
               <button
-                onClick={() => setShowRenewModal(true)}
+                onClick={() => setShowSubscription(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
               >
                 <RefreshCw size={20} /> Renew Now
@@ -444,109 +465,122 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Off Hours Banner (same) */}
-      {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
-        <div className="bg-yellow-500 text-white py-3 px-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock size={18} />
-              <span className="font-medium">⏰ Off Hours: Leads start at 8 AM</span>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          TOP BANNERS (Non-sticky, scroll away)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div className="relative z-30">
+        {/* Off Hours Banner */}
+        {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
+          <div className="bg-yellow-500 text-white py-2.5 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock size={16} />
+                <span className="font-medium">⏰ Off Hours: Leads start at 8 AM</span>
+              </div>
+              <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded flex-shrink-0">
+                <X size={16} />
+              </button>
             </div>
-            <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded">
-              <X size={18} />
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Expiring Soon Banner (same) */}
-      {isExpiringSoon && !isExpired && !bannerDismissed && (
-        <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-3 px-4`}>
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell size={18} className="animate-pulse" />
-              <span>⏰ Plan expires in <strong>{daysLeft} days</strong>!</span>
+        {/* Expiring Soon Banner */}
+        {isExpiringSoon && !isExpired && !bannerDismissed && (
+          <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-2.5 px-4`}>
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Bell size={16} className="animate-pulse flex-shrink-0" />
+                <span>Plan expires in <strong>{daysLeft} days</strong>!</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowSubscription(true)}
+                  className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs"
+                >
+                  Renew
+                </button>
+                <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+          </div>
+        )}
+
+        {/* Daily Limit Reached Banner */}
+        {isLimitReached && !isExpired && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Target size={16} />
+                <span>🎯 Daily limit reached!</span>
+              </div>
               <button
-                onClick={() => setShowRenewModal(true)}
-                className="bg-white text-orange-600 px-4 py-1.5 rounded-lg font-bold text-sm"
+                onClick={() => setShowSubscription(true)}
+                className="bg-white text-blue-600 px-3 py-1 rounded-lg font-bold text-xs flex-shrink-0"
               >
-                Renew Now
-              </button>
-              <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded">
-                <X size={18} />
+                Upgrade
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Daily limit banner (same) */}
-      {isLimitReached && !isExpired && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target size={18} />
-              <span>🎯 Daily limit reached! Upgrade for more leads</span>
-            </div>
-            <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="bg-white text-blue-600 px-4 py-1.5 rounded-lg font-bold text-sm"
-            >
-              Upgrade Now
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Header (same style, removed raw score text) */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex justify-between items-start sm:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  👋 {profile?.name || 'Member'}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          STICKY HEADER - Simplified for Mobile
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3">
+          <div className="flex justify-between items-center gap-2">
+            
+            {/* Left: Name & Plan */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">
+                  👋 {profile?.name?.split(' ')[0] || 'Member'}
                 </h1>
-
-                <span className={`px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${priorityBadge.color}`}>
-                  <priorityBadge.icon size={12} />
-                  {priorityBadge.text} PRIORITY
+                <span className={`hidden xs:inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${priorityBadge.color}`}>
+                  {priorityBadge.text}
                 </span>
               </div>
-
-              <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                <span>Manager: <strong className="text-blue-600">{managerName}</strong></span>
-                <span>•</span>
+              <div className="text-xs text-slate-500 truncate">
                 <span className="text-green-600 font-medium">{profile?.plan_name || 'No Plan'}</span>
+                <span className="mx-1">•</span>
+                <span>{managerName}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Right: Action Buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* Sheet Button */}
               {profile?.sheet_url && (
                 <a
                   href={profile.sheet_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm"
+                  className="flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  title="Open Sheet"
                 >
-                  <FileSpreadsheet size={16} />
-                  <span className="hidden sm:inline">Sheet</span>
+                  <FileSpreadsheet size={18} />
+                  <span className="hidden sm:inline ml-1.5 text-sm font-medium">Sheet</span>
                 </a>
               )}
 
+              {/* Refresh */}
               <button
                 onClick={fetchData}
                 disabled={refreshing}
-                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                title="Refresh"
               >
                 <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
 
+              {/* Logout */}
               <button
                 onClick={() => supabase.auth.signOut()}
-                className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all"
+                className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all"
+                title="Logout"
               >
                 <LogOut size={18} />
               </button>
@@ -555,72 +589,77 @@ export const MemberDashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          MAIN CONTENT
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-20 sm:pb-6">
 
-        {/* ✅ REPLACED: No Queue Position / No Score */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl p-6 mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-xs text-blue-200 font-bold uppercase">Delivery Status</div>
-              <div className="text-2xl font-black">{deliveryStatus.title}</div>
-              <div className="text-sm text-blue-100 mt-1">{deliveryStatus.subtitle}</div>
+        {/* Delivery Status Card */}
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <div className="text-[10px] sm:text-xs text-blue-200 font-bold uppercase">Delivery Status</div>
+              <div className="text-lg sm:text-2xl font-black">{deliveryStatus.title}</div>
+              <div className="text-xs sm:text-sm text-blue-100 mt-0.5">{deliveryStatus.subtitle}</div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="bg-white/10 rounded-xl px-4 py-3 text-center">
-                <div className="text-xl font-bold">{remainingToday}</div>
-                <div className="text-xs text-blue-200">Remaining Today</div>
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-none bg-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-center">
+                <div className="text-lg sm:text-xl font-bold">{remainingToday}</div>
+                <div className="text-[10px] sm:text-xs text-blue-200">Remaining</div>
               </div>
 
               <button
                 onClick={() => setShowDeliveryInfo(true)}
-                className="bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition-all"
+                className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
               >
-                <AlertCircle size={16} />
-                Why leads delay?
+                <AlertCircle size={14} />
+                <span className="hidden xs:inline">Why delay?</span>
+                <span className="xs:hidden">Info</span>
               </button>
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <div className="flex items-center justify-between text-sm">
+          {/* Progress Bar */}
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/20">
+            <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
               <span className="text-blue-100">Today's Progress</span>
               <span className="font-bold">{leadsToday}/{dailyLimit}</span>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-3 mt-2">
+            <div className="w-full bg-white/20 rounded-full h-2 sm:h-3">
               <div
-                className="bg-white rounded-full h-3 transition-all duration-500"
+                className="bg-white rounded-full h-2 sm:h-3 transition-all duration-500"
                 style={{ width: `${dailyProgress}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* Performance cards (same) */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
-          <StatCard label="Total Leads" value={performanceStats.totalLeads} color="slate" icon={<Target size={16} />} />
-          <StatCard label="This Week" value={performanceStats.thisWeek} color="blue" icon={<Calendar size={16} />} />
-          <StatCard label="Fresh" value={stats.fresh} color="green" icon={<Clock size={16} />} />
-          <StatCard label="Closed" value={stats.closed} color="purple" icon={<Check size={16} />} />
-          <StatCard label="Conversion" value={`${conversionRate}%`} color="orange" icon={<Flame size={16} />} />
+        {/* Stats Cards - Scrollable on Mobile */}
+        <div className="flex gap-3 overflow-x-auto pb-2 mb-4 sm:mb-6 -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5 sm:overflow-visible scrollbar-hide">
+          <StatCard label="Total" value={performanceStats.totalLeads} color="slate" icon={<Target size={14} />} />
+          <StatCard label="This Week" value={performanceStats.thisWeek} color="blue" icon={<Calendar size={14} />} />
+          <StatCard label="Fresh" value={stats.fresh} color="green" icon={<Clock size={14} />} />
+          <StatCard label="Closed" value={stats.closed} color="purple" icon={<Check size={14} />} />
+          <StatCard label="Conv." value={`${conversionRate}%`} color="orange" icon={<Flame size={14} />} />
         </div>
 
-        {/* Upgrade prompt (same idea) */}
+        {/* Upgrade Prompt */}
         {conversionRate >= 20 && (profile?.plan_weight || 1) < 5 && !isExpired && (
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Award size={20} className="text-purple-600" />
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                <Award size={18} className="text-purple-600" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-purple-900">You're a Top Performer! 🔥</h3>
-                <p className="text-sm text-purple-700">
-                  Your {conversionRate}% conversion is strong. Upgrade to get more leads daily.
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-purple-900 text-sm sm:text-base">Top Performer! 🔥</h3>
+                <p className="text-xs sm:text-sm text-purple-700 truncate">
+                  {conversionRate}% conversion - Upgrade for more leads
                 </p>
               </div>
               <button
-                onClick={() => setShowUpgradeModal(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+                onClick={() => setShowSubscription(true)}
+                className="bg-purple-600 text-white px-3 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm flex-shrink-0"
               >
                 Upgrade
               </button>
@@ -628,112 +667,117 @@ export const MemberDashboard = () => {
           </div>
         )}
 
-        {/* Filters (same) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex gap-2 sm:gap-3">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
+              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
             >
-              <option value="all">All Status ({leads.length})</option>
-              <option value="Fresh">🔵 Fresh ({stats.fresh})</option>
-              <option value="Call Back">🟡 Call Back ({stats.callBack})</option>
-              <option value="Interested">🟢 Interested ({stats.interested})</option>
-              <option value="Closed">🟣 Closed ({stats.closed})</option>
-              <option value="Rejected">🔴 Rejected</option>
+              <option value="all">All ({leads.length})</option>
+              <option value="Fresh">Fresh ({stats.fresh})</option>
+              <option value="Call Back">Callback ({stats.callBack})</option>
+              <option value="Interested">Interested ({stats.interested})</option>
+              <option value="Closed">Closed ({stats.closed})</option>
             </select>
 
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
+              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
             >
-              <option value="all">📅 All Time</option>
-              <option value="today">📆 Today</option>
-              <option value="week">🗓️ Last 7 Days</option>
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
             </select>
 
             {(statusFilter !== 'all' || dateFilter !== 'all') && (
               <button
                 onClick={() => { setStatusFilter('all'); setDateFilter('all'); }}
-                className="px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-all"
+                className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             )}
           </div>
         </div>
 
-        {/* Leads list (same UI approach, removed per-lead “distribution_score” badge to avoid confusion) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-            <h2 className="font-bold text-slate-800">My Leads</h2>
+        {/* Leads List */}
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <h2 className="font-bold text-slate-800 text-sm sm:text-base">My Leads</h2>
             <span className="text-xs bg-white border px-2 py-1 rounded text-slate-500">
               {filteredLeads.length} of {leads.length}
             </span>
           </div>
 
           {filteredLeads.length === 0 ? (
-            <div className="p-12 text-center">
-              <Target size={48} className="mx-auto mb-4 text-slate-300" />
-              <p className="font-medium text-slate-800">No leads found</p>
-              <p className="text-sm text-slate-500 mt-1">
-                {leads.length === 0 ? 'Wait for leads to be assigned! 🚀' : 'Try adjusting filters'}
+            <div className="p-8 sm:p-12 text-center">
+              <Target size={40} className="mx-auto mb-4 text-slate-300" />
+              <p className="font-medium text-slate-800 text-sm sm:text-base">No leads found</p>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                {leads.length === 0 ? 'Wait for leads! 🚀' : 'Try adjusting filters'}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => (
-                <div key={lead.id} className="p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-bold text-slate-900">{lead.name}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50 transition-colors">
+                  {/* Lead Header */}
+                  <div className="flex justify-between items-start mb-2 sm:mb-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
+                      <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                         <MapPin size={10} /> {lead.city || 'N/A'}
-                        <span className="mx-1">•</span>
+                        <span className="mx-0.5">•</span>
                         <Clock size={10} /> {getTimeAgo(lead.created_at)}
                       </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${getStatusColor(lead.status)}`}>
+                    <span className={`px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-bold border flex-shrink-0 ${getStatusColor(lead.status)}`}>
                       {lead.status}
                     </span>
                   </div>
 
+                  {/* Notes */}
                   {lead.notes && (
-                    <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-3 flex items-start gap-1">
-                      <StickyNote size={12} className="mt-0.5" />
-                      <span>{lead.notes}</span>
+                    <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 sm:mb-3 flex items-start gap-1">
+                      <StickyNote size={12} className="mt-0.5 flex-shrink-0" />
+                      <span className="line-clamp-2">{lead.notes}</span>
                     </div>
                   )}
 
+                  {/* Action Buttons */}
                   <div className="flex items-center gap-2">
                     <a
                       href={`tel:${lead.phone}`}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2.5 rounded-lg font-medium text-sm"
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm"
                     >
-                      <Phone size={16} /> {lead.phone}
+                      <Phone size={14} /> 
+                      <span className="hidden xs:inline">{lead.phone}</span>
+                      <span className="xs:hidden">Call</span>
                     </a>
                     <a
                       href={getWhatsAppLink(lead.phone, lead.name)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 text-white py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm"
                     >
-                      <MessageSquare size={16} /> WhatsApp
+                      <MessageSquare size={14} /> WhatsApp
                     </a>
                     <button
                       onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
-                      className="p-2.5 bg-slate-100 text-slate-600 rounded-lg"
+                      className="p-2 sm:p-2.5 bg-slate-100 text-slate-600 rounded-lg flex-shrink-0"
                     >
                       <StickyNote size={16} />
                     </button>
                   </div>
 
+                  {/* Status Dropdown */}
                   <select
                     value={lead.status}
                     onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                    className="w-full mt-3 bg-white border border-slate-200 text-sm rounded-lg px-3 py-2.5 outline-none focus:border-blue-500"
+                    className="w-full mt-2 sm:mt-3 bg-white border border-slate-200 text-xs sm:text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
                   >
                     <option value="Fresh">🔵 Fresh</option>
                     <option value="Contacted">📞 Contacted</option>
@@ -750,43 +794,59 @@ export const MemberDashboard = () => {
         </div>
       </main>
 
-      {/* ✅ NEW: Delivery Info Modal (replaces score/queue explanation) */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          MOBILE BOTTOM CTA - Upgrade Button
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {!isExpired && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 sm:hidden z-30 shadow-lg">
+          <button
+            onClick={() => setShowSubscription(true)}
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <Zap size={18} />
+            Upgrade for More Leads
+          </button>
+        </div>
+      )}
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          DELIVERY INFO MODAL
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {showDeliveryInfo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-slate-100">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[85vh] overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-slate-100 sticky top-0 bg-white">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-900">Why leads may delay?</h3>
-                <button onClick={() => setShowDeliveryInfo(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={20} />
+                <button onClick={() => setShowDeliveryInfo(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                  <X size={22} />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-3">
+            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <p className="font-bold text-blue-900">Working Hours</p>
-                <p className="text-sm text-blue-700">Leads are delivered between <b>8 AM – 10 PM</b>.</p>
+                <p className="font-bold text-blue-900 text-sm">Working Hours</p>
+                <p className="text-xs text-blue-700">Leads are delivered between <b>8 AM – 10 PM</b>.</p>
               </div>
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <p className="font-bold text-slate-800">Daily Limit</p>
-                <p className="text-sm text-slate-600">
-                  Your plan delivers up to <b>{dailyLimit}</b> leads/day. Remaining today: <b>{remainingToday}</b>.
+                <p className="font-bold text-slate-800 text-sm">Daily Limit</p>
+                <p className="text-xs text-slate-600">
+                  Your plan: <b>{dailyLimit}</b> leads/day. Remaining: <b>{remainingToday}</b>.
                 </p>
               </div>
 
               <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
-                <p className="font-bold text-purple-900">Priority</p>
-                <p className="text-sm text-purple-700">
-                  Higher plans deliver leads faster during working hours.
-                  Your current priority: <b>{priorityBadge.text}</b>.
+                <p className="font-bold text-purple-900 text-sm">Your Priority</p>
+                <p className="text-xs text-purple-700">
+                  Higher plans get leads faster. You: <b>{priorityBadge.text}</b>.
                 </p>
               </div>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                <p className="font-bold text-yellow-900">Common Reasons</p>
-                <ul className="text-sm text-yellow-800 list-disc pl-5 space-y-1">
+                <p className="font-bold text-yellow-900 text-sm">Common Reasons</p>
+                <ul className="text-xs text-yellow-800 list-disc pl-4 space-y-0.5 mt-1">
                   <li>Off hours (after 10 PM)</li>
                   <li>Daily limit reached</li>
                   <li>Plan expired / inactive</li>
@@ -794,8 +854,8 @@ export const MemberDashboard = () => {
               </div>
 
               <button
-                onClick={() => { setShowDeliveryInfo(false); setShowUpgradeModal(true); }}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-bold"
+                onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-bold text-sm"
               >
                 Upgrade for More Leads
               </button>
@@ -804,39 +864,41 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Notes Modal (same) */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          NOTES MODAL
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {showNotesModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-slate-100">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
+            <div className="p-4 sm:p-6 border-b border-slate-100">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-900">📝 Add Note</h3>
-                <button onClick={() => setShowNotesModal(null)} className="text-slate-400 hover:text-slate-600">
-                  <X size={20} />
+                <button onClick={() => setShowNotesModal(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                  <X size={22} />
                 </button>
               </div>
-              <p className="text-sm text-slate-500 mt-1">{showNotesModal?.name} • {showNotesModal?.phone}</p>
+              <p className="text-sm text-slate-500 mt-1 truncate">{showNotesModal?.name} • {showNotesModal?.phone}</p>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Add notes about this lead..."
-                className="w-full border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 resize-none h-32"
+                className="w-full border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 resize-none h-28 sm:h-32"
               />
 
               <div className="flex gap-3 mt-4">
                 <button
                   onClick={() => setShowNotesModal(null)}
-                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50"
+                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveNote}
                   disabled={savingNote}
-                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"
                 >
                   {savingNote ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -850,135 +912,9 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Upgrade/Renew modals (kept minimal hooks; you can plug Razorpay flow like your Subscription page) */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full my-8">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-xl text-slate-900">⬆️ Upgrade Your Plan</h3>
-                <button onClick={() => setShowUpgradeModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={24} />
-                </button>
-              </div>
-              <p className="text-sm text-slate-500 mt-1">Higher plan = more leads/day + faster delivery</p>
-            </div>
-
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {planOptions.map((plan) => {
-                const isCurrent = profile?.plan_name?.toLowerCase() === plan.id.toLowerCase();
-                const Icon = plan.icon;
-                return (
-                  <div key={plan.id} className={`rounded-xl border-2 p-4 ${isCurrent ? 'border-blue-500 bg-blue-50' : plan.popular ? 'border-purple-500 bg-purple-50' : 'border-slate-200'}`}>
-                    <div className="text-center mb-4 pt-2">
-                      <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-                        <Icon size={24} />
-                      </div>
-                      <h4 className="font-bold text-lg text-slate-900">{plan.name}</h4>
-                      <div className="text-xs text-slate-500 mt-1">Priority: {plan.priority}</div>
-                      <div className="text-2xl font-black text-slate-900 mt-2">₹{plan.price}</div>
-                      <div className="text-xs text-slate-500">{plan.daily_limit} leads/day</div>
-                    </div>
-
-                    <button
-                      disabled={isCurrent}
-                      onClick={() => alert('Hook this button to your Razorpay flow (Subscription page)')}
-                      className={`w-full py-2.5 rounded-lg font-bold text-sm ${
-                        isCurrent ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700'
-                      }`}
-                    >
-                      {isCurrent ? 'Current Plan' : 'Upgrade'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showRenewModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-xl text-slate-900">🔄 Renew / Upgrade</h3>
-                <button onClick={() => setShowRenewModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={24} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="flex bg-slate-100 rounded-xl p-1.5 mb-6">
-                <button
-                  onClick={() => setRenewTab('monthly')}
-                  className={`flex-1 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 ${
-                    renewTab === 'monthly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  <Calendar size={16} /> Monthly
-                </button>
-                <button
-                  onClick={() => setRenewTab('booster')}
-                  className={`flex-1 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 ${
-                    renewTab === 'booster' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  <Zap size={16} /> Boosters
-                </button>
-              </div>
-
-              {renewTab === 'monthly' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {planOptions.map((plan) => {
-                    const Icon = plan.icon;
-                    return (
-                      <div key={plan.id} className="rounded-xl border border-slate-200 p-4">
-                        <div className="text-center">
-                          <Icon size={22} className="mx-auto mb-2 text-blue-600" />
-                          <div className="font-bold">{plan.name}</div>
-                          <div className="text-xs text-slate-500">{plan.daily_limit} leads/day</div>
-                          <div className="text-xl font-black mt-2">₹{plan.price}</div>
-                        </div>
-                        <button
-                          onClick={() => alert('Hook this to your Razorpay flow')}
-                          className="w-full mt-3 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm"
-                        >
-                          Select
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {boosterPlans.map((plan) => {
-                    const Icon = plan.icon;
-                    return (
-                      <div key={plan.id} className="rounded-xl border border-orange-200 p-4">
-                        <div className="text-center">
-                          <Icon size={22} className="mx-auto mb-2 text-orange-600" />
-                          <div className="font-bold">{plan.name}</div>
-                          <div className="text-xs text-slate-500">{plan.daily_limit} leads/day • 7 days</div>
-                          <div className="text-xl font-black mt-2">₹{plan.price}</div>
-                        </div>
-                        <button
-                          onClick={() => alert('Hook this to your Razorpay flow')}
-                          className="w-full mt-3 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm"
-                        >
-                          Get Booster
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          STYLES
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <style>{`
         @keyframes bounce-in {
           0% { transform: scale(0.9); opacity: 0; }
@@ -986,13 +922,40 @@ export const MemberDashboard = () => {
           100% { transform: scale(1); opacity: 1; }
         }
         .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
+        
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        
+        @media (min-width: 400px) {
+          .xs\\:inline { display: inline; }
+          .xs\\:hidden { display: none; }
+          .xs\\:inline-flex { display: inline-flex; }
+        }
       `}</style>
     </div>
   );
 };
 
-// Stat Card Component
-const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => {
+// ============================================================
+// Stat Card Component - Mobile Optimized
+// ============================================================
+
+const StatCard = ({ 
+  label, 
+  value, 
+  color, 
+  icon 
+}: { 
+  label: string; 
+  value: number | string; 
+  color: string; 
+  icon: React.ReactNode 
+}) => {
   const colors: Record<string, string> = {
     slate: 'border-l-slate-400 bg-slate-50',
     blue: 'border-l-blue-500 bg-blue-50',
@@ -1010,12 +973,12 @@ const StatCard = ({ label, value, color, icon }: { label: string; value: number 
   };
 
   return (
-    <div className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
-      <div className="flex items-center gap-2 mb-1">
+    <div className={`flex-shrink-0 w-[100px] sm:w-auto bg-white p-2.5 sm:p-3 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
+      <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1">
         <span className={iconColors[color]}>{icon}</span>
-        <span className="text-xs text-slate-500 font-medium uppercase">{label}</span>
+        <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase truncate">{label}</span>
       </div>
-      <p className="text-xl font-bold text-slate-900">{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-slate-900">{value}</p>
     </div>
   );
 };
