@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export const PrivacyPolicy = () => {
+const PrivacyPolicy = () => {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
@@ -39,3 +39,5 @@ export const PrivacyPolicy = () => {
     </div>
   );
 };
+
+export default PrivacyPolicy;
