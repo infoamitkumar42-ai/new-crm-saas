@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-const TermsOfService = () => {
+export const TermsOfService = () => {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
@@ -12,32 +12,30 @@ const TermsOfService = () => {
         <div className="space-y-6 text-slate-600 leading-relaxed">
           <section>
             <h2 className="text-xl font-bold mb-2 text-slate-800">1. Service Description</h2>
-            <p>LeadFlow provides a CRM dashboard and digital leads generation service for network marketers. We generate leads via social media ads targeted at specific interests (Work from Home/Business Opportunity).</p>
+            <p>LeadFlow provides a CRM dashboard and digital leads generation service for network marketers.</p>
           </section>
           
           <section>
-            <h2 className="text-xl font-bold mb-2 text-slate-800">2. Lead Quality & Conversion</h2>
-            <p>While we target high-intent audiences, we do not guarantee sales or conversions. Success depends on your communication skills and follow-up process. We are a lead provider, not a sales guarantee service.</p>
+            <h2 className="text-xl font-bold mb-2 text-slate-800">2. Lead Quality</h2>
+            <p>We do not guarantee sales or conversions. Success depends on your follow-up process.</p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold mb-2 text-slate-800">3. Usage Policy</h2>
-            <p>The leads provided are for your personal business use only. Reselling, sharing, or distributing these leads to others is strictly prohibited and will result in an immediate account ban without refund.</p>
+            <p>Leads are for personal business use only. Reselling leads is prohibited.</p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold mb-2 text-slate-800">4. Delivery</h2>
-            <p>Leads are delivered daily to your dashboard and Google Sheet as per your active plan limits. Delivery timings are generally between 8:00 AM to 10:00 PM IST.</p>
+            <p>Leads delivered daily between 8:00 AM to 10:00 PM IST.</p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold mb-2 text-slate-800">5. Modifications</h2>
-            <p>We reserve the right to modify prices, plan features, or these terms at any time. Continued use of the service constitutes acceptance of these changes.</p>
+            <p>We reserve the right to modify prices and terms at any time.</p>
           </section>
         </div>
       </div>
     </div>
   );
 };
-
-export default TermsOfService;
