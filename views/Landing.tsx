@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { 
   CheckCircle, Zap, Shield, ArrowRight, 
   Star, Lock, X, Menu, 
-  MessageCircle, Clock, BadgeCheck, IndianRupee,
-  Gift, ChevronDown, Bell, Users, Play
+  MessageCircle, Clock, Gift, ChevronDown, 
+  Bell, Users, RefreshCw
 } from 'lucide-react';
 
 export const Landing = () => {
@@ -14,10 +14,8 @@ export const Landing = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  // WhatsApp Number
   const WHATSAPP_NUMBER = "917009064038";
 
-  // Scroll Progress Indicator
   useEffect(() => {
     const handleScroll = () => {
       const totalHeight = document.body.scrollHeight - window.innerHeight;
@@ -28,7 +26,6 @@ export const Landing = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Live counter animation
   useEffect(() => {
     const interval = setInterval(() => {
       setLiveLeadsCount(prev => prev + Math.floor(Math.random() * 3) + 1);
@@ -36,47 +33,32 @@ export const Landing = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Smart Exit Intent (Desktop + Mobile + LocalStorage)
   useEffect(() => {
-    const exitPopupShown = localStorage.getItem('exitPopupShown');
-    if (exitPopupShown) return; // Agar pehle dikh chuka hai to mat dikhao
+    const exitShown = sessionStorage.getItem('exitPopupShown');
+    if (exitShown) return;
 
-    // Desktop: Mouse Leave
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY < 10 && !showExitPopup) {
         setShowExitPopup(true);
-        localStorage.setItem('exitPopupShown', 'true');
+        sessionStorage.setItem('exitPopupShown', 'true');
       }
     };
-
-    // Mobile: Show after 20 seconds
-    const timer = setTimeout(() => {
-      if (!showExitPopup && !exitPopupShown) {
-        setShowExitPopup(true);
-        localStorage.setItem('exitPopupShown', 'true');
-      }
-    }, 20000); 
-
     document.addEventListener('mouseleave', handleMouseLeave);
-    
-    return () => {
-      document.removeEventListener('mouseleave', handleMouseLeave);
-      clearTimeout(timer);
-    };
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
   }, [showExitPopup]);
 
-  // Forever Living (FLP) Specific Testimonials
+  // ✅ Updated Indian Testimonials
   const testimonials = [
     {
       name: "Rahul Verma",
-      role: "Assistant Supervisor (2cc Done)",
+      role: "Assistant Supervisor",
       text: "2cc karne ke baad leads ki bohot dikkat thi. LeadFlow se daily 5 fresh leads milti hain. Meri team active ho gayi hai!",
       image: "https://randomuser.me/api/portraits/men/32.jpg"
     },
     {
       name: "Sneha Kapoor",
       role: "FLP Manager",
-      text: "Manager level par team sambhalna mushkil tha. Is dashboard se main dekh sakti hu kaun call kar raha hai. Best tool for Forever Business.",
+      text: "Manager level par team sambhalna mushkil tha. Is dashboard se main dekh sakti hu kaun call kar raha hai. Best tool!",
       image: "https://randomuser.me/api/portraits/women/44.jpg"
     },
     {
@@ -114,7 +96,7 @@ export const Landing = () => {
     },
     { 
       q: "Agar leads phone na uthaye toh?", 
-      a: "Humare 'Supervisor' aur 'Manager' plan mein Lead Replacement Guarantee milti hai." 
+      a: "Humare 'Supervisor' aur 'Manager' plan mein 'Lead Replacement Guarantee' milti hai invalid numbers ke liye." 
     },
     { 
       q: "Kya main apni purani leads upload kar sakta hu?", 
@@ -125,49 +107,35 @@ export const Landing = () => {
   return (
     <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
       
-      {/* CSS Animations */}
+      <div 
+        className="fixed top-0 left-0 h-1 bg-gradient-to-r from-blue-600 to-purple-600 z-[60] transition-all duration-300"
+        style={{ width: `${scrollProgress}%` }}
+      />
+
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
-          50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
-        }
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-2px) rotate(-1deg); }
-          75% { transform: translateX(2px) rotate(1deg); }
-        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px) rotate(-1deg); } 75% { transform: translateX(2px) rotate(1deg); } }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-marquee { animation: marquee 30s linear infinite; }
         .animate-shake { animation: shake 0.3s ease-in-out; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        html { scroll-behavior: smooth; }
+        .animate-marquee { animation: marquee 30s linear infinite; }
+        .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
+        @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🔔 TOP ANNOUNCEMENT BAR
-          ═══════════════════════════════════════════════════════════ */}
+      {/* TOP BAR */}
       <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <span className="animate-pulse">🔥</span>
           <span>New User Offer:</span>
           <strong>3 BONUS Leads FREE!</strong>
-          <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hidden sm:inline-block">
-            Valid Today Only
+          <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold">
+            Valid Today
           </span>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          📍 NAV BAR WITH SCROLL INDICATOR
-          ═══════════════════════════════════════════════════════════ */}
+      {/* NAV BAR */}
       <nav className="sticky top-0 w-full bg-white/95 backdrop-blur-md z-50 border-b border-slate-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -193,10 +161,7 @@ export const Landing = () => {
             </button>
           </div>
         </div>
-        {/* Scroll Progress Bar */}
-        <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 z-50 transition-all" style={{ width: `${scrollProgress}%` }} />
 
-        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-3 shadow-xl absolute w-full">
             <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">How it Works</a>
@@ -204,23 +169,19 @@ export const Landing = () => {
             <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Success Stories</a>
             <Link to="/login" className="block py-2 font-semibold text-slate-600">Login</Link>
             <Link to="/login" className="block w-full text-center bg-blue-600 text-white py-3 rounded-xl font-bold mt-2">
-              Start Free Trial
+              Start Now
             </Link>
           </div>
         )}
       </nav>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🚀 HERO SECTION (FLP OPTIMIZED)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* HERO SECTION */}
       <section className="pt-12 pb-16 md:pt-20 md:pb-24 relative overflow-hidden px-4">
-        {/* Background Gradient */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[200%] md:w-[1200px] h-[600px] bg-gradient-to-b from-blue-50 to-transparent rounded-full blur-3xl opacity-70 -z-10"></div>
 
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             
-            {/* Left Content */}
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 text-green-700 rounded-full text-sm font-bold mb-6">
                 <span className="relative flex h-2.5 w-2.5">
@@ -271,7 +232,6 @@ export const Landing = () => {
                 </a>
               </div>
 
-              {/* Social Proof */}
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
                   {[1,2,3,4,5].map(i => (
@@ -296,7 +256,7 @@ export const Landing = () => {
               </div>
             </div>
 
-            {/* Right - Dashboard Preview (Fixed for Tablet) */}
+            {/* DASHBOARD PREVIEW */}
             <div className="relative animate-float hidden md:block">
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur-2xl opacity-20"></div>
               <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 overflow-hidden">
@@ -311,7 +271,6 @@ export const Landing = () => {
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-b-xl p-6">
-                  {/* Mini Dashboard Preview */}
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
                       <p className="text-xs text-slate-500 mb-1">Today's Leads</p>
@@ -327,7 +286,6 @@ export const Landing = () => {
                     </div>
                   </div>
                   
-                  {/* Lead Cards Preview */}
                   <div className="space-y-2">
                     {['Rohan (Interested in Biz)', 'Suman (Part Time)', 'Amit (Student)'].map((name, i) => (
                       <div key={i} className="bg-white p-3 rounded-lg shadow-sm flex items-center justify-between">
@@ -351,9 +309,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          📊 STATS SECTION (NEW)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* STATS SECTION */}
       <section className="py-12 bg-white border-y border-slate-100">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -377,58 +333,54 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🔧 HOW IT WORKS SECTION (NEW)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* HOW IT WORKS */}
       <section id="how-it-works" className="py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">
-              🔧 3 SIMPLE STEPS
+              🔧 HOW IT WORKS
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Leads pana start karein
+              3 Simple Steps to Get Leads
             </h2>
-            <p className="text-slate-500 text-lg">Koi technical setup nahi. Sirf 2 minute mein shuru.</p>
+            <p className="text-slate-500 text-lg">Setup in 2 minutes. Start receiving leads today.</p>
           </div>
+
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="text-center group">
+            <div className="text-center group bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-all">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-500/25 group-hover:scale-110 transition-transform">
                 <span className="text-3xl font-black text-white">1</span>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Plan Choose Karein</h3>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Choose Your Plan</h3>
               <p className="text-slate-600">
-                Apni requirement ke hisab se daily lead limit select karein (Starter, Supervisor ya Manager).
+                Select based on your daily lead requirement. Start with Starter or go Pro with Manager plan.
               </p>
             </div>
-            {/* Step 2 */}
-            <div className="text-center group">
+
+            <div className="text-center group bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-all">
               <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-500/25 group-hover:scale-110 transition-transform">
                 <span className="text-3xl font-black text-white">2</span>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Dashboard Payein</h3>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Get Your Dashboard</h3>
               <p className="text-slate-600">
-                Instant access milega aapke personal Dashboard aur Google Sheet ka.
+                Instant access to your personal lead dashboard + Google Sheet. No technical setup needed.
               </p>
             </div>
-            {/* Step 3 */}
-            <div className="text-center group">
+
+            <div className="text-center group bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-all">
               <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-purple-500/25 group-hover:scale-110 transition-transform">
                 <span className="text-3xl font-black text-white">3</span>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Calls Shuru Karein</h3>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Receive Daily Leads</h3>
               <p className="text-slate-600">
-                Daily subah 10 baje se fresh leads aani shuru. Call karein aur team badhayein!
+                Fresh leads delivered daily between 10 AM - 10 PM. Call them, close them, grow your team!
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          ⭐ TESTIMONIALS SLIDESHOW (Infinite Scroll)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* TESTIMONIALS */}
       <section id="testimonials" className="py-20 bg-white overflow-hidden">
         <div className="text-center mb-12 px-4">
           <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
@@ -441,17 +393,15 @@ export const Landing = () => {
         </div>
 
         <div className="relative w-full max-w-[100vw] overflow-hidden">
-          {/* Fading Edges */}
           <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-r from-white to-transparent z-10"></div>
           <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 bg-gradient-to-l from-white to-transparent z-10"></div>
 
-          {/* Marquee Track */}
           <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
             {[...testimonials, ...testimonials].map((t, i) => (
               <div key={i} className="w-[300px] md:w-[400px] mx-4 flex-shrink-0">
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
                   <div className="flex items-center gap-4 mb-4">
-                    <img src={t.image} alt={t.name} className="w-14 h-14 rounded-full object-cover" />
+                    <img src={t.image} alt={t.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
                     <div>
                       <p className="font-bold text-slate-900">{t.name}</p>
                       <p className="text-xs font-bold text-blue-600 uppercase bg-blue-100 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
@@ -468,9 +418,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          💰 PRICING PLANS (Synced with Subscription.tsx)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* PRICING */}
       <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -484,7 +432,6 @@ export const Landing = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
-            
             {/* Starter */}
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
@@ -506,7 +453,7 @@ export const Landing = () => {
               </Link>
             </div>
 
-            {/* Supervisor - Highlighted */}
+            {/* Supervisor */}
             <div className="bg-gradient-to-b from-blue-600 to-indigo-700 p-8 rounded-3xl border-2 border-blue-400 transform md:-translate-y-4 shadow-2xl shadow-blue-500/25 flex flex-col relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-4 py-1 rounded-full shadow-lg">
@@ -524,7 +471,7 @@ export const Landing = () => {
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0"/> <strong>6 Fresh Leads/Day</strong></li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> ~180 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Lead Replacement Guarantee</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Replacement Guarantee</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Performance Analytics</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0"/> Cost: ₹11/lead only</li>
               </ul>
@@ -556,20 +503,17 @@ export const Landing = () => {
             </div>
           </div>
 
-          {/* Money Back Guarantee */}
           <div className="mt-12 text-center">
             <div className="inline-flex items-center gap-3 bg-green-500/20 border border-green-500/30 px-6 py-3 rounded-full">
-              <Shield size={24} className="text-green-400" />
-              <span className="text-green-300 font-medium">7-Day Money Back Guarantee. No questions asked.</span>
+              <RefreshCw size={24} className="text-green-400" />
+              <span className="text-green-300 font-medium">100% Replacement Guarantee for Invalid Numbers.</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          ❓ FAQ
-          ═══════════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-white">
+      {/* FAQ */}
+      <section className="py-20 bg-slate-50">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-12">
             <span className="inline-block px-4 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold mb-4">
@@ -605,9 +549,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🚀 FINAL CTA
-          ═══════════════════════════════════════════════════════════ */}
+      {/* FINAL CTA */}
       <section className="py-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -621,7 +563,7 @@ export const Landing = () => {
               to="/login" 
               className="px-8 py-4 bg-white text-blue-700 rounded-xl font-bold text-lg hover:bg-blue-50 transition-all shadow-xl flex items-center justify-center gap-2"
             >
-              <Zap size={20} /> Start 7-Day Free Trial
+              <Zap size={20} /> Get Leads Now
             </Link>
             <a 
               href={`https://wa.me/${WHATSAPP_NUMBER}`}
@@ -635,9 +577,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🦶 FOOTER
-          ═══════════════════════════════════════════════════════════ */}
+      {/* FOOTER */}
       <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
@@ -661,18 +601,19 @@ export const Landing = () => {
             <div>
               <h4 className="text-white font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-white">Refund Policy</a></li>
+                <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
+                <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+                <li><Link to="/refund" className="hover:text-white">Refund Policy</Link></li>
+                <li><Link to="/shipping" className="hover:text-white">Shipping Policy</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="text-white font-bold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
+                <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
                 <li>support@leadflowcrm.in</li>
                 <li>+91 {WHATSAPP_NUMBER.replace("91", "")}</li>
-                <li>Gurugram, India</li>
               </ul>
             </div>
           </div>
@@ -683,16 +624,14 @@ export const Landing = () => {
         </div>
       </footer>
 
-      {/* ═══════════════════════════════════════════════════════════
-          📱 MOBILE STICKY CTA
-          ═══════════════════════════════════════════════════════════ */}
+      {/* MOBILE STICKY CTA */}
       <div className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-3 z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
         <div className="flex gap-2">
           <Link 
             to="/login" 
             className="flex-1 bg-blue-600 text-white text-center py-3 rounded-xl font-bold text-sm shadow-lg"
           >
-            Start Free Trial
+            Get Leads Now
           </Link>
           <a 
             href={`https://wa.me/${WHATSAPP_NUMBER}`}
@@ -703,9 +642,7 @@ export const Landing = () => {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          🚪 EXIT INTENT POPUP (PROFIT PSYCHOLOGY)
-          ═══════════════════════════════════════════════════════════ */}
+      {/* EXIT INTENT POPUP */}
       {showExitPopup && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-8 relative animate-bounce-in">
@@ -742,18 +679,6 @@ export const Landing = () => {
           </div>
         </div>
       )}
-
-      {/* Animation for popup & marquee */}
-      <style>{`
-        @keyframes bounce-in {
-          0% { transform: scale(0.9); opacity: 0; }
-          50% { transform: scale(1.02); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-bounce-in {
-          animation: bounce-in 0.4s ease-out;
-        }
-      `}</style>
 
     </div>
   );
