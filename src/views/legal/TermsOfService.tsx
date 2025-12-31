@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export const TermsOfService = () => {
+const TermsOfService = () => {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
@@ -39,3 +39,5 @@ export const TermsOfService = () => {
     </div>
   );
 };
+
+export default TermsOfService;
