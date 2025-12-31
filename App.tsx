@@ -16,6 +16,13 @@ import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
 import { Loader2 } from 'lucide-react';
 
+// ✅ Legal Pages Imports
+import { TermsOfService } from './views/legal/TermsOfService';
+import { PrivacyPolicy } from './views/legal/PrivacyPolicy';
+import { RefundPolicy } from './views/legal/RefundPolicy';
+import { ShippingPolicy } from './views/legal/ShippingPolicy';
+import { ContactUs } from './views/legal/ContactUs';
+
 // ✅ Keep Service Worker Alive - Inline Implementation
 function initServiceWorkerKeepAlive() {
   if (!('serviceWorker' in navigator)) return;
@@ -83,7 +90,7 @@ function App() {
   }, [session]);
 
   // Loading state
-  if (loading || profileLoading) {
+  if (loading || (session && profileLoading)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -112,18 +119,10 @@ function App() {
     }
   };
 
-  // Debug log
-  console.log("🔔 Render Check:", {
-    hasSession: !!session,
-    hasProfile: !!fullProfile,
-    isPaid: isPaid
-  });
-
   return (
     <BrowserRouter>
       {/* ════════════════════════════════════════════════════════
-          🔔 NOTIFICATIONS - TESTING MODE (ALL USERS)
-          isPaid check temporarily removed for testing
+          🔔 NOTIFICATIONS (Active for Session + Profile)
           ════════════════════════════════════════════════════════ */}
       {session && fullProfile && (
         <>
@@ -133,6 +132,7 @@ function App() {
       )}
 
       <Routes>
+        {/* Main Routes */}
         <Route
           path="/"
           element={session ? getDashboard() : <Landing />}
@@ -145,6 +145,7 @@ function App() {
         
         <Route path="/landing" element={<Landing />} />
 
+        {/* Protected Routes */}
         {session && fullProfile && (
           <>
             <Route
@@ -166,6 +167,14 @@ function App() {
           </>
         )}
 
+        {/* ✅ LEGAL PAGES ROUTES (Public) */}
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/refund" element={<RefundPolicy />} />
+        <Route path="/shipping" element={<ShippingPolicy />} />
+        <Route path="/contact" element={<ContactUs />} />
+
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
