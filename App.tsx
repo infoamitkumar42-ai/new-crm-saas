@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -16,12 +15,12 @@ import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
 import { Loader2 } from 'lucide-react';
 
-// ✅ Legal Pages Imports
-import { TermsOfService } from './views/legal/TermsOfService';
-import { PrivacyPolicy } from './views/legal/PrivacyPolicy';
-import { RefundPolicy } from './views/legal/RefundPolicy';
-import { ShippingPolicy } from './views/legal/ShippingPolicy';
-import { ContactUs } from './views/legal/ContactUs';
+// ✅ CORRECTED IMPORTS (Removed curly braces for default exports)
+import TermsOfService from './views/legal/TermsOfService';
+import PrivacyPolicy from './views/legal/PrivacyPolicy';
+import RefundPolicy from './views/legal/RefundPolicy';
+import ShippingPolicy from './views/legal/ShippingPolicy';
+import ContactUs from './views/legal/ContactUs';
 
 // ✅ Keep Service Worker Alive - Inline Implementation
 function initServiceWorkerKeepAlive() {
