@@ -15,12 +15,12 @@ import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
 import { Loader2 } from 'lucide-react';
 
-// ✅ CORRECTED IMPORTS (Removed curly braces for default exports)
-import TermsOfService from './views/legal/TermsOfService';
-import PrivacyPolicy from './views/legal/PrivacyPolicy';
-import RefundPolicy from './views/legal/RefundPolicy';
-import ShippingPolicy from './views/legal/ShippingPolicy';
-import ContactUs from './views/legal/ContactUs';
+// ✅ UPDATED IMPORTS (Path changed to 'policies' folder)
+import TermsOfService from './views/policies/TermsOfService';
+import PrivacyPolicy from './views/policies/PrivacyPolicy';
+import RefundPolicy from './views/policies/RefundPolicy';
+import ShippingPolicy from './views/policies/ShippingPolicy';
+import ContactUs from './views/policies/ContactUs';
 
 // ✅ Keep Service Worker Alive - Inline Implementation
 function initServiceWorkerKeepAlive() {
