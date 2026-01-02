@@ -1,12 +1,17 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, IndianRupee } from 'lucide-react'; // IndianRupee icon added
 import { supabase } from '../supabaseClient';
+import { UserRole } from '../types';
 
-export const Sidebar = () => {
+// ✅ Props interface add kiya
+interface SidebarProps {
+  userRole?: UserRole;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
   
-  // Helper to check active link
   const isActive = (path: string) => location.pathname === path;
   const linkClass = (path: string) => 
     `flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
@@ -16,7 +21,7 @@ export const Sidebar = () => {
     }`;
 
   return (
-    <div className="h-full bg-white border-r border-slate-200 flex flex-col">
+    <div className="h-full bg-white border-r border-slate-200 flex flex-col w-64 fixed left-0 top-0 overflow-hidden">
       {/* Logo Area */}
       <div className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-2">
@@ -35,6 +40,7 @@ export const Sidebar = () => {
           <span>Dashboard</span>
         </Link>
 
+        {/* Common Links */}
         <Link to="/target" className={linkClass('/target')}>
           <Users size={20} />
           <span>Target Audience</span>
@@ -45,9 +51,20 @@ export const Sidebar = () => {
           <span>My Plan</span>
         </Link>
 
+        {/* ✅ ADMIN ONLY LINKS */}
+        {userRole === 'admin' && (
+          <>
+            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6">Admin Zone</p>
+            <Link to="/admin/revenue" className={linkClass('/admin/revenue')}>
+              <IndianRupee size={20} />
+              <span>Revenue</span>
+            </Link>
+          </>
+        )}
+
       </nav>
 
-      {/* Bottom Section (Logout) */}
+      {/* Bottom Section */}
       <div className="p-4 border-t border-slate-100">
         <button 
           onClick={() => supabase.auth.signOut()}
