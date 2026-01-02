@@ -1,20 +1,5 @@
 // api/razorpay-webhook.ts
 
-// No external imports - uses native fetch
-// Plan Configuration
-const PLANS: Record<string, { daily_limit: number; duration_days: number }> = {
-  'new_member': { daily_limit: 2, duration_days: 30 },
-  'supervisor': { daily_limit: 4, duration_days: 30 },
-  'manager': { daily_limit: 7, duration_days: 30 },
-  'boost_a': { daily_limit: 10, duration_days: 7 },
-  'boost_b': { daily_limit: 17, duration_days: 7 },
-  'boost_c': { daily_limit: 26, duration_days: 7 },
-  'starter': { daily_limit: 10, duration_days: 30 },
-  'fast_start': { daily_limit: 5, duration_days: 7 },
-  'turbo_weekly': { daily_limit: 20, duration_days: 7 },
-  'max_blast': { daily_limit: 35, duration_days: 7 },
-}
-
 export default async function handler(req: any, res: any) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -66,12 +51,39 @@ export default async function handler(req: any, res: any) {
 
         // Extract data
         const userId = payment.notes?.user_id
-        const planName = payment.notes?.plan_name || 'new_member'
+        const planName = payment.notes?.plan_name || 'starter'
         const payerEmail = payment.email || payment.notes?.user_email || ''
         const payerPhone = payment.contact || ''
         const amount = payment.amount ? payment.amount / 100 : 0
 
-        console.log('Payment:', { userId, planName, amount })
+        console.log('💳 Payment:', { userId, planName, amount })
+
+        // ✅ NEW: Fetch Plan from Database (Dynamic)
+        const planResp = await fetch(
+          `${supabaseUrl}/rest/v1/plan_config?plan_name=eq.${planName.toLowerCase()}&select=*&limit=1`,
+          { 
+            headers: { 
+              'apikey': supabaseKey, 
+              'Authorization': `Bearer ${supabaseKey}` 
+            } 
+          }
+        )
+        const plans = await planResp.json()
+        
+        let planConfig
+        if (plans?.length > 0) {
+          planConfig = plans[0]
+          console.log('✅ Plan found in DB:', planConfig.display_name)
+        } else {
+          console.warn('⚠️ Plan not found, using default')
+          // Fallback to starter if plan not found
+          const fallbackResp = await fetch(
+            `${supabaseUrl}/rest/v1/plan_config?plan_name=eq.starter&select=*&limit=1`,
+            { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` } }
+          )
+          const fallbackPlans = await fallbackResp.json()
+          planConfig = fallbackPlans[0]
+        }
 
         // Find user if ID missing
         let finalUserId = userId
@@ -84,10 +96,15 @@ export default async function handler(req: any, res: any) {
           if (users?.length > 0) finalUserId = users[0].id
         }
 
-        // Log payment
-        await fetch(`${supabaseUrl}/rest/v1/payments`, {
+        // Log payment (Save record first)
+        const paymentInsert = await fetch(`${supabaseUrl}/rest/v1/payments`, {
           method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          headers: { 
+            'apikey': supabaseKey, 
+            'Authorization': `Bearer ${supabaseKey}`, 
+            'Content-Type': 'application/json', 
+            'Prefer': 'return=minimal' 
+          },
           body: JSON.stringify({
             user_id: finalUserId || null,
             razorpay_payment_id: payment.id,
@@ -101,18 +118,25 @@ export default async function handler(req: any, res: any) {
           })
         })
 
-        // Activate Plan
-        if (finalUserId) {
-          const plan = PLANS[planName.toLowerCase()] || PLANS['new_member']
+        console.log('💾 Payment logged:', paymentInsert.ok ? 'Success' : 'Failed')
+
+        // ✅ Activate Plan with DB values
+        if (finalUserId && planConfig) {
           const validUntil = new Date()
-          validUntil.setDate(validUntil.getDate() + plan.duration_days)
+          validUntil.setDate(validUntil.getDate() + planConfig.duration_days)
 
           const updateResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${finalUserId}`, {
             method: 'PATCH',
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 
+              'apikey': supabaseKey, 
+              'Authorization': `Bearer ${supabaseKey}`, 
+              'Content-Type': 'application/json', 
+              'Prefer': 'return=minimal' 
+            },
             body: JSON.stringify({
               plan_name: planName,
-              daily_limit: plan.daily_limit,
+              daily_limit: planConfig.daily_limit,
+              hourly_limit: planConfig.hourly_limit,
               payment_status: 'active',
               valid_until: validUntil.toISOString(),
               leads_today: 0,
@@ -121,18 +145,34 @@ export default async function handler(req: any, res: any) {
           })
 
           if (updateResp.ok) {
-            console.log('🎉 Plan Activated:', planName)
-            return res.status(200).json({ success: true, plan: planName })
+            console.log('🎉 Plan Activated:', {
+              plan: planConfig.display_name,
+              daily_limit: planConfig.daily_limit,
+              valid_until: validUntil.toISOString()
+            })
+            return res.status(200).json({ 
+              success: true, 
+              plan: planConfig.display_name,
+              user_id: finalUserId,
+              valid_until: validUntil.toISOString()
+            })
+          } else {
+            console.error('❌ User update failed')
+            return res.status(500).json({ error: 'Failed to activate plan' })
           }
         }
 
-        return res.status(200).json({ success: false, message: 'User not found' })
+        return res.status(200).json({ 
+          success: false, 
+          message: finalUserId ? 'Plan config missing' : 'User not found' 
+        })
       }
 
-      return res.status(200).json({ received: true })
+      // Other webhook events
+      return res.status(200).json({ received: true, event: payload?.event })
 
     } catch (error: any) {
-      console.error('❌ Error:', error.message)
+      console.error('❌ Webhook Error:', error.message)
       return res.status(500).json({ error: error.message })
     }
   }
