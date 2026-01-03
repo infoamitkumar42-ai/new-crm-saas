@@ -4,7 +4,7 @@ import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
 import { Landing } from './views/Landing';
 import { TargetAudience } from './components/TargetAudience'; // ✅ Correct Import
-import { Subscription } from './components/Subscription'; // ✅ Correct Import (Component, not View)
+import { Subscription } from './components/Subscription'; // ✅ Correct Import
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
@@ -79,7 +79,7 @@ function App() {
 
   // Dashboard Role Logic
   const getDashboard = () => {
-    if (!fullProfile) return <div>Error loading profile.</div>;
+    if (!fullProfile) return <div>Error loading profile. Please refresh.</div>;
     const role = fullProfile.role?.toLowerCase().trim();
     switch (role) {
       case 'admin': return <AdminDashboard />;
