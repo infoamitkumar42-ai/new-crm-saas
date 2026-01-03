@@ -86,11 +86,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
       {/* Bottom Section */}
       <div className="p-4 border-t border-slate-100">
-        {/* User Info (Optional) */}
+        {/* User Role Badge */}
         <div className="mb-3 px-4 py-3 bg-slate-50 rounded-xl">
           <p className="text-xs text-slate-500">Logged in as</p>
-          <p className="text-sm font-semibold text-slate-700 truncate">
-            {userRole === 'admin' ? 'Admin' : 'Member'}
+          <p className="text-sm font-semibold text-slate-700 capitalize">
+            {userRole || 'Member'}
           </p>
         </div>
         
