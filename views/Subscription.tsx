@@ -590,22 +590,31 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
           </div>
 
           {/* ━━━ Testimonial ━━━ */}
-          <div className="mt-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-xl rounded-2xl p-4 border border-blue-400/30">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-2xl shadow-lg">
-                👨‍💼
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-1 mb-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-sm text-white italic">"15 din mein 4 joining ki. LeadFlow is a game changer!"</p>
-                <p className="text-xs text-white/50 mt-1">— Rahul Kumar, Ludhiana</p>
-              </div>
-            </div>
-          </div>
+<div className="mt-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-xl rounded-2xl p-4 border border-blue-400/30">
+  <div className="flex items-center gap-4">
+    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-400 shadow-lg flex-shrink-0">
+      <img 
+        src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face"
+        alt="Rahul Kumar"
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none';
+          target.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-2xl">👨‍💼</div>';
+        }}
+      />
+    </div>
+    <div className="flex-1">
+      <div className="flex items-center gap-1 mb-1">
+        {[...Array(5)].map((_, i) => (
+          <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
+        ))}
+      </div>
+      <p className="text-sm text-white italic">"15 din mein 4 joining ki. LeadFlow is a game changer!"</p>
+      <p className="text-xs text-white/50 mt-1">— Rahul Kumar, Ludhiana</p>
+    </div>
+  </div>
+</div>
 
           {/* ━━━ Trust Stats ━━━ */}
           <div className="mt-6 grid grid-cols-3 gap-3">
