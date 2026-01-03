@@ -388,64 +388,75 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* ━━━ Top Banners ━━━ */}
-      <div className="relative z-30">
-        {/* Off Hours Banner */}
-        {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
-          <div className="bg-yellow-500 text-white py-2.5 px-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock size={16} className="flex-shrink-0" />
-                <span className="font-medium">⏰ Off Hours: Leads start at 8 AM</span>
-              </div>
-              <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded flex-shrink-0">
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Expiring Soon Banner */}
-        {isExpiringSoon && !isExpired && !bannerDismissed && (
-          <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500' : 'bg-orange-500'} text-white py-2.5 px-4`}>
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Bell size={16} className="animate-pulse flex-shrink-0" />
-                <span>Plan expires in <strong>{daysLeft} days</strong>!</span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setShowSubscription(true)}
-                  className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs"
-                >
-                  Renew
-                </button>
-                <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded">
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Daily Limit Reached Banner */}
-        {isLimitReached && !isExpired && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 px-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Target size={16} className="flex-shrink-0" />
-                <span>🎯 Daily limit reached!</span>
-              </div>
-              <button
-                onClick={() => setShowSubscription(true)}
-                className="bg-white text-blue-600 px-3 py-1 rounded-lg font-bold text-xs flex-shrink-0"
-              >
-                Upgrade
-              </button>
-            </div>
-          </div>
-        )}
+      {/* ━━━ Top Banners (Original Style - Solid Colors) ━━━ */}
+<div className="relative z-30">
+  {/* Off Hours Banner - Yellow */}
+  {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
+    <div className="bg-yellow-500 text-yellow-900 py-2.5 px-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Clock size={16} className="flex-shrink-0" />
+          <span>⏰ Off Hours: Leads delivery starts at 8 AM</span>
+        </div>
+        <button 
+          onClick={() => setBannerDismissed(true)} 
+          className="p-1 hover:bg-yellow-600/20 rounded flex-shrink-0"
+        >
+          <X size={16} />
+        </button>
       </div>
+    </div>
+  )}
+
+  {/* Expiring Soon Banner - Orange/Red */}
+  {isExpiringSoon && !isExpired && !bannerDismissed && (
+    <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Bell size={16} className="animate-pulse flex-shrink-0" />
+          <span>
+            {daysLeft && daysLeft <= 2 
+              ? `⚠️ Plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}! Renew now!`
+              : `Plan expires in ${daysLeft} days - Renew to avoid interruption`
+            }
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowSubscription(true)}
+            className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-orange-50 transition-colors"
+          >
+            Renew Now
+          </button>
+          <button 
+            onClick={() => setBannerDismissed(true)} 
+            className="p-1 hover:bg-white/20 rounded"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Daily Limit Reached Banner - Blue */}
+  {isLimitReached && !isExpired && (
+    <div className="bg-blue-600 text-white py-2.5 px-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Target size={16} className="flex-shrink-0" />
+          <span>🎯 Daily limit reached! Upgrade for more leads today.</span>
+        </div>
+        <button
+          onClick={() => setShowSubscription(true)}
+          className="bg-white text-blue-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-blue-50 transition-colors flex-shrink-0"
+        >
+          Upgrade
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 
       {/* ━━━ Sticky Header ━━━ */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
