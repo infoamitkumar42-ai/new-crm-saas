@@ -4,14 +4,8 @@ import {
   MapPin, Users, Check, Save, AlertCircle,
   ChevronDown, Globe, Filter, Loader2
 } from 'lucide-react';
-import { User, FilterConfig } from '../types';
 
-interface FilterSettingsProps {
-  user?: User; // Optional since we fetch fresh data
-  onUpdate?: (filters: FilterConfig) => Promise<void>;
-}
-
-// State & City Data
+// Safe Constants
 const STATE_CITIES: Record<string, string[]> = {
   'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali', 'Pathankot', 'Moga'],
   'Chandigarh': ['Chandigarh'],
@@ -24,17 +18,17 @@ const STATE_CITIES: Record<string, string[]> = {
 
 const AVAILABLE_STATES = Object.keys(STATE_CITIES);
 
-export const FilterSettings: React.FC<FilterSettingsProps> = () => {
+export const FilterSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Initial state with safe defaults
-  const [filters, setFilters] = useState<any>({
+  // ✅ Extreme Safety Initialization
+  const [filters, setFilters] = useState({
     pan_india: true, 
-    states: [], 
-    cities: [], 
+    states: [] as string[], 
+    cities: [] as string[], 
     gender: 'all'
   });
   
@@ -53,10 +47,11 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
       const { data } = await supabase.from('users').select('filters').eq('id', user.id).single();
       
       if (data?.filters) {
+        // ✅ Validate data before setting
         setFilters({
           pan_india: data.filters.pan_india ?? true,
-          states: data.filters.states || [],
-          cities: data.filters.cities || [],
+          states: Array.isArray(data.filters.states) ? data.filters.states : [],
+          cities: Array.isArray(data.filters.cities) ? data.filters.cities : [],
           gender: data.filters.gender || 'all'
         });
       }
@@ -89,14 +84,15 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
   };
 
   const toggleState = (state: string) => {
-    const currentStates = filters.states || [];
+    // ✅ Safe Access
+    const currentStates = Array.isArray(filters.states) ? filters.states : [];
     const newStates = currentStates.includes(state) 
-      ? currentStates.filter((s: string) => s !== state) 
+      ? currentStates.filter(s => s !== state) 
       : [...currentStates, state];
     
-    // Remove cities of unchecked state
-    const currentCities = filters.cities || [];
-    const newCities = currentCities.filter((city: string) => {
+    // Clean up cities
+    const currentCities = Array.isArray(filters.cities) ? filters.cities : [];
+    const newCities = currentCities.filter(city => {
       const cityState = Object.entries(STATE_CITIES).find(
         ([_, cities]) => cities.includes(city)
       )?.[0];
@@ -107,18 +103,27 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
   };
 
   const toggleCity = (city: string) => {
-    const currentCities = filters.cities || [];
+    // ✅ Safe Access
+    const currentCities = Array.isArray(filters.cities) ? filters.cities : [];
     const newCities = currentCities.includes(city)
-      ? currentCities.filter((c: string) => c !== city)
+      ? currentCities.filter(c => c !== city)
       : [...currentCities, city];
 
     setFilters({ ...filters, pan_india: false, cities: newCities });
   };
 
-  if (loading) return <div className="p-12 text-center flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+  if (loading) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <Loader2 className="animate-spin text-blue-600" />
+    </div>
+  );
+
+  // ✅ Safe Derived Values
+  const safeStates = Array.isArray(filters.states) ? filters.states : [];
+  const safeCities = Array.isArray(filters.cities) ? filters.cities : [];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-24">
+    <div className="max-w-3xl mx-auto space-y-6 pb-24 p-4 md:p-6">
       <div className="bg-white border-b sticky top-0 z-20 p-4 shadow-sm md:static md:shadow-none md:border-none md:p-0 md:mb-6 rounded-xl">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
           <Filter size={24} className="text-blue-600"/> Audience Targeting
@@ -128,8 +133,8 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
 
       <div className="space-y-6">
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex gap-3 items-center animate-in fade-in slide-in-from-top-2">
-            <Check size={20} className="text-green-600"/> Preferences saved successfully!
+          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex gap-3 items-center">
+            <Check size={20} className="text-green-600"/> Preferences saved!
           </div>
         )}
         {error && (
@@ -182,14 +187,14 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
         {!filters.pan_india && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h2 className="font-bold mb-2 flex gap-2 text-slate-800 text-lg"><MapPin className="text-blue-600"/> Select Specific Locations</h2>
-            <p className="text-sm text-slate-500 mb-4">Select states to get leads from all cities in that state, or expand to select specific cities.</p>
             
             <div className="grid grid-cols-1 gap-3">
               {AVAILABLE_STATES.map(state => {
-                const isSelected = (filters.states || []).includes(state);
+                // ✅ CRASH PROOF CHECK
+                const isSelected = safeStates.includes(state);
                 const isExpanded = expandedState === state;
                 const cities = STATE_CITIES[state] || [];
-                const selectedCount = (filters.cities || []).filter((c: string) => cities.includes(c)).length;
+                const selectedCount = safeCities.filter(c => cities.includes(c)).length;
 
                 return (
                   <div key={state} className={`border rounded-xl overflow-hidden transition-all ${isSelected ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200'}`}>
@@ -215,7 +220,8 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-3 mt-2">Select specific cities:</p>
                         <div className="flex flex-wrap gap-2">
                           {cities.map(city => {
-                            const isCityActive = (filters.cities || []).includes(city);
+                            // ✅ CRASH PROOF CHECK
+                            const isCityActive = safeCities.includes(city);
                             return (
                               <button key={city} onClick={() => toggleCity(city)}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${
@@ -238,15 +244,14 @@ export const FilterSettings: React.FC<FilterSettingsProps> = () => {
         )}
       </div>
 
-      {/* Floating Save Button on Mobile, Static on Desktop */}
       <div className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t border-slate-200 z-30 shadow-lg md:static md:shadow-none md:border-none md:p-0 md:bg-transparent">
         <button 
           onClick={handleSave} 
-          disabled={saving || (!filters.pan_india && (filters.states || []).length === 0)}
+          disabled={saving || (!filters.pan_india && safeStates.length === 0)}
           className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-3 hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 shadow-xl"
         >
           {saving ? <Loader2 className="animate-spin"/> : <Save size={22}/>} 
-          {saving ? 'Saving Preferences...' : 'Save Targeting Settings'}
+          {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
     </div>
