@@ -629,26 +629,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
 
         </div>
 
-        {/* ━━━ Bottom Bar (Mobile) - REPLACEMENT GUARANTEE (NO MONEY BACK) ━━━ */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
-          <div className="flex items-center justify-between max-w-md mx-auto">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <RefreshCw size={16} className="text-amber-400" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white">Replacement Guarantee</p>
-                <p className="text-[10px] text-white/50">Invalid leads replaced free</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="px-5 py-2.5 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-colors border border-white/20"
-            >
-              Maybe Later
-            </button>
-          </div>
-        </div>
+        {/* ━━━ Bottom Bar (Mobile) - WITH BACK TO DASHBOARD ━━━ */}
+<div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
+  <div className="flex items-center justify-center">
+    <button
+      onClick={handleClose}
+      className="w-full max-w-sm py-3.5 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-all border border-white/20 flex items-center justify-center gap-2"
+    >
+      <ChevronLeft size={18} />
+      Back to Dashboard
+    </button>
+  </div>
+</div>
 
       </div>
     </div>
