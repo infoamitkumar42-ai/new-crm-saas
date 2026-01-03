@@ -3,8 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
 import { Landing } from './views/Landing';
-import { FilterSettings } from './views/FilterSettings';
-import { Subscription } from './views/Subscription';
+import { TargetAudience } from './components/TargetAudience'; // ✅ Correct Import
+import { Subscription } from './components/Subscription'; // ✅ Correct Import (Component, not View)
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
@@ -15,18 +15,16 @@ import { supabase } from './supabaseClient';
 import { User as CustomUser } from './types';
 import { Loader2 } from 'lucide-react';
 
-// ✅ CORRECT IMPORTS for GitHub Web (Pointing to 'legal' folder)
-// Note: We use { } because files use "export const"
+// ✅ LEGAL PAGES
 import { TermsOfService } from './views/legal/TermsOfService';
 import { PrivacyPolicy } from './views/legal/PrivacyPolicy';
 import { RefundPolicy } from './views/legal/RefundPolicy';
 import { ShippingPolicy } from './views/legal/ShippingPolicy';
 import { ContactUs } from './views/legal/ContactUs';
 
-// ✅ Keep Service Worker Alive - Inline Implementation
+// ✅ Service Worker Keep Alive
 function initServiceWorkerKeepAlive() {
   if (!('serviceWorker' in navigator)) return;
-
   const keepAlive = async () => {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -38,7 +36,6 @@ function initServiceWorkerKeepAlive() {
       // Silent fail
     }
   };
-
   setInterval(keepAlive, 25000);
   keepAlive();
 }
@@ -47,41 +44,24 @@ function App() {
   const { session, loading } = useAuth();
   const [fullProfile, setFullProfile] = useState<CustomUser | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [isPaid, setIsPaid] = useState(false);
 
-  // ✅ Initialize Service Worker Keep-Alive
+  // Initialize Service Worker
   useEffect(() => {
     initServiceWorkerKeepAlive();
   }, []);
 
-  // Fetch user profile
+  // Fetch User Profile
   useEffect(() => {
     const getProfile = async () => {
       if (session?.user) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
         if (data) {
-          console.log("✅ User Profile:", data);
           setFullProfile(data as CustomUser);
-
-          // Check paid status
-          const hasActivePayment = data.payment_status === 'active';
-          const hasValidSubscription = data.valid_until
-            ? new Date(data.valid_until) > new Date()
-            : false;
-          const paidStatus = hasActivePayment && hasValidSubscription;
-
-          console.log("💳 Paid Status:", {
-            payment_status: data.payment_status,
-            valid_until: data.valid_until,
-            isPaid: paidStatus
-          });
-
-          setIsPaid(paidStatus);
         }
       }
       setProfileLoading(false);
@@ -89,7 +69,6 @@ function App() {
     getProfile();
   }, [session]);
 
-  // Loading state
   if (loading || (session && profileLoading)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -98,32 +77,24 @@ function App() {
     );
   }
 
-  // Dashboard based on role
+  // Dashboard Role Logic
   const getDashboard = () => {
-    if (!fullProfile) return <div>Error loading profile. Please Refresh.</div>;
-
-    const userRole = fullProfile.role?.toLowerCase().trim();
-
-    switch (userRole) {
-      case 'admin':
-        return <AdminDashboard />;
-      case 'manager':
-        return <ManagerDashboard />;
-      case 'member':
-      default:
-        return (
-          <Layout>
-            <MemberDashboard />
-          </Layout>
-        );
+    if (!fullProfile) return <div>Error loading profile.</div>;
+    const role = fullProfile.role?.toLowerCase().trim();
+    switch (role) {
+      case 'admin': return <AdminDashboard />;
+      case 'manager': return <ManagerDashboard />;
+      default: return (
+        <Layout>
+          <MemberDashboard />
+        </Layout>
+      );
     }
   };
 
   return (
     <BrowserRouter>
-      {/* ════════════════════════════════════════════════════════
-          🔔 NOTIFICATIONS (Active for Session + Profile)
-          ════════════════════════════════════════════════════════ */}
+      {/* Notifications */}
       {session && fullProfile && (
         <>
           <NotificationBanner />
@@ -132,42 +103,33 @@ function App() {
       )}
 
       <Routes>
-        {/* Main Routes */}
-        <Route
-          path="/"
-          element={session ? getDashboard() : <Landing />}
-        />
-
-        <Route
-          path="/login"
-          element={!session ? <Auth /> : <Navigate to="/" replace />}
-        />
-        
+        {/* Public Routes */}
+        <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
         <Route path="/landing" element={<Landing />} />
+        
+        {/* Main Dashboard */}
+        <Route path="/" element={session ? getDashboard() : <Landing />} />
 
-        {/* Protected Routes */}
+        {/* Protected Member Routes */}
         {session && fullProfile && (
           <>
-            <Route
-              path="/target"
-              element={
-                <Layout>
-                  <FilterSettings user={fullProfile} onUpdate={() => {}} />
-                </Layout>
-              }
-            />
-            <Route
-              path="/subscription"
-              element={
-                <Layout>
-                  <Subscription user={fullProfile} onPaymentSuccess={() => {}} />
-                </Layout>
-              }
-            />
+            {/* ✅ Target Audience Route Linked */}
+            <Route path="/target" element={
+              <Layout>
+                <TargetAudience />
+              </Layout>
+            } />
+            
+            {/* ✅ Subscription Route Linked */}
+            <Route path="/subscription" element={
+              <Layout>
+                <Subscription onClose={() => window.history.back()} />
+              </Layout>
+            } />
           </>
         )}
 
-        {/* ✅ LEGAL PAGES ROUTES (Public) */}
+        {/* Legal Pages */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
