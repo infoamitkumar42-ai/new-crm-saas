@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, LogOut, IndianRupee, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, IndianRupee, Menu, X, Zap } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserRole } from '../types';
 
@@ -13,6 +13,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
+  
   const linkClass = (path: string) => 
     `flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
       isActive(path) 
@@ -21,32 +22,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
     }`;
 
   const handleLinkClick = () => {
-    // Close mobile menu on link click
     setMobileOpen(false);
   };
 
   const sidebarContent = (
-    <>
+    <div className="flex flex-col h-full">
       {/* Logo Area */}
-      <div className="p-6 border-b border-slate-100">
+      <div className="p-5 border-b border-slate-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">L</div>
-            <h1 className="text-xl font-bold text-slate-800">LeadFlow</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">LeadFlow</h1>
+              <p className="text-[10px] text-slate-400 font-medium">CRM Dashboard</p>
+            </div>
           </div>
           {/* Mobile close button */}
           <button 
             onClick={() => setMobileOpen(false)}
-            className="md:hidden p-2 rounded-lg hover:bg-slate-100"
+            className="md:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500"
           >
-            <X size={20} />
+            <X size={22} />
           </button>
         </div>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 mt-2">Menu</p>
+      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 mt-2">
+          Main Menu
+        </p>
         
         <Link to="/" className={linkClass('/')} onClick={handleLinkClick}>
           <LayoutDashboard size={20} />
@@ -66,7 +73,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
         {/* Admin Links */}
         {userRole === 'admin' && (
           <>
-            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6">Admin Zone</p>
+            <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 mt-6">
+              Admin Zone
+            </p>
             <Link to="/admin/revenue" className={linkClass('/admin/revenue')} onClick={handleLinkClick}>
               <IndianRupee size={20} />
               <span>Revenue</span>
@@ -77,6 +86,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
       {/* Bottom Section */}
       <div className="p-4 border-t border-slate-100">
+        {/* User Info (Optional) */}
+        <div className="mb-3 px-4 py-3 bg-slate-50 rounded-xl">
+          <p className="text-xs text-slate-500">Logged in as</p>
+          <p className="text-sm font-semibold text-slate-700 truncate">
+            {userRole === 'admin' ? 'Admin' : 'Member'}
+          </p>
+        </div>
+        
         <button 
           onClick={() => supabase.auth.signOut()}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all font-medium"
@@ -85,42 +102,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           <span>Sign Out</span>
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
     <>
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - Fixed Position */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-slate-200"
+        className="md:hidden fixed top-4 left-4 z-40 p-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+        aria-label="Open menu"
       >
-        <Menu size={24} />
+        <Menu size={22} className="text-slate-700" />
       </button>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex h-full bg-white border-r border-slate-200 flex-col w-64 fixed left-0 top-0 overflow-hidden">
+      {/* Desktop Sidebar - Hidden on Mobile */}
+      <div className="hidden md:flex h-screen bg-white border-r border-slate-200 flex-col w-64 fixed left-0 top-0 z-30">
         {sidebarContent}
       </div>
 
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar - Overlay */}
       <div className={`
         md:hidden fixed inset-0 z-50 transition-all duration-300
-        ${mobileOpen ? 'visible' : 'invisible'}
+        ${mobileOpen ? 'visible' : 'invisible pointer-events-none'}
       `}>
-        {/* Overlay */}
+        {/* Dark Overlay */}
         <div 
           onClick={() => setMobileOpen(false)}
           className={`
-            absolute inset-0 bg-black transition-opacity duration-300
-            ${mobileOpen ? 'opacity-50' : 'opacity-0'}
+            absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300
+            ${mobileOpen ? 'opacity-100' : 'opacity-0'}
           `}
         />
         
-        {/* Sidebar */}
+        {/* Sidebar Panel */}
         <div className={`
-          absolute left-0 top-0 h-full bg-white w-72 shadow-xl
-          transition-transform duration-300 transform
+          absolute left-0 top-0 h-full bg-white w-[280px] max-w-[85vw] shadow-2xl
+          transition-transform duration-300 ease-out transform
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           {sidebarContent}
