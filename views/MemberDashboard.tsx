@@ -8,7 +8,7 @@ import {
   AlertCircle, Award, ChevronDown, Moon, Pause, Play,
   CheckCircle2, AlertTriangle
 } from 'lucide-react';
-import { Subscription } from './Subscription';
+import { Subscription } from '../components/Subscription'; // Ensure correct path
 
 // ============================================================
 // TYPES
@@ -56,15 +56,12 @@ interface PerformanceStats {
   conversionRate: number;
 }
 
-// ============================================================
-// DELIVERY STATUS TYPE
-// ============================================================
 interface DeliveryStatusInfo {
   title: string;
   subtitle: string;
   icon: LucideIcon;
-  iconBgColor: string;  // Background color for the icon circle
-  iconColor: string;    // Icon color
+  iconBgColor: string;
+  iconColor: string;
   statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired';
 }
 
@@ -145,15 +142,11 @@ export const MemberDashboard = () => {
     return { text: 'STANDARD', color: 'bg-slate-600 text-white', icon: Shield as LucideIcon };
   }, [profile?.plan_weight]);
 
-  // ============================================================
-  // 🎯 FIXED DELIVERY STATUS - Always Blue/Indigo Card
-  // ============================================================
-  // The card background NEVER changes. Only the text and icon change.
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
       return {
         title: 'Loading...',
-        subtitle: 'Fetching your status',
+        subtitle: 'Fetching status',
         icon: Clock,
         iconBgColor: 'bg-white/20',
         iconColor: 'text-white',
@@ -161,11 +154,10 @@ export const MemberDashboard = () => {
       };
     }
 
-    // Check plan status first
     if (profile.payment_status !== 'active' || isExpired) {
       return {
         title: 'Plan Inactive',
-        subtitle: 'Renew to start receiving leads',
+        subtitle: 'Renew to receive leads',
         icon: AlertTriangle,
         iconBgColor: 'bg-red-500/30',
         iconColor: 'text-red-200',
@@ -173,7 +165,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // Check if user paused delivery
     if (isPaused) {
       return {
         title: 'Delivery Paused',
@@ -185,11 +176,10 @@ export const MemberDashboard = () => {
       };
     }
 
-    // Check working hours
     if (!isWithinWorkingHours()) {
       return {
         title: 'Off Hours',
-        subtitle: `Lead delivery: 8 AM - 10 PM IST`,
+        subtitle: 'Delivery: 8 AM - 10 PM',
         icon: Moon,
         iconBgColor: 'bg-white/20',
         iconColor: 'text-indigo-200',
@@ -197,11 +187,10 @@ export const MemberDashboard = () => {
       };
     }
 
-    // Check daily limit
     if (isLimitReached) {
       return {
         title: 'Daily Limit Reached',
-        subtitle: `You've received ${dailyLimit} leads today`,
+        subtitle: `Received ${dailyLimit} leads today`,
         icon: CheckCircle2,
         iconBgColor: 'bg-green-500/30',
         iconColor: 'text-green-200',
@@ -209,10 +198,9 @@ export const MemberDashboard = () => {
       };
     }
 
-    // All good - actively receiving
     return {
       title: 'Actively Receiving',
-      subtitle: `${remainingToday} more leads coming today`,
+      subtitle: `${remainingToday} more leads today`,
       icon: Zap,
       iconBgColor: 'bg-green-500/30',
       iconColor: 'text-green-300',
@@ -270,7 +258,6 @@ export const MemberDashboard = () => {
   const fetchData = async () => {
     try {
       setRefreshing(true);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -289,7 +276,7 @@ export const MemberDashboard = () => {
           .from('users')
           .select('name')
           .eq('id', userData.manager_id)
-          .single();
+          .maybeSingle(); // Fixed 406 Error
         setManagerName(managerData?.name || 'Unknown');
       } else {
         setManagerName('Direct (No Manager)');
@@ -358,10 +345,7 @@ export const MemberDashboard = () => {
 
   const toggleDeliveryPause = async () => {
     if (!profile) return;
-    
     const newStatus = !isPaused;
-    
-    // Optimistic update
     setProfile(prev => prev ? { ...prev, is_active: !newStatus } : null);
     
     const { error } = await supabase
@@ -370,7 +354,6 @@ export const MemberDashboard = () => {
       .eq('id', profile.id);
     
     if (error) {
-      // Revert on error
       setProfile(prev => prev ? { ...prev, is_active: newStatus } : null);
       alert('Error updating delivery status');
     }
@@ -379,7 +362,6 @@ export const MemberDashboard = () => {
   const saveNote = async () => {
     if (!showNotesModal) return;
     setSavingNote(true);
-
     try {
       const { error } = await supabase
         .from('leads')
@@ -387,7 +369,6 @@ export const MemberDashboard = () => {
         .eq('id', showNotesModal.id);
 
       if (error) throw error;
-
       setLeads(prev => prev.map(l => (l.id === showNotesModal.id ? { ...l, notes: noteText } : l)));
       setShowNotesModal(null);
       setNoteText('');
@@ -420,24 +401,6 @@ export const MemberDashboard = () => {
     }
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  // ============================================================
-  // LOADING STATE
-  // ============================================================
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -449,21 +412,13 @@ export const MemberDashboard = () => {
     );
   }
 
-  // ============================================================
-  // MAIN RENDER
-  // ============================================================
-
   const StatusIcon = deliveryStatus.icon;
 
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
 
-      {/* ━━━ Subscription Modal ━━━ */}
-      {showSubscription && (
-        <Subscription onClose={() => setShowSubscription(false)} />
-      )}
+      {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
 
-      {/* ━━━ Expired Overlay ━━━ */}
       {isExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
@@ -474,13 +429,11 @@ export const MemberDashboard = () => {
               <h2 className="text-2xl font-bold">Plan Expired!</h2>
               <p className="text-red-100 mt-2">Your daily leads have stopped</p>
             </div>
-
             <div className="p-6">
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-center">
-                <p className="text-red-600 font-bold text-lg">⚠️ Your leads are stopped</p>
-                <p className="text-red-500 text-sm mt-1">Renew to start receiving leads again</p>
+                <p className="text-red-600 font-bold text-lg">⚠️ Leads Stopped</p>
+                <p className="text-red-500 text-sm mt-1">Renew now to continue</p>
               </div>
-
               <button
                 onClick={() => setShowSubscription(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
@@ -492,236 +445,117 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* ━━━ Top Banners (Solid Colors - Distinct from Main Card) ━━━ */}
+      {/* Top Banners */}
       <div className="relative z-30">
-        {/* Off Hours Banner - Yellow */}
         {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
           <div className="bg-amber-500 text-amber-950 py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Moon size={16} className="flex-shrink-0" />
-                <span>⏰ Off Hours: Lead delivery starts at 8 AM ({getTimeUntilOpen()})</span>
+                <span>⏰ Off Hours: Delivery starts 8 AM ({getTimeUntilOpen()})</span>
               </div>
-              <button 
-                onClick={() => setBannerDismissed(true)} 
-                className="p-1 hover:bg-amber-600/20 rounded flex-shrink-0"
-              >
-                <X size={16} />
-              </button>
+              <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-amber-600/20 rounded flex-shrink-0"><X size={16} /></button>
             </div>
           </div>
         )}
-
-        {/* Expiring Soon Banner - Orange/Red */}
         {isExpiringSoon && !isExpired && !bannerDismissed && (
           <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Bell size={16} className="animate-pulse flex-shrink-0" />
-                <span>
-                  {daysLeft && daysLeft <= 2 
-                    ? `⚠️ Plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}! Renew now!`
-                    : `Plan expires in ${daysLeft} days - Renew to avoid interruption`
-                  }
-                </span>
+                <span>Plan expires in {daysLeft} days!</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setShowSubscription(true)}
-                  className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-orange-50 transition-colors"
-                >
-                  Renew Now
-                </button>
-                <button 
-                  onClick={() => setBannerDismissed(true)} 
-                  className="p-1 hover:bg-white/20 rounded"
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={() => setShowSubscription(true)} className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs">Renew</button>
+                <button onClick={() => setBannerDismissed(true)} className="p-1 hover:bg-white/20 rounded"><X size={16} /></button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Daily Limit Reached Banner - Green Success */}
         {isLimitReached && !isExpired && (
           <div className="bg-emerald-600 text-white py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <CheckCircle2 size={16} className="flex-shrink-0" />
-                <span>🎯 Today's goal completed! {dailyLimit} leads received. More tomorrow!</span>
+                <span>🎯 Goal met! {dailyLimit} leads received.</span>
               </div>
-              <button
-                onClick={() => setShowSubscription(true)}
-                className="bg-white text-emerald-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-emerald-50 transition-colors flex-shrink-0"
-              >
-                Get More
-              </button>
+              <button onClick={() => setShowSubscription(true)} className="bg-white text-emerald-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-emerald-50 flex-shrink-0">Get More</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ━━━ Sticky Header ━━━ */}
+      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3">
-          <div className="flex justify-between items-center gap-2">
-            
-            {/* Left: Name & Plan */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">
-                  👋 {profile?.name?.split(' ')[0] || 'Member'}
-                </h1>
-                <span className={`hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${priorityBadge.color}`}>
-                  {priorityBadge.text}
-                </span>
-              </div>
-              <div className="text-xs text-slate-500 truncate">
-                <span className="text-green-600 font-medium capitalize">{profile?.plan_name || 'No Plan'}</span>
-                <span className="mx-1 hidden sm:inline">•</span>
-                <span className="hidden sm:inline">{managerName}</span>
-              </div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex justify-between items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">👋 {profile?.name?.split(' ')[0]}</h1>
+              <span className={`hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${priorityBadge.color}`}>{priorityBadge.text}</span>
             </div>
-
-            {/* Right: Action Buttons */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Sheet Button */}
-              {profile?.sheet_url && (
-                <a
-                  href={profile.sheet_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  title="Open Sheet"
-                >
-                  <FileSpreadsheet size={18} />
-                  <span className="hidden sm:inline ml-1.5 text-sm font-medium">Sheet</span>
-                </a>
-              )}
-
-              {/* Refresh */}
-              <button
-                onClick={fetchData}
-                disabled={refreshing}
-                className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
-                title="Refresh"
-              >
-                <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
-
-              {/* Logout */}
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all"
-                title="Logout"
-              >
-                <LogOut size={18} />
-              </button>
+            <div className="text-xs text-slate-500 truncate">
+              <span className="text-green-600 font-medium capitalize">{profile?.plan_name || 'No Plan'}</span>
+              <span className="mx-1 hidden sm:inline">•</span>
+              <span className="hidden sm:inline">{managerName}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {profile?.sheet_url && (
+              <a href={profile.sheet_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                <FileSpreadsheet size={18} />
+                <span className="hidden sm:inline ml-1.5 text-sm font-medium">Sheet</span>
+              </a>
+            )}
+            <button onClick={fetchData} disabled={refreshing} className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-all">
+              <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={() => supabase.auth.signOut()} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all">
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </header>
 
-      {/* ━━━ Main Content ━━━ */}
+      {/* Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
-
-        {/* ============================================================ */}
-        {/* 🎯 FIXED: DELIVERY STATUS CARD - ALWAYS BLUE/INDIGO/PURPLE */}
-        {/* ============================================================ */}
-        {/* 
-          This card NEVER changes its gradient color.
-          Only the icon, title, and subtitle change based on status.
-          This gives a consistent premium look regardless of the delivery state.
-        */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl shadow-indigo-500/25">
-          
-          {/* Decorative Background Elements */}
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
           
-          {/* Content */}
           <div className="relative z-10">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              
-              {/* Left: Status Info */}
               <div className="flex items-center gap-3 sm:gap-4 flex-1">
-                {/* Status Icon */}
                 <div className={`p-3 sm:p-4 rounded-xl ${deliveryStatus.iconBgColor} backdrop-blur-sm`}>
                   <StatusIcon size={24} className={deliveryStatus.iconColor} />
                 </div>
-                
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] sm:text-xs text-indigo-200 font-bold uppercase tracking-wide">
-                    Delivery Status
-                  </div>
-                  <div className="text-lg sm:text-2xl font-black mt-0.5 truncate">
-                    {deliveryStatus.title}
-                  </div>
-                  <div className="text-xs sm:text-sm text-indigo-200 mt-0.5">
-                    {deliveryStatus.subtitle}
-                  </div>
+                  <div className="text-[10px] sm:text-xs text-indigo-200 font-bold uppercase tracking-wide">Delivery Status</div>
+                  <div className="text-lg sm:text-2xl font-black mt-0.5 truncate">{deliveryStatus.title}</div>
+                  <div className="text-xs sm:text-sm text-indigo-200 mt-0.5">{deliveryStatus.subtitle}</div>
                 </div>
               </div>
-
-              {/* Right: Stats & Actions */}
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                {/* Remaining Leads Counter */}
                 <div className="flex-1 sm:flex-none bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 sm:py-3 text-center border border-white/10">
                   <div className="text-xl sm:text-2xl font-black">{remainingToday}</div>
                   <div className="text-[10px] sm:text-xs text-indigo-200">Remaining</div>
                 </div>
-
-                {/* Pause/Resume Button */}
                 {profile?.payment_status === 'active' && !isExpired && (
-                  <button
-                    onClick={toggleDeliveryPause}
-                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border ${
-                      isPaused 
-                        ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100' 
-                        : 'bg-white/15 border-white/10 hover:bg-white/25 text-white'
-                    }`}
-                  >
-                    {isPaused ? (
-                      <>
-                        <Play size={14} />
-                        <span>Resume</span>
-                      </>
-                    ) : (
-                      <>
-                        <Pause size={14} />
-                        <span>Pause</span>
-                      </>
-                    )}
+                  <button onClick={toggleDeliveryPause} className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border ${isPaused ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100' : 'bg-white/15 border-white/10 hover:bg-white/25 text-white'}`}>
+                    {isPaused ? <><Play size={14} /><span>Resume</span></> : <><Pause size={14} /><span>Pause</span></>}
                   </button>
                 )}
-
-                {/* Info Button */}
-                <button
-                  onClick={() => setShowDeliveryInfo(true)}
-                  className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-2.5 sm:p-3 rounded-xl transition-all border border-white/10"
-                  title="Why delay?"
-                >
-                  <AlertCircle size={18} />
-                </button>
+                <button onClick={() => setShowDeliveryInfo(true)} className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-2.5 sm:p-3 rounded-xl transition-all border border-white/10"><AlertCircle size={18} /></button>
               </div>
             </div>
-
-            {/* Progress Bar */}
             <div className="mt-4 pt-4 border-t border-white/20">
               <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                 <span className="text-indigo-200">Today's Progress</span>
                 <span className="font-bold">{leadsToday} / {dailyLimit}</span>
               </div>
               <div className="w-full bg-white/20 rounded-full h-2.5 sm:h-3 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${dailyProgress}%` }}
-                />
+                <div className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-500 ease-out" style={{ width: `${dailyProgress}%` }} />
               </div>
             </div>
-
-            {/* Off Hours Indicator (subtle) */}
             {deliveryStatus.statusType === 'off_hours' && (
               <div className="mt-3 flex items-center gap-2 text-indigo-200 text-xs">
                 <Clock size={12} />
@@ -731,7 +565,6 @@ export const MemberDashboard = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 sm:mb-6 -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5 sm:overflow-visible scrollbar-hide">
           <StatCard label="Total" value={performanceStats.totalLeads} color="slate" icon={<Target size={14} />} />
           <StatCard label="This Week" value={performanceStats.thisWeek} color="blue" icon={<Calendar size={14} />} />
@@ -740,152 +573,86 @@ export const MemberDashboard = () => {
           <StatCard label="Conv." value={`${conversionRate}%`} color="orange" icon={<Flame size={14} />} />
         </div>
 
-        {/* Upgrade Prompt */}
         {conversionRate >= 20 && (profile?.plan_weight || 1) < 5 && !isExpired && (
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-xl flex-shrink-0">
-                <Award size={20} className="text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-purple-900 text-sm sm:text-base">Top Performer! 🔥</h3>
-                <p className="text-xs sm:text-sm text-purple-700">
-                  {conversionRate}% conversion - Upgrade for more leads
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSubscription(true)}
-                className="bg-purple-600 text-white px-3 py-2 rounded-lg font-bold text-xs sm:text-sm flex-shrink-0 hover:bg-purple-700 transition-colors"
-              >
-                Upgrade
-              </button>
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-xl flex-shrink-0"><Award size={20} className="text-purple-600" /></div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-purple-900 text-sm sm:text-base">Top Performer! 🔥</h3>
+              <p className="text-xs sm:text-sm text-purple-700">{conversionRate}% conversion - Upgrade for more leads</p>
             </div>
+            <button onClick={() => setShowSubscription(true)} className="bg-purple-600 text-white px-3 py-2 rounded-lg font-bold text-xs sm:text-sm flex-shrink-0 hover:bg-purple-700 transition-colors">Upgrade</button>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
-          <div className="flex gap-2 sm:gap-3">
-            <div className="relative flex-1">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white appearance-none cursor-pointer"
-              >
-                <option value="all">All Status ({leads.length})</option>
-                <option value="Fresh">🔵 Fresh ({stats.fresh})</option>
-                <option value="Call Back">🔄 Callback ({stats.callBack})</option>
-                <option value="Interested">✅ Interested ({stats.interested})</option>
-                <option value="Closed">🎉 Closed ({stats.closed})</option>
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-
-            <div className="relative flex-1">
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white appearance-none cursor-pointer"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">Last 7 Days</option>
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-
-            {(statusFilter !== 'all' || dateFilter !== 'all') && (
-              <button
-                onClick={() => { setStatusFilter('all'); setDateFilter('all'); }}
-                className="w-10 h-10 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition-all flex-shrink-0 border border-red-200"
-              >
-                <X size={18} />
-              </button>
-            )}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm flex gap-2 sm:gap-3">
+          <div className="relative flex-1">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white appearance-none cursor-pointer">
+              <option value="all">All Status ({leads.length})</option>
+              <option value="Fresh">🔵 Fresh ({stats.fresh})</option>
+              <option value="Call Back">🔄 Callback ({stats.callBack})</option>
+              <option value="Interested">✅ Interested ({stats.interested})</option>
+              <option value="Closed">🎉 Closed ({stats.closed})</option>
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
+          <div className="relative flex-1">
+            <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white appearance-none cursor-pointer">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+          {(statusFilter !== 'all' || dateFilter !== 'all') && (
+            <button onClick={() => { setStatusFilter('all'); setDateFilter('all'); }} className="w-10 h-10 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition-all flex-shrink-0 border border-red-200"><X size={18} /></button>
+          )}
         </div>
 
-        {/* Leads List */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">My Leads</h2>
-            <span className="text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-500 font-medium">
-              {filteredLeads.length} of {leads.length}
-            </span>
+            <span className="text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-500 font-medium">{filteredLeads.length} of {leads.length}</span>
           </div>
-
           {filteredLeads.length === 0 ? (
             <div className="p-8 sm:p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Target size={32} className="text-slate-400" />
-              </div>
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Target size={32} className="text-slate-400" /></div>
               <p className="font-semibold text-slate-800 text-sm sm:text-base">No leads found</p>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                {leads.length === 0 ? 'Leads will appear here soon! 🚀' : 'Try adjusting your filters'}
-              </p>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">{leads.length === 0 ? 'Leads will appear here soon! 🚀' : 'Try adjusting your filters'}</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => (
                 <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
-                  {/* Lead Header */}
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
                       <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                        <MapPin size={10} className="flex-shrink-0" /> 
-                        <span className="truncate">{lead.city || 'N/A'}</span>
+                        <MapPin size={10} className="flex-shrink-0" /> <span className="truncate">{lead.city || 'N/A'}</span>
                         <span className="text-slate-300">•</span>
-                        <Clock size={10} className="flex-shrink-0" /> 
-                        <span>{getTimeAgo(lead.created_at)}</span>
+                        <Clock size={10} className="flex-shrink-0" /> <span>{getTimeAgo(lead.created_at)}</span>
                       </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border flex-shrink-0 ml-2 ${getStatusColor(lead.status)}`}>
-                      {lead.status}
-                    </span>
+                    <span className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border flex-shrink-0 ml-2 ${getStatusColor(lead.status)}`}>{lead.status}</span>
                   </div>
-
-                  {/* Notes */}
                   {lead.notes && (
                     <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
                       <StickyNote size={12} className="mt-0.5 flex-shrink-0 text-amber-500" />
                       <span className="line-clamp-2">{lead.notes}</span>
                     </div>
                   )}
-
-                  {/* Action Buttons */}
                   <div className="flex items-center gap-2">
-                    <a
-                      href={`tel:${lead.phone}`}
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs sm:text-sm hover:bg-blue-100 transition-colors"
-                    >
-                      <Phone size={14} />
-                      <span className="hidden sm:inline">{lead.phone}</span>
-                      <span className="sm:hidden">Call</span>
+                    <a href={`tel:${lead.phone}`} className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs sm:text-sm hover:bg-blue-100 transition-colors">
+                      <Phone size={14} /><span className="hidden sm:inline">{lead.phone}</span><span className="sm:hidden">Call</span>
                     </a>
-                    <a
-                      href={getWhatsAppLink(lead.phone, lead.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 text-white py-2.5 rounded-xl font-medium text-xs sm:text-sm hover:bg-green-600 transition-colors"
-                    >
+                    <a href={getWhatsAppLink(lead.phone, lead.name)} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 text-white py-2.5 rounded-xl font-medium text-xs sm:text-sm hover:bg-green-600 transition-colors">
                       <MessageSquare size={14} /> WhatsApp
                     </a>
-                    <button
-                      onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
-                      className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-xl flex-shrink-0 hover:bg-slate-200 transition-colors"
-                    >
+                    <button onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-xl flex-shrink-0 hover:bg-slate-200 transition-colors">
                       <StickyNote size={16} />
                     </button>
                   </div>
-
-                  {/* Status Dropdown */}
                   <div className="relative mt-3">
-                    <select
-                      value={lead.status}
-                      onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
-                    >
+                    <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer">
                       <option value="Fresh">🔵 Fresh</option>
                       <option value="Contacted">📞 Contacted</option>
                       <option value="Call Back">🔄 Call Back</option>
@@ -903,189 +670,70 @@ export const MemberDashboard = () => {
         </div>
       </main>
 
-      {/* ━━━ Mobile Bottom CTA ━━━ */}
       {!isExpired && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 p-3 sm:hidden z-30 shadow-xl">
-          <button
-            onClick={() => setShowSubscription(true)}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25 active:scale-[0.98] transition-transform"
-          >
-            <Zap size={18} />
-            Upgrade for More Leads
+          <button onClick={() => setShowSubscription(true)} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25 active:scale-[0.98] transition-transform">
+            <Zap size={18} /> Upgrade for More Leads
           </button>
         </div>
       )}
 
-      {/* ━━━ Delivery Info Modal ━━━ */}
       {showDeliveryInfo && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[85vh] overflow-hidden animate-slide-up sm:animate-fade-in">
-            <div className="p-4 sm:p-6 border-b border-slate-100 sticky top-0 bg-white">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-slate-900">Why leads may delay?</h3>
-                <button onClick={() => setShowDeliveryInfo(false)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                  <X size={22} />
-                </button>
-              </div>
+            <div className="p-4 sm:p-6 border-b border-slate-100 sticky top-0 bg-white flex justify-between items-center">
+              <h3 className="font-bold text-lg text-slate-900">Why leads may delay?</h3>
+              <button onClick={() => setShowDeliveryInfo(false)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={22} /></button>
             </div>
-
             <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="font-bold text-blue-900 text-sm">⏰ Working Hours</p>
-                <p className="text-xs text-blue-700 mt-1">Leads are delivered between <b>8 AM – 10 PM</b> IST.</p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p className="font-bold text-slate-800 text-sm">📊 Daily Limit</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  Your plan: <b>{dailyLimit}</b> leads/day. Remaining today: <b>{remainingToday}</b>.
-                </p>
-              </div>
-
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                <p className="font-bold text-purple-900 text-sm">⚡ Your Priority</p>
-                <p className="text-xs text-purple-700 mt-1">
-                  Higher plans get leads faster. Your level: <b>{priorityBadge.text}</b>.
-                </p>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="font-bold text-amber-900 text-sm">❓ Common Reasons</p>
-                <ul className="text-xs text-amber-800 list-disc pl-4 space-y-1 mt-2">
-                  <li>Off hours (after 10 PM)</li>
-                  <li>Daily limit reached</li>
-                  <li>Plan expired or inactive</li>
-                  <li>Delivery paused by you</li>
-                  <li>High demand periods</li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg"
-              >
-                ⚡ Upgrade for Faster Delivery
-              </button>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4"><p className="font-bold text-blue-900 text-sm">⏰ Working Hours</p><p className="text-xs text-blue-700 mt-1">Leads delivered <b>8 AM – 10 PM</b> IST.</p></div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4"><p className="font-bold text-slate-800 text-sm">📊 Daily Limit</p><p className="text-xs text-slate-600 mt-1">Your plan: <b>{dailyLimit}</b> leads/day. Remaining: <b>{remainingToday}</b>.</p></div>
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4"><p className="font-bold text-purple-900 text-sm">⚡ Your Priority</p><p className="text-xs text-purple-700 mt-1">Higher plans get leads faster. Your level: <b>{priorityBadge.text}</b>.</p></div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4"><p className="font-bold text-amber-900 text-sm">❓ Common Reasons</p><ul className="text-xs text-amber-800 list-disc pl-4 space-y-1 mt-2"><li>Off hours (after 10 PM)</li><li>Daily limit reached</li><li>Plan expired or inactive</li><li>Delivery paused</li><li>High demand</li></ul></div>
+              <button onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }} className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg">⚡ Upgrade for Faster Delivery</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ━━━ Notes Modal ━━━ */}
       {showNotesModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md animate-slide-up sm:animate-fade-in">
-            <div className="p-4 sm:p-6 border-b border-slate-100">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-slate-900">📝 Add Note</h3>
-                <button onClick={() => setShowNotesModal(null)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                  <X size={22} />
-                </button>
-              </div>
-              <p className="text-sm text-slate-500 mt-1 truncate">{showNotesModal?.name} • {showNotesModal?.phone}</p>
+            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
+              <div><h3 className="font-bold text-lg text-slate-900">📝 Add Note</h3><p className="text-sm text-slate-500 mt-1 truncate">{showNotesModal?.name} • {showNotesModal?.phone}</p></div>
+              <button onClick={() => setShowNotesModal(null)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={22} /></button>
             </div>
-
             <div className="p-4 sm:p-6">
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Add notes about this lead..."
-                className="w-full border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none h-32"
-                autoFocus
-              />
-
+              <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Add notes..." className="w-full border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none h-32" autoFocus />
               <div className="flex gap-3 mt-4">
-                <button
-                  onClick={() => setShowNotesModal(null)}
-                  className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium hover:bg-slate-50 text-sm transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveNote}
-                  disabled={savingNote}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 flex items-center justify-center gap-2 text-sm transition-colors disabled:opacity-50"
-                >
-                  {savingNote ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <><Check size={16} /> Save Note</>
-                  )}
-                </button>
+                <button onClick={() => setShowNotesModal(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium hover:bg-slate-50 text-sm transition-colors">Cancel</button>
+                <button onClick={saveNote} disabled={savingNote} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 flex items-center justify-center gap-2 text-sm transition-colors disabled:opacity-50">{savingNote ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Check size={16} /> Save Note</>}</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ━━━ Custom Styles ━━━ */}
       <style>{`
-        @keyframes bounce-in {
-          0% { transform: scale(0.9); opacity: 0; }
-          50% { transform: scale(1.02); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes slide-up {
-          0% { transform: translateY(100%); }
-          100% { transform: translateY(0); }
-        }
-        @keyframes fade-in {
-          0% { opacity: 0; transform: scale(0.95); }
-          100% { opacity: 1; transform: scale(1); }
-        }
+        @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes slide-up { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+        @keyframes fade-in { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
         .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
         .animate-slide-up { animation: slide-up 0.3s ease-out; }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
-        
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
 };
 
-// ============================================================
-// STAT CARD COMPONENT
-// ============================================================
-
-const StatCard = ({ 
-  label, 
-  value, 
-  color, 
-  icon 
-}: { 
-  label: string; 
-  value: number | string; 
-  color: string; 
-  icon: React.ReactNode 
-}) => {
-  const colors: Record<string, string> = {
-    slate: 'border-l-slate-400 bg-slate-50/50',
-    blue: 'border-l-blue-500 bg-blue-50/50',
-    green: 'border-l-green-500 bg-green-50/50',
-    purple: 'border-l-purple-500 bg-purple-50/50',
-    orange: 'border-l-orange-500 bg-orange-50/50',
-  };
-
-  const iconColors: Record<string, string> = {
-    slate: 'text-slate-600',
-    blue: 'text-blue-600',
-    green: 'text-green-600',
-    purple: 'text-purple-600',
-    orange: 'text-orange-600',
-  };
-
+const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => {
+  const colors: Record<string, string> = { slate: 'border-l-slate-400 bg-slate-50/50', blue: 'border-l-blue-500 bg-blue-50/50', green: 'border-l-green-500 bg-green-50/50', purple: 'border-l-purple-500 bg-purple-50/50', orange: 'border-l-orange-500 bg-orange-50/50' };
+  const iconColors: Record<string, string> = { slate: 'text-slate-600', blue: 'text-blue-600', green: 'text-green-600', purple: 'text-purple-600', orange: 'text-orange-600' };
   return (
     <div className={`flex-shrink-0 w-[100px] sm:w-auto bg-white p-3 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className={iconColors[color]}>{icon}</span>
-        <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase truncate">{label}</span>
-      </div>
+      <div className="flex items-center gap-1.5 mb-1"><span className={iconColors[color]}>{icon}</span><span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase truncate">{label}</span></div>
       <p className="text-lg sm:text-xl font-bold text-slate-900">{value}</p>
     </div>
   );
