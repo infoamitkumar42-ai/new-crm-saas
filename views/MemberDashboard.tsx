@@ -3,12 +3,12 @@ import { supabase } from '../supabaseClient';
 import {
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
   X, Calendar, Target, TrendingUp, Clock,
-  StickyNote, Check, LogOut, Zap, Crown, Lock, Eye,
+  StickyNote, Check, LogOut, Zap, Crown, Lock,
   Gift, Flame, ArrowUp, Bell, Rocket, Shield,
   AlertCircle, Award, ChevronDown, Moon, Pause, Play,
   CheckCircle2, AlertTriangle
 } from 'lucide-react';
-import { Subscription } from '../components/Subscription'; // Ensure correct path
+import { Subscription } from '../components/Subscription';
 
 // ============================================================
 // TYPES
@@ -66,6 +66,54 @@ interface DeliveryStatusInfo {
 }
 
 // ============================================================
+// GLOBAL HELPER FUNCTIONS (Fixed ReferenceError)
+// ============================================================
+
+const getTimeAgo = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'Fresh': return 'bg-blue-50 border-blue-200 text-blue-700';
+    case 'Contacted': return 'bg-cyan-50 border-cyan-200 text-cyan-700';
+    case 'Call Back': return 'bg-yellow-50 border-yellow-200 text-yellow-700';
+    case 'Interested': return 'bg-green-50 border-green-200 text-green-700';
+    case 'Follow-up': return 'bg-orange-50 border-orange-200 text-orange-700';
+    case 'Closed': return 'bg-purple-50 border-purple-200 text-purple-700';
+    case 'Rejected': return 'bg-red-50 border-red-200 text-red-700';
+    default: return 'bg-slate-50 border-slate-200 text-slate-700';
+  }
+};
+
+const isWithinWorkingHours = () => {
+  const hour = new Date().getHours();
+  return hour >= 8 && hour < 22;
+};
+
+const getTimeUntilOpen = (): string => {
+  const hour = new Date().getHours();
+  if (hour >= 22) {
+    return `Opens in ${24 - hour + 8} hours`;
+  } else if (hour < 8) {
+    return `Opens in ${8 - hour} hours`;
+  }
+  return '';
+};
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 
@@ -92,23 +140,8 @@ export const MemberDashboard = () => {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // ============================================================
-  // HELPER FUNCTIONS
+  // COMPUTED VALUES
   // ============================================================
-
-  const isWithinWorkingHours = () => {
-    const hour = new Date().getHours();
-    return hour >= 8 && hour < 22;
-  };
-
-  const getTimeUntilOpen = (): string => {
-    const hour = new Date().getHours();
-    if (hour >= 22) {
-      return `Opens in ${24 - hour + 8} hours`;
-    } else if (hour < 8) {
-      return `Opens in ${8 - hour} hours`;
-    }
-    return '';
-  };
 
   const getDaysUntilExpiry = () => {
     if (!profile?.valid_until) return null;
@@ -128,10 +161,6 @@ export const MemberDashboard = () => {
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
-
-  // ============================================================
-  // COMPUTED VALUES
-  // ============================================================
 
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
@@ -276,7 +305,7 @@ export const MemberDashboard = () => {
           .from('users')
           .select('name')
           .eq('id', userData.manager_id)
-          .maybeSingle(); // Fixed 406 Error
+          .maybeSingle(); 
         setManagerName(managerData?.name || 'Unknown');
       } else {
         setManagerName('Direct (No Manager)');
@@ -379,27 +408,16 @@ export const MemberDashboard = () => {
     }
   };
 
-  const getWhatsAppLink = (phone: string, name: string) => {
+  const getWhatsAppLink = (phone: string, leadName: string) => {
     const message = encodeURIComponent(
-      `Hi ${name}, I'm ${profile?.name} from LeadFlow. I saw your inquiry and wanted to connect. Are you available to discuss?`
+      `Hi ${leadName}, I'm ${profile?.name} from LeadFlow. I saw your inquiry and wanted to connect. Are you available to discuss?`
     );
     const cleanPhone = phone.replace(/\D/g, '');
     const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     return `https://wa.me/${prefixedPhone}?text=${message}`;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Fresh': return 'bg-blue-50 border-blue-200 text-blue-700';
-      case 'Contacted': return 'bg-cyan-50 border-cyan-200 text-cyan-700';
-      case 'Call Back': return 'bg-yellow-50 border-yellow-200 text-yellow-700';
-      case 'Interested': return 'bg-green-50 border-green-200 text-green-700';
-      case 'Follow-up': return 'bg-orange-50 border-orange-200 text-orange-700';
-      case 'Closed': return 'bg-purple-50 border-purple-200 text-purple-700';
-      case 'Rejected': return 'bg-red-50 border-red-200 text-red-700';
-      default: return 'bg-slate-50 border-slate-200 text-slate-700';
-    }
-  };
+  const StatusIcon = deliveryStatus.icon;
 
   if (loading) {
     return (
@@ -412,7 +430,9 @@ export const MemberDashboard = () => {
     );
   }
 
-  const StatusIcon = deliveryStatus.icon;
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
