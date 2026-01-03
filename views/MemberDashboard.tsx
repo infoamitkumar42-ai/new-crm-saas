@@ -5,7 +5,8 @@ import {
   X, Calendar, Target, TrendingUp, Clock,
   StickyNote, Check, LogOut, Zap, Crown, Lock, Eye,
   Gift, Flame, ArrowUp, Bell, Rocket, Shield,
-  AlertCircle, Award, ChevronDown
+  AlertCircle, Award, ChevronDown, Moon, Pause, Play,
+  CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { Subscription } from './Subscription';
 
@@ -30,6 +31,7 @@ interface UserProfile {
   sheet_url: string;
   filters: any;
   last_activity: string;
+  is_active?: boolean;
 }
 
 interface Lead {
@@ -52,6 +54,18 @@ interface PerformanceStats {
   totalLeads: number;
   thisWeek: number;
   conversionRate: number;
+}
+
+// ============================================================
+// DELIVERY STATUS TYPE
+// ============================================================
+interface DeliveryStatusInfo {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  iconBgColor: string;  // Background color for the icon circle
+  iconColor: string;    // Icon color
+  statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired';
 }
 
 // ============================================================
@@ -89,6 +103,16 @@ export const MemberDashboard = () => {
     return hour >= 8 && hour < 22;
   };
 
+  const getTimeUntilOpen = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 22) {
+      return `Opens in ${24 - hour + 8} hours`;
+    } else if (hour < 8) {
+      return `Opens in ${8 - hour} hours`;
+    }
+    return '';
+  };
+
   const getDaysUntilExpiry = () => {
     if (!profile?.valid_until) return null;
     const expiry = new Date(profile.valid_until);
@@ -106,6 +130,7 @@ export const MemberDashboard = () => {
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
+  const isPaused = profile?.is_active === false;
 
   // ============================================================
   // COMPUTED VALUES
@@ -120,23 +145,80 @@ export const MemberDashboard = () => {
     return { text: 'STANDARD', color: 'bg-slate-600 text-white', icon: Shield as LucideIcon };
   }, [profile?.plan_weight]);
 
-  const deliveryStatus = useMemo(() => {
-    if (!profile) return { title: 'Loading...', subtitle: '', color: 'from-slate-600 to-slate-700' };
-
-    if (profile.payment_status !== 'active') {
-      return { title: 'Inactive Plan', subtitle: 'Renew to start receiving leads again.', color: 'from-red-500 to-red-600' };
+  // ============================================================
+  // 🎯 FIXED DELIVERY STATUS - Always Blue/Indigo Card
+  // ============================================================
+  // The card background NEVER changes. Only the text and icon change.
+  const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
+    if (!profile) {
+      return {
+        title: 'Loading...',
+        subtitle: 'Fetching your status',
+        icon: Clock,
+        iconBgColor: 'bg-white/20',
+        iconColor: 'text-white',
+        statusType: 'inactive'
+      };
     }
 
+    // Check plan status first
+    if (profile.payment_status !== 'active' || isExpired) {
+      return {
+        title: 'Plan Inactive',
+        subtitle: 'Renew to start receiving leads',
+        icon: AlertTriangle,
+        iconBgColor: 'bg-red-500/30',
+        iconColor: 'text-red-200',
+        statusType: 'expired'
+      };
+    }
+
+    // Check if user paused delivery
+    if (isPaused) {
+      return {
+        title: 'Delivery Paused',
+        subtitle: 'Resume to receive leads',
+        icon: Pause,
+        iconBgColor: 'bg-orange-500/30',
+        iconColor: 'text-orange-200',
+        statusType: 'paused'
+      };
+    }
+
+    // Check working hours
     if (!isWithinWorkingHours()) {
-      return { title: 'Off Hours', subtitle: 'Leads will deliver at 8 AM.', color: 'from-yellow-500 to-orange-500' };
+      return {
+        title: 'Off Hours',
+        subtitle: `Lead delivery: 8 AM - 10 PM IST`,
+        icon: Moon,
+        iconBgColor: 'bg-white/20',
+        iconColor: 'text-indigo-200',
+        statusType: 'off_hours'
+      };
     }
 
+    // Check daily limit
     if (isLimitReached) {
-      return { title: 'Limit Reached', subtitle: 'More leads tomorrow!', color: 'from-purple-500 to-indigo-600' };
+      return {
+        title: 'Daily Limit Reached',
+        subtitle: `You've received ${dailyLimit} leads today`,
+        icon: CheckCircle2,
+        iconBgColor: 'bg-green-500/30',
+        iconColor: 'text-green-200',
+        statusType: 'limit_reached'
+      };
     }
 
-    return { title: 'Delivering Leads', subtitle: `${remainingToday} more leads coming today.`, color: 'from-green-500 to-emerald-600' };
-  }, [profile, isLimitReached, remainingToday]);
+    // All good - actively receiving
+    return {
+      title: 'Actively Receiving',
+      subtitle: `${remainingToday} more leads coming today`,
+      icon: Zap,
+      iconBgColor: 'bg-green-500/30',
+      iconColor: 'text-green-300',
+      statusType: 'active'
+    };
+  }, [profile, isExpired, isPaused, isLimitReached, remainingToday, dailyLimit]);
 
   const performanceStats: PerformanceStats = useMemo(() => {
     const weekAgo = new Date();
@@ -236,7 +318,7 @@ export const MemberDashboard = () => {
     if (!profile?.id) return;
 
     const channel = supabase
-      .channel('member-leads')
+      .channel(`member-leads-${profile.id}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -271,6 +353,26 @@ export const MemberDashboard = () => {
     if (error) {
       alert('Error updating status!');
       fetchData();
+    }
+  };
+
+  const toggleDeliveryPause = async () => {
+    if (!profile) return;
+    
+    const newStatus = !isPaused;
+    
+    // Optimistic update
+    setProfile(prev => prev ? { ...prev, is_active: !newStatus } : null);
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ is_active: !newStatus })
+      .eq('id', profile.id);
+    
+    if (error) {
+      // Revert on error
+      setProfile(prev => prev ? { ...prev, is_active: newStatus } : null);
+      alert('Error updating delivery status');
     }
   };
 
@@ -351,6 +453,8 @@ export const MemberDashboard = () => {
   // MAIN RENDER
   // ============================================================
 
+  const StatusIcon = deliveryStatus.icon;
+
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
 
@@ -388,75 +492,75 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* ━━━ Top Banners (Original Style - Solid Colors) ━━━ */}
-<div className="relative z-30">
-  {/* Off Hours Banner - Yellow */}
-  {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
-    <div className="bg-yellow-500 text-yellow-900 py-2.5 px-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Clock size={16} className="flex-shrink-0" />
-          <span>⏰ Off Hours: Leads delivery starts at 8 AM</span>
-        </div>
-        <button 
-          onClick={() => setBannerDismissed(true)} 
-          className="p-1 hover:bg-yellow-600/20 rounded flex-shrink-0"
-        >
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-  )}
+      {/* ━━━ Top Banners (Solid Colors - Distinct from Main Card) ━━━ */}
+      <div className="relative z-30">
+        {/* Off Hours Banner - Yellow */}
+        {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
+          <div className="bg-amber-500 text-amber-950 py-2.5 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Moon size={16} className="flex-shrink-0" />
+                <span>⏰ Off Hours: Lead delivery starts at 8 AM ({getTimeUntilOpen()})</span>
+              </div>
+              <button 
+                onClick={() => setBannerDismissed(true)} 
+                className="p-1 hover:bg-amber-600/20 rounded flex-shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
-  {/* Expiring Soon Banner - Orange/Red */}
-  {isExpiringSoon && !isExpired && !bannerDismissed && (
-    <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Bell size={16} className="animate-pulse flex-shrink-0" />
-          <span>
-            {daysLeft && daysLeft <= 2 
-              ? `⚠️ Plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}! Renew now!`
-              : `Plan expires in ${daysLeft} days - Renew to avoid interruption`
-            }
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => setShowSubscription(true)}
-            className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-orange-50 transition-colors"
-          >
-            Renew Now
-          </button>
-          <button 
-            onClick={() => setBannerDismissed(true)} 
-            className="p-1 hover:bg-white/20 rounded"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
+        {/* Expiring Soon Banner - Orange/Red */}
+        {isExpiringSoon && !isExpired && !bannerDismissed && (
+          <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Bell size={16} className="animate-pulse flex-shrink-0" />
+                <span>
+                  {daysLeft && daysLeft <= 2 
+                    ? `⚠️ Plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}! Renew now!`
+                    : `Plan expires in ${daysLeft} days - Renew to avoid interruption`
+                  }
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowSubscription(true)}
+                  className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-orange-50 transition-colors"
+                >
+                  Renew Now
+                </button>
+                <button 
+                  onClick={() => setBannerDismissed(true)} 
+                  className="p-1 hover:bg-white/20 rounded"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-  {/* Daily Limit Reached Banner - Blue */}
-  {isLimitReached && !isExpired && (
-    <div className="bg-blue-600 text-white py-2.5 px-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Target size={16} className="flex-shrink-0" />
-          <span>🎯 Daily limit reached! Upgrade for more leads today.</span>
-        </div>
-        <button
-          onClick={() => setShowSubscription(true)}
-          className="bg-white text-blue-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-blue-50 transition-colors flex-shrink-0"
-        >
-          Upgrade
-        </button>
+        {/* Daily Limit Reached Banner - Green Success */}
+        {isLimitReached && !isExpired && (
+          <div className="bg-emerald-600 text-white py-2.5 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 size={16} className="flex-shrink-0" />
+                <span>🎯 Today's goal completed! {dailyLimit} leads received. More tomorrow!</span>
+              </div>
+              <button
+                onClick={() => setShowSubscription(true)}
+                className="bg-white text-emerald-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-emerald-50 transition-colors flex-shrink-0"
+              >
+                Get More
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )}
-</div>
 
       {/* ━━━ Sticky Header ━━━ */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
@@ -522,43 +626,108 @@ export const MemberDashboard = () => {
       {/* ━━━ Main Content ━━━ */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
 
-        {/* Delivery Status Card */}
-        <div className={`bg-gradient-to-r ${deliveryStatus.color} text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-lg`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <div className="text-[10px] sm:text-xs text-white/70 font-bold uppercase tracking-wide">Delivery Status</div>
-              <div className="text-xl sm:text-2xl font-black mt-0.5">{deliveryStatus.title}</div>
-              <div className="text-xs sm:text-sm text-white/80 mt-0.5">{deliveryStatus.subtitle}</div>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <div className="flex-1 sm:flex-none bg-white/15 backdrop-blur rounded-xl px-4 py-2.5 sm:py-3 text-center">
-                <div className="text-xl sm:text-2xl font-black">{remainingToday}</div>
-                <div className="text-[10px] sm:text-xs text-white/70">Remaining</div>
+        {/* ============================================================ */}
+        {/* 🎯 FIXED: DELIVERY STATUS CARD - ALWAYS BLUE/INDIGO/PURPLE */}
+        {/* ============================================================ */}
+        {/* 
+          This card NEVER changes its gradient color.
+          Only the icon, title, and subtitle change based on status.
+          This gives a consistent premium look regardless of the delivery state.
+        */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl shadow-indigo-500/25">
+          
+          {/* Decorative Background Elements */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
+          
+          {/* Content */}
+          <div className="relative z-10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              
+              {/* Left: Status Info */}
+              <div className="flex items-center gap-3 sm:gap-4 flex-1">
+                {/* Status Icon */}
+                <div className={`p-3 sm:p-4 rounded-xl ${deliveryStatus.iconBgColor} backdrop-blur-sm`}>
+                  <StatusIcon size={24} className={deliveryStatus.iconColor} />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] sm:text-xs text-indigo-200 font-bold uppercase tracking-wide">
+                    Delivery Status
+                  </div>
+                  <div className="text-lg sm:text-2xl font-black mt-0.5 truncate">
+                    {deliveryStatus.title}
+                  </div>
+                  <div className="text-xs sm:text-sm text-indigo-200 mt-0.5">
+                    {deliveryStatus.subtitle}
+                  </div>
+                </div>
               </div>
 
-              <button
-                onClick={() => setShowDeliveryInfo(true)}
-                className="flex-1 sm:flex-none bg-white/15 hover:bg-white/25 backdrop-blur px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
-              >
-                <AlertCircle size={14} />
-                <span>Why delay?</span>
-              </button>
-            </div>
-          </div>
+              {/* Right: Stats & Actions */}
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                {/* Remaining Leads Counter */}
+                <div className="flex-1 sm:flex-none bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 sm:py-3 text-center border border-white/10">
+                  <div className="text-xl sm:text-2xl font-black">{remainingToday}</div>
+                  <div className="text-[10px] sm:text-xs text-indigo-200">Remaining</div>
+                </div>
 
-          {/* Progress Bar */}
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
-              <span className="text-white/80">Today's Progress</span>
-              <span className="font-bold">{leadsToday} / {dailyLimit}</span>
+                {/* Pause/Resume Button */}
+                {profile?.payment_status === 'active' && !isExpired && (
+                  <button
+                    onClick={toggleDeliveryPause}
+                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border ${
+                      isPaused 
+                        ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100' 
+                        : 'bg-white/15 border-white/10 hover:bg-white/25 text-white'
+                    }`}
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play size={14} />
+                        <span>Resume</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pause size={14} />
+                        <span>Pause</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Info Button */}
+                <button
+                  onClick={() => setShowDeliveryInfo(true)}
+                  className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-2.5 sm:p-3 rounded-xl transition-all border border-white/10"
+                  title="Why delay?"
+                >
+                  <AlertCircle size={18} />
+                </button>
+              </div>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-2.5 sm:h-3">
-              <div
-                className="bg-white rounded-full h-2.5 sm:h-3 transition-all duration-500 ease-out"
-                style={{ width: `${dailyProgress}%` }}
-              />
+
+            {/* Progress Bar */}
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+                <span className="text-indigo-200">Today's Progress</span>
+                <span className="font-bold">{leadsToday} / {dailyLimit}</span>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-2.5 sm:h-3 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${dailyProgress}%` }}
+                />
+              </div>
             </div>
+
+            {/* Off Hours Indicator (subtle) */}
+            {deliveryStatus.statusType === 'off_hours' && (
+              <div className="mt-3 flex items-center gap-2 text-indigo-200 text-xs">
+                <Clock size={12} />
+                <span>{getTimeUntilOpen()}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -786,6 +955,7 @@ export const MemberDashboard = () => {
                   <li>Off hours (after 10 PM)</li>
                   <li>Daily limit reached</li>
                   <li>Plan expired or inactive</li>
+                  <li>Delivery paused by you</li>
                   <li>High demand periods</li>
                 </ul>
               </div>
