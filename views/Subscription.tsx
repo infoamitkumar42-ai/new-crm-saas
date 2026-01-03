@@ -451,7 +451,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                         <div className="text-[10px] text-slate-500 font-medium">LEADS/DAY</div>
                       </div>
                       <div className="bg-white/80 backdrop-blur rounded-xl p-3 text-center border border-slate-200/50">
-                        <div className="text-2xl font-black text-green-600">₹{plan.perDay}</div>
+                        <div className="text-2xl font-black text-green-600">₹{Math.round(plan.perDay)}</div>
                         <div className="text-[10px] text-slate-500 font-medium">PER DAY</div>
                       </div>
                       <div className="bg-white/80 backdrop-blur rounded-xl p-3 text-center border border-slate-200/50">
@@ -498,7 +498,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                         </>
                       ) : (
                         <>
-                          <span>View All Features</span>
+                          <span>View All {plan.features.length} Features</span>
                           <ChevronDown size={16} />
                         </>
                       )}
@@ -506,7 +506,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
 
                     {/* Expanded Features */}
                     {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-slate-200 animate-in slide-in-from-top-2 duration-300">
+                      <div className="mt-4 pt-4 border-t border-slate-200">
                         <h4 className="text-sm font-bold text-slate-700 mb-3">All Features Included:</h4>
                         <div className="grid grid-cols-1 gap-2">
                           {plan.features.map((feature, idx) => {
@@ -629,16 +629,16 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
 
         </div>
 
-        {/* ━━━ Bottom Bar (Mobile) ━━━ */}
+        {/* ━━━ Bottom Bar (Mobile) - REPLACEMENT GUARANTEE (NO MONEY BACK) ━━━ */}
         <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
           <div className="flex items-center justify-between max-w-md mx-auto">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                <Check size={16} className="text-green-400" />
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <RefreshCw size={16} className="text-amber-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-white">Money Back Guarantee</p>
-                <p className="text-[10px] text-white/50">If not satisfied in 48 hrs</p>
+                <p className="text-xs font-semibold text-white">Replacement Guarantee</p>
+                <p className="text-[10px] text-white/50">Invalid leads replaced free</p>
               </div>
             </div>
             <button
