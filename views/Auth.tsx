@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
-import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
@@ -27,12 +27,18 @@ export const Auth: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Debounce ref
+  const debounceRef = useRef<NodeJS.Timeout>();
+
   // ═══════════════════════════════════════════════════════════
-  // 🔍 TEAM CODE VERIFICATION (Using Secure RPC Function)
+  // 🔍 TEAM CODE VERIFICATION (CASE-INSENSITIVE)
   // ═══════════════════════════════════════════════════════════
   
   const verifyTeamCode = async (code: string) => {
-    if (!code || code.length < 3) {
+    // Normalize: uppercase + trim
+    const normalizedCode = code.toUpperCase().trim();
+    
+    if (!normalizedCode || normalizedCode.length < 3) {
       setTeamCodeStatus('idle');
       setManagerInfo(null);
       return;
@@ -41,10 +47,11 @@ export const Auth: React.FC = () => {
     setTeamCodeStatus('checking');
 
     try {
-      // ✅ Use RPC function - works WITHOUT authentication!
       const { data, error } = await supabase.rpc('verify_team_code', { 
-        code: code.toUpperCase() 
+        code: normalizedCode  // Already uppercase
       });
+
+      console.log('Team code verification result:', { code: normalizedCode, data, error });
 
       if (error) {
         console.error('Team code verification error:', error);
@@ -53,16 +60,18 @@ export const Auth: React.FC = () => {
         return;
       }
 
-      // Check if valid
+      // Check if valid result returned
       if (data && data.length > 0 && data[0].is_valid) {
         setTeamCodeStatus('valid');
         setManagerInfo({
           id: data[0].manager_id,
           name: data[0].manager_name || 'Manager'
         });
+        console.log('✅ Valid team code! Manager:', data[0].manager_name);
       } else {
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
+        console.log('❌ Invalid team code');
       }
 
     } catch (err) {
@@ -73,12 +82,16 @@ export const Auth: React.FC = () => {
   };
 
   const checkTeamCodeAvailability = async (code: string): Promise<boolean> => {
-    if (!code || code.length < 3) return false;
+    const normalizedCode = code.toUpperCase().trim();
+    
+    if (!normalizedCode || normalizedCode.length < 3) return false;
 
     try {
       const { data, error } = await supabase.rpc('check_team_code_available', { 
-        code: code.toUpperCase() 
+        code: normalizedCode
       });
+
+      console.log('Code availability check:', { code: normalizedCode, available: data, error });
 
       if (error) {
         console.error('Code availability check error:', error);
@@ -95,81 +108,118 @@ export const Auth: React.FC = () => {
 
   // Debounced team code check
   const handleTeamCodeChange = (value: string) => {
-    const upperValue = value.toUpperCase().replace(/\s/g, '');
+    // Always convert to uppercase and remove spaces
+    const upperValue = value.toUpperCase().replace(/\s/g, '').trim();
     setTeamCode(upperValue);
     setTeamCodeStatus('idle');
     setManagerInfo(null);
 
-    // Debounce the verification
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Debounce the verification for members
     if (selectedRole === 'member' && upperValue.length >= 3) {
-      const timeoutId = setTimeout(() => {
+      debounceRef.current = setTimeout(() => {
         verifyTeamCode(upperValue);
-      }, 500);
-      
-      return () => clearTimeout(timeoutId);
+      }, 600);
     }
   };
 
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   // ═══════════════════════════════════════════════════════════
-  // 📊 GOOGLE SHEET CREATOR (Fixed for CORS)
+  // 📊 GOOGLE SHEET CREATOR (Improved with Retry)
   // ═══════════════════════════════════════════════════════════
   
   const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
-    try {
-      setStatusMessage("Creating your personal Google Sheet...");
-      
-      // Method 1: Using POST with text/plain to avoid CORS preflight
-      const response = await fetch(SHEET_CREATOR_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: JSON.stringify({
-          action: 'createSheet',
-          userId: userId,
-          email: userEmail,
-          name: userName
-        })
-      });
+    const maxRetries = 2;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        setStatusMessage(`Creating Google Sheet (attempt ${attempt})...`);
+        console.log(`📊 Sheet creation attempt ${attempt} for ${userEmail}`);
+        
+        // Method 1: POST request
+        const postResponse = await fetch(SHEET_CREATOR_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+          body: JSON.stringify({
+            action: 'createSheet',
+            userId: userId,
+            email: userEmail,
+            name: userName
+          })
+        });
 
-      if (response.ok) {
-        const text = await response.text();
-        try {
-          const result = JSON.parse(text);
-          if (result.success && result.sheetUrl) {
-            console.log("✅ Sheet created:", result.sheetUrl);
-            return result.sheetUrl;
+        if (postResponse.ok) {
+          const text = await postResponse.text();
+          console.log('POST Response:', text);
+          
+          try {
+            const result = JSON.parse(text);
+            if (result.success && result.sheetUrl) {
+              console.log("✅ Sheet created via POST:", result.sheetUrl);
+              return result.sheetUrl;
+            }
+            if (result.error) {
+              console.error("Sheet creation error:", result.error);
+            }
+          } catch (parseErr) {
+            console.log("Response not JSON:", text);
           }
-        } catch {
-          console.log("Response:", text);
+        }
+
+        // Method 2: GET request as fallback
+        const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
+        
+        console.log('Trying GET request...');
+        const getResponse = await fetch(getUrl, { 
+          method: 'GET',
+          mode: 'cors'
+        });
+        
+        if (getResponse.ok) {
+          const text = await getResponse.text();
+          console.log('GET Response:', text);
+          
+          try {
+            const result = JSON.parse(text);
+            if (result.success && result.sheetUrl) {
+              console.log("✅ Sheet created via GET:", result.sheetUrl);
+              return result.sheetUrl;
+            }
+          } catch (parseErr) {
+            console.log("GET Response not JSON:", text);
+          }
+        }
+
+        // Wait before retry
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (err) {
+        console.error(`Sheet creation attempt ${attempt} error:`, err);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
-
-      // Method 2: Try GET request as fallback
-      const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${userId}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
-      
-      const getResponse = await fetch(getUrl, { method: 'GET' });
-      
-      if (getResponse.ok) {
-        const text = await getResponse.text();
-        try {
-          const result = JSON.parse(text);
-          if (result.success && result.sheetUrl) {
-            console.log("✅ Sheet created via GET:", result.sheetUrl);
-            return result.sheetUrl;
-          }
-        } catch {
-          console.log("GET Response:", text);
-        }
-      }
-
-      console.log("Sheet creation will be handled by background job");
-      return null;
-      
-    } catch (err) {
-      console.error("Sheet creation error:", err);
-      return null;
     }
+
+    console.log("⚠️ Sheet creation failed after all retries - will be created by background job");
+    return null;
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -188,11 +238,16 @@ export const Auth: React.FC = () => {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // VALIDATION
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (selectedRole === 'member' && !teamCode) {
+        const normalizedTeamCode = teamCode.toUpperCase().trim();
+        
+        if (selectedRole === 'member' && !normalizedTeamCode) {
           throw new Error("Please enter a Team Code to join.");
         }
-        if (selectedRole === 'manager' && !teamCode) {
+        if (selectedRole === 'manager' && !normalizedTeamCode) {
           throw new Error("Please create a unique Team Code for your team.");
+        }
+        if (normalizedTeamCode.length < 3) {
+          throw new Error("Team Code must be at least 3 characters.");
         }
 
         setStatusMessage("Verifying details...");
@@ -200,19 +255,24 @@ export const Auth: React.FC = () => {
         let managerId: string | null = null;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MEMBER: Verify Team Code (Using RPC!)
+        // 🔍 MEMBER: Verify Team Code
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'member') {
+          setStatusMessage("Verifying team code...");
+          
           const { data, error: rpcError } = await supabase.rpc('verify_team_code', { 
-            code: teamCode 
+            code: normalizedTeamCode 
           });
 
+          console.log('Signup - Team code verification:', { code: normalizedTeamCode, data, error: rpcError });
+
           if (rpcError) {
+            console.error('RPC Error:', rpcError);
             throw new Error("Unable to verify team code. Please try again.");
           }
 
           if (!data || data.length === 0 || !data[0].is_valid) {
-            throw new Error("Invalid Team Code. Please ask your manager for the correct code.");
+            throw new Error(`Invalid Team Code: "${normalizedTeamCode}". Please ask your manager for the correct code.`);
           }
 
           managerId = data[0].manager_id;
@@ -220,13 +280,15 @@ export const Auth: React.FC = () => {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MANAGER: Verify Code is Available (Using RPC!)
+        // 🔍 MANAGER: Verify Code is Available
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'manager') {
-          const isAvailable = await checkTeamCodeAvailability(teamCode);
+          setStatusMessage("Checking code availability...");
+          
+          const isAvailable = await checkTeamCodeAvailability(normalizedTeamCode);
           
           if (!isAvailable) {
-            throw new Error("This Team Code is already taken. Please choose another.");
+            throw new Error(`Team Code "${normalizedTeamCode}" is already taken. Please choose another.`);
           }
         }
 
@@ -236,14 +298,20 @@ export const Auth: React.FC = () => {
         setStatusMessage("Creating account...");
         
         const { data: signUpData, error: authError } = await supabase.auth.signUp({
-          email,
+          email: email.trim().toLowerCase(),
           password,
-          options: { data: { name: name } }
+          options: { data: { name: name.trim() } }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          console.error('Auth Error:', authError);
+          throw authError;
+        }
+        
         const user = signUpData.user;
         if (!user) throw new Error("Signup failed. Please try again.");
+
+        console.log('✅ Auth user created:', user.id);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // 2. CREATE GOOGLE SHEET (For Members Only)
@@ -251,13 +319,12 @@ export const Auth: React.FC = () => {
         let sheetUrl: string | null = null;
         
         if (selectedRole === 'member') {
-          setStatusMessage("Creating your personal Lead Sheet...");
-          sheetUrl = await createUserSheet(user.id, email, name);
+          sheetUrl = await createUserSheet(user.id, email.trim(), name.trim());
           
           if (sheetUrl) {
             setStatusMessage("✅ Sheet created successfully!");
           } else {
-            setStatusMessage("Sheet will be created shortly...");
+            setStatusMessage("⚠️ Sheet will be created shortly...");
           }
         }
 
@@ -268,19 +335,26 @@ export const Auth: React.FC = () => {
         
         const userData = {
           id: user.id,
-          email: user.email,
-          name: name || user.user_metadata?.name || '',
+          email: user.email?.toLowerCase(),
+          name: name.trim() || user.user_metadata?.name || 'New User',
           role: selectedRole,
-          team_code: selectedRole === 'manager' ? teamCode : null,
+          // ✅ Store team_code as UPPERCASE for managers
+          team_code: selectedRole === 'manager' ? normalizedTeamCode : null,
           manager_id: managerId,
           sheet_url: sheetUrl,
           payment_status: 'inactive',
           plan_name: 'none',
+          plan_weight: 1,
           daily_limit: 0,
           leads_today: 0,
-          filters: { cities: [] },
-          created_at: new Date().toISOString()
+          total_leads_received: 0,
+          filters: { pan_india: true, states: [], cities: [], gender: 'all' },
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
+
+        console.log('Saving user data:', userData);
 
         const { error: dbError } = await supabase
           .from('users')
@@ -288,22 +362,28 @@ export const Auth: React.FC = () => {
 
         if (dbError) {
           console.error("DB Error:", dbError);
-          // User created in auth but DB failed - log for admin
+          // Log for admin but don't fail signup
           await logEvent('user_db_error', { 
             userId: user.id, 
             email, 
             error: dbError.message 
-          });
+          }).catch(() => {});
+        } else {
+          console.log('✅ User saved to database');
         }
 
         await logEvent('user_signup_complete', { 
           email, 
           role: selectedRole, 
           hasSheet: !!sheetUrl,
-          hasManager: !!managerId
-        });
+          hasManager: !!managerId,
+          teamCode: selectedRole === 'manager' ? normalizedTeamCode : null
+        }).catch(() => {});
         
         setStatusMessage("Success! Opening dashboard...");
+        
+        // Small delay before refresh
+        await new Promise(resolve => setTimeout(resolve, 500));
         await refreshProfile();
         
       } else {
@@ -313,7 +393,7 @@ export const Auth: React.FC = () => {
         setStatusMessage("Logging in...");
         
         const { error } = await supabase.auth.signInWithPassword({ 
-          email, 
+          email: email.trim().toLowerCase(), 
           password 
         });
         
@@ -323,11 +403,14 @@ export const Auth: React.FC = () => {
       }
       
     } catch (err: any) {
-      setError(err.message);
+      console.error('Form submission error:', err);
+      setError(err.message || 'An unexpected error occurred');
       
       // Cleanup on signup failure
-      if (mode === "signup" && err.message.includes("Signup failed")) {
-        await supabase.auth.signOut();
+      if (mode === "signup") {
+        try {
+          await supabase.auth.signOut();
+        } catch {}
       }
     } finally {
       setLoading(false);
@@ -439,7 +522,7 @@ export const Auth: React.FC = () => {
               </div>
 
               {/* Dynamic Input based on Role */}
-              <div className="animate-fade-in-up">
+              <div>
                 {selectedRole === 'member' ? (
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">
@@ -448,7 +531,7 @@ export const Auth: React.FC = () => {
                     <div className="relative">
                       <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
                       <input 
-                        className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${
+                        className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
                           teamCodeStatus === 'valid' 
                             ? 'border-green-500 focus:ring-green-500 bg-green-50' 
                             : teamCodeStatus === 'invalid'
@@ -459,6 +542,7 @@ export const Auth: React.FC = () => {
                         onChange={e => handleTeamCodeChange(e.target.value)} 
                         placeholder="e.g. WIN11" 
                         required 
+                        maxLength={20}
                       />
                       
                       {/* Status Icon */}
@@ -477,19 +561,19 @@ export const Auth: React.FC = () => {
                     
                     {/* Status Message */}
                     {teamCodeStatus === 'valid' && managerInfo && (
-                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                        <CheckCircle size={12} />
-                        Joining {managerInfo.name}'s team
+                      <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg">
+                        <CheckCircle size={14} />
+                        <span>Joining <strong>{managerInfo.name}'s</strong> team</span>
                       </p>
                     )}
                     {teamCodeStatus === 'invalid' && (
-                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                        <XCircle size={12} />
-                        Invalid code. Ask your manager for the correct code.
+                      <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg">
+                        <XCircle size={14} />
+                        <span>Invalid code. Ask your manager for the correct code.</span>
                       </p>
                     )}
                     {teamCodeStatus === 'idle' && teamCode.length === 0 && (
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                         <FileSpreadsheet size={12} />
                         A personal Google Sheet will be created for you!
                       </p>
@@ -503,16 +587,17 @@ export const Auth: React.FC = () => {
                     <div className="relative">
                       <Users className="absolute left-3 top-3 text-slate-400" size={18} />
                       <input 
-                        className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
+                        className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
                         value={teamCode} 
-                        onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
+                        onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, '').trim())} 
                         placeholder="e.g. WINNERS_CLUB" 
                         required 
                         minLength={3}
+                        maxLength={20}
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      This is the code your team members will use to join.
+                    <p className="text-xs text-slate-500 mt-2">
+                      💡 This code will be shared with your team members to join.
                     </p>
                   </div>
                 )}
@@ -522,16 +607,16 @@ export const Auth: React.FC = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
-              <XCircle size={18} />
-              {error}
+            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
+              <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
           
           {/* Status Message */}
           {statusMessage && (
-            <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
-              <Loader2 size={18} className="animate-spin" />
+            <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
+              <Loader2 size={18} className="animate-spin flex-shrink-0" />
               {statusMessage}
             </div>
           )}
@@ -539,7 +624,7 @@ export const Auth: React.FC = () => {
           {/* Submit Button */}
           <button 
             type="submit" 
-            disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
+            disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus === 'checking')} 
             className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
               mode === 'signup' && selectedRole === 'manager' 
                 ? 'bg-indigo-600 hover:bg-indigo-700' 
@@ -555,6 +640,8 @@ export const Auth: React.FC = () => {
               "Log In"
             ) : selectedRole === 'manager' ? (
               "Create Manager Account"
+            ) : teamCodeStatus === 'valid' ? (
+              `Join ${managerInfo?.name || 'Team'}`
             ) : (
               "Join Team"
             )}
