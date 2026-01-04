@@ -3,14 +3,21 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
-import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { 
+  Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, 
+  CheckCircle, XCircle, AlertTriangle, Mail, ArrowLeft, KeyRound
+} from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
 
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // MODE: login | signup | forgot_password
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");
   
   // Form State
   const [email, setEmail] = useState("");
@@ -26,16 +33,63 @@ export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Debounce ref
   const debounceRef = useRef<NodeJS.Timeout>();
+
+  // ═══════════════════════════════════════════════════════════
+  // 🔐 FORGOT PASSWORD HANDLER
+  // ═══════════════════════════════════════════════════════════
+  
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
+    try {
+      // Validate email
+      if (!email || !email.includes('@')) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      setStatusMessage("Sending reset link...");
+
+      // Send password reset email via Supabase
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (resetError) {
+        throw resetError;
+      }
+
+      // Success
+      setSuccessMessage(
+        `✅ Password reset link sent to ${email}. Please check your inbox (and spam folder).`
+      );
+      
+      // Log event
+      await logEvent('password_reset_requested', { email }).catch(() => {});
+
+    } catch (err: any) {
+      console.error('Forgot password error:', err);
+      setError(err.message || 'Failed to send reset link');
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
 
   // ═══════════════════════════════════════════════════════════
   // 🔍 TEAM CODE VERIFICATION (CASE-INSENSITIVE)
   // ═══════════════════════════════════════════════════════════
   
   const verifyTeamCode = async (code: string) => {
-    // Normalize: uppercase + trim
     const normalizedCode = code.toUpperCase().trim();
     
     if (!normalizedCode || normalizedCode.length < 3) {
@@ -48,7 +102,7 @@ export const Auth: React.FC = () => {
 
     try {
       const { data, error } = await supabase.rpc('verify_team_code', { 
-        code: normalizedCode  // Already uppercase
+        code: normalizedCode
       });
 
       console.log('Team code verification result:', { code: normalizedCode, data, error });
@@ -60,7 +114,6 @@ export const Auth: React.FC = () => {
         return;
       }
 
-      // Check if valid result returned
       if (data && data.length > 0 && data[0].is_valid) {
         setTeamCodeStatus('valid');
         setManagerInfo({
@@ -108,18 +161,15 @@ export const Auth: React.FC = () => {
 
   // Debounced team code check
   const handleTeamCodeChange = (value: string) => {
-    // Always convert to uppercase and remove spaces
     const upperValue = value.toUpperCase().replace(/\s/g, '').trim();
     setTeamCode(upperValue);
     setTeamCodeStatus('idle');
     setManagerInfo(null);
 
-    // Clear previous timeout
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
-    // Debounce the verification for members
     if (selectedRole === 'member' && upperValue.length >= 3) {
       debounceRef.current = setTimeout(() => {
         verifyTeamCode(upperValue);
@@ -127,7 +177,6 @@ export const Auth: React.FC = () => {
     }
   };
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
@@ -137,7 +186,7 @@ export const Auth: React.FC = () => {
   }, []);
 
   // ═══════════════════════════════════════════════════════════
-  // 📊 GOOGLE SHEET CREATOR (Improved with Retry)
+  // 📊 GOOGLE SHEET CREATOR
   // ═══════════════════════════════════════════════════════════
   
   const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
@@ -148,7 +197,6 @@ export const Auth: React.FC = () => {
         setStatusMessage(`Creating Google Sheet (attempt ${attempt})...`);
         console.log(`📊 Sheet creation attempt ${attempt} for ${userEmail}`);
         
-        // Method 1: POST request
         const postResponse = await fetch(SHEET_CREATOR_URL, {
           method: 'POST',
           headers: {
@@ -180,7 +228,7 @@ export const Auth: React.FC = () => {
           }
         }
 
-        // Method 2: GET request as fallback
+        // Fallback: GET request
         const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
         
         console.log('Trying GET request...');
@@ -204,7 +252,6 @@ export const Auth: React.FC = () => {
           }
         }
 
-        // Wait before retry
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -218,17 +265,18 @@ export const Auth: React.FC = () => {
       }
     }
 
-    console.log("⚠️ Sheet creation failed after all retries - will be created by background job");
+    console.log("⚠️ Sheet creation failed after all retries");
     return null;
   };
 
   // ═══════════════════════════════════════════════════════════
-  // 📝 FORM SUBMISSION
+  // 📝 FORM SUBMISSION (Login & Signup)
   // ═══════════════════════════════════════════════════════════
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
     setStatusMessage("");
 
@@ -338,7 +386,6 @@ export const Auth: React.FC = () => {
           email: user.email?.toLowerCase(),
           name: name.trim() || user.user_metadata?.name || 'New User',
           role: selectedRole,
-          // ✅ Store team_code as UPPERCASE for managers
           team_code: selectedRole === 'manager' ? normalizedTeamCode : null,
           manager_id: managerId,
           sheet_url: sheetUrl,
@@ -362,7 +409,6 @@ export const Auth: React.FC = () => {
 
         if (dbError) {
           console.error("DB Error:", dbError);
-          // Log for admin but don't fail signup
           await logEvent('user_db_error', { 
             userId: user.id, 
             email, 
@@ -382,7 +428,6 @@ export const Auth: React.FC = () => {
         
         setStatusMessage("Success! Opening dashboard...");
         
-        // Small delay before refresh
         await new Promise(resolve => setTimeout(resolve, 500));
         await refreshProfile();
         
@@ -406,7 +451,6 @@ export const Auth: React.FC = () => {
       console.error('Form submission error:', err);
       setError(err.message || 'An unexpected error occurred');
       
-      // Cleanup on signup failure
       if (mode === "signup") {
         try {
           await supabase.auth.signOut();
@@ -418,6 +462,19 @@ export const Auth: React.FC = () => {
     }
   };
 
+  // Reset form when mode changes
+  const handleModeChange = (newMode: "login" | "signup" | "forgot_password") => {
+    setMode(newMode);
+    setError(null);
+    setSuccessMessage(null);
+    setStatusMessage("");
+    if (newMode !== "forgot_password") {
+      setTeamCode("");
+      setTeamCodeStatus('idle');
+      setManagerInfo(null);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════
   // 🎨 RENDER
   // ═══════════════════════════════════════════════════════════
@@ -426,246 +483,343 @@ export const Auth: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {mode === "login" ? "Welcome Back" : "Join LeadFlow"}
-          </h2>
-          <p className="text-slate-500 mt-2 text-sm">
-            {mode === "login" ? "Login to access your dashboard" : "Start managing or working on leads today"}
-          </p>
-        </div>
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          
-          {mode === "signup" && (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
-              <input 
-                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder="e.g. Rahul Kumar" 
-                required 
-              />
+        {/* ━━━ FORGOT PASSWORD MODE ━━━ */}
+        {mode === "forgot_password" ? (
+          <>
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <KeyRound size={32} className="text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-extrabold text-slate-900">
+                Forgot Password?
+              </h2>
+              <p className="text-slate-500 mt-2 text-sm">
+                No worries! Enter your email and we'll send you a reset link.
+              </p>
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-            <input 
-              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-              type="email" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              placeholder="name@company.com" 
-              required 
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
-            <input 
-              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-              type="password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              placeholder="••••••••" 
-              required 
-              minLength={6}
-            />
-          </div>
-
-          {/* Role & Team Code Section */}
-          {mode === "signup" && (
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
+            <form className="space-y-5" onSubmit={handleForgotPassword}>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                  Select Your Role
+                <label className="block text-sm font-bold text-slate-700 mb-1">
+                  Email Address
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole("member");
-                      setTeamCode("");
-                      setTeamCodeStatus('idle');
-                      setManagerInfo(null);
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                      selectedRole === 'member' 
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
-                    }`}
-                  >
-                    <Users size={20} className="mb-1" />
-                    <span className="text-xs font-bold">Team Member</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole("manager");
-                      setTeamCode("");
-                      setTeamCodeStatus('idle');
-                      setManagerInfo(null);
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                      selectedRole === 'manager' 
-                        ? 'bg-indigo-600 border-indigo-600 text-white' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
-                    }`}
-                  >
-                    <Briefcase size={20} className="mb-1" />
-                    <span className="text-xs font-bold">Manager</span>
-                  </button>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3.5 text-slate-400" size={18} />
+                  <input 
+                    className="w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                    type="email" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    placeholder="name@company.com" 
+                    required 
+                  />
                 </div>
               </div>
 
-              {/* Dynamic Input based on Role */}
+              {/* Success Message */}
+              {successMessage && (
+                <div className="bg-green-50 text-green-700 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-green-200">
+                  <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
+                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Status Message */}
+              {statusMessage && (
+                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
+                  <Loader2 size={18} className="animate-spin flex-shrink-0" />
+                  {statusMessage}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    Sending...
+                  </span>
+                ) : (
+                  "Send Reset Link"
+                )}
+              </button>
+            </form>
+
+            {/* Back to Login */}
+            <div className="mt-6 text-center">
+              <button 
+                className="flex items-center justify-center gap-2 mx-auto text-blue-600 hover:underline font-medium text-sm" 
+                onClick={() => handleModeChange("login")}
+              >
+                <ArrowLeft size={16} />
+                Back to Login
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* ━━━ LOGIN / SIGNUP MODE ━━━ */}
+            
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                {mode === "login" ? "Welcome Back" : "Join LeadFlow"}
+              </h2>
+              <p className="text-slate-500 mt-2 text-sm">
+                {mode === "login" ? "Login to access your dashboard" : "Start managing or working on leads today"}
+              </p>
+            </div>
+
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              
+              {mode === "signup" && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
+                  <input 
+                    className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    placeholder="e.g. Rahul Kumar" 
+                    required 
+                  />
+                </div>
+              )}
+
               <div>
-                {selectedRole === 'member' ? (
+                <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
+                <input 
+                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  type="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  placeholder="name@company.com" 
+                  required 
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-bold text-slate-700">Password</label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange("forgot_password")}
+                      className="text-xs text-blue-600 hover:underline font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <input 
+                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  type="password" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  required 
+                  minLength={6}
+                />
+              </div>
+
+              {/* Role & Team Code Section */}
+              {mode === "signup" && (
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Enter Team Code <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                      Select Your Role
                     </label>
-                    <div className="relative">
-                      <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
-                      <input 
-                        className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
-                          teamCodeStatus === 'valid' 
-                            ? 'border-green-500 focus:ring-green-500 bg-green-50' 
-                            : teamCodeStatus === 'invalid'
-                            ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                            : 'focus:ring-blue-500'
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole("member");
+                          setTeamCode("");
+                          setTeamCodeStatus('idle');
+                          setManagerInfo(null);
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                          selectedRole === 'member' 
+                            ? 'bg-blue-600 border-blue-600 text-white' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
                         }`}
-                        value={teamCode} 
-                        onChange={e => handleTeamCodeChange(e.target.value)} 
-                        placeholder="e.g. WIN11" 
-                        required 
-                        maxLength={20}
-                      />
-                      
-                      {/* Status Icon */}
-                      <div className="absolute right-3 top-3">
-                        {teamCodeStatus === 'checking' && (
-                          <Loader2 size={18} className="text-blue-500 animate-spin" />
-                        )}
-                        {teamCodeStatus === 'valid' && (
-                          <CheckCircle size={18} className="text-green-500" />
+                      >
+                        <Users size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Team Member</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole("manager");
+                          setTeamCode("");
+                          setTeamCodeStatus('idle');
+                          setManagerInfo(null);
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                          selectedRole === 'manager' 
+                            ? 'bg-indigo-600 border-indigo-600 text-white' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                        }`}
+                      >
+                        <Briefcase size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Manager</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Input based on Role */}
+                  <div>
+                    {selectedRole === 'member' ? (
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">
+                          Enter Team Code <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
+                          <input 
+                            className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
+                              teamCodeStatus === 'valid' 
+                                ? 'border-green-500 focus:ring-green-500 bg-green-50' 
+                                : teamCodeStatus === 'invalid'
+                                ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                : 'focus:ring-blue-500'
+                            }`}
+                            value={teamCode} 
+                            onChange={e => handleTeamCodeChange(e.target.value)} 
+                            placeholder="e.g. WIN11" 
+                            required 
+                            maxLength={20}
+                          />
+                          
+                          {/* Status Icon */}
+                          <div className="absolute right-3 top-3">
+                            {teamCodeStatus === 'checking' && (
+                              <Loader2 size={18} className="text-blue-500 animate-spin" />
+                            )}
+                            {teamCodeStatus === 'valid' && (
+                              <CheckCircle size={18} className="text-green-500" />
+                            )}
+                            {teamCodeStatus === 'invalid' && (
+                              <XCircle size={18} className="text-red-500" />
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Status Message */}
+                        {teamCodeStatus === 'valid' && managerInfo && (
+                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg">
+                            <CheckCircle size={14} />
+                            <span>Joining <strong>{managerInfo.name}'s</strong> team</span>
+                          </p>
                         )}
                         {teamCodeStatus === 'invalid' && (
-                          <XCircle size={18} className="text-red-500" />
+                          <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg">
+                            <XCircle size={14} />
+                            <span>Invalid code. Ask your manager for the correct code.</span>
+                          </p>
+                        )}
+                        {teamCodeStatus === 'idle' && teamCode.length === 0 && (
+                          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                            <FileSpreadsheet size={12} />
+                            A personal Google Sheet will be created for you!
+                          </p>
                         )}
                       </div>
-                    </div>
-                    
-                    {/* Status Message */}
-                    {teamCodeStatus === 'valid' && managerInfo && (
-                      <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg">
-                        <CheckCircle size={14} />
-                        <span>Joining <strong>{managerInfo.name}'s</strong> team</span>
-                      </p>
-                    )}
-                    {teamCodeStatus === 'invalid' && (
-                      <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg">
-                        <XCircle size={14} />
-                        <span>Invalid code. Ask your manager for the correct code.</span>
-                      </p>
-                    )}
-                    {teamCodeStatus === 'idle' && teamCode.length === 0 && (
-                      <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                        <FileSpreadsheet size={12} />
-                        A personal Google Sheet will be created for you!
-                      </p>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">
+                          Create Your Team Code <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Users className="absolute left-3 top-3 text-slate-400" size={18} />
+                          <input 
+                            className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
+                            value={teamCode} 
+                            onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, '').trim())} 
+                            placeholder="e.g. WINNERS_CLUB" 
+                            required 
+                            minLength={3}
+                            maxLength={20}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          💡 This code will be shared with your team members to join.
+                        </p>
+                      </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
+                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+              
+              {/* Status Message */}
+              {statusMessage && (
+                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
+                  <Loader2 size={18} className="animate-spin flex-shrink-0" />
+                  {statusMessage}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button 
+                type="submit" 
+                disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus === 'checking')} 
+                className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
+                  mode === 'signup' && selectedRole === 'manager' 
+                    ? 'bg-indigo-600 hover:bg-indigo-700' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    Processing...
+                  </span>
+                ) : mode === "login" ? (
+                  "Log In"
+                ) : selectedRole === 'manager' ? (
+                  "Create Manager Account"
+                ) : teamCodeStatus === 'valid' ? (
+                  `Join ${managerInfo?.name || 'Team'}`
                 ) : (
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Create Your Team Code <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-3 text-slate-400" size={18} />
-                      <input 
-                        className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
-                        value={teamCode} 
-                        onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, '').trim())} 
-                        placeholder="e.g. WINNERS_CLUB" 
-                        required 
-                        minLength={3}
-                        maxLength={20}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                      💡 This code will be shared with your team members to join.
-                    </p>
-                  </div>
+                  "Join Team"
                 )}
-              </div>
-            </div>
-          )}
+              </button>
+            </form>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
-              <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+            {/* Mode Toggle */}
+            <div className="mt-8 text-center">
+              <p className="text-slate-500 text-sm">
+                {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
+                <button 
+                  className="ml-2 font-bold text-blue-600 hover:underline" 
+                  onClick={() => handleModeChange(mode === "login" ? "signup" : "login")}
+                >
+                  {mode === "login" ? "Create Account" : "Login Here"}
+                </button>
+              </p>
             </div>
-          )}
-          
-          {/* Status Message */}
-          {statusMessage && (
-            <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
-              <Loader2 size={18} className="animate-spin flex-shrink-0" />
-              {statusMessage}
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <button 
-            type="submit" 
-            disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus === 'checking')} 
-            className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-              mode === 'signup' && selectedRole === 'manager' 
-                ? 'bg-indigo-600 hover:bg-indigo-700' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 size={18} className="animate-spin" />
-                Processing...
-              </span>
-            ) : mode === "login" ? (
-              "Log In"
-            ) : selectedRole === 'manager' ? (
-              "Create Manager Account"
-            ) : teamCodeStatus === 'valid' ? (
-              `Join ${managerInfo?.name || 'Team'}`
-            ) : (
-              "Join Team"
-            )}
-          </button>
-        </form>
-
-        {/* Mode Toggle */}
-        <div className="mt-8 text-center">
-          <p className="text-slate-500 text-sm">
-            {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
-            <button 
-              className="ml-2 font-bold text-blue-600 hover:underline" 
-              onClick={() => { 
-                setMode(mode === "login" ? "signup" : "login"); 
-                setError(null);
-                setTeamCode("");
-                setTeamCodeStatus('idle');
-                setManagerInfo(null);
-              }}
-            >
-              {mode === "login" ? "Create Account" : "Login Here"}
-            </button>
-          </p>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
