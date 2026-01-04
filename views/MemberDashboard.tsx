@@ -49,6 +49,13 @@ const isWithinWorkingHours = () => {
   return hour >= 8 && hour < 22;
 };
 
+const getWhatsAppLink = (phone: string, leadName: string, userName: string) => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const message = `Hi ${leadName}, I'm ${userName} from LeadFlow. I saw your inquiry and wanted to connect. Are you available to discuss?`;
+  return `https://wa.me/${prefixedPhone}?text=${encodeURIComponent(message)}`;
+};
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -88,6 +95,15 @@ export const MemberDashboard = () => {
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
+  const priorityBadge = useMemo(() => {
+    const w = profile?.plan_weight || 1;
+    if (w >= 9) return { text: 'ULTRA', color: 'bg-red-500 text-white', icon: Flame };
+    if (w >= 7) return { text: 'TURBO', color: 'bg-orange-500 text-white', icon: Zap };
+    if (w >= 5) return { text: 'PREMIUM', color: 'bg-purple-500 text-white', icon: Crown };
+    if (w >= 3) return { text: 'HIGH', color: 'bg-blue-500 text-white', icon: ArrowUp };
+    return { text: 'STANDARD', color: 'bg-slate-600 text-white', icon: Shield };
+  }, [profile?.plan_weight]);
+
   const deliveryStatus = useMemo(() => {
     if (!profile) return { title: 'Loading...', subtitle: 'Please wait', icon: Clock, iconBgColor: 'bg-white/20', iconColor: 'text-white' };
     if (profile.payment_status !== 'active' || isExpired) return { title: 'Plan Inactive', subtitle: 'Renew to get leads', icon: AlertTriangle, iconBgColor: 'bg-red-500/30', iconColor: 'text-red-200' };
@@ -97,7 +113,6 @@ export const MemberDashboard = () => {
     return { title: 'Active Delivery', subtitle: `${remainingToday} leads remaining`, icon: Zap, iconBgColor: 'bg-green-500/30', iconColor: 'text-green-300' };
   }, [profile, isExpired, isPaused, isLimitReached, remainingToday]);
 
-  // Fetch Data
   const fetchData = async () => {
     try {
       setRefreshing(true);
@@ -116,7 +131,6 @@ export const MemberDashboard = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Handlers
   const handleStatusChange = async (leadId: string, newStatus: string) => {
     setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
     await supabase.from('leads').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', leadId);
@@ -142,6 +156,13 @@ export const MemberDashboard = () => {
     } catch (err) { alert("Error saving note."); } finally { setSavingNote(false); }
   };
 
+  const toggleDeliveryPause = async () => {
+    if (!profile) return;
+    const newStatus = !isPaused;
+    setProfile(prev => prev ? { ...prev, is_active: !newStatus } : null);
+    await supabase.from('users').update({ is_active: !newStatus }).eq('id', profile.id);
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><RefreshCw className="animate-spin text-blue-600" /></div>;
 
   const StatusIcon = deliveryStatus.icon;
@@ -157,7 +178,7 @@ export const MemberDashboard = () => {
           <p className="text-[10px] text-slate-500 uppercase font-bold">{profile?.plan_name} • {managerName}</p>
         </div>
         <div className="flex gap-2">
-          {profile?.sheet_url && <a href={profile.sheet_url} target="_blank" className="p-2 bg-green-600 text-white rounded-lg"><FileSpreadsheet size={18} /></a>}
+          {profile?.sheet_url && <a href={profile.sheet_url} target="_blank" rel="noreferrer" className="p-2 bg-green-600 text-white rounded-lg"><FileSpreadsheet size={18} /></a>}
           <button onClick={fetchData} className="p-2 bg-slate-100 rounded-lg"><RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} /></button>
           <button onClick={() => supabase.auth.signOut()} className="p-2 bg-red-50 text-red-600 rounded-lg"><LogOut size={18} /></button>
         </div>
@@ -217,40 +238,20 @@ export const MemberDashboard = () => {
                   )}
 
                   <div className="grid grid-cols-4 gap-2">
-                    <a href={`tel:${lead.phone}`} className="col-span-1 p-3 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-sm hover:bg-blue-100 transition-all">Call</a>
-                    <a href={getWhatsAppLink(lead.phone, lead.name)} target="_blank" className="col-span-1 p-3 bg-green-500 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-md shadow-green-100">WA</a>
-                    
-                    {/* Notes Button - Restore Original */}
-                    <button 
-                      onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} 
-                      className="col-span-1 p-3 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-all"
-                      title="Add Note"
-                    >
-                      <StickyNote size={18} />
-                    </button>
-
-                    {/* Report/Replacement Button - New */}
-                    <button 
-                      onClick={() => handleReportInvalid(lead)} 
-                      className="col-span-1 p-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center hover:bg-red-100 transition-all"
-                      title="Report Lead"
-                    >
-                      <AlertTriangle size={18} />
-                    </button>
+                    <a href={`tel:${lead.phone}`} className="col-span-1 p-3 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-sm">Call</a>
+                    <a href={getWhatsAppLink(lead.phone, lead.name, profile?.name || 'Admin')} target="_blank" rel="noreferrer" className="col-span-1 p-3 bg-green-500 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-md shadow-green-100">WA</a>
+                    <button onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} className="col-span-1 p-3 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-all"><StickyNote size={18} /></button>
+                    <button onClick={() => handleReportInvalid(lead)} className="col-span-1 p-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center hover:bg-red-100 transition-all"><AlertTriangle size={18} /></button>
                   </div>
 
                   <div className="relative mt-3">
-                    <select 
-                      value={lead.status} 
-                      onChange={(e) => handleStatusChange(lead.id, e.target.value)} 
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
-                    >
+                    <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
                       <option value="Fresh">🔵 Fresh</option>
                       <option value="Contacted">📞 Contacted</option>
                       <option value="Interested">✅ Interested</option>
                       <option value="Closed">🎉 Closed</option>
                       <option value="Rejected">❌ Rejected</option>
-                      <option value="Invalid">🚫 Invalid Number</option>
+                      <option value="Invalid">🚫 Invalid</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
@@ -261,16 +262,7 @@ export const MemberDashboard = () => {
         </div>
       </main>
 
-      {/* Upgrade Sticky CTA */}
-      {!isExpired && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-100 md:hidden z-30">
-          <button onClick={() => setShowSubscription(true)} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 flex items-center justify-center gap-2">
-            <Zap size={18} /> Upgrade for More Leads
-          </button>
-        </div>
-      )}
-
-      {/* Modals */}
+      {/* Notes Modal */}
       {showNotesModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
@@ -278,51 +270,23 @@ export const MemberDashboard = () => {
               <h3 className="font-black text-xl text-slate-900">Add Note</h3>
               <button onClick={() => setShowNotesModal(null)} className="p-2 hover:bg-slate-100 rounded-full"><X /></button>
             </div>
-            <textarea 
-              value={noteText} 
-              onChange={(e) => setNoteText(e.target.value)} 
-              className="w-full border-2 border-slate-100 rounded-2xl p-4 h-40 focus:border-indigo-500 outline-none transition-all text-sm" 
-              placeholder="Ex: Call back tomorrow at 5 PM..." 
-            />
-            <button 
-              onClick={saveNote} 
-              disabled={savingNote}
-              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-4 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
+            <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} className="w-full border-2 border-slate-100 rounded-2xl p-4 h-40 focus:border-indigo-500 outline-none text-sm" placeholder="Ex: Call back tomorrow..." />
+            <button onClick={saveNote} disabled={savingNote} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-4 shadow-lg flex items-center justify-center gap-2">
               {savingNote ? <RefreshCw className="animate-spin" /> : <><Check size={18}/> Save Notes</>}
             </button>
           </div>
         </div>
       )}
+    </div>
+  );
+};
 
-      {showDeliveryInfo && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg">Delivery Info</h3>
-              <button onClick={() => setShowDeliveryInfo(false)}><X /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <p className="font-bold text-blue-900 text-sm">Working Hours</p>
-                <p className="text-xs text-blue-700">Leads are delivered between 8 AM – 10 PM IST.</p>
-              </div>
-              <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                <p className="font-bold text-purple-900 text-sm">Priority Distribution</p>
-                <p className="text-xs text-purple-700">Manager & Supervisor plans get leads before Starter plans.</p>
-              </div>
-              <button onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm mt-2">Get Higher Priority</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
-        .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
-      `}</style>
+const StatCard = ({ label, value, color, icon }: any) => {
+  const colors: any = { slate: 'border-l-slate-400 bg-slate-50', blue: 'border-l-blue-500 bg-blue-50', green: 'border-l-green-500 bg-green-50', purple: 'border-l-purple-500 bg-purple-50', orange: 'border-l-orange-500 bg-orange-50' };
+  return (
+    <div className={`flex-shrink-0 w-[100px] sm:w-auto bg-white p-3 rounded-xl border-l-4 ${colors[color]}`}>
+      <div className="flex items-center gap-1.5 mb-1 text-slate-500 font-bold text-[10px] uppercase truncate">{icon} {label}</div>
+      <p className="text-xl font-black text-slate-900">{value}</p>
     </div>
   );
 };
