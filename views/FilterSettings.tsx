@@ -5,7 +5,10 @@ import {
   ChevronDown, Globe, Filter, Loader2
 } from 'lucide-react';
 
-// Safe Constants
+// ============================================================
+// CONSTANTS
+// ============================================================
+
 const STATE_CITIES: Record<string, string[]> = {
   'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali', 'Pathankot', 'Moga'],
   'Chandigarh': ['Chandigarh'],
@@ -18,13 +21,17 @@ const STATE_CITIES: Record<string, string[]> = {
 
 const AVAILABLE_STATES = Object.keys(STATE_CITIES);
 
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 export const FilterSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // ✅ Extreme Safety Initialization
+  // ✅ Extreme Safety Initialization (Crash Proof)
   const [filters, setFilters] = useState({
     pan_india: true, 
     states: [] as string[], 
@@ -47,7 +54,7 @@ export const FilterSettings = () => {
       const { data } = await supabase.from('users').select('filters').eq('id', user.id).single();
       
       if (data?.filters) {
-        // ✅ Validate data before setting
+        // ✅ Ensure arrays are arrays (Fixes "includes" error)
         setFilters({
           pan_india: data.filters.pan_india ?? true,
           states: Array.isArray(data.filters.states) ? data.filters.states : [],
@@ -84,13 +91,12 @@ export const FilterSettings = () => {
   };
 
   const toggleState = (state: string) => {
-    // ✅ Safe Access
     const currentStates = Array.isArray(filters.states) ? filters.states : [];
     const newStates = currentStates.includes(state) 
       ? currentStates.filter(s => s !== state) 
       : [...currentStates, state];
     
-    // Clean up cities
+    // Clean up cities if state removed
     const currentCities = Array.isArray(filters.cities) ? filters.cities : [];
     const newCities = currentCities.filter(city => {
       const cityState = Object.entries(STATE_CITIES).find(
@@ -103,7 +109,6 @@ export const FilterSettings = () => {
   };
 
   const toggleCity = (city: string) => {
-    // ✅ Safe Access
     const currentCities = Array.isArray(filters.cities) ? filters.cities : [];
     const newCities = currentCities.includes(city)
       ? currentCities.filter(c => c !== city)
@@ -118,12 +123,14 @@ export const FilterSettings = () => {
     </div>
   );
 
-  // ✅ Safe Derived Values
+  // ✅ Safe Derived Values for Rendering
   const safeStates = Array.isArray(filters.states) ? filters.states : [];
   const safeCities = Array.isArray(filters.cities) ? filters.cities : [];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24 p-4 md:p-6">
+      
+      {/* Header */}
       <div className="bg-white border-b sticky top-0 z-20 p-4 shadow-sm md:static md:shadow-none md:border-none md:p-0 md:mb-6 rounded-xl">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
           <Filter size={24} className="text-blue-600"/> Audience Targeting
@@ -133,8 +140,8 @@ export const FilterSettings = () => {
 
       <div className="space-y-6">
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex gap-3 items-center">
-            <Check size={20} className="text-green-600"/> Preferences saved!
+          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex gap-3 items-center animate-in fade-in slide-in-from-top-2">
+            <Check size={20} className="text-green-600"/> Preferences saved successfully!
           </div>
         )}
         {error && (
@@ -190,7 +197,7 @@ export const FilterSettings = () => {
             
             <div className="grid grid-cols-1 gap-3">
               {AVAILABLE_STATES.map(state => {
-                // ✅ CRASH PROOF CHECK
+                // ✅ CRASH PROOF CHECK (Using safeStates)
                 const isSelected = safeStates.includes(state);
                 const isExpanded = expandedState === state;
                 const cities = STATE_CITIES[state] || [];
@@ -220,7 +227,7 @@ export const FilterSettings = () => {
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-3 mt-2">Select specific cities:</p>
                         <div className="flex flex-wrap gap-2">
                           {cities.map(city => {
-                            // ✅ CRASH PROOF CHECK
+                            // ✅ CRASH PROOF CHECK (Using safeCities)
                             const isCityActive = safeCities.includes(city);
                             return (
                               <button key={city} onClick={() => toggleCity(city)}
@@ -244,6 +251,7 @@ export const FilterSettings = () => {
         )}
       </div>
 
+      {/* Floating Save Button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t border-slate-200 z-30 shadow-lg md:static md:shadow-none md:border-none md:p-0 md:bg-transparent">
         <button 
           onClick={handleSave} 
