@@ -1,20 +1,44 @@
+// src/supabaseClient.ts
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { ENV } from "./config/env";
 
+// ✅ Create Supabase client with PERSISTENT SESSION
 export const supabase = createClient(
   ENV.SUPABASE_URL,
-  ENV.SUPABASE_ANON_KEY
+  ENV.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      // ✅ Store session in localStorage (persists across browser restarts)
+      persistSession: true,
+      
+      // ✅ Custom storage key
+      storageKey: 'leadflow-auth-session',
+      
+      // ✅ Use localStorage instead of sessionStorage
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      
+      // ✅ Auto refresh token before it expires
+      autoRefreshToken: true,
+      
+      // ✅ Detect session from URL (for magic links, password reset)
+      detectSessionInUrl: true,
+      
+      // ✅ Flow type for better security
+      flowType: 'pkce',
+    },
+    
+    global: {
+      headers: {
+        'x-app-name': 'leadflow-crm',
+      },
+    },
+  }
 );
 
 /**
  * Centralized logging service.
  * Persists events to the 'logs' table in Supabase.
- * 
- * @param event - The action name (e.g., 'filter_updated', 'payment_success').
- * @param payload - JSON object containing details.
- * @param userId - Optional. If not provided on frontend, attempts to resolve from session.
- * @param client - Optional. Pass a specific Supabase client (e.g., admin client for backend).
  */
 export async function logEvent(
   event: string, 
@@ -23,7 +47,7 @@ export async function logEvent(
   client: SupabaseClient = supabase
 ) {
   // Always log to console for immediate debugging
-  console.log(`[LOG service]: ${event}`, payload);
+  console.log(`[LOG]: ${event}`, payload);
 
   try {
     let targetUserId = userId;
@@ -38,22 +62,43 @@ export async function logEvent(
       const { error } = await client.from('logs').insert({
         user_id: targetUserId,
         action: event,
-        details: payload
+        details: payload,
+        created_at: new Date().toISOString()
       });
 
       if (error) {
-        // Suppress "table not found" errors to avoid console noise if schema isn't set up
-        // Check both code 42P01 and message content
         if (error.code === '42P01' || error.message.includes('Could not find the table')) {
-            console.warn("Supabase 'logs' table not found. Skipping DB log.");
+          // Silent fail for missing table
         } else {
-            console.error("Failed to write log to Supabase:", error.message);
+          console.error("Failed to write log:", error.message);
         }
       }
-    } else {
-      console.warn("Skipping DB log: User ID not available for event", event);
     }
   } catch (err) {
-    console.error("Exception in logEvent service:", err);
+    console.error("Exception in logEvent:", err);
   }
 }
+
+/**
+ * Check if user is authenticated
+ */
+export const isAuthenticated = async (): Promise<boolean> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return !!session;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Get current user
+ */
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  } catch {
+    return null;
+  }
+};
