@@ -1,18 +1,19 @@
+// src/App.tsx
+
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
 import { Landing } from './views/Landing';
-import { TargetAudience } from './components/TargetAudience'; // ✅ Correct Import
-import { Subscription } from './components/Subscription'; // ✅ Correct Import
+import { TargetAudience } from './components/TargetAudience';
+import { Subscription } from './components/Subscription';
 import { MemberDashboard } from './views/MemberDashboard';
 import { ManagerDashboard } from './views/ManagerDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
 import { NotificationBanner } from './components/NotificationBanner';
 import { LeadAlert } from './components/LeadAlert';
-import { useAuth } from './auth/useAuth';
-import { supabase } from './supabaseClient';
-import { User as CustomUser } from './types';
+import { AuthProvider, useAuth } from './auth/useAuth';
+import { ResetPassword } from './views/ResetPassword';
 import { Loader2 } from 'lucide-react';
 
 // ✅ LEGAL PAGES
@@ -22,9 +23,99 @@ import { RefundPolicy } from './views/legal/RefundPolicy';
 import { ShippingPolicy } from './views/legal/ShippingPolicy';
 import { ContactUs } from './views/legal/ContactUs';
 
-// ✅ Service Worker Keep Alive
+// ============================================================
+// 🛡️ PROTECTED ROUTE COMPONENT
+// ============================================================
+const ProtectedRoute: React.FC<{ 
+  children: React.ReactNode;
+  allowedRoles?: string[];
+}> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <p className="text-slate-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// ============================================================
+// 🔀 DASHBOARD ROUTER (Role-based)
+// ============================================================
+const DashboardRouter: React.FC = () => {
+  const { profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = profile.role?.toLowerCase().trim();
+
+  switch (role) {
+    case 'admin':
+      return <AdminDashboard />;
+    case 'manager':
+      return <ManagerDashboard />;
+    case 'member':
+    default:
+      return (
+        <Layout>
+          <MemberDashboard />
+        </Layout>
+      );
+  }
+};
+
+// ============================================================
+// 🌐 PUBLIC ROUTE (Redirect if logged in)
+// ============================================================
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// ============================================================
+// 🔧 SERVICE WORKER KEEP ALIVE
+// ============================================================
 function initServiceWorkerKeepAlive() {
   if (!('serviceWorker' in navigator)) return;
+  
   const keepAlive = async () => {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -36,66 +127,26 @@ function initServiceWorkerKeepAlive() {
       // Silent fail
     }
   };
+  
   setInterval(keepAlive, 25000);
   keepAlive();
 }
 
-function App() {
-  const { session, loading } = useAuth();
-  const [fullProfile, setFullProfile] = useState<CustomUser | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+// ============================================================
+// 🎯 MAIN APP ROUTES
+// ============================================================
+const AppRoutes: React.FC = () => {
+  const { session, profile, isAuthenticated } = useAuth();
 
   // Initialize Service Worker
   useEffect(() => {
     initServiceWorkerKeepAlive();
   }, []);
 
-  // Fetch User Profile
-  useEffect(() => {
-    const getProfile = async () => {
-      if (session?.user) {
-        const { data } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (data) {
-          setFullProfile(data as CustomUser);
-        }
-      }
-      setProfileLoading(false);
-    };
-    getProfile();
-  }, [session]);
-
-  if (loading || (session && profileLoading)) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
-  }
-
-  // Dashboard Role Logic
-  const getDashboard = () => {
-    if (!fullProfile) return <div>Error loading profile. Please refresh.</div>;
-    const role = fullProfile.role?.toLowerCase().trim();
-    switch (role) {
-      case 'admin': return <AdminDashboard />;
-      case 'manager': return <ManagerDashboard />;
-      default: return (
-        <Layout>
-          <MemberDashboard />
-        </Layout>
-      );
-    }
-  };
-
   return (
-    <BrowserRouter>
-      {/* Notifications */}
-      {session && fullProfile && (
+    <>
+      {/* Notifications - Only show when authenticated */}
+      {isAuthenticated && profile && (
         <>
           <NotificationBanner />
           <LeadAlert />
@@ -103,42 +154,85 @@ function App() {
       )}
 
       <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={!session ? <Auth /> : <Navigate to="/" replace />} />
-        <Route path="/landing" element={<Landing />} />
+        {/* ━━━ PUBLIC ROUTES ━━━ */}
+        <Route path="/login" element={
+          <PublicRoute>
+            <Auth />
+          </PublicRoute>
+        } />
+
+        <Route path="/signup" element={
+          <PublicRoute>
+            <Auth />
+          </PublicRoute>
+        } />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
         
-        {/* Main Dashboard */}
-        <Route path="/" element={session ? getDashboard() : <Landing />} />
+        <Route path="/landing" element={<Landing />} />
 
-        {/* Protected Member Routes */}
-        {session && fullProfile && (
-          <>
-            {/* ✅ Target Audience Route Linked */}
-            <Route path="/target" element={
-              <Layout>
-                <TargetAudience />
-              </Layout>
-            } />
-            
-            {/* ✅ Subscription Route Linked */}
-            <Route path="/subscription" element={
-              <Layout>
-                <Subscription onClose={() => window.history.back()} />
-              </Layout>
-            } />
-          </>
-        )}
+        {/* ━━━ MAIN DASHBOARD ━━━ */}
+        <Route path="/" element={
+          isAuthenticated ? <DashboardRouter /> : <Landing />
+        } />
 
-        {/* Legal Pages */}
+        {/* ━━━ PROTECTED MEMBER ROUTES ━━━ */}
+        <Route path="/target" element={
+          <ProtectedRoute>
+            <Layout>
+              <TargetAudience />
+            </Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/subscription" element={
+          <ProtectedRoute>
+            <Subscription onClose={() => window.history.back()} />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <DashboardRouter />
+          </ProtectedRoute>
+        } />
+
+        {/* ━━━ ROLE-SPECIFIC ROUTES ━━━ */}
+        <Route path="/admin/*" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/manager/*" element={
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
+            <ManagerDashboard />
+          </ProtectedRoute>
+        } />
+
+        {/* ━━━ LEGAL PAGES ━━━ */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/shipping" element={<ShippingPolicy />} />
         <Route path="/contact" element={<ContactUs />} />
 
-        {/* Fallback */}
+        {/* ━━━ FALLBACK ━━━ */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </>
+  );
+};
+
+// ============================================================
+// 🚀 MAIN APP COMPONENT
+// ============================================================
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
