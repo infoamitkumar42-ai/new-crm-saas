@@ -5,12 +5,9 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, logEvent } from "../supabaseClient";
 import { User } from "../types";
 
-// 🔗 Google Apps Script Web App URL - Sheet Creator
+// 🔗 Google Apps Script Web App URL
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
-// ============================================================
-// 📦 AUTH CONTEXT TYPE
-// ============================================================
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
@@ -31,19 +28,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// ============================================================
-// 🔐 AUTH PROVIDER COMPONENT
-// ============================================================
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
-  // ✅ Check if authenticated
   const isAuthenticated = !!session && !!profile;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 FETCH FULL PROFILE FROM DATABASE
+  // 📥 FETCH PROFILE FROM DATABASE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
@@ -56,7 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error("Profile fetch error:", error);
+        console.error("❌ Profile fetch error:", error);
         return null;
       }
 
@@ -85,15 +79,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } as User;
       }
 
+      console.log("⚠️ No profile found for user");
       return null;
     } catch (err) {
-      console.error("Profile fetch exception:", err);
+      console.error("❌ Profile fetch exception:", err);
       return null;
     }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⚡ CREATE TEMP PROFILE (INSTANT LOADING)
+  // ⚡ CREATE TEMP PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = (user: SupabaseUser): User => ({
     id: user.id,
@@ -115,20 +110,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🔄 LOAD USER PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const loadUserProfile = useCallback(async (user: SupabaseUser) => {
-    // Set temp profile immediately for fast UI
+    console.log("🔄 Loading profile for:", user.email);
+    
+    // Set temp profile immediately
     const tempProfile = createTempProfile(user);
     setProfile(tempProfile);
     setLoading(false);
 
-    // Fetch full profile in background
+    // Fetch full profile
     const fullProfile = await fetchProfile(user.id);
+    
     if (fullProfile) {
       setProfile(fullProfile);
+    } else {
+      // User exists in auth but not in users table - create entry
+      console.log("⚠️ Creating missing user entry...");
+      
+      const userData = {
+        id: user.id,
+        email: user.email?.toLowerCase(),
+        name: user.user_metadata?.name || "User",
+        role: "member",
+        payment_status: "inactive",
+        plan_name: "none",
+        daily_limit: 0,
+        leads_today: 0,
+        filters: { pan_india: true },
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabase.from("users").upsert(userData);
+      
+      if (!error) {
+        const newProfile = await fetchProfile(user.id);
+        if (newProfile) {
+          setProfile(newProfile);
+        }
+      }
     }
   }, [fetchProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 REFRESH PROFILE MANUALLY
+  // 🔄 REFRESH PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
@@ -140,13 +165,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [session, fetchProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📊 CREATE GOOGLE SHEET FOR USER
+  // 📊 CREATE GOOGLE SHEET
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createUserSheet = async (userId: string, email: string, name: string): Promise<string | null> => {
     try {
-      console.log("📊 Creating Google Sheet for:", email);
+      console.log("📊 Creating sheet for:", email);
       
-      // Try POST first
+      // Try POST
       const response = await fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
@@ -191,103 +216,83 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH ON MOUNT
+  // 🚀 INITIALIZE AUTH
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
+    if (initialized) return;
+    
     let mounted = true;
 
     const initializeAuth = async () => {
+      console.log("🔐 Initializing auth...");
+      
       try {
-        console.log("🔐 Initializing auth...");
-
-        // Get current session from localStorage/storage
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.warn("Session error:", error.message);
-          // Clear corrupted session
-          await supabase.auth.signOut();
+          console.error("❌ Session error:", error.message);
           if (mounted) {
             setSession(null);
             setProfile(null);
             setLoading(false);
+            setInitialized(true);
           }
           return;
         }
 
-        if (currentSession?.user && mounted) {
+        if (currentSession?.user) {
           console.log("✅ Session found:", currentSession.user.email);
-          setSession(currentSession);
-          await loadUserProfile(currentSession.user);
+          if (mounted) {
+            setSession(currentSession);
+            await loadUserProfile(currentSession.user);
+            setInitialized(true);
+          }
         } else {
           console.log("ℹ️ No active session");
           if (mounted) {
+            setSession(null);
+            setProfile(null);
             setLoading(false);
+            setInitialized(true);
           }
         }
       } catch (err) {
-        console.error("Auth init error:", err);
+        console.error("❌ Auth init error:", err);
         if (mounted) {
           setLoading(false);
+          setInitialized(true);
         }
       }
     };
 
-    // Safety timeout - never show loading forever
+    // Safety timeout - 3 seconds max
     const safetyTimer = setTimeout(() => {
       if (mounted && loading) {
-        console.warn("⚠️ Safety timeout triggered");
+        console.warn("⚠️ Safety timeout - forcing load complete");
         setLoading(false);
+        setInitialized(true);
       }
-    }, 5000);
+    }, 3000);
 
     initializeAuth();
 
-    // ✅ Listen for auth state changes
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
 
         console.log("🔔 Auth event:", event);
 
-        switch (event) {
-          case 'SIGNED_IN':
-            if (newSession?.user) {
-              setSession(newSession);
-              await loadUserProfile(newSession.user);
-              logEvent('user_signed_in', { email: newSession.user.email });
-            }
-            break;
-
-          case 'SIGNED_OUT':
-            setSession(null);
-            setProfile(null);
-            setLoading(false);
-            // Clear local storage
-            localStorage.removeItem('leadflow-auth-session');
-            logEvent('user_signed_out', {});
-            break;
-
-          case 'TOKEN_REFRESHED':
-            console.log("🔄 Token refreshed automatically");
-            if (newSession) {
-              setSession(newSession);
-            }
-            break;
-
-          case 'USER_UPDATED':
-            if (newSession?.user) {
-              setSession(newSession);
-              await refreshProfile();
-            }
-            break;
-
-          case 'PASSWORD_RECOVERY':
-            console.log("🔑 Password recovery mode");
-            break;
-
-          default:
-            break;
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          setSession(newSession);
+          await loadUserProfile(newSession.user);
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          localStorage.removeItem('leadflow-auth-session');
+        } else if (event === 'TOKEN_REFRESHED' && newSession) {
+          setSession(newSession);
         }
       }
     );
@@ -297,18 +302,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [loadUserProfile]);
+  }, [initialized, loadUserProfile, loading]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 AUTO REFRESH PROFILE EVERY 5 MINUTES
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Auto refresh every 5 mins
   useEffect(() => {
     if (!session?.user) return;
 
     const interval = setInterval(() => {
-      console.log("🔄 Auto-refreshing profile...");
       refreshProfile();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [session, refreshProfile]);
@@ -331,19 +333,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     teamCode?: string;
     managerId?: string;
   }) => {
-    // Create auth user
+    console.log("📝 Signing up:", email);
+    
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: {
-        data: { name: name.trim() }
-      }
+      options: { data: { name: name.trim() } }
     });
 
     if (error) throw error;
     if (!data.user) throw new Error("Signup failed");
 
-    // Create user in database
+    // Create sheet for members
+    let sheetUrl: string | null = null;
+    if (role === 'member') {
+      sheetUrl = await createUserSheet(data.user.id, email, name);
+    }
+
+    // Save to database
     const userData = {
       id: data.user.id,
       email: data.user.email?.toLowerCase(),
@@ -351,6 +358,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role,
       team_code: role === 'manager' ? teamCode?.toUpperCase() : null,
       manager_id: managerId || null,
+      sheet_url: sheetUrl,
       payment_status: 'inactive',
       plan_name: 'none',
       daily_limit: 0,
@@ -361,35 +369,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       updated_at: new Date().toISOString()
     };
 
-    const { error: dbError } = await supabase.from('users').upsert(userData);
-    if (dbError) {
-      console.error("DB error:", dbError);
-    }
-
-    // Create Google Sheet for members (background task)
-    if (role === 'member') {
-      createUserSheet(data.user.id, email, name).then(sheetUrl => {
-        if (sheetUrl) {
-          supabase.from('users').update({ sheet_url: sheetUrl }).eq('id', data.user!.id);
-        }
-      }).catch(console.warn);
-    }
-
-    logEvent('user_signup', { email, role });
+    await supabase.from('users').upsert(userData);
+    
+    console.log("✅ Signup complete");
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 🔓 SIGN IN
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = async ({ email, password }: { email: string; password: string }) => {
+    console.log("🔓 Signing in:", email);
+    
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password
     });
 
     if (error) throw error;
-
-    logEvent('user_login', { email });
+    
+    console.log("✅ Sign in successful");
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -397,24 +395,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signOut = async () => {
     console.log("👋 Signing out...");
-
-    // Clear state first
+    
     setSession(null);
     setProfile(null);
-
-    // Clear localStorage
     localStorage.removeItem('leadflow-auth-session');
-
-    // Sign out from Supabase
+    
     await supabase.auth.signOut();
-
+    
     setLoading(false);
     console.log("✅ Signed out");
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🎁 PROVIDE CONTEXT
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <AuthContext.Provider value={{
       session,
@@ -431,9 +422,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🪝 USE AUTH HOOK
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
