@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
-const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
+const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycby-Or3s_Vk8dh38-bJvOFxVikbbZ444UJ6taJmQaJktOASE5-XxvbqA2xzitfNfxbMA/exec";
 
 export const Auth: React.FC = () => {
   const { refreshProfile } = useAuth();
