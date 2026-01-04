@@ -5,15 +5,25 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, logEvent } from "../supabaseClient";
 import { User } from "../types";
 
-// 🔗 Google Apps Script Web App URL
+// 🔗 Google Apps Script Web App URL - Sheet Creator
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
+// ============================================================
+// 📦 AUTH CONTEXT TYPE
+// ============================================================
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signUp: (params: { email: string; password: string; name: string; role?: string; teamCode?: string; managerId?: string }) => Promise<void>;
+  signUp: (params: { 
+    email: string; 
+    password: string; 
+    name: string; 
+    role?: string; 
+    teamCode?: string; 
+    managerId?: string 
+  }) => Promise<void>;
   signIn: (params: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -21,6 +31,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// ============================================================
+// 🔐 AUTH PROVIDER COMPONENT
+// ============================================================
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
@@ -29,7 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ✅ Check if authenticated
   const isAuthenticated = !!session && !!profile;
 
-  // ✅ Fetch full profile from database
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📥 FETCH FULL PROFILE FROM DATABASE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
       console.log("📥 Fetching profile for:", userId);
@@ -77,7 +92,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // ✅ Create temporary profile for instant loading
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ⚡ CREATE TEMP PROFILE (INSTANT LOADING)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = (user: SupabaseUser): User => ({
     id: user.id,
     email: user.email || "",
@@ -94,7 +111,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     created_at: new Date().toISOString(),
   });
 
-  // ✅ Load user profile (instant temp, then full)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔄 LOAD USER PROFILE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const loadUserProfile = useCallback(async (user: SupabaseUser) => {
     // Set temp profile immediately for fast UI
     const tempProfile = createTempProfile(user);
@@ -108,7 +127,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [fetchProfile]);
 
-  // ✅ Refresh profile manually
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔄 REFRESH PROFILE MANUALLY
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
       const fullProfile = await fetchProfile(session.user.id);
@@ -118,7 +139,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [session, fetchProfile]);
 
-  // ✅ Create Google Sheet for user
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📊 CREATE GOOGLE SHEET FOR USER
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createUserSheet = async (userId: string, email: string, name: string): Promise<string | null> => {
     try {
       console.log("📊 Creating Google Sheet for:", email);
@@ -167,7 +190,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // ✅ Initialize auth on mount
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🚀 INITIALIZE AUTH ON MOUNT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     let mounted = true;
 
@@ -244,7 +269,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             break;
 
           case 'TOKEN_REFRESHED':
-            console.log("🔄 Token refreshed");
+            console.log("🔄 Token refreshed automatically");
             if (newSession) {
               setSession(newSession);
             }
@@ -274,7 +299,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [loadUserProfile]);
 
-  // ✅ Auto refresh profile every 5 minutes
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔄 AUTO REFRESH PROFILE EVERY 5 MINUTES
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     if (!session?.user) return;
 
@@ -286,7 +313,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [session, refreshProfile]);
 
-  // ✅ Sign Up
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📝 SIGN UP
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signUp = async ({ 
     email, 
     password, 
@@ -337,7 +366,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("DB error:", dbError);
     }
 
-    // Create Google Sheet for members
+    // Create Google Sheet for members (background task)
     if (role === 'member') {
       createUserSheet(data.user.id, email, name).then(sheetUrl => {
         if (sheetUrl) {
@@ -349,7 +378,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logEvent('user_signup', { email, role });
   };
 
-  // ✅ Sign In
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔓 SIGN IN
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -361,7 +392,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logEvent('user_login', { email });
   };
 
-  // ✅ Sign Out
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 👋 SIGN OUT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signOut = async () => {
     console.log("👋 Signing out...");
 
@@ -379,6 +412,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("✅ Signed out");
   };
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🎁 PROVIDE CONTEXT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <AuthContext.Provider value={{
       session,
@@ -395,6 +431,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🪝 USE AUTH HOOK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
