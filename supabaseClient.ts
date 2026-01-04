@@ -12,7 +12,7 @@ export const supabase = createClient(
       // ✅ Store session in localStorage (persists across browser restarts)
       persistSession: true,
       
-      // ✅ Custom storage key
+      // ✅ Custom storage key for session
       storageKey: 'leadflow-auth-session',
       
       // ✅ Use localStorage instead of sessionStorage
@@ -67,8 +67,9 @@ export async function logEvent(
       });
 
       if (error) {
+        // Suppress table not found errors
         if (error.code === '42P01' || error.message.includes('Could not find the table')) {
-          // Silent fail for missing table
+          // Silent - table doesn't exist
         } else {
           console.error("Failed to write log:", error.message);
         }
