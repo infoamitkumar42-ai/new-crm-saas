@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
@@ -47,7 +47,7 @@ const ProtectedRoute: React.FC<{
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+  if (allowedRoles && profile && !allowedRoles.includes(profile.role || '')) {
     return <Navigate to="/" replace />;
   }
 
@@ -136,7 +136,7 @@ function initServiceWorkerKeepAlive() {
 // 🎯 MAIN APP ROUTES
 // ============================================================
 const AppRoutes: React.FC = () => {
-  const { session, profile, isAuthenticated } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
 
   // Initialize Service Worker
   useEffect(() => {
