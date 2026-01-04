@@ -480,7 +480,7 @@ export const Auth: React.FC = () => {
   // ═══════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         
         {/* ━━━ FORGOT PASSWORD MODE ━━━ */}
@@ -488,7 +488,7 @@ export const Auth: React.FC = () => {
           <>
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <KeyRound size={32} className="text-blue-600" />
               </div>
               <h2 className="text-2xl font-extrabold text-slate-900">
@@ -507,7 +507,7 @@ export const Auth: React.FC = () => {
                 <div className="relative">
                   <Mail className="absolute left-3 top-3.5 text-slate-400" size={18} />
                   <input 
-                    className="w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                    className="w-full border border-slate-200 px-4 py-3 pl-10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
                     type="email" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
@@ -519,7 +519,7 @@ export const Auth: React.FC = () => {
 
               {/* Success Message */}
               {successMessage && (
-                <div className="bg-green-50 text-green-700 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-green-200">
+                <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-green-200">
                   <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
                   <span>{successMessage}</span>
                 </div>
@@ -527,7 +527,7 @@ export const Auth: React.FC = () => {
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-200">
                   <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -535,7 +535,7 @@ export const Auth: React.FC = () => {
 
               {/* Status Message */}
               {statusMessage && (
-                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
+                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-blue-200">
                   <Loader2 size={18} className="animate-spin flex-shrink-0" />
                   {statusMessage}
                 </div>
@@ -545,7 +545,7 @@ export const Auth: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={loading} 
-                className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
+                className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -561,7 +561,7 @@ export const Auth: React.FC = () => {
             {/* Back to Login */}
             <div className="mt-6 text-center">
               <button 
-                className="flex items-center justify-center gap-2 mx-auto text-blue-600 hover:underline font-medium text-sm" 
+                className="flex items-center justify-center gap-2 mx-auto text-blue-600 hover:text-blue-700 hover:underline font-medium text-sm transition-colors" 
                 onClick={() => handleModeChange("login")}
               >
                 <ArrowLeft size={16} />
@@ -589,7 +589,7 @@ export const Auth: React.FC = () => {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
                   <input 
-                    className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                    className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
                     value={name} 
                     onChange={e => setName(e.target.value)} 
                     placeholder="e.g. Rahul Kumar" 
@@ -601,7 +601,7 @@ export const Auth: React.FC = () => {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
                 <input 
-                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
                   type="email" 
                   value={email} 
                   onChange={e => setEmail(e.target.value)} 
@@ -617,14 +617,14 @@ export const Auth: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleModeChange("forgot_password")}
-                      className="text-xs text-blue-600 hover:underline font-medium"
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium transition-colors"
                     >
                       Forgot Password?
                     </button>
                   )}
                 </div>
                 <input 
-                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
                   type="password" 
                   value={password} 
                   onChange={e => setPassword(e.target.value)} 
@@ -636,7 +636,7 @@ export const Auth: React.FC = () => {
 
               {/* Role & Team Code Section */}
               {mode === "signup" && (
-                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-xl border border-slate-200 space-y-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                       Select Your Role
@@ -650,14 +650,14 @@ export const Auth: React.FC = () => {
                           setTeamCodeStatus('idle');
                           setManagerInfo(null);
                         }}
-                        className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                           selectedRole === 'member' 
-                            ? 'bg-blue-600 border-blue-600 text-white' 
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/30' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:shadow-md'
                         }`}
                       >
-                        <Users size={20} className="mb-1" />
-                        <span className="text-xs font-bold">Team Member</span>
+                        <Users size={24} className="mb-2" />
+                        <span className="text-sm font-bold">Team Member</span>
                       </button>
                       <button
                         type="button"
@@ -667,14 +667,14 @@ export const Auth: React.FC = () => {
                           setTeamCodeStatus('idle');
                           setManagerInfo(null);
                         }}
-                        className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                           selectedRole === 'manager' 
-                            ? 'bg-indigo-600 border-indigo-600 text-white' 
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                            ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:shadow-md'
                         }`}
                       >
-                        <Briefcase size={20} className="mb-1" />
-                        <span className="text-xs font-bold">Manager</span>
+                        <Briefcase size={24} className="mb-2" />
+                        <span className="text-sm font-bold">Manager</span>
                       </button>
                     </div>
                   </div>
@@ -689,12 +689,12 @@ export const Auth: React.FC = () => {
                         <div className="relative">
                           <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
                           <input 
-                            className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
+                            className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-xl focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
                               teamCodeStatus === 'valid' 
                                 ? 'border-green-500 focus:ring-green-500 bg-green-50' 
                                 : teamCodeStatus === 'invalid'
                                 ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                                : 'focus:ring-blue-500'
+                                : 'border-slate-200 focus:ring-blue-500 focus:border-blue-500'
                             }`}
                             value={teamCode} 
                             onChange={e => handleTeamCodeChange(e.target.value)} 
@@ -719,13 +719,13 @@ export const Auth: React.FC = () => {
                         
                         {/* Status Message */}
                         {teamCodeStatus === 'valid' && managerInfo && (
-                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg">
+                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg border border-green-200">
                             <CheckCircle size={14} />
                             <span>Joining <strong>{managerInfo.name}'s</strong> team</span>
                           </p>
                         )}
                         {teamCodeStatus === 'invalid' && (
-                          <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg">
+                          <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg border border-red-200">
                             <XCircle size={14} />
                             <span>Invalid code. Ask your manager for the correct code.</span>
                           </p>
@@ -745,7 +745,7 @@ export const Auth: React.FC = () => {
                         <div className="relative">
                           <Users className="absolute left-3 top-3 text-slate-400" size={18} />
                           <input 
-                            className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
+                            className="w-full border border-slate-200 px-4 py-2.5 pl-10 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
                             value={teamCode} 
                             onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, '').trim())} 
                             placeholder="e.g. WINNERS_CLUB" 
@@ -765,7 +765,7 @@ export const Auth: React.FC = () => {
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-start gap-2 border border-red-200">
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-200">
                   <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -773,7 +773,7 @@ export const Auth: React.FC = () => {
               
               {/* Status Message */}
               {statusMessage && (
-                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200">
+                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-blue-200">
                   <Loader2 size={18} className="animate-spin flex-shrink-0" />
                   {statusMessage}
                 </div>
@@ -783,10 +783,10 @@ export const Auth: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus === 'checking')} 
-                className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
+                className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed ${
                   mode === 'signup' && selectedRole === 'manager' 
-                    ? 'bg-indigo-600 hover:bg-indigo-700' 
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700' 
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                 }`}
               >
                 {loading ? (
@@ -811,7 +811,7 @@ export const Auth: React.FC = () => {
               <p className="text-slate-500 text-sm">
                 {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
                 <button 
-                  className="ml-2 font-bold text-blue-600 hover:underline" 
+                  className="ml-2 font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors" 
                   onClick={() => handleModeChange(mode === "login" ? "signup" : "login")}
                 >
                   {mode === "login" ? "Create Account" : "Login Here"}
@@ -824,3 +824,5 @@ export const Auth: React.FC = () => {
     </div>
   );
 };
+
+export default Auth;
