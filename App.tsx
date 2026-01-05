@@ -32,12 +32,14 @@ const ProtectedRoute: React.FC<{
 }> = ({ children, allowedRoles }) => {
   const { isAuthenticated, profile, loading } = useAuth();
 
-  if (loading) {
+  // ✅ FIX: Only show loader if we are loading AND don't know the user yet
+  // Agar user mil gaya hai (isAuthenticated is true), toh loading ka wait mat karo
+  if (loading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
-          <p className="text-slate-500 text-sm">Loading...</p>
+          <p className="text-slate-500 text-sm">Loading workspace...</p>
         </div>
       </div>
     );
@@ -60,7 +62,8 @@ const ProtectedRoute: React.FC<{
 const DashboardRouter: React.FC = () => {
   const { profile, loading } = useAuth();
 
-  if (loading) {
+  // ✅ FIX: Wait for loading ONLY if profile is missing
+  if (loading && !profile) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -68,6 +71,7 @@ const DashboardRouter: React.FC = () => {
     );
   }
 
+  // Double check
   if (!profile) {
     return <Navigate to="/login" replace />;
   }
@@ -95,7 +99,8 @@ const DashboardRouter: React.FC = () => {
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
-  if (loading) {
+  // ✅ FIX: Only load if we are not sure about auth status
+  if (loading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -172,6 +177,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/landing" element={<Landing />} />
 
         {/* ━━━ MAIN DASHBOARD ━━━ */}
+        {/* If authenticated, show dashboard, else show Landing page */}
         <Route path="/" element={
           isAuthenticated ? <DashboardRouter /> : <Landing />
         } />
