@@ -1,15 +1,8 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v3.0                              ║
- * ║  Last Updated: January 5, 2025                             ║
- * ║  Features:                                                 ║
- * ║  - ✅ Persistent session (survives refresh/close)          ║
- * ║  - ✅ No "Checking session..." stuck                       ║
- * ║  - ✅ Fast session hydration                               ║
- * ║  - ✅ Auto token refresh                                   ║
- * ║  - ✅ Error recovery                                       ║
- * ║                                                            ║
- * ║  ⚠️  DO NOT MODIFY WITHOUT TESTING                         ║
+ * ║  🔒 FIXED - useAuth.tsx v3.1                               ║
+ * ║  Last Updated: January 6, 2025                             ║
+ * ║  FIX: Added timeout to prevent infinite loading            ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -26,7 +19,6 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
 
-// 🔗 Google Apps Script Web App URL
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
 interface AuthContextValue {
@@ -49,6 +41,17 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// ✅ HELPER: Fetch with timeout
+const fetchWithTimeout = async <T,>(
+  promise: Promise<T>,
+  timeoutMs: number = 10000
+): Promise<T> => {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+  );
+  return Promise.race([promise, timeout]);
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
@@ -57,21 +60,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const mountedRef = useRef(true);
   const currentUserIdRef = useRef<string | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isAuthenticated = !!session && !!profile;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 FETCH PROFILE FROM DATABASE
+  // 📥 FETCH PROFILE (WITH TIMEOUT)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
       console.log('📥 Fetching profile for:', userId);
       
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await fetchWithTimeout(
+        supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single(),
+        8000 // 8 second timeout
+      );
 
       if (error) {
         console.error('❌ Profile fetch error:', error.message);
@@ -106,14 +113,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         created_at: data.created_at,
         updated_at: data.updated_at,
       } as User;
-    } catch (err) {
-      console.error('❌ fetchProfile exception:', err);
+    } catch (err: any) {
+      console.error('❌ fetchProfile exception:', err.message);
       return null;
     }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⚡ CREATE TEMP PROFILE (Fallback)
+  // ⚡ CREATE TEMP PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = useCallback((user: SupabaseUser): User => ({
     id: user.id,
@@ -145,7 +152,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (!mountedRef.current) return;
 
-      // If no profile exists, create one
       if (!fullProfile) {
         console.log('📝 Creating new profile...');
         
@@ -166,11 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           updated_at: new Date().toISOString()
         };
         
-        const { error } = await supabase.from("users").upsert(userData);
-        
-        if (error) {
-          console.error('❌ Profile creation error:', error.message);
-        }
+        await supabase.from("users").upsert(userData);
         
         if (mountedRef.current) {
           fullProfile = await fetchProfile(user.id);
@@ -179,6 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (mountedRef.current) {
         setProfile(fullProfile || createTempProfile(user));
+        console.log('✅ Profile set successfully');
       }
     } catch (err) {
       console.error('❌ loadUserProfile error:', err);
@@ -222,27 +225,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const result = JSON.parse(text);
           if (result.success && result.sheetUrl) {
-            console.log('✅ Sheet created:', result.sheetUrl);
             return result.sheetUrl;
           }
         } catch {}
       }
-
-      // Fallback to GET
-      const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`;
-      const getResponse = await fetch(getUrl);
-      
-      if (getResponse.ok) {
-        const text = await getResponse.text();
-        try {
-          const result = JSON.parse(text);
-          if (result.success && result.sheetUrl) {
-            return result.sheetUrl;
-          }
-        } catch {}
-      }
-
-      console.log('⚠️ Sheet creation failed');
       return null;
     } catch (err) {
       console.error('❌ Sheet creation error:', err);
@@ -251,18 +237,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH (FIXED - No Race Condition)
+  // 🚀 INITIALIZE AUTH (WITH SAFETY TIMEOUT)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     mountedRef.current = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
 
+    // ✅ SAFETY: Force loading to false after 15 seconds
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current && loading) {
+        console.warn('⚠️ Auth timeout - forcing loading to false');
+        setLoading(false);
+        setInitialized(true);
+      }
+    }, 15000);
+
     const initializeAuth = async () => {
       console.log('🚀 Initializing auth...');
 
       try {
-        // ✅ Step 1: Get current session
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error } = await fetchWithTimeout(
+          supabase.auth.getSession(),
+          10000
+        );
 
         if (!mountedRef.current) return;
 
@@ -285,8 +282,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
         }
 
-      } catch (err) {
-        console.error('❌ Init error:', err);
+      } catch (err: any) {
+        console.error('❌ Init error:', err.message);
         setSession(null);
         setProfile(null);
       } finally {
@@ -294,12 +291,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setLoading(false);
           setInitialized(true);
           console.log('✅ Auth initialization complete');
+          
+          // Clear safety timeout
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+          }
         }
       }
     };
 
-    // ✅ Step 2: Listen for auth changes
+    // Listen for auth changes (debounced)
+    let lastEventTime = 0;
     const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      // Debounce duplicate events
+      const now = Date.now();
+      if (now - lastEventTime < 1000 && event === 'SIGNED_IN') {
+        console.log('🔇 Debouncing duplicate SIGNED_IN');
+        return;
+      }
+      lastEventTime = now;
+
       console.log('🔔 Auth event:', event);
       
       if (!mountedRef.current) return;
@@ -326,58 +337,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           break;
 
         case 'TOKEN_REFRESHED':
-          console.log('🔄 Token refreshed');
-          if (newSession) {
-            setSession(newSession);
-          }
+          if (newSession) setSession(newSession);
           break;
 
         case 'USER_UPDATED':
-          console.log('👤 User updated');
           if (newSession?.user) {
             setSession(newSession);
-            const updatedProfile = await fetchProfile(newSession.user.id);
-            if (updatedProfile && mountedRef.current) {
-              setProfile(updatedProfile);
-            }
+            await refreshProfile();
           }
-          break;
-
-        case 'INITIAL_SESSION':
-          // Handled in initializeAuth()
           break;
       }
     });
 
     authSubscription = data.subscription;
-
-    // ✅ Step 3: Start initialization
     initializeAuth();
 
-    // ✅ Cleanup
     return () => {
       console.log('🧹 Cleaning up auth...');
       mountedRef.current = false;
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
+      if (authSubscription) authSubscription.unsubscribe();
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     };
-  }, [loadUserProfile, fetchProfile]);
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 AUTO REFRESH PROFILE (Every 5 mins)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  useEffect(() => {
-    if (!session?.user || !initialized) return;
-    
-    const interval = setInterval(() => {
-      if (mountedRef.current) {
-        refreshProfile();
-      }
-    }, 5 * 60 * 1000);
-    
-    return () => clearInterval(interval);
-  }, [session, initialized, refreshProfile]);
+  }, [loadUserProfile, fetchProfile, refreshProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 📝 SIGN UP
@@ -401,11 +382,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     
     try {
-      // Prepare values
       let resolvedManagerId: string | null = managerId || null;
       let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
 
-      // For Members - resolve manager if not passed
       if (role === 'member' && resolvedTeamCode && !resolvedManagerId) {
         const { data: managerData } = await supabase
           .from('users')
@@ -421,7 +400,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = managerData.id;
       }
 
-      // For Managers - check code availability
       if (role === 'manager' && resolvedTeamCode) {
         const { data: existingCode } = await supabase
           .from('users')
@@ -436,7 +414,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = null;
       }
 
-      // Create Auth User
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -461,18 +438,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const userId = data.user.id;
-      console.log('✅ Auth user created:', userId);
-
-      // Wait for auth to propagate
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Create Sheet (Members only)
       let sheetUrl: string | null = null;
       if (role === 'member') {
         sheetUrl = await createUserSheet(userId, email, name);
       }
 
-      // Save to Database
       const userData = {
         id: userId,
         email: email.trim().toLowerCase(),
@@ -493,25 +465,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updated_at: new Date().toISOString()
       };
 
-      const { error: dbError } = await supabase.from('users').upsert(userData);
-
-      if (dbError) {
-        console.error('⚠️ DB insert error, trying update:', dbError.message);
-        await supabase
-          .from('users')
-          .update({
-            name: name.trim(),
-            role,
-            team_code: resolvedTeamCode,
-            manager_id: resolvedManagerId,
-            sheet_url: sheetUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
-      }
-
+      await supabase.from('users').upsert(userData);
       console.log('✅ SignUp complete');
-      // Loading will be set to false by onAuthStateChange SIGNED_IN event
       
     } catch (err) {
       console.error('❌ SignUp error:', err);
@@ -521,14 +476,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [createUserSheet]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔓 SIGN IN (FIXED)
+  // 🔓 SIGN IN
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     console.log('🔓 SignIn started:', email);
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
       });
@@ -539,8 +494,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      console.log('✅ SignIn successful, waiting for profile...');
-      // Loading will be set to false by onAuthStateChange SIGNED_IN event
+      console.log('✅ SignIn successful');
       
     } catch (err) {
       console.error('❌ SignIn exception:', err);
@@ -561,15 +515,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       await supabase.auth.signOut();
-      console.log('✅ SignOut complete');
     } catch (err) {
       console.error('⚠️ SignOut error:', err);
     }
   }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🎁 CONTEXT VALUE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <AuthContext.Provider value={{
       session,
