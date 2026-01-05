@@ -16,21 +16,19 @@ import { User } from "../types";
 // 🔗 Google Apps Script Web App URL
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
-interface SignUpParams {
-  email: string;
-  password: string;
-  name: string;
-  role?: 'member' | 'manager' | 'admin';
-  teamCode?: string;
-  managerId?: string;
-}
-
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signUp: (params: SignUpParams) => Promise<void>;
+  signUp: (params: { 
+    email: string; 
+    password: string; 
+    name: string; 
+    role?: string; 
+    teamCode?: string; 
+    managerId?: string 
+  }) => Promise<void>;
   signIn: (params: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -55,51 +53,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      console.log("📥 Fetching profile for:", userId);
-      
       const { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (error) {
-        console.error("❌ Profile fetch error:", error);
-        return null;
-      }
+      if (error || !data) return null;
 
-      if (data) {
-        console.log("✅ Profile loaded:", data.email);
-        console.log("   └─ Manager ID:", data.manager_id || "(none)");
-        console.log("   └─ Team Code:", data.team_code || "(none)");
-        console.log("   └─ Role:", data.role);
-        
-        return {
-          id: data.id,
-          email: data.email,
-          name: data.name || "User",
-          role: data.role || "member",
-          team_code: data.team_code,
-          manager_id: data.manager_id,
-          sheet_url: data.sheet_url || "",
-          sheet_id: data.sheet_id,
-          payment_status: data.payment_status || "inactive",
-          plan_name: data.plan_name,
-          plan_weight: data.plan_weight || 1,
-          daily_limit: data.daily_limit || 0,
-          leads_today: data.leads_today || 0,
-          total_leads_received: data.total_leads_received || 0,
-          valid_until: data.valid_until,
-          filters: data.filters || {},
-          is_active: data.is_active ?? true,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-        } as User;
-      }
-
-      return null;
-    } catch (err) {
-      console.error("❌ Profile fetch exception:", err);
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name || "User",
+        role: data.role || "member",
+        team_code: data.team_code,
+        manager_id: data.manager_id,
+        sheet_url: data.sheet_url || "",
+        sheet_id: data.sheet_id,
+        payment_status: data.payment_status || "inactive",
+        plan_name: data.plan_name,
+        plan_weight: data.plan_weight || 1,
+        daily_limit: data.daily_limit || 0,
+        leads_today: data.leads_today || 0,
+        total_leads_received: data.total_leads_received || 0,
+        valid_until: data.valid_until,
+        filters: data.filters || {},
+        is_active: data.is_active ?? true,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      } as User;
+    } catch {
       return null;
     }
   }, []);
@@ -147,7 +130,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: user.id,
           email: user.email?.toLowerCase(),
           name: user.user_metadata?.name || "User",
-          role: "member",
+          role: user.user_metadata?.role || "member",
+          team_code: user.user_metadata?.team_code || null,
+          manager_id: user.user_metadata?.manager_id || null,
           payment_status: "inactive",
           plan_name: "none",
           daily_limit: 0,
@@ -173,8 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       processingRef.current = false;
       return false;
-    } catch (err) {
-      console.error("❌ loadUserProfile error:", err);
+    } catch {
       if (mountedRef.current) {
         setProfile(createTempProfile(user));
       }
@@ -204,8 +188,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: string
   ): Promise<string | null> => {
     try {
-      console.log("📊 Creating sheet for:", email);
-      
       const response = await fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
@@ -217,7 +199,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const result = JSON.parse(text);
           if (result.success && result.sheetUrl) {
-            console.log("✅ Sheet created:", result.sheetUrl);
             return result.sheetUrl;
           }
         } catch {}
@@ -238,8 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       return null;
-    } catch (err) {
-      console.warn("Sheet creation failed:", err);
+    } catch {
       return null;
     }
   }, []);
@@ -249,6 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     mountedRef.current = true;
+
     let authSubscription: { unsubscribe: () => void } | null = null;
     let safetyTimer: NodeJS.Timeout | null = null;
 
@@ -260,7 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (!mountedRef.current) return;
 
-        if (error) {
+        if (error || !currentSession?.user) {
           setSession(null);
           setProfile(null);
           setLoading(false);
@@ -268,20 +249,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        if (currentSession?.user) {
-          setSession(currentSession);
-          await loadUserProfile(currentSession.user);
-          if (mountedRef.current) {
-            setLoading(false);
-            initCompletedRef.current = true;
-          }
-        } else {
-          setSession(null);
-          setProfile(null);
+        setSession(currentSession);
+        await loadUserProfile(currentSession.user);
+        
+        if (mountedRef.current) {
           setLoading(false);
           initCompletedRef.current = true;
         }
-      } catch (err) {
+      } catch {
         if (mountedRef.current) {
           setSession(null);
           setProfile(null);
@@ -291,50 +266,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const { data } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!mountedRef.current) return;
+    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mountedRef.current) return;
+      if (!initCompletedRef.current && event === 'INITIAL_SESSION') return;
 
-        if (!initCompletedRef.current && event === 'INITIAL_SESSION') return;
-
-        switch (event) {
-          case 'SIGNED_IN':
-            if (newSession?.user) {
-              const isDifferentUser = currentUserIdRef.current !== newSession.user.id;
-              if (isDifferentUser || !initCompletedRef.current) {
-                setSession(newSession);
-                setLoading(true);
-                await loadUserProfile(newSession.user);
-                if (mountedRef.current) setLoading(false);
-              } else {
-                setSession(newSession);
-              }
-            }
-            break;
-
-          case 'SIGNED_OUT':
-            currentUserIdRef.current = null;
-            processingRef.current = false;
-            setSession(null);
-            setProfile(null);
-            setLoading(false);
-            localStorage.removeItem('leadflow-auth-session');
-            break;
-
-          case 'TOKEN_REFRESHED':
-            if (newSession) setSession(newSession);
-            break;
-
-          case 'USER_UPDATED':
-            if (newSession?.user) {
+      switch (event) {
+        case 'SIGNED_IN':
+          if (newSession?.user) {
+            const isDifferentUser = currentUserIdRef.current !== newSession.user.id;
+            if (isDifferentUser || !initCompletedRef.current) {
               setSession(newSession);
-              const updatedProfile = await fetchProfile(newSession.user.id);
-              if (updatedProfile && mountedRef.current) setProfile(updatedProfile);
+              setLoading(true);
+              await loadUserProfile(newSession.user);
+              if (mountedRef.current) setLoading(false);
+            } else {
+              setSession(newSession);
             }
-            break;
-        }
+          }
+          break;
+
+        case 'SIGNED_OUT':
+          currentUserIdRef.current = null;
+          processingRef.current = false;
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          localStorage.removeItem('leadflow-auth-session');
+          break;
+
+        case 'TOKEN_REFRESHED':
+          if (newSession) setSession(newSession);
+          break;
+
+        case 'USER_UPDATED':
+          if (newSession?.user) {
+            setSession(newSession);
+            const updatedProfile = await fetchProfile(newSession.user.id);
+            if (updatedProfile && mountedRef.current) setProfile(updatedProfile);
+          }
+          break;
       }
-    );
+    });
 
     authSubscription = data.subscription;
 
@@ -356,7 +328,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Auto refresh
+  // Auto refresh every 5 mins
   useEffect(() => {
     if (!session?.user) return;
     const interval = setInterval(() => {
@@ -366,7 +338,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [session, refreshProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📝 SIGN UP (FIXED WITH DETAILED DEBUGGING)
+  // 📝 SIGN UP
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signUp = useCallback(async ({ 
     email, 
@@ -375,60 +347,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     role = 'member',
     teamCode,
     managerId 
-  }: SignUpParams) => {
-    console.log("═".repeat(50));
-    console.log("📝 SIGNUP STARTED");
-    console.log("═".repeat(50));
-    console.log("📧 Email:", email);
-    console.log("👤 Name:", name);
-    console.log("🎭 Role:", role);
-    console.log("🏷️ Team Code:", teamCode || "(none)");
-    console.log("👨‍💼 Manager ID (passed):", managerId || "(none)");
-    console.log("═".repeat(50));
-    
+  }: {
+    email: string;
+    password: string;
+    name: string;
+    role?: string;
+    teamCode?: string;
+    managerId?: string;
+  }) => {
     setLoading(true);
     
     try {
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP 1: Resolve Manager ID for Members
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // Prepare values
       let resolvedManagerId: string | null = managerId || null;
       let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
 
-      if (role === 'member') {
-        if (!resolvedTeamCode) {
-          throw new Error("Team code is required for members");
+      // For Members - resolve manager if not passed
+      if (role === 'member' && resolvedTeamCode && !resolvedManagerId) {
+        const { data: managerData } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('team_code', resolvedTeamCode)
+          .eq('role', 'manager')
+          .maybeSingle();
+
+        if (!managerData) {
+          throw new Error("Invalid team code");
         }
-
-        // If managerId wasn't passed, resolve it from team code
-        if (!resolvedManagerId) {
-          console.log("🔍 Looking up manager for team code:", resolvedTeamCode);
-          
-          const { data: managerData, error: managerError } = await supabase
-            .from('users')
-            .select('id, name, email, role, team_code')
-            .eq('team_code', resolvedTeamCode)
-            .eq('role', 'manager')
-            .maybeSingle();
-
-          console.log("🔍 Manager lookup result:", { data: managerData, error: managerError });
-
-          if (managerError) {
-            console.error("❌ Manager lookup error:", managerError);
-            throw new Error("Failed to verify team code. Please try again.");
-          }
-
-          if (!managerData) {
-            console.error("❌ No manager found for team code:", resolvedTeamCode);
-            throw new Error(`Invalid team code "${resolvedTeamCode}". Please check with your manager.`);
-          }
-
-          resolvedManagerId = managerData.id;
-          console.log("✅ Found Manager:", managerData.name, "| ID:", managerData.id);
-        }
+        resolvedManagerId = managerData.id;
       }
 
-      // For Managers - check if team code is unique
+      // For Managers - check code availability
       if (role === 'manager' && resolvedTeamCode) {
         const { data: existingCode } = await supabase
           .from('users')
@@ -437,66 +386,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle();
 
         if (existingCode) {
-          throw new Error(`Team code "${resolvedTeamCode}" is already taken.`);
+          throw new Error("Team code already taken");
         }
-        
-        // Managers don't have a manager
         resolvedManagerId = null;
       }
 
-      console.log("─".repeat(50));
-      console.log("📊 RESOLVED VALUES:");
-      console.log("   Team Code:", resolvedTeamCode);
-      console.log("   Manager ID:", resolvedManagerId);
-      console.log("─".repeat(50));
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP 2: Create Auth User
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      console.log("🔐 Creating auth user...");
-      
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Create Auth User
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: { 
           data: { 
             name: name.trim(),
-            role: role 
+            role,
+            team_code: resolvedTeamCode,
+            manager_id: resolvedManagerId
           } 
         }
       });
 
-      if (authError) {
-        console.error("❌ Auth error:", authError);
-        throw authError;
-      }
-      
-      if (!authData.user) {
-        throw new Error("Signup failed - no user created");
-      }
+      if (error) throw error;
+      if (!data.user) throw new Error("Signup failed");
 
-      const userId = authData.user.id;
-      console.log("✅ Auth user created:", userId);
+      const userId = data.user.id;
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP 3: Create Google Sheet (Members only)
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // Wait for auth to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Create Sheet (Members only)
       let sheetUrl: string | null = null;
-      
       if (role === 'member') {
         sheetUrl = await createUserSheet(userId, email, name);
       }
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP 4: Insert into Database
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // Save to Database
       const userData = {
         id: userId,
         email: email.trim().toLowerCase(),
         name: name.trim(),
-        role: role,
+        role,
         team_code: resolvedTeamCode,
-        manager_id: resolvedManagerId, // ← THIS IS THE KEY FIELD
+        manager_id: resolvedManagerId,
         sheet_url: sheetUrl,
         payment_status: 'inactive',
         plan_name: 'none',
@@ -510,101 +440,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updated_at: new Date().toISOString()
       };
 
-      console.log("═".repeat(50));
-      console.log("💾 INSERTING INTO DATABASE:");
-      console.log(JSON.stringify(userData, null, 2));
-      console.log("═".repeat(50));
-
-      const { data: insertData, error: dbError } = await supabase
-        .from('users')
-        .upsert(userData)
-        .select()
-        .single();
+      const { error: dbError } = await supabase.from('users').upsert(userData);
 
       if (dbError) {
-        console.error("❌ DATABASE INSERT ERROR:", dbError);
-        console.error("   Code:", dbError.code);
-        console.error("   Message:", dbError.message);
-        console.error("   Details:", dbError.details);
-        console.error("   Hint:", dbError.hint);
-        
-        // Try alternative insert method
-        console.log("🔄 Trying alternative insert...");
-        
-        const { error: insertError } = await supabase
+        // Try update instead
+        await supabase
           .from('users')
-          .insert(userData);
-        
-        if (insertError) {
-          console.error("❌ Alternative insert also failed:", insertError);
-        } else {
-          console.log("✅ Alternative insert succeeded!");
-        }
-      } else {
-        console.log("✅ Database insert successful!");
-        console.log("📋 Inserted data:", insertData);
+          .update({
+            name: name.trim(),
+            role,
+            team_code: resolvedTeamCode,
+            manager_id: resolvedManagerId,
+            sheet_url: sheetUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
       }
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // STEP 5: VERIFY THE SAVE
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      console.log("🔍 Verifying saved data...");
-      
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('users')
-        .select('id, email, name, role, team_code, manager_id')
-        .eq('id', userId)
-        .single();
+      // Verify manager_id was saved (for members)
+      if (role === 'member' && resolvedManagerId) {
+        const { data: verifyData } = await supabase
+          .from('users')
+          .select('manager_id')
+          .eq('id', userId)
+          .single();
 
-      if (verifyError) {
-        console.error("❌ Verification error:", verifyError);
-      } else {
-        console.log("═".repeat(50));
-        console.log("✅ VERIFICATION - Data in Database:");
-        console.log("   ID:", verifyData.id);
-        console.log("   Email:", verifyData.email);
-        console.log("   Name:", verifyData.name);
-        console.log("   Role:", verifyData.role);
-        console.log("   Team Code:", verifyData.team_code || "(null)");
-        console.log("   Manager ID:", verifyData.manager_id || "(null) ⚠️");
-        console.log("═".repeat(50));
-
-        // Check if manager_id was saved
-        if (role === 'member' && resolvedManagerId && !verifyData.manager_id) {
-          console.error("❌ CRITICAL: manager_id was NOT saved!");
-          console.log("🔧 Attempting direct UPDATE...");
-          
-          const { error: updateError } = await supabase
+        if (!verifyData?.manager_id) {
+          await supabase
             .from('users')
-            .update({ 
-              manager_id: resolvedManagerId,
-              team_code: resolvedTeamCode
-            })
+            .update({ manager_id: resolvedManagerId, team_code: resolvedTeamCode })
             .eq('id', userId);
-          
-          if (updateError) {
-            console.error("❌ Direct update failed:", updateError);
-          } else {
-            console.log("✅ Direct update successful!");
-            
-            // Verify again
-            const { data: finalCheck } = await supabase
-              .from('users')
-              .select('manager_id, team_code')
-              .eq('id', userId)
-              .single();
-            
-            console.log("📋 Final verification:", finalCheck);
-          }
         }
       }
-
-      console.log("═".repeat(50));
-      console.log("✅ SIGNUP COMPLETE!");
-      console.log("═".repeat(50));
       
     } catch (err) {
-      console.error("❌ Signup error:", err);
       setLoading(false);
       throw err;
     }
@@ -614,7 +483,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🔓 SIGN IN
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
-    console.log("🔓 Signing in:", email);
     setLoading(true);
     
     try {
@@ -645,26 +513,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Sign out error:", err);
-    }
+    } catch {}
     
     setLoading(false);
   }, []);
 
-  const value: AuthContextValue = {
-    session,
-    profile,
-    loading,
-    isAuthenticated,
-    signUp,
-    signIn,
-    signOut,
-    refreshProfile
-  };
-
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🎁 CONTEXT VALUE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      session,
+      profile,
+      loading,
+      isAuthenticated,
+      signUp,
+      signIn,
+      signOut,
+      refreshProfile
+    }}>
       {children}
     </AuthContext.Provider>
   );
