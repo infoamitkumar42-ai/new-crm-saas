@@ -1,26 +1,28 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v2.0                      ║
- * ║  Last Updated: January 5, 2025                             ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v2.1                      ║
+ * ║  Last Updated: January 6, 2025                             ║
  * ║  Features:                                                 ║
  * ║  - ✅ Pause/Resume System                                  ║
+ * ║  - ✅ Plan Extension (Fair Usage Policy)                   ║
  * ║  - ✅ Lead Distribution Respect Pause State                ║
  * ║  - ✅ Real-time Notifications (when active)                ║
  * ║  - ✅ Invalid Lead Reporting                               ║
+ * ║  - ✅ Total Plan Progress Tracking                         ║
  * ║                                                            ║
  * ║  ⚠️  DO NOT MODIFY WITHOUT APPROVAL                        ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
 import {
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
   X, Calendar, Target, Clock,
   StickyNote, Check, LogOut, Zap, Crown, Lock,
   Flame, ArrowUp, Bell, Shield,
   AlertCircle, Award, ChevronDown, Moon, Pause, Play,
-  CheckCircle2, AlertTriangle, Flag
+  CheckCircle2, AlertTriangle, Flag, Gift
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
 
@@ -45,7 +47,9 @@ interface UserProfile {
   sheet_url: string;
   filters: any;
   last_activity: string;
-  is_active?: boolean; // ✅ PAUSE/RESUME STATE
+  is_active?: boolean;           // ✅ PAUSE/RESUME STATE
+  days_extended?: number;        // ✅ PLAN EXTENSION - Days added
+  total_leads_promised?: number; // ✅ PLAN EXTENSION - Total leads in plan
 }
 
 interface Lead {
@@ -117,6 +121,7 @@ const getStatusColor = (status: string): string => {
   }
 };
 
+// ✅ FIXED: Clean helper function with no embedded code
 const isWithinWorkingHours = (): boolean => {
   const hour = new Date().getHours();
   return hour >= 8 && hour < 22;
@@ -238,7 +243,14 @@ export const MemberDashboard = () => {
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
-  const isPaused = profile?.is_active === false; // ✅ PAUSE STATE
+  const isPaused = profile?.is_active === false;
+
+  // ✅ PLAN EXTENSION COMPUTED VALUES - CORRECTLY PLACED HERE
+  const daysExtended = profile?.days_extended || 0;
+  const totalPromised = profile?.total_leads_promised || 50;
+  const totalReceived = profile?.total_leads_received || 0;
+  const remainingLeads = Math.max(0, totalPromised - totalReceived);
+  const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
@@ -441,7 +453,7 @@ export const MemberDashboard = () => {
         console.log('🆕 New lead received:', payload.new);
         setLeads(prev => [payload.new as Lead, ...prev]);
         
-        // ✅ Optional: Show browser notification
+        // ✅ Show browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('🔥 New Lead Received!', {
             body: `${(payload.new as Lead).name} - ${(payload.new as Lead).city}`,
@@ -460,7 +472,7 @@ export const MemberDashboard = () => {
       supabase.removeChannel(channel);
       clearInterval(activityInterval);
     };
-  }, [profile?.id, isPaused]); // ✅ Re-subscribe when pause state changes
+  }, [profile?.id, isPaused]);
 
   // ============================================================
   // ✅ PAUSE/RESUME HANDLER (LOCKED)
@@ -472,7 +484,7 @@ export const MemberDashboard = () => {
     }
 
     const currentlyPaused = profile.is_active === false;
-    const newActiveStatus = currentlyPaused; // If paused, set to active (true)
+    const newActiveStatus = currentlyPaused;
 
     console.log('🔄 Toggle Pause:', {
       currentlyPaused,
@@ -484,11 +496,9 @@ export const MemberDashboard = () => {
     setProfile(prev => prev ? { 
       ...prev, 
       is_active: newActiveStatus,
-      updated_at: new Date().toISOString()
     } : null);
 
     try {
-      // Update database
       const { data, error } = await supabase
         .from('users')
         .update({ 
@@ -506,20 +516,17 @@ export const MemberDashboard = () => {
 
       console.log('✅ Update successful:', data);
 
-      // Success message
       const message = newActiveStatus 
         ? '✅ Lead delivery resumed! You will receive new leads during working hours (8 AM - 10 PM).' 
         : '⏸️ Lead delivery paused. No new leads will be assigned until you resume.';
       
       alert(message);
 
-      // Refresh to sync state
       await fetchData();
 
     } catch (err: any) {
       console.error('❌ Failed to update delivery status:', err);
       
-      // Revert optimistic update
       setProfile(prev => prev ? { 
         ...prev, 
         is_active: !newActiveStatus 
@@ -847,7 +854,7 @@ export const MemberDashboard = () => {
               </div>
             </div>
             
-            {/* Progress Bar */}
+            {/* Daily Progress Bar */}
             <div className="mt-4 pt-4 border-t border-white/20">
               <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                 <span className="text-indigo-200">Today's Progress</span>
@@ -859,6 +866,31 @@ export const MemberDashboard = () => {
                   style={{ width: `${dailyProgress}%` }} 
                 />
               </div>
+            </div>
+
+            {/* ✅ PLAN EXTENSION INFO */}
+            {daysExtended > 0 && (
+              <div className="mt-3 flex items-center gap-2 text-green-200 text-xs bg-green-500/20 px-3 py-2 rounded-lg">
+                <Gift size={14} />
+                <span>🎁 Plan extended by {daysExtended} day{daysExtended > 1 ? 's' : ''} (missed leads compensated)</span>
+              </div>
+            )}
+
+            {/* ✅ TOTAL PLAN PROGRESS BAR */}
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <div className="flex items-center justify-between text-xs text-indigo-200 mb-1">
+                <span>Total Plan Progress</span>
+                <span className="font-bold">{totalReceived} / {totalPromised} leads</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-1.5">
+                <div 
+                  className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-500" 
+                  style={{ width: `${totalProgress}%` }} 
+                />
+              </div>
+              {remainingLeads > 0 && (
+                <p className="text-[10px] text-indigo-300 mt-1">{remainingLeads} leads remaining in your plan</p>
+              )}
             </div>
             
             {deliveryStatus.statusType === 'off_hours' && (
@@ -1090,6 +1122,13 @@ export const MemberDashboard = () => {
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
                 <p className="font-bold text-orange-900 text-sm">⏸️ Paused Delivery</p>
                 <p className="text-xs text-orange-800 mt-1">If paused, you won't receive leads. Click <b>Resume</b> to start.</p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <p className="font-bold text-green-900 text-sm">🎁 Plan Extension</p>
+                <p className="text-xs text-green-700 mt-1">If you miss leads due to pausing or system issues, your plan may be extended to compensate.</p>
+                {daysExtended > 0 && (
+                  <p className="text-xs text-green-800 mt-2 font-medium">Your plan has been extended by {daysExtended} day{daysExtended > 1 ? 's' : ''}!</p>
+                )}
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="font-bold text-amber-900 text-sm">❓ Common Reasons</p>
