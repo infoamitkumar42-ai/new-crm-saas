@@ -1,115 +1,148 @@
 // src/views/ResetPassword.tsx
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
-import { 
-  KeyRound, Loader2, CheckCircle, AlertTriangle, 
-  Eye, EyeOff, Lock, ArrowLeft 
-} from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { Loader2, CheckCircle, XCircle, KeyRound, Eye, EyeOff, AlertTriangle } from "lucide-react";
 
 export const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [isValidSession, setIsValidSession] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
 
-  // Check if user came from email link
   useEffect(() => {
     const checkSession = async () => {
       try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        const error = hashParams.get('error') || queryParams.get('error');
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+        
+        if (error) {
+          setError(errorDescription?.replace(/\+/g, ' ') || "Invalid or expired reset link");
+          setIsValidSession(false);
+          return;
+        }
+
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        if (accessToken && type === 'recovery') {
+          const { data, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+
+          if (sessionError) {
+            setError("Invalid or expired reset link. Please request a new one.");
+            setIsValidSession(false);
+            return;
+          }
+
+          if (data.session) {
+            setIsValidSession(true);
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
           setIsValidSession(true);
         } else {
-          // Check URL hash for recovery token
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const type = hashParams.get('type');
-          
-          if (type === 'recovery') {
-            setIsValidSession(true);
-          }
+          setError("Invalid or expired reset link. Please request a new one.");
+          setIsValidSession(false);
         }
+
       } catch (err) {
-        console.error('Session check error:', err);
-      } finally {
-        setCheckingSession(false);
+        setError("Something went wrong. Please try again.");
+        setIsValidSession(false);
       }
     };
 
     checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsValidSession(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-
-      if (password !== confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
+      const { error } = await supabase.auth.updateUser({ 
+        password: password 
       });
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
       setSuccess(true);
-
-      // Sign out and redirect after 3 seconds
-      setTimeout(async () => {
-        await supabase.auth.signOut();
+      
+      setTimeout(() => {
         navigate('/login');
       }, 3000);
 
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password');
+      setError(err.message || "Failed to update password");
     } finally {
       setLoading(false);
     }
   };
 
-  // Loading state
-  if (checkingSession) {
+  if (isValidSession === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="text-center">
-          <Loader2 size={40} className="animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-500">Verifying reset link...</p>
+          <Loader2 size={48} className="animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600">Verifying reset link...</p>
         </div>
       </div>
     );
   }
 
-  // Invalid session
-  if (!isValidSession && !success) {
+  if (!isValidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle size={32} className="text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">
-            Invalid or Expired Link
-          </h2>
-          <p className="text-slate-500 mb-6 text-sm">
-            This password reset link is invalid or has expired. Please request a new one.
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Invalid or Expired Link</h2>
+          <p className="text-slate-500 mb-6">
+            {error || "This password reset link is invalid or has expired. Please request a new one."}
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all"
           >
             Back to Login
           </button>
@@ -118,40 +151,32 @@ export const ResetPassword: React.FC = () => {
     );
   }
 
-  // Success state
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={40} className="text-green-600" />
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle size={32} className="text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            Password Reset Successful! 🎉
-          </h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Password Updated!</h2>
           <p className="text-slate-500 mb-6">
-            Your password has been updated. Redirecting to login...
+            Your password has been successfully updated. Redirecting to login...
           </p>
-          <div className="flex items-center justify-center gap-2 text-blue-600">
-            <Loader2 size={18} className="animate-spin" />
-            <span className="text-sm font-medium">Redirecting...</span>
-          </div>
+          <Loader2 size={24} className="animate-spin text-blue-600 mx-auto" />
         </div>
       </div>
     );
   }
 
-  // Reset password form
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         
-        {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <KeyRound size={32} className="text-blue-600" />
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900">
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
             Set New Password
           </h2>
           <p className="text-slate-500 mt-2 text-sm">
@@ -161,84 +186,80 @@ export const ResetPassword: React.FC = () => {
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           
-          {/* New Password */}
+          {error && (
+            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+              <XCircle size={18} />
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">
               New Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
+              <KeyRound className="absolute left-3 top-3 text-slate-400" size={18} />
               <input 
-                className="w-full border border-slate-200 px-4 py-3 pl-10 pr-12 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                type={showPassword ? 'text' : 'password'}
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                placeholder="Enter new password" 
-                required 
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full border px-4 py-3 pl-10 pr-12 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="••••••••"
+                required
                 minLength={6}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
           </div>
 
-          {/* Confirm Password */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">
               Confirm Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
+              <KeyRound className="absolute left-3 top-3 text-slate-400" size={18} />
               <input 
-                className="w-full border border-slate-200 px-4 py-3 pl-10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword} 
-                onChange={e => setConfirmPassword(e.target.value)} 
-                placeholder="Confirm new password" 
-                required 
-                minLength={6}
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className={`w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 outline-none transition-all ${
+                  confirmPassword && password !== confirmPassword 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : confirmPassword && password === confirmPassword
+                    ? 'border-green-500 focus:ring-green-500'
+                    : 'focus:ring-blue-500'
+                }`}
+                placeholder="••••••••"
+                required
               />
+              {confirmPassword && password === confirmPassword && (
+                <CheckCircle className="absolute right-3 top-3 text-green-500" size={18} />
+              )}
+              {confirmPassword && password !== confirmPassword && (
+                <XCircle className="absolute right-3 top-3 text-red-500" size={18} />
+              )}
             </div>
+            {confirmPassword && password !== confirmPassword && (
+              <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            )}
           </div>
 
-          {/* Password Requirements */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <p className="text-xs text-slate-600 font-bold mb-2">Password requirements:</p>
-            <ul className="space-y-1">
-              <li className={`text-xs flex items-center gap-2 ${password.length >= 6 ? 'text-green-600' : 'text-slate-400'}`}>
-                {password.length >= 6 ? <CheckCircle size={14} /> : <div className="w-3.5 h-3.5 rounded-full border border-current" />}
-                At least 6 characters
-              </li>
-              <li className={`text-xs flex items-center gap-2 ${password === confirmPassword && password.length > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                {password === confirmPassword && password.length > 0 ? <CheckCircle size={14} /> : <div className="w-3.5 h-3.5 rounded-full border border-current" />}
-                Passwords match
-              </li>
-            </ul>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-200">
-              <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Submit Button */}
           <button 
             type="submit" 
-            disabled={loading || password.length < 6 || password !== confirmPassword} 
-            className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            disabled={loading || !password || !confirmPassword || password !== confirmPassword}
+            className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 size={18} className="animate-spin" />
-                Updating...
+                Updating Password...
               </span>
             ) : (
               "Update Password"
@@ -246,14 +267,12 @@ export const ResetPassword: React.FC = () => {
           </button>
         </form>
 
-        {/* Back to Login */}
         <div className="mt-6 text-center">
           <button 
-            className="flex items-center justify-center gap-2 mx-auto text-slate-500 hover:text-blue-600 font-medium text-sm transition-colors" 
             onClick={() => navigate('/login')}
+            className="text-sm text-slate-500 hover:text-slate-700"
           >
-            <ArrowLeft size={16} />
-            Back to Login
+            ← Back to Login
           </button>
         </div>
       </div>
