@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../supabaseClient';
 import {
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
   X, Calendar, Target, Clock,
@@ -121,7 +121,6 @@ const getStatusColor = (status: string): string => {
   }
 };
 
-// ✅ FIXED: Clean helper function with no embedded code
 const isWithinWorkingHours = (): boolean => {
   const hour = new Date().getHours();
   return hour >= 8 && hour < 22;
@@ -245,7 +244,7 @@ export const MemberDashboard = () => {
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
-  // ✅ PLAN EXTENSION COMPUTED VALUES - CORRECTLY PLACED HERE
+  // ✅ PLAN EXTENSION COMPUTED VALUES
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
   const totalReceived = profile?.total_leads_received || 0;
