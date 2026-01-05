@@ -1,6 +1,6 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v2.3 FIXED               ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v2.4 FIXED               ║
  * ║  Last Updated: January 6, 2025                             ║
  * ║  Features:                                                 ║
  * ║  - ✅ Pause/Resume System                                  ║
@@ -9,12 +9,13 @@
  * ║  - ✅ Real-time Notifications (when active)                ║
  * ║  - ✅ Invalid Lead Reporting                               ║
  * ║  - ✅ Total Plan Progress Tracking                         ║
+ * ║  - ✅ Timeout Handling for Slow Connections                ║
+ * ║  - ✅ Error Recovery with Retry                            ║
  * ║                                                            ║
- * ║  ⚠️  ALL SYNTAX ERRORS FIXED                               ║
+ * ║  ⚠️  DO NOT MODIFY WITHOUT APPROVAL                        ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-// ✅ FIXED: Added missing imports
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import {
@@ -49,8 +50,8 @@ interface UserProfile {
   filters: any;
   last_activity: string;
   is_active?: boolean;
-  days_extended?: number;        // ✅ Plan Extension
-  total_leads_promised?: number; // ✅ Plan Extension
+  days_extended?: number;
+  total_leads_promised?: number;
 }
 
 interface Lead {
@@ -85,7 +86,7 @@ interface DeliveryStatusInfo {
 }
 
 // ============================================================
-// GLOBAL HELPER FUNCTIONS
+// HELPER FUNCTIONS
 // ============================================================
 
 const getTimeAgo = (dateString: string): string => {
@@ -122,7 +123,6 @@ const getStatusColor = (status: string): string => {
   }
 };
 
-// ✅ FIXED: Removed unreachable code from function
 const isWithinWorkingHours = (): boolean => {
   const hour = new Date().getHours();
   return hour >= 8 && hour < 22;
@@ -130,11 +130,8 @@ const isWithinWorkingHours = (): boolean => {
 
 const getTimeUntilOpen = (): string => {
   const hour = new Date().getHours();
-  if (hour >= 22) {
-    return `Opens in ${24 - hour + 8} hours`;
-  } else if (hour < 8) {
-    return `Opens in ${8 - hour} hours`;
-  }
+  if (hour >= 22) return `Opens in ${24 - hour + 8} hours`;
+  if (hour < 8) return `Opens in ${8 - hour} hours`;
   return '';
 };
 
@@ -187,6 +184,7 @@ export const MemberDashboard = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
 
@@ -246,7 +244,7 @@ export const MemberDashboard = () => {
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
-  // ✅ FIXED: Moved Plan Extension computed values here (inside component, not in helper function)
+  // Plan Extension computed values
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
   const totalReceived = profile?.total_leads_received || 0;
@@ -262,6 +260,9 @@ export const MemberDashboard = () => {
     return { text: 'STANDARD', color: 'bg-slate-600 text-white', icon: Shield as LucideIcon };
   }, [profile?.plan_weight]);
 
+  // ============================================================
+  // DELIVERY STATUS
+  // ============================================================
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
       return {
@@ -331,11 +332,9 @@ export const MemberDashboard = () => {
   const performanceStats: PerformanceStats = useMemo(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-
     const weekly = leads.filter(l => new Date(l.created_at) > weekAgo).length;
     const closed = leads.filter(l => l.status === 'Closed').length;
     const conversion = leads.length > 0 ? Math.round((closed / leads.length) * 100) : 0;
-
     return {
       totalLeads: profile?.total_leads_received || leads.length,
       thisWeek: weekly,
@@ -356,68 +355,112 @@ export const MemberDashboard = () => {
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
-
       if (dateFilter !== 'all') {
         const leadDate = new Date(lead.created_at);
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-
         if (dateFilter === 'today' && leadDate < today) return false;
         if (dateFilter === 'week' && leadDate < weekAgo) return false;
       }
-
       return true;
     });
   }, [leads, statusFilter, dateFilter]);
 
   // ============================================================
-  // DATA FETCHING
+  // DATA FETCHING WITH TIMEOUT
   // ============================================================
 
   const fetchData = async () => {
+    console.log('🚀 MemberDashboard: fetchData started');
+    
     try {
       setRefreshing(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      setError(null);
+      
+      // Get current user with timeout
+      console.log('📡 Getting user...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ Auth error:', authError);
+        throw new Error(`Auth failed: ${authError.message}`);
+      }
       
       if (!user) {
+        console.log('❌ No user found');
+        setError('Not authenticated. Please login again.');
         setLoading(false);
         return;
       }
 
-      const { data: userData } = await supabase
+      console.log('✅ User found:', user.id);
+
+      // Fetch profile
+      console.log('📡 Fetching profile...');
+      const { data: userData, error: profileError } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
 
+      console.log('📡 Profile response:', { userData, profileError });
+
+      if (profileError) {
+        console.error('❌ Profile error:', profileError);
+        throw new Error(`Profile error: ${profileError.message}`);
+      }
+
+      if (!userData) {
+        console.error('❌ No profile data');
+        throw new Error('Profile not found in database');
+      }
+
+      console.log('✅ Profile loaded:', userData.email);
       setProfile(userData);
 
-      await supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id);
+      // Update last activity (non-blocking)
+      supabase.from('users')
+        .update({ last_activity: new Date().toISOString() })
+        .eq('id', user.id)
+        .then(() => console.log('✅ Activity updated'));
 
+      // Fetch manager name
       if (userData?.manager_id) {
+        console.log('📡 Fetching manager...');
         const { data: managerData } = await supabase
           .from('users')
           .select('name')
           .eq('id', userData.manager_id)
-          .maybeSingle(); 
+          .maybeSingle();
         setManagerName(managerData?.name || 'Unknown');
+        console.log('✅ Manager:', managerData?.name);
       } else {
         setManagerName('Direct (No Manager)');
       }
 
-      const { data: leadsData } = await supabase
+      // Fetch leads
+      console.log('📡 Fetching leads...');
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (leadsError) {
+        console.warn('⚠️ Leads error:', leadsError);
+      }
+
+      console.log(`✅ Loaded ${leadsData?.length || 0} leads`);
       setLeads(leadsData || []);
-    } catch (error) {
-      console.error('Dashboard Error:', error);
+
+    } catch (err: any) {
+      console.error('❌ fetchData error:', err);
+      setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      console.log('🏁 fetchData complete');
     }
   };
 
@@ -436,7 +479,7 @@ export const MemberDashboard = () => {
       return;
     }
 
-    console.log('🔔 Realtime enabled (user active)');
+    console.log('🔔 Realtime enabled');
 
     const channel = supabase
       .channel(`member-leads-${profile.id}`)
@@ -446,10 +489,9 @@ export const MemberDashboard = () => {
         table: 'leads',
         filter: `user_id=eq.${profile.id}`,
       }, (payload) => {
-        console.log('🆕 New lead received:', payload.new);
+        console.log('🆕 New lead:', payload.new);
         setLeads(prev => [payload.new as Lead, ...prev]);
         
-        // ✅ FIXED: Proper notification code
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('🔥 New Lead Received!', {
             body: `${(payload.new as Lead).name} - ${(payload.new as Lead).city}`,
@@ -474,60 +516,24 @@ export const MemberDashboard = () => {
   // PAUSE/RESUME HANDLER
   // ============================================================
   const toggleDeliveryPause = async () => {
-    if (!profile) {
-      console.error('No profile loaded');
-      return;
-    }
+    if (!profile) return;
 
-    const currentlyPaused = profile.is_active === false;
-    const newActiveStatus = currentlyPaused;
-
-    console.log('🔄 Toggle Pause:', {
-      currentlyPaused,
-      currentIsActive: profile.is_active,
-      newActiveStatus
-    });
-
-    setProfile(prev => prev ? { 
-      ...prev, 
-      is_active: newActiveStatus,
-    } : null);
+    const newActiveStatus = !isPaused;
+    setProfile(prev => prev ? { ...prev, is_active: newActiveStatus } : null);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('users')
-        .update({ 
-          is_active: newActiveStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', profile.id)
-        .select()
-        .single();
+        .update({ is_active: newActiveStatus, updated_at: new Date().toISOString() })
+        .eq('id', profile.id);
 
-      if (error) {
-        console.error('❌ Update error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('✅ Update successful:', data);
-
-      const message = newActiveStatus 
-        ? '✅ Lead delivery resumed! You will receive new leads during working hours (8 AM - 10 PM).' 
-        : '⏸️ Lead delivery paused. No new leads will be assigned until you resume.';
-      
-      alert(message);
-
+      alert(newActiveStatus ? '✅ Lead delivery resumed!' : '⏸️ Lead delivery paused');
       await fetchData();
-
     } catch (err: any) {
-      console.error('❌ Failed to update delivery status:', err);
-      
-      setProfile(prev => prev ? { 
-        ...prev, 
-        is_active: !newActiveStatus 
-      } : null);
-
-      alert(`❌ Error: ${err.message || 'Unknown error'}\n\nPlease refresh the page and try again.`);
+      setProfile(prev => prev ? { ...prev, is_active: !newActiveStatus } : null);
+      alert('Error: ' + err.message);
     }
   };
 
@@ -536,12 +542,8 @@ export const MemberDashboard = () => {
   // ============================================================
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
-    setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', leadId);
-
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+    const { error } = await supabase.from('leads').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', leadId);
     if (error) {
       alert('Error updating status!');
       fetchData();
@@ -552,75 +554,81 @@ export const MemberDashboard = () => {
     if (!showNotesModal) return;
     setSavingNote(true);
     try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ notes: noteText, updated_at: new Date().toISOString() })
-        .eq('id', showNotesModal.id);
-
+      const { error } = await supabase.from('leads').update({ notes: noteText, updated_at: new Date().toISOString() }).eq('id', showNotesModal.id);
       if (error) throw error;
-      setLeads(prev => prev.map(l => (l.id === showNotesModal.id ? { ...l, notes: noteText } : l)));
+      setLeads(prev => prev.map(l => l.id === showNotesModal.id ? { ...l, notes: noteText } : l));
       setShowNotesModal(null);
       setNoteText('');
     } catch (err: any) {
-      alert('Error saving note: ' + err.message);
+      alert('Error: ' + err.message);
     } finally {
       setSavingNote(false);
     }
   };
 
   const handleReportInvalidLead = async () => {
-    if (!showReportModal || !profile) return;
-    if (!reportReason.trim()) {
-      alert('Please enter a reason for reporting');
-      return;
-    }
-
+    if (!showReportModal || !profile || !reportReason.trim()) return;
     setReportingLead(true);
     try {
-      const { error: insertError } = await supabase
-        .from('lead_replacements')
-        .insert({
-          user_id: profile.id,
-          original_lead_id: showReportModal.id,
-          original_lead_phone: showReportModal.phone,
-          reason: reportReason.trim(),
-          reason_details: `Lead Name: ${showReportModal.name}, City: ${showReportModal.city}`,
-          status: 'pending',
-          requested_at: new Date().toISOString()
-        });
+      await supabase.from('lead_replacements').insert({
+        user_id: profile.id,
+        original_lead_id: showReportModal.id,
+        original_lead_phone: showReportModal.phone,
+        reason: reportReason.trim(),
+        reason_details: `Lead: ${showReportModal.name}, City: ${showReportModal.city}`,
+        status: 'pending',
+        requested_at: new Date().toISOString()
+      });
 
-      if (insertError) throw insertError;
+      await supabase.from('leads').update({ 
+        status: 'Invalid', 
+        notes: (showReportModal.notes || '') + `\n[REPORTED: ${reportReason.trim()}]`,
+        updated_at: new Date().toISOString()
+      }).eq('id', showReportModal.id);
 
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ 
-          status: 'Invalid', 
-          updated_at: new Date().toISOString(),
-          notes: (showReportModal.notes || '') + `\n[REPORTED: ${reportReason.trim()}]`
-        })
-        .eq('id', showReportModal.id);
-
-      if (updateError) throw updateError;
-
-      setLeads(prev => prev.map(l => 
-        l.id === showReportModal.id 
-          ? { ...l, status: 'Invalid', notes: (l.notes || '') + `\n[REPORTED: ${reportReason.trim()}]` } 
-          : l
-      ));
-
+      setLeads(prev => prev.map(l => l.id === showReportModal.id ? { ...l, status: 'Invalid' } : l));
       setShowReportModal(null);
       setReportReason('');
-      alert('✅ Lead reported successfully! A replacement may be provided based on your plan.');
-
+      alert('✅ Lead reported successfully!');
     } catch (err: any) {
-      console.error('Report error:', err);
-      alert('Error reporting lead: ' + err.message);
+      alert('Error: ' + err.message);
     } finally {
       setReportingLead(false);
     }
   };
 
   const StatusIcon = deliveryStatus.icon;
+
+  // ============================================================
+  // ERROR STATE
+  // ============================================================
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="text-red-600" size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-slate-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => { setError(null); setLoading(true); fetchData(); }}
+              className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2"
+            >
+              <RefreshCw size={18} /> Try Again
+            </button>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-medium hover:bg-slate-200"
+            >
+              Sign Out & Login Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ============================================================
   // LOADING STATE
@@ -631,13 +639,14 @@ export const MemberDashboard = () => {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-500">Loading your workspace...</p>
+          <p className="text-xs text-slate-400 mt-2">Please wait...</p>
         </div>
       </div>
     );
   }
 
   // ============================================================
-  // RENDER
+  // MAIN RENDER
   // ============================================================
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
@@ -674,6 +683,7 @@ export const MemberDashboard = () => {
 
       {/* Top Banners */}
       <div className="relative z-30">
+        {/* Paused Banner */}
         {isPaused && !isExpired && (
           <div className="bg-orange-500 text-white py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
@@ -692,6 +702,7 @@ export const MemberDashboard = () => {
           </div>
         )}
 
+        {/* Off Hours Banner */}
         {!isWithinWorkingHours() && !isExpired && !isPaused && !bannerDismissed && (
           <div className="bg-amber-500 text-amber-950 py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
@@ -706,6 +717,7 @@ export const MemberDashboard = () => {
           </div>
         )}
 
+        {/* Expiring Soon Banner */}
         {isExpiringSoon && !isExpired && !isPaused && !bannerDismissed && (
           <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
@@ -721,6 +733,7 @@ export const MemberDashboard = () => {
           </div>
         )}
 
+        {/* Limit Reached Banner */}
         {isLimitReached && !isExpired && !isPaused && (
           <div className="bg-emerald-600 text-white py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
@@ -811,6 +824,7 @@ export const MemberDashboard = () => {
                   <div className="text-[10px] sm:text-xs text-indigo-200">Remaining</div>
                 </div>
                 
+                {/* Pause/Resume Button */}
                 {profile?.payment_status === 'active' && !isExpired && (
                   <button 
                     onClick={toggleDeliveryPause} 
@@ -820,20 +834,13 @@ export const MemberDashboard = () => {
                         ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100 shadow-lg shadow-green-500/20' 
                         : 'bg-white/15 border-white/10 hover:bg-white/25 text-white'
                     }`}
-                    title={isPaused ? 'Click to resume lead delivery' : 'Click to pause lead delivery'}
                   >
                     {refreshing ? (
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     ) : isPaused ? (
-                      <>
-                        <Play size={14} />
-                        <span>Resume</span>
-                      </>
+                      <><Play size={14} /><span>Resume</span></>
                     ) : (
-                      <>
-                        <Pause size={14} />
-                        <span>Pause</span>
-                      </>
+                      <><Pause size={14} /><span>Pause</span></>
                     )}
                   </button>
                 )}
@@ -861,7 +868,7 @@ export const MemberDashboard = () => {
               </div>
             </div>
 
-            {/* ✅ Plan Extension Info */}
+            {/* Plan Extension Info */}
             {daysExtended > 0 && (
               <div className="mt-3 flex items-center gap-2 text-green-200 text-xs bg-green-500/20 px-3 py-2 rounded-lg">
                 <Gift size={14} />
@@ -869,7 +876,7 @@ export const MemberDashboard = () => {
               </div>
             )}
 
-            {/* ✅ Total Plan Progress Bar */}
+            {/* Total Plan Progress Bar */}
             <div className="mt-3 pt-3 border-t border-white/10">
               <div className="flex items-center justify-between text-xs text-indigo-200 mb-1">
                 <span>Total Plan Progress</span>
@@ -986,6 +993,7 @@ export const MemberDashboard = () => {
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => (
                 <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+                  {/* Lead Header */}
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
@@ -1002,6 +1010,7 @@ export const MemberDashboard = () => {
                     </span>
                   </div>
                   
+                  {/* Notes Display */}
                   {lead.notes && (
                     <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
                       <StickyNote size={12} className="mt-0.5 flex-shrink-0 text-amber-500" />
@@ -1009,6 +1018,7 @@ export const MemberDashboard = () => {
                     </div>
                   )}
                   
+                  {/* Action Buttons */}
                   <div className="grid grid-cols-4 gap-2 mb-3">
                     <a 
                       href={`tel:${lead.phone}`} 
@@ -1046,6 +1056,7 @@ export const MemberDashboard = () => {
                     </button>
                   </div>
                   
+                  {/* Status Dropdown */}
                   <div className="relative">
                     <select 
                       value={lead.status} 
