@@ -3,7 +3,6 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, logEvent } from "../supabaseClient";
 import { User } from "../types";
 
-// 🔗 Google Apps Script Web App URL
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
 interface AuthContextValue {
@@ -26,131 +25,94 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 HELPER: FETCH PROFILE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfileData = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-      
-      if (error) throw error;
+      const { data } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
       return data as User;
-    } catch (err) {
-      console.error("Profile fetch error:", err);
+    } catch {
       return null;
     }
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 MAIN LOAD LOGIC
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const loadSessionAndProfile = useCallback(async () => {
-    try {
-      // 1. Get Session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (!currentSession) {
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      setSession(currentSession);
-
-      // 2. Optimistic Profile (Fast Load)
-      const user = currentSession.user;
-      const tempProfile: User = {
-        id: user.id,
-        email: user.email || "",
-        name: user.user_metadata?.name || "User",
-        role: "member", // Default
-        sheet_url: "",
-        payment_status: "inactive",
-        valid_until: null,
-        filters: {},
-        daily_limit: 0,
-        leads_today: 0,
-        total_leads_received: 0,
-        is_active: true,
-        created_at: new Date().toISOString(),
-      };
-
-      // Set temp data immediately so UI shows up
-      setProfile(tempProfile); 
-      
-      // 3. Fetch Real Profile
-      const realProfile = await fetchProfileData(user.id);
-      
-      if (realProfile) {
-        setProfile(realProfile);
-      } else {
-        // If missing in DB, insert temp profile
-        const userData = { ...tempProfile, updated_at: new Date().toISOString() };
-        await supabase.from("users").upsert(userData);
-      }
-
-    } catch (err) {
-      console.error("Auth Load Error:", err);
-    } finally {
-      // ✅ GUARANTEE: Loading always becomes false
-      setLoading(false);
-    }
-  }, []);
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔐 EFFECT: INITIALIZE ONCE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     let mounted = true;
 
-    // Run load logic
-    loadSessionAndProfile();
+    const initAuth = async () => {
+      try {
+        // 1. Get Session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!mounted) return;
-        
-        console.log(`🔔 Auth Event: ${event}`);
+        if (currentSession?.user) {
+          if (mounted) setSession(currentSession);
 
-        if (event === 'SIGNED_IN' && newSession) {
-          setSession(newSession);
-          // Re-fetch profile on sign in
-          const p = await fetchProfileData(newSession.user.id);
-          if (p) setProfile(p);
-        } 
-        else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setProfile(null);
-          setLoading(false);
-          localStorage.removeItem('leadflow-auth-session');
+          // 2. Set Temp Profile (Instant Load)
+          const tempProfile: User = {
+            id: currentSession.user.id,
+            email: currentSession.user.email || "",
+            name: currentSession.user.user_metadata?.name || "User",
+            role: "member",
+            sheet_url: "",
+            payment_status: "inactive",
+            valid_until: null,
+            filters: {},
+            daily_limit: 0,
+            leads_today: 0,
+            total_leads_received: 0,
+            is_active: true,
+            created_at: new Date().toISOString(),
+          };
+
+          if (mounted) setProfile(tempProfile);
+
+          // 3. Stop Loading IMMEDIATELY
+          if (mounted) setLoading(false);
+
+          // 4. Fetch Real Data in Background
+          const realProfile = await fetchProfileData(currentSession.user.id);
+          if (realProfile && mounted) {
+            setProfile(realProfile);
+          } else {
+            // Create user if missing
+            await supabase.from("users").upsert({ ...tempProfile, updated_at: new Date().toISOString() });
+          }
+
+        } else {
+          // No Session
+          if (mounted) {
+            setSession(null);
+            setProfile(null);
+            setLoading(false);
+          }
         }
-        else if (event === 'TOKEN_REFRESHED' && newSession) {
-          setSession(newSession);
-        }
+      } catch (error) {
+        console.error("Auth Init Error:", error);
+        if (mounted) setLoading(false);
       }
-    );
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
+      
+      if (event === 'SIGNED_IN' && newSession) {
+        setSession(newSession);
+        // Refresh profile quietly
+        const p = await fetchProfileData(newSession.user.id);
+        if (p) setProfile(p);
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setProfile(null);
+        setLoading(false);
+        localStorage.removeItem('leadflow-auth-session');
+      }
+    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadSessionAndProfile]);
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 ACTIONS
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const refreshProfile = async () => {
-    if (session?.user) {
-      const p = await fetchProfileData(session.user.id);
-      if (p) setProfile(p);
-    }
-  };
+  }, []);
 
   const signUp = async (params: any) => {
     const { data, error } = await supabase.auth.signUp({
@@ -159,19 +121,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       options: { data: { name: params.name } }
     });
     if (error) throw error;
-
+    
     if (params.role === 'member' && data.user) {
-      // Fire and forget sheet creation
       fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          action: 'createSheet',
-          userId: data.user.id,
-          email: params.email,
-          name: params.name
-        })
+        body: JSON.stringify({ action: 'createSheet', userId: data.user.id, email: params.email, name: params.name })
       }).catch(console.warn);
     }
   };
@@ -182,23 +138,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
     setLoading(false);
   };
 
+  const refreshProfile = async () => {
+    if (session?.user) {
+      const p = await fetchProfileData(session.user.id);
+      if (p) setProfile(p);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{
-      session,
-      profile,
-      loading,
-      isAuthenticated,
-      signUp,
-      signIn,
-      signOut,
-      refreshProfile
-    }}>
+    <AuthContext.Provider value={{ session, profile, loading, isAuthenticated, signUp, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
