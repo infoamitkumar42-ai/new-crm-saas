@@ -16,19 +16,21 @@ import { User } from "../types";
 // 🔗 Google Apps Script Web App URL
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
+interface SignUpParams {
+  email: string;
+  password: string;
+  name: string;
+  role?: 'member' | 'manager' | 'admin';
+  teamCode?: string;
+  managerId?: string;
+}
+
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signUp: (params: { 
-    email: string; 
-    password: string; 
-    name: string; 
-    role?: string; 
-    teamCode?: string; 
-    managerId?: string 
-  }) => Promise<void>;
+  signUp: (params: SignUpParams) => Promise<void>;
   signIn: (params: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -70,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data) {
-        console.log("✅ Profile loaded:", data.email);
+        console.log("✅ Profile loaded:", data.email, "| Manager ID:", data.manager_id);
         return {
           id: data.id,
           email: data.email,
@@ -122,10 +124,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }), []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 LOAD USER PROFILE (FIXED VERSION)
+  // 🔄 LOAD USER PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<boolean> => {
-    // Prevent duplicate loading for same user
     if (currentUserIdRef.current === user.id && processingRef.current) {
       console.log("⏭️ Already loading profile for this user, skipping");
       return false;
@@ -137,7 +138,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("🔄 Loading profile for:", user.email);
     
     try {
-      // First try to fetch existing profile
       let fullProfile = await fetchProfile(user.id);
       
       if (!mountedRef.current) {
@@ -146,7 +146,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!fullProfile) {
-        // User exists in auth but not in users table - create entry
         console.log("⚠️ Creating missing user entry...");
         
         const userData = {
@@ -181,7 +180,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Set profile (real or temp fallback)
       if (mountedRef.current) {
         const profileToSet = fullProfile || createTempProfile(user);
         setProfile(profileToSet);
@@ -195,11 +193,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("❌ loadUserProfile error:", err);
       if (mountedRef.current) {
-        // Fallback to temp profile on error
         setProfile(createTempProfile(user));
       }
       processingRef.current = false;
-      return true; // Still consider it "done" so we can proceed
+      return true;
     }
   }, [fetchProfile, createTempProfile]);
 
@@ -216,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [session, fetchProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📊 CREATE GOOGLE SHEET (PRESERVED)
+  // 📊 CREATE GOOGLE SHEET
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createUserSheet = useCallback(async (
     userId: string, 
@@ -226,7 +223,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log("📊 Creating sheet for:", email);
       
-      // Try POST
       const response = await fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
@@ -246,9 +242,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log("✅ Sheet created:", result.sheetUrl);
             return result.sheetUrl;
           }
-        } catch {
-          // Parse error, try GET fallback
-        }
+        } catch {}
       }
 
       // Fallback to GET
@@ -262,9 +256,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (result.success && result.sheetUrl) {
             return result.sheetUrl;
           }
-        } catch {
-          // Parse error
-        }
+        } catch {}
       }
 
       return null;
@@ -275,10 +267,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH (FIXED VERSION)
+  // 🔍 RESOLVE MANAGER FROM TEAM CODE (NEW!)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const resolveManagerFromTeamCode = useCallback(async (teamCode: string): Promise<{
+    managerId: string | null;
+    managerName: string | null;
+    error: string | null;
+  }> => {
+    try {
+      console.log("🔍 Resolving manager for team code:", teamCode);
+      
+      const normalizedCode = teamCode.trim().toUpperCase();
+      
+      // Query the users table for a manager with this team_code
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, role')
+        .eq('team_code', normalizedCode)
+        .eq('role', 'manager')
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Team code lookup error:", error);
+        return { managerId: null, managerName: null, error: "Failed to verify team code" };
+      }
+
+      if (!data) {
+        console.log("⚠️ No manager found for team code:", normalizedCode);
+        return { managerId: null, managerName: null, error: "Invalid team code" };
+      }
+
+      console.log("✅ Manager found:", data.name, "(", data.id, ")");
+      return { managerId: data.id, managerName: data.name, error: null };
+    } catch (err) {
+      console.error("❌ resolveManagerFromTeamCode error:", err);
+      return { managerId: null, managerName: null, error: "Failed to verify team code" };
+    }
+  }, []);
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🚀 INITIALIZE AUTH
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
-    // Reset mounted ref
     mountedRef.current = true;
 
     console.log("🔐 Auth Init starting...");
@@ -287,7 +317,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let safetyTimer: NodeJS.Timeout | null = null;
 
     const initializeAuth = async () => {
-      // Skip if already completed (for Strict Mode)
       if (initCompletedRef.current) {
         console.log("⏭️ Auth init already completed, skipping");
         return;
@@ -310,8 +339,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (currentSession?.user) {
           console.log("✅ Session found:", currentSession.user.email);
           setSession(currentSession);
-          
-          // Load profile and wait for it
           await loadUserProfile(currentSession.user);
           
           if (mountedRef.current) {
@@ -338,14 +365,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Set up auth state change listener FIRST
     const { data } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mountedRef.current) return;
 
         console.log("🔔 Auth event:", event);
 
-        // Skip initial events during first load
         if (!initCompletedRef.current && event === 'INITIAL_SESSION') {
           console.log("⏭️ Skipping INITIAL_SESSION during init");
           return;
@@ -354,21 +379,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
-              // Check if this is a different user or first sign in after init
               const isDifferentUser = currentUserIdRef.current !== newSession.user.id;
               
               if (isDifferentUser || !initCompletedRef.current) {
                 console.log("🔄 Processing SIGNED_IN for:", newSession.user.email);
                 setSession(newSession);
                 setLoading(true);
-                
                 await loadUserProfile(newSession.user);
-                
                 if (mountedRef.current) {
                   setLoading(false);
                 }
               } else {
-                // Same user, just update session token
                 setSession(newSession);
               }
             }
@@ -410,54 +431,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     authSubscription = data.subscription;
 
-    // Safety timeout - ensures loading never stays stuck forever
     safetyTimer = setTimeout(() => {
       if (mountedRef.current && loading && !initCompletedRef.current) {
         console.warn("⚠️ Safety timeout triggered - forcing load complete");
         setLoading(false);
         initCompletedRef.current = true;
       }
-    }, 8000); // 8 second max wait
+    }, 8000);
 
-    // Run initialization
     initializeAuth();
 
-    // Cleanup function
     return () => {
       console.log("🧹 Auth cleanup");
       mountedRef.current = false;
-      
-      if (safetyTimer) {
-        clearTimeout(safetyTimer);
-      }
-      
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
-      
-      // Reset for Strict Mode remount
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (authSubscription) authSubscription.unsubscribe();
       initCompletedRef.current = false;
       processingRef.current = false;
     };
-  }, []); // Empty deps - only run once
+  }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⏰ AUTO REFRESH PROFILE EVERY 5 MINS
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Auto refresh every 5 mins
   useEffect(() => {
     if (!session?.user) return;
-
     const interval = setInterval(() => {
-      if (mountedRef.current) {
-        refreshProfile();
-      }
+      if (mountedRef.current) refreshProfile();
     }, 5 * 60 * 1000);
-
     return () => clearInterval(interval);
   }, [session, refreshProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📝 SIGN UP (PRESERVED)
+  // 📝 SIGN UP (FIXED VERSION!)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signUp = useCallback(async ({ 
     email, 
@@ -466,64 +470,196 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     role = 'member',
     teamCode,
     managerId 
-  }: {
-    email: string;
-    password: string;
-    name: string;
-    role?: string;
-    teamCode?: string;
-    managerId?: string;
-  }) => {
-    console.log("📝 Signing up:", email);
+  }: SignUpParams) => {
+    console.log("📝 ═══════════════════════════════════════");
+    console.log("📝 SIGNUP STARTED");
+    console.log("📝 Email:", email);
+    console.log("📝 Name:", name);
+    console.log("📝 Role:", role);
+    console.log("📝 Team Code:", teamCode || "(none)");
+    console.log("📝 Manager ID (passed):", managerId || "(none)");
+    console.log("📝 ═══════════════════════════════════════");
+    
     setLoading(true);
     
     try {
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 1: Resolve Manager ID if needed
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      let resolvedManagerId: string | null = managerId || null;
+      let resolvedTeamCode: string | null = null;
+
+      // For MEMBERS: They need a manager_id (from team code)
+      if (role === 'member' && teamCode && !resolvedManagerId) {
+        console.log("🔍 Member signup - resolving manager from team code...");
+        
+        const { managerId: foundManagerId, error: resolveError } = await resolveManagerFromTeamCode(teamCode);
+        
+        if (resolveError || !foundManagerId) {
+          setLoading(false);
+          throw new Error(resolveError || "Invalid team code. Please check and try again.");
+        }
+        
+        resolvedManagerId = foundManagerId;
+        resolvedTeamCode = teamCode.trim().toUpperCase(); // Store team code for members too
+        
+        console.log("✅ Resolved Manager ID:", resolvedManagerId);
+      }
+
+      // For MANAGERS: They create their own team code
+      if (role === 'manager' && teamCode) {
+        resolvedTeamCode = teamCode.trim().toUpperCase();
+        resolvedManagerId = null; // Managers don't have a manager
+        
+        // Check if team code is already taken
+        const { data: existingManager } = await supabase
+          .from('users')
+          .select('id')
+          .eq('team_code', resolvedTeamCode)
+          .maybeSingle();
+        
+        if (existingManager) {
+          setLoading(false);
+          throw new Error("This team code is already taken. Please choose another.");
+        }
+        
+        console.log("✅ Manager will create team code:", resolvedTeamCode);
+      }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 2: Create Auth User
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      console.log("🔐 Creating auth user...");
+      
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
-        options: { data: { name: name.trim() } }
+        options: { 
+          data: { 
+            name: name.trim(),
+            role: role 
+          } 
+        }
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error("Signup failed");
-
-      // Create sheet for members
-      let sheetUrl: string | null = null;
-      if (role === 'member') {
-        sheetUrl = await createUserSheet(data.user.id, email, name);
+      if (error) {
+        console.error("❌ Auth signup error:", error);
+        throw error;
+      }
+      
+      if (!data.user) {
+        throw new Error("Signup failed - no user returned");
       }
 
-      // Save to database
+      console.log("✅ Auth user created:", data.user.id);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 3: Create Google Sheet (for members only)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      let sheetUrl: string | null = null;
+      
+      if (role === 'member') {
+        console.log("📊 Creating Google Sheet for member...");
+        sheetUrl = await createUserSheet(data.user.id, email, name);
+        console.log("📊 Sheet URL:", sheetUrl || "(failed to create)");
+      }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 4: Prepare User Data for Database
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const userData = {
         id: data.user.id,
-        email: data.user.email?.toLowerCase(),
+        email: email.trim().toLowerCase(),
         name: name.trim(),
-        role,
-        team_code: role === 'manager' ? teamCode?.toUpperCase() : null,
-        manager_id: managerId || null,
+        role: role,
+        
+        // ✅ KEY FIX: Properly set team_code and manager_id based on role
+        team_code: resolvedTeamCode,           // Managers: their code, Members: their manager's code
+        manager_id: resolvedManagerId,          // Members: their manager's ID, Managers: null
+        
         sheet_url: sheetUrl,
         payment_status: 'inactive',
         plan_name: 'none',
+        plan_weight: 1,
         daily_limit: 0,
         leads_today: 0,
+        total_leads_received: 0,
         filters: { pan_india: true },
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      await supabase.from('users').upsert(userData);
+      console.log("💾 ═══════════════════════════════════════");
+      console.log("💾 SAVING TO DATABASE:");
+      console.log("💾 User ID:", userData.id);
+      console.log("💾 Email:", userData.email);
+      console.log("💾 Role:", userData.role);
+      console.log("💾 Team Code:", userData.team_code || "(null)");
+      console.log("💾 Manager ID:", userData.manager_id || "(null)");
+      console.log("💾 Sheet URL:", userData.sheet_url || "(null)");
+      console.log("💾 ═══════════════════════════════════════");
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 5: Insert into Database
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const { error: dbError } = await supabase.from('users').upsert(userData);
       
-      console.log("✅ Signup complete");
-      // Note: onAuthStateChange will handle the session
+      if (dbError) {
+        console.error("❌ Database insert error:", dbError);
+        // Don't throw - user is created in auth, just log the error
+        // They can still login and we'll create their profile on first load
+      } else {
+        console.log("✅ User saved to database successfully!");
+      }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // STEP 6: Verify the save (DEBUG)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const { data: verifyData } = await supabase
+        .from('users')
+        .select('id, email, role, team_code, manager_id')
+        .eq('id', data.user.id)
+        .single();
+      
+      console.log("🔍 VERIFICATION - Data in DB:", verifyData);
+      
+      if (verifyData) {
+        if (role === 'member' && !verifyData.manager_id && resolvedManagerId) {
+          console.error("❌ WARNING: manager_id was not saved! Attempting direct update...");
+          
+          // Force update
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              manager_id: resolvedManagerId,
+              team_code: resolvedTeamCode 
+            })
+            .eq('id', data.user.id);
+          
+          if (updateError) {
+            console.error("❌ Force update failed:", updateError);
+          } else {
+            console.log("✅ Force update successful!");
+          }
+        }
+      }
+
+      console.log("✅ ═══════════════════════════════════════");
+      console.log("✅ SIGNUP COMPLETE!");
+      console.log("✅ ═══════════════════════════════════════");
+      
+      // onAuthStateChange will handle the session and profile loading
+      
     } catch (err) {
+      console.error("❌ Signup error:", err);
       setLoading(false);
       throw err;
     }
-  }, [createUserSheet]);
+  }, [createUserSheet, resolveManagerFromTeamCode]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔓 SIGN IN (PRESERVED)
+  // 🔓 SIGN IN
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = useCallback(async ({ 
     email, 
@@ -547,7 +683,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log("✅ Sign in initiated");
-      // onAuthStateChange will handle the rest
     } catch (err) {
       setLoading(false);
       throw err;
@@ -555,12 +690,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 👋 SIGN OUT (PRESERVED)
+  // 👋 SIGN OUT
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signOut = useCallback(async () => {
     console.log("👋 Signing out...");
     
-    // Clear state immediately
     currentUserIdRef.current = null;
     processingRef.current = false;
     setSession(null);
