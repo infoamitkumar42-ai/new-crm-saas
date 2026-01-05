@@ -1,825 +1,312 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "../auth/useAuth";
-import { supabase } from "../supabaseClient";
-import { logEvent } from "../supabaseClient";
-import { UserRole } from "../types"; 
-import { 
-  Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, 
-  CheckCircle, XCircle, AlertTriangle, Mail, ArrowLeft, KeyRound
-} from "lucide-react";
+// src/views/Auth.tsx - Key parts for the signup form
 
-// 🔗 APPS SCRIPT URL (Sheet Creator)
-const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycby-Or3s_Vk8dh38-bJvOFxVikbbZ444UJ6taJmQaJktOASE5-XxvbqA2xzitfNfxbMA/exec";
+import React, { useState } from 'react';
+import { useAuth } from '../auth/useAuth';
+import { supabase } from '../supabaseClient';
+// ... other imports
 
 export const Auth: React.FC = () => {
-  const { refreshProfile } = useAuth();
+  const { signUp, signIn } = useAuth();
   
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // MODE: login | signup | forgot_password
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");
-  
-  // Form State
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  
-  // Team Code
-  const [teamCode, setTeamCode] = useState(""); 
-  const [teamCodeStatus, setTeamCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
-  const [managerInfo, setManagerInfo] = useState<{ id: string; name: string } | null>(null);
-  
-  const [selectedRole, setSelectedRole] = useState<UserRole>("member");
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'member' | 'manager'>('member');
+  const [teamCode, setTeamCode] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Debounce ref
-  const debounceRef = useRef<NodeJS.Timeout>();
-
-  // ═══════════════════════════════════════════════════════════
-  // 🔐 FORGOT PASSWORD HANDLER
-  // ═══════════════════════════════════════════════════════════
   
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
-    setLoading(true);
+  // For showing manager info after verification
+  const [verifiedManager, setVerifiedManager] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-    try {
-      // Validate email
-      if (!email || !email.includes('@')) {
-        throw new Error("Please enter a valid email address");
-      }
-
-      setStatusMessage("Sending reset link...");
-
-      // Send password reset email via Supabase
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        }
-      );
-
-      if (resetError) {
-        throw resetError;
-      }
-
-      // Success
-      setSuccessMessage(
-        `✅ Password reset link sent to ${email}. Please check your inbox (and spam folder).`
-      );
-      
-      // Log event
-      await logEvent('password_reset_requested', { email }).catch(() => {});
-
-    } catch (err: any) {
-      console.error('Forgot password error:', err);
-      setError(err.message || 'Failed to send reset link');
-    } finally {
-      setLoading(false);
-      setStatusMessage("");
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  // 🔍 TEAM CODE VERIFICATION (CASE-INSENSITIVE)
-  // ═══════════════════════════════════════════════════════════
-  
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔍 VERIFY TEAM CODE (Optional - for UX)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const verifyTeamCode = async (code: string) => {
-    const normalizedCode = code.toUpperCase().trim();
-    
-    if (!normalizedCode || normalizedCode.length < 3) {
-      setTeamCodeStatus('idle');
-      setManagerInfo(null);
+    if (!code || code.length < 3) {
+      setVerifiedManager(null);
       return;
     }
 
-    setTeamCodeStatus('checking');
-
     try {
-      const { data, error } = await supabase.rpc('verify_team_code', { 
-        code: normalizedCode
-      });
+      const normalizedCode = code.trim().toUpperCase();
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('team_code', normalizedCode)
+        .eq('role', 'manager')
+        .maybeSingle();
 
-      console.log('Team code verification result:', { code: normalizedCode, data, error });
-
-      if (error) {
-        console.error('Team code verification error:', error);
-        setTeamCodeStatus('invalid');
-        setManagerInfo(null);
+      if (error || !data) {
+        setVerifiedManager(null);
         return;
       }
 
-      if (data && data.length > 0 && data[0].is_valid) {
-        setTeamCodeStatus('valid');
-        setManagerInfo({
-          id: data[0].manager_id,
-          name: data[0].manager_name || 'Manager'
-        });
-        console.log('✅ Valid team code! Manager:', data[0].manager_name);
-      } else {
-        setTeamCodeStatus('invalid');
-        setManagerInfo(null);
-        console.log('❌ Invalid team code');
-      }
-
+      setVerifiedManager({
+        id: data.id,
+        name: data.name
+      });
+      
+      console.log("✅ Team code verified - Manager:", data.name);
     } catch (err) {
-      console.error('Team code check failed:', err);
-      setTeamCodeStatus('invalid');
-      setManagerInfo(null);
+      setVerifiedManager(null);
     }
   };
 
-  const checkTeamCodeAvailability = async (code: string): Promise<boolean> => {
-    const normalizedCode = code.toUpperCase().trim();
-    
-    if (!normalizedCode || normalizedCode.length < 3) return false;
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📝 HANDLE SIGNUP
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
     try {
-      const { data, error } = await supabase.rpc('check_team_code_available', { 
-        code: normalizedCode
+      // Validation
+      if (!email || !password || !name) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+
+      // For members, team code is required
+      if (role === 'member' && !teamCode) {
+        throw new Error('Please enter your team code');
+      }
+
+      // For managers, team code is required (they create it)
+      if (role === 'manager' && !teamCode) {
+        throw new Error('Please create a team code for your team');
+      }
+
+      console.log("📝 Submitting signup...");
+      console.log("📝 Role:", role);
+      console.log("📝 Team Code:", teamCode);
+      console.log("📝 Verified Manager:", verifiedManager);
+
+      // ✅ KEY: Pass managerId if we have it from verification
+      await signUp({
+        email,
+        password,
+        name,
+        role,
+        teamCode: teamCode.trim().toUpperCase(),
+        managerId: verifiedManager?.id || undefined, // Pass if we pre-verified
       });
 
-      console.log('Code availability check:', { code: normalizedCode, available: data, error });
+      // Success - the auth state change will redirect
+      console.log("✅ Signup submitted successfully");
 
-      if (error) {
-        console.error('Code availability check error:', error);
-        return false;
-      }
-
-      return data === true;
-
-    } catch (err) {
-      console.error('Code check failed:', err);
-      return false;
-    }
-  };
-
-  // Debounced team code check
-  const handleTeamCodeChange = (value: string) => {
-    const upperValue = value.toUpperCase().replace(/\s/g, '').trim();
-    setTeamCode(upperValue);
-    setTeamCodeStatus('idle');
-    setManagerInfo(null);
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    if (selectedRole === 'member' && upperValue.length >= 3) {
-      debounceRef.current = setTimeout(() => {
-        verifyTeamCode(upperValue);
-      }, 600);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
-
-  // ═══════════════════════════════════════════════════════════
-  // 📊 GOOGLE SHEET CREATOR
-  // ═══════════════════════════════════════════════════════════
-  
-  const createUserSheet = async (userId: string, userEmail: string, userName: string): Promise<string | null> => {
-    const maxRetries = 2;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        setStatusMessage(`Creating Google Sheet (attempt ${attempt})...`);
-        console.log(`📊 Sheet creation attempt ${attempt} for ${userEmail}`);
-        
-        const postResponse = await fetch(SHEET_CREATOR_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-          body: JSON.stringify({
-            action: 'createSheet',
-            userId: userId,
-            email: userEmail,
-            name: userName
-          })
-        });
-
-        if (postResponse.ok) {
-          const text = await postResponse.text();
-          console.log('POST Response:', text);
-          
-          try {
-            const result = JSON.parse(text);
-            if (result.success && result.sheetUrl) {
-              console.log("✅ Sheet created via POST:", result.sheetUrl);
-              return result.sheetUrl;
-            }
-            if (result.error) {
-              console.error("Sheet creation error:", result.error);
-            }
-          } catch (parseErr) {
-            console.log("Response not JSON:", text);
-          }
-        }
-
-        // Fallback: GET request
-        const getUrl = `${SHEET_CREATOR_URL}?action=createSheet&userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(userName)}`;
-        
-        console.log('Trying GET request...');
-        const getResponse = await fetch(getUrl, { 
-          method: 'GET',
-          mode: 'cors'
-        });
-        
-        if (getResponse.ok) {
-          const text = await getResponse.text();
-          console.log('GET Response:', text);
-          
-          try {
-            const result = JSON.parse(text);
-            if (result.success && result.sheetUrl) {
-              console.log("✅ Sheet created via GET:", result.sheetUrl);
-              return result.sheetUrl;
-            }
-          } catch (parseErr) {
-            console.log("GET Response not JSON:", text);
-          }
-        }
-
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-      } catch (err) {
-        console.error(`Sheet creation attempt ${attempt} error:`, err);
-        
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    }
-
-    console.log("⚠️ Sheet creation failed after all retries");
-    return null;
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  // 📝 FORM SUBMISSION (Login & Signup)
-  // ═══════════════════════════════════════════════════════════
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
-    setLoading(true);
-    setStatusMessage("");
-
-    try {
-      if (mode === "signup") {
-        
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // VALIDATION
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const normalizedTeamCode = teamCode.toUpperCase().trim();
-        
-        if (selectedRole === 'member' && !normalizedTeamCode) {
-          throw new Error("Please enter a Team Code to join.");
-        }
-        if (selectedRole === 'manager' && !normalizedTeamCode) {
-          throw new Error("Please create a unique Team Code for your team.");
-        }
-        if (normalizedTeamCode.length < 3) {
-          throw new Error("Team Code must be at least 3 characters.");
-        }
-
-        setStatusMessage("Verifying details...");
-
-        let managerId: string | null = null;
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MEMBER: Verify Team Code
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (selectedRole === 'member') {
-          setStatusMessage("Verifying team code...");
-          
-          const { data, error: rpcError } = await supabase.rpc('verify_team_code', { 
-            code: normalizedTeamCode 
-          });
-
-          console.log('Signup - Team code verification:', { code: normalizedTeamCode, data, error: rpcError });
-
-          if (rpcError) {
-            console.error('RPC Error:', rpcError);
-            throw new Error("Unable to verify team code. Please try again.");
-          }
-
-          if (!data || data.length === 0 || !data[0].is_valid) {
-            throw new Error(`Invalid Team Code: "${normalizedTeamCode}". Please ask your manager for the correct code.`);
-          }
-
-          managerId = data[0].manager_id;
-          setStatusMessage(`Joining ${data[0].manager_name}'s team...`);
-        }
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MANAGER: Verify Code is Available
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (selectedRole === 'manager') {
-          setStatusMessage("Checking code availability...");
-          
-          const isAvailable = await checkTeamCodeAvailability(normalizedTeamCode);
-          
-          if (!isAvailable) {
-            throw new Error(`Team Code "${normalizedTeamCode}" is already taken. Please choose another.`);
-          }
-        }
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 1. CREATE AUTH USER
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        setStatusMessage("Creating account...");
-        
-        const { data: signUpData, error: authError } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
-          password,
-          options: { data: { name: name.trim() } }
-        });
-
-        if (authError) {
-          console.error('Auth Error:', authError);
-          throw authError;
-        }
-        
-        const user = signUpData.user;
-        if (!user) throw new Error("Signup failed. Please try again.");
-
-        console.log('✅ Auth user created:', user.id);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 2. CREATE GOOGLE SHEET (For Members Only)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        let sheetUrl: string | null = null;
-        
-        if (selectedRole === 'member') {
-          sheetUrl = await createUserSheet(user.id, email.trim(), name.trim());
-          
-          if (sheetUrl) {
-            setStatusMessage("✅ Sheet created successfully!");
-          } else {
-            setStatusMessage("⚠️ Sheet will be created shortly...");
-          }
-        }
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 3. SAVE USER TO DATABASE
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        setStatusMessage("Saving profile...");
-        
-        const userData = {
-          id: user.id,
-          email: user.email?.toLowerCase(),
-          name: name.trim() || user.user_metadata?.name || 'New User',
-          role: selectedRole,
-          team_code: selectedRole === 'manager' ? normalizedTeamCode : null,
-          manager_id: managerId,
-          sheet_url: sheetUrl,
-          payment_status: 'inactive',
-          plan_name: 'none',
-          plan_weight: 1,
-          daily_limit: 0,
-          leads_today: 0,
-          total_leads_received: 0,
-          filters: { pan_india: true, states: [], cities: [], gender: 'all' },
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        console.log('Saving user data:', userData);
-
-        const { error: dbError } = await supabase
-          .from('users')
-          .upsert(userData);
-
-        if (dbError) {
-          console.error("DB Error:", dbError);
-          await logEvent('user_db_error', { 
-            userId: user.id, 
-            email, 
-            error: dbError.message 
-          }).catch(() => {});
-        } else {
-          console.log('✅ User saved to database');
-        }
-
-        await logEvent('user_signup_complete', { 
-          email, 
-          role: selectedRole, 
-          hasSheet: !!sheetUrl,
-          hasManager: !!managerId,
-          teamCode: selectedRole === 'manager' ? normalizedTeamCode : null
-        }).catch(() => {});
-        
-        setStatusMessage("Success! Opening dashboard...");
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await refreshProfile();
-        
-      } else {
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // LOGIN LOGIC
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        setStatusMessage("Logging in...");
-        
-        const { error } = await supabase.auth.signInWithPassword({ 
-          email: email.trim().toLowerCase(), 
-          password 
-        });
-        
-        if (error) throw error;
-        
-        await refreshProfile();
-      }
-      
     } catch (err: any) {
-      console.error('Form submission error:', err);
-      setError(err.message || 'An unexpected error occurred');
-      
-      if (mode === "signup") {
-        try {
-          await supabase.auth.signOut();
-        } catch {}
-      }
+      console.error("❌ Signup error:", err);
+      setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
-      setStatusMessage("");
     }
   };
 
-  // Reset form when mode changes
-  const handleModeChange = (newMode: "login" | "signup" | "forgot_password") => {
-    setMode(newMode);
-    setError(null);
-    setSuccessMessage(null);
-    setStatusMessage("");
-    if (newMode !== "forgot_password") {
-      setTeamCode("");
-      setTeamCodeStatus('idle');
-      setManagerInfo(null);
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔓 HANDLE LOGIN
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await signIn({ email, password });
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
-
-  // ═══════════════════════════════════════════════════════════
-  // 🎨 RENDER
-  // ═══════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-        
-        {/* ━━━ FORGOT PASSWORD MODE ━━━ */}
-        {mode === "forgot_password" ? (
-          <>
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <KeyRound size={32} className="text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-extrabold text-slate-900">
-                Forgot Password?
-              </h2>
-              <p className="text-slate-500 mt-2 text-sm">
-                No worries! Enter your email and we'll send you a reset link.
-              </p>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">
+          {isLogin ? 'Welcome Back' : 'Create Account'}
+        </h1>
 
-            <form className="space-y-5" onSubmit={handleForgotPassword}>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                  <input 
-                    className="w-full border border-slate-200 px-4 py-3 pl-10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                    type="email" 
-                    value={email} 
-                    onChange={e => setEmail(e.target.value)} 
-                    placeholder="name@company.com" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              {/* Success Message */}
-              {successMessage && (
-                <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-green-200">
-                  <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
-                  <span>{successMessage}</span>
-                </div>
-              )}
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-200">
-                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {/* Status Message */}
-              {statusMessage && (
-                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-blue-200">
-                  <Loader2 size={18} className="animate-spin flex-shrink-0" />
-                  {statusMessage}
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button 
-                type="submit" 
-                disabled={loading} 
-                className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 size={18} className="animate-spin" />
-                    Sending...
-                  </span>
-                ) : (
-                  "Send Reset Link"
-                )}
-              </button>
-            </form>
-
-            {/* Back to Login */}
-            <div className="mt-6 text-center">
-              <button 
-                className="flex items-center justify-center gap-2 mx-auto text-blue-600 hover:text-blue-700 hover:underline font-medium text-sm transition-colors" 
-                onClick={() => handleModeChange("login")}
-              >
-                <ArrowLeft size={16} />
-                Back to Login
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* ━━━ LOGIN / SIGNUP MODE ━━━ */}
-            
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                {mode === "login" ? "Welcome Back" : "Join LeadFlow"}
-              </h2>
-              <p className="text-slate-500 mt-2 text-sm">
-                {mode === "login" ? "Login to access your dashboard" : "Start managing or working on leads today"}
-              </p>
-            </div>
-
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              
-              {mode === "signup" && (
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
-                  <input 
-                    className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                    value={name} 
-                    onChange={e => setName(e.target.value)} 
-                    placeholder="e.g. Rahul Kumar" 
-                    required 
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-                <input 
-                  className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                  type="email" 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)} 
-                  placeholder="name@company.com" 
-                  required 
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-bold text-slate-700">Password</label>
-                  {mode === "login" && (
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange("forgot_password")}
-                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium transition-colors"
-                    >
-                      Forgot Password?
-                    </button>
-                  )}
-                </div>
-                <input 
-                  className="w-full border border-slate-200 px-4 py-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                  type="password" 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  placeholder="••••••••" 
-                  required 
-                  minLength={6}
-                />
-              </div>
-
-              {/* Role & Team Code Section */}
-              {mode === "signup" && (
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-xl border border-slate-200 space-y-5">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                      Select Your Role
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedRole("member");
-                          setTeamCode("");
-                          setTeamCodeStatus('idle');
-                          setManagerInfo(null);
-                        }}
-                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          selectedRole === 'member' 
-                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:shadow-md'
-                        }`}
-                      >
-                        <Users size={24} className="mb-2" />
-                        <span className="text-sm font-bold">Team Member</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedRole("manager");
-                          setTeamCode("");
-                          setTeamCodeStatus('idle');
-                          setManagerInfo(null);
-                        }}
-                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          selectedRole === 'manager' 
-                            ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:shadow-md'
-                        }`}
-                      >
-                        <Briefcase size={24} className="mb-2" />
-                        <span className="text-sm font-bold">Manager</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Input based on Role */}
-                  <div>
-                    {selectedRole === 'member' ? (
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">
-                          Enter Team Code <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
-                          <input 
-                            className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-xl focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all text-lg tracking-wider ${
-                              teamCodeStatus === 'valid' 
-                                ? 'border-green-500 focus:ring-green-500 bg-green-50' 
-                                : teamCodeStatus === 'invalid'
-                                ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                                : 'border-slate-200 focus:ring-blue-500 focus:border-blue-500'
-                            }`}
-                            value={teamCode} 
-                            onChange={e => handleTeamCodeChange(e.target.value)} 
-                            placeholder="e.g. WIN11" 
-                            required 
-                            maxLength={20}
-                          />
-                          
-                          {/* Status Icon */}
-                          <div className="absolute right-3 top-3">
-                            {teamCodeStatus === 'checking' && (
-                              <Loader2 size={18} className="text-blue-500 animate-spin" />
-                            )}
-                            {teamCodeStatus === 'valid' && (
-                              <CheckCircle size={18} className="text-green-500" />
-                            )}
-                            {teamCodeStatus === 'invalid' && (
-                              <XCircle size={18} className="text-red-500" />
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Status Message */}
-                        {teamCodeStatus === 'valid' && managerInfo && (
-                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1 bg-green-50 p-2 rounded-lg border border-green-200">
-                            <CheckCircle size={14} />
-                            <span>Joining <strong>{managerInfo.name}'s</strong> team</span>
-                          </p>
-                        )}
-                        {teamCodeStatus === 'invalid' && (
-                          <p className="text-xs text-red-600 mt-2 flex items-center gap-1 bg-red-50 p-2 rounded-lg border border-red-200">
-                            <XCircle size={14} />
-                            <span>Invalid code. Ask your manager for the correct code.</span>
-                          </p>
-                        )}
-                        {teamCodeStatus === 'idle' && teamCode.length === 0 && (
-                          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                            <FileSpreadsheet size={12} />
-                            A personal Google Sheet will be created for you!
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">
-                          Create Your Team Code <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <Users className="absolute left-3 top-3 text-slate-400" size={18} />
-                          <input 
-                            className="w-full border border-slate-200 px-4 py-2.5 pl-10 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono uppercase placeholder:normal-case text-lg tracking-wider"
-                            value={teamCode} 
-                            onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, '').trim())} 
-                            placeholder="e.g. WINNERS_CLUB" 
-                            required 
-                            minLength={3}
-                            maxLength={20}
-                          />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-2">
-                          💡 This code will be shared with your team members to join.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2 border border-red-200">
-                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
-              
-              {/* Status Message */}
-              {statusMessage && (
-                <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-blue-200">
-                  <Loader2 size={18} className="animate-spin flex-shrink-0" />
-                  {statusMessage}
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button 
-                type="submit" 
-                disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus === 'checking')} 
-                className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed ${
-                  mode === 'signup' && selectedRole === 'manager' 
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700' 
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                }`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 size={18} className="animate-spin" />
-                    Processing...
-                  </span>
-                ) : mode === "login" ? (
-                  "Log In"
-                ) : selectedRole === 'manager' ? (
-                  "Create Manager Account"
-                ) : teamCodeStatus === 'valid' ? (
-                  `Join ${managerInfo?.name || 'Team'}`
-                ) : (
-                  "Join Team"
-                )}
-              </button>
-            </form>
-
-            {/* Mode Toggle */}
-            <div className="mt-8 text-center">
-              <p className="text-slate-500 text-sm">
-                {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
-                <button 
-                  className="ml-2 font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors" 
-                  onClick={() => handleModeChange(mode === "login" ? "signup" : "login")}
-                >
-                  {mode === "login" ? "Create Account" : "Login Here"}
-                </button>
-              </p>
-            </div>
-          </>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
         )}
+
+        <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
+          {/* Name (Signup only) */}
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="John Doe"
+                required
+              />
+            </div>
+          )}
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+
+          {/* Role Selection (Signup only) */}
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                I am a
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="member"
+                    checked={role === 'member'}
+                    onChange={() => {
+                      setRole('member');
+                      setTeamCode('');
+                      setVerifiedManager(null);
+                    }}
+                    className="mr-2"
+                  />
+                  Team Member
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="manager"
+                    checked={role === 'manager'}
+                    onChange={() => {
+                      setRole('manager');
+                      setTeamCode('');
+                      setVerifiedManager(null);
+                    }}
+                    className="mr-2"
+                  />
+                  Manager
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Team Code (Signup only) */}
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {role === 'member' ? 'Team Code (from your manager)' : 'Create Team Code'}
+              </label>
+              <input
+                type="text"
+                value={teamCode}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setTeamCode(value);
+                  
+                  // Auto-verify for members
+                  if (role === 'member') {
+                    verifyTeamCode(value);
+                  }
+                }}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 uppercase"
+                placeholder={role === 'member' ? 'e.g., WIN11' : 'e.g., MYTEAM'}
+                required
+                maxLength={10}
+              />
+              
+              {/* Show verified manager for members */}
+              {role === 'member' && verifiedManager && (
+                <p className="mt-1 text-sm text-green-600">
+                  ✓ Joining team of: {verifiedManager.name}
+                </p>
+              )}
+              
+              {/* Show hint for managers */}
+              {role === 'manager' && teamCode.length >= 3 && (
+                <p className="mt-1 text-sm text-slate-500">
+                  Your team members will use this code to join
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {isLogin ? 'Signing in...' : 'Creating account...'}
+              </span>
+            ) : (
+              isLogin ? 'Sign In' : 'Create Account'
+            )}
+          </button>
+        </form>
+
+        {/* Toggle Login/Signup */}
+        <p className="mt-6 text-center text-sm text-slate-600">
+          {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+              setVerifiedManager(null);
+            }}
+            className="text-blue-600 font-medium hover:underline"
+          >
+            {isLogin ? 'Sign up' : 'Sign in'}
+          </button>
+        </p>
       </div>
     </div>
   );
