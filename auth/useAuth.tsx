@@ -26,46 +26,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // ✅ Ref to track initialization status to prevent double-firing
-  const isInitializing = useRef(false);
+  // ✅ Ref to prevent double execution
+  const initRef = useRef(false);
 
   const isAuthenticated = !!session && !!profile;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 FETCH PROFILE
+  // 📥 FETCH PROFILE (Optimized)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      console.log("📥 Fetching profile for:", userId);
-      
       const { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (error) {
-        console.error("❌ Profile fetch error:", error);
-        return null;
-      }
-
-      if (data) {
-        console.log("✅ Profile loaded:", data.email);
-        return data as User;
-      }
-
-      return null;
+      if (error) throw error;
+      return data as User;
     } catch (err) {
-      console.error("❌ Profile fetch exception:", err);
+      console.warn("Profile fetch issue:", err);
       return null;
     }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 LOAD USER PROFILE
+  // 🚀 LOAD USER (Core Logic)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const loadUserProfile = useCallback(async (user: SupabaseUser) => {
-    // 1. Set minimal profile immediately to stop loading spinner
+  const loadUser = useCallback(async (user: SupabaseUser) => {
+    console.log("🔄 Loading user:", user.email);
+
+    // 1. Create temporary profile for instant UI
     const tempProfile: User = {
       id: user.id,
       email: user.email || "",
@@ -82,87 +73,72 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       created_at: new Date().toISOString(),
     };
 
-    // ✅ Set state immediately
+    // 2. Set state IMMEDIATELY to unblock UI
     setProfile(tempProfile);
-    setLoading(false); // Stop loading here!
+    setLoading(false); // 🔴 Key Fix: Stop loading instantly
 
-    // 2. Then fetch full profile in background
-    const fullProfile = await fetchProfile(user.id);
+    // 3. Fetch real data in background
+    const dbProfile = await fetchProfile(user.id);
     
-    if (fullProfile) {
-      setProfile(fullProfile); // Update with real data
+    if (dbProfile) {
+      setProfile(dbProfile); // Update with real data
     } else {
-      // Create missing user entry if needed
+      // If no profile exists, create it silently
       const userData = { ...tempProfile, updated_at: new Date().toISOString() };
       await supabase.from("users").upsert(userData);
     }
   }, [fetchProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH
+  // 🔐 INITIALIZATION EFFECT
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
-    if (isInitializing.current) return;
-    isInitializing.current = true;
+    if (initRef.current) return;
+    initRef.current = true;
 
     let mounted = true;
 
-    const initializeAuth = async () => {
-      console.log("🔐 Initializing auth...");
+    const init = async () => {
+      console.log("🔐 Auth Init...");
       
       try {
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-
-        if (error) throw error;
+        // 1. Get Session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
 
         if (currentSession?.user && mounted) {
-          console.log("✅ Session found:", currentSession.user.email);
+          console.log("✅ Session Found");
           setSession(currentSession);
-          await loadUserProfile(currentSession.user);
+          await loadUser(currentSession.user);
         } else {
-          console.log("ℹ️ No active session");
-          if (mounted) {
-            setSession(null);
-            setProfile(null);
-            setLoading(false);
-          }
+          console.log("ℹ️ No Session");
+          if (mounted) setLoading(false);
         }
       } catch (err) {
-        console.error("❌ Auth init error:", err);
-        if (mounted) {
-          setSession(null);
-          setProfile(null);
-          setLoading(false);
-        }
+        console.error("Auth Error:", err);
+        if (mounted) setLoading(false);
       }
     };
 
-    // Force stop loading after 2 seconds (Safety Net)
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("⚠️ Safety timeout - forcing load complete");
-        setLoading(false);
-      }
-    }, 2000);
+    init();
 
-    initializeAuth();
-
-    // Listen for changes
+    // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
-
-        console.log("🔔 Auth event:", event);
+        
+        console.log(`🔔 Event: ${event}`);
 
         if (event === 'SIGNED_IN' && newSession?.user) {
           setSession(newSession);
-          await loadUserProfile(newSession.user);
-        } else if (event === 'SIGNED_OUT') {
+          await loadUser(newSession.user);
+        } 
+        else if (event === 'SIGNED_OUT') {
           setSession(null);
           setProfile(null);
           setLoading(false);
           localStorage.removeItem('leadflow-auth-session');
-        } else if (event === 'TOKEN_REFRESHED' && newSession) {
+        }
+        else if (event === 'TOKEN_REFRESHED' && newSession) {
           setSession(newSession);
         }
       }
@@ -170,24 +146,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, []); // Empty dependency array is correct here
+  }, []); // Run ONCE
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 REFRESH PROFILE
+  // 🛡️ SAFETY TIMEOUT (Last Resort)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const refreshProfile = useCallback(async () => {
-    if (session?.user) {
-      const fullProfile = await fetchProfile(session.user.id);
-      if (fullProfile) {
-        setProfile(fullProfile);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn("⚠️ Safety Timeout: Force stopping loading");
+        setLoading(false);
       }
-    }
-  }, [session, fetchProfile]);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
-  // Actions
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🎮 ACTIONS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signUp = async (params: any) => {
     const { data, error } = await supabase.auth.signUp({
       email: params.email,
@@ -218,11 +196,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    setLoading(true);
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
     setLoading(false);
+  };
+
+  const refreshProfile = async () => {
+    if (session?.user) {
+      const p = await fetchProfile(session.user.id);
+      if (p) setProfile(p);
+    }
   };
 
   return (
