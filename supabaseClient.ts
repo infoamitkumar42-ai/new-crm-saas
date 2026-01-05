@@ -7,19 +7,12 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-
-// ✅ Direct URL and Key (fallback if ENV not available)
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error("❌ Missing Supabase configuration!");
-}
+import { ENV } from "./config/env";
 
 // ✅ Create Supabase client with PERSISTENT SESSION
 export const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
+  ENV.SUPABASE_URL,
+  ENV.SUPABASE_ANON_KEY,
   {
     auth: {
       // ✅ Store session in localStorage (persists across browser restarts)
@@ -28,16 +21,16 @@ export const supabase = createClient(
       // ✅ Custom storage key for session
       storageKey: 'leadflow-auth-session',
       
-      // ✅ Use localStorage instead of sessionStorage
+      // ✅ Use localStorage
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       
       // ✅ Auto refresh token before it expires
       autoRefreshToken: true,
       
-      // ✅ Detect session from URL (for magic links, password reset)
+      // ✅ Detect session from URL (for password reset, etc.)
       detectSessionInUrl: true,
       
-      // ✅ Flow type for better security
+      // ✅ PKCE flow for security
       flowType: 'pkce',
     },
     
@@ -77,7 +70,7 @@ export async function logEvent(
       });
     }
   } catch (err) {
-    // Silent fail for logging
+    // Silent fail
   }
 }
 
