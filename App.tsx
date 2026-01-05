@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
@@ -24,7 +24,17 @@ import { ShippingPolicy } from './views/legal/ShippingPolicy';
 import { ContactUs } from './views/legal/ContactUs';
 
 // ============================================================
-// 🛡️ PROTECTED ROUTE
+// 🔄 LOADING SCREEN COMPONENT
+// ============================================================
+const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading workspace..." }) => (
+  <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+    <p className="text-slate-500 text-sm">{message}</p>
+  </div>
+);
+
+// ============================================================
+// 🛡️ PROTECTED ROUTE (FIXED)
 // ============================================================
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode;
@@ -32,37 +42,39 @@ const ProtectedRoute: React.FC<{
 }> = ({ children, allowedRoles }) => {
   const { isAuthenticated, profile, loading } = useAuth();
 
-  // ✅ IF AUTHENTICATED: Show content immediately (Ignore loading)
-  if (isAuthenticated) {
-    // Role check
-    if (allowedRoles && profile && !allowedRoles.includes(profile.role || '')) {
-      return <Navigate to="/" replace />;
-    }
-    return <>{children}</>;
-  }
-
-  // ✅ IF NOT AUTHENTICATED & LOADING: Show Loader
+  // ✅ FIRST: Check if still loading
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
-        <p className="text-slate-500 text-sm">Loading workspace...</p>
-      </div>
-    );
+    return <LoadingScreen message="Verifying session..." />;
   }
 
-  // ✅ IF NOT AUTHENTICATED & NOT LOADING: Redirect to Login
-  return <Navigate to="/login" replace />;
+  // ✅ SECOND: Check authentication
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // ✅ THIRD: Check role permissions
+  if (allowedRoles && profile && !allowedRoles.includes(profile.role || '')) {
+    console.log("⛔ Role not allowed:", profile.role, "Required:", allowedRoles);
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 // ============================================================
 // 🔀 DASHBOARD ROUTER
 // ============================================================
 const DashboardRouter: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
 
-  // Profile should exist if we reached here via ProtectedRoute
-  if (!profile) return null;
+  // Should not happen if coming through ProtectedRoute, but safety check
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!profile) {
+    return <Navigate to="/login" replace />;
+  }
 
   const role = profile.role?.toLowerCase().trim();
 
@@ -82,20 +94,17 @@ const DashboardRouter: React.FC = () => {
 };
 
 // ============================================================
-// 🌐 PUBLIC ROUTE
+// 🌐 PUBLIC ROUTE (FIXED)
 // ============================================================
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
-  // Only show loader if we are loading AND don't know auth status yet
-  if (loading && !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
+  // ✅ Show loader only while loading
+  if (loading) {
+    return <LoadingScreen message="Checking session..." />;
   }
 
+  // ✅ Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -104,14 +113,34 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 // ============================================================
-// 🎯 MAIN APP
+// 🏠 ROOT ROUTE HANDLER (NEW)
+// ============================================================
+const RootRoute: React.FC = () => {
+  const { isAuthenticated, loading } = useAuth();
+
+  // ✅ Show loader while determining auth state
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  // ✅ Show dashboard if authenticated, otherwise landing
+  if (isAuthenticated) {
+    return <DashboardRouter />;
+  }
+
+  return <Landing />;
+};
+
+// ============================================================
+// 🎯 MAIN APP ROUTES
 // ============================================================
 const AppRoutes: React.FC = () => {
-  const { isAuthenticated, profile } = useAuth();
+  const { isAuthenticated, profile, loading } = useAuth();
 
   return (
     <>
-      {isAuthenticated && profile && (
+      {/* Only show these when fully authenticated (not loading) */}
+      {!loading && isAuthenticated && profile && (
         <>
           <NotificationBanner />
           <LeadAlert />
@@ -119,37 +148,65 @@ const AppRoutes: React.FC = () => {
       )}
 
       <Routes>
+        {/* Public Auth Routes */}
         <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Auth /></PublicRoute>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/landing" element={<Landing />} />
 
-        {/* Root Route */}
-        <Route path="/" element={
-          isAuthenticated ? <DashboardRouter /> : <Landing />
-        } />
+        {/* Root Route - Shows Landing or Dashboard based on auth */}
+        <Route path="/" element={<RootRoute />} />
 
         {/* Protected Routes */}
-        <Route path="/target" element={<ProtectedRoute><Layout><TargetAudience /></Layout></ProtectedRoute>} />
-        <Route path="/subscription" element={<ProtectedRoute><Subscription onClose={() => window.history.back()} /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
+        <Route path="/target" element={
+          <ProtectedRoute>
+            <Layout><TargetAudience /></Layout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/subscription" element={
+          <ProtectedRoute>
+            <Subscription onClose={() => window.history.back()} />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <DashboardRouter />
+          </ProtectedRoute>
+        } />
 
-        <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/manager/*" element={<ProtectedRoute allowedRoles={['manager', 'admin']}><ManagerDashboard /></ProtectedRoute>} />
+        {/* Admin Routes */}
+        <Route path="/admin/*" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        
+        {/* Manager Routes */}
+        <Route path="/manager/*" element={
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
+            <ManagerDashboard />
+          </ProtectedRoute>
+        } />
 
-        {/* Legal */}
+        {/* Legal Pages (Public) */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/shipping" element={<ShippingPolicy />} />
         <Route path="/contact" element={<ContactUs />} />
 
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 };
 
+// ============================================================
+// 🚀 MAIN APP COMPONENT
+// ============================================================
 function App() {
   return (
     <BrowserRouter>
