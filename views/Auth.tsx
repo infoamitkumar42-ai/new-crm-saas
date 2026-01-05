@@ -7,11 +7,8 @@ import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
 import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
 
-// 🔗 APPS SCRIPT URL (Sheet Creator)
-const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
-
 export const Auth: React.FC = () => {
-  const { refreshProfile, signUp, signIn } = useAuth();
+  const { signUp, signIn } = useAuth();
   const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");
   
   // Form State
@@ -31,7 +28,7 @@ export const Auth: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ═══════════════════════════════════════════════════════════
-  // 🔍 TEAM CODE VERIFICATION (Using Secure RPC Function)
+  // 🔍 TEAM CODE VERIFICATION
   // ═══════════════════════════════════════════════════════════
   
   const verifyTeamCode = async (code: string) => {
@@ -49,7 +46,6 @@ export const Auth: React.FC = () => {
       });
 
       if (error) {
-        console.error('Team code verification error:', error);
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
         return;
@@ -65,9 +61,7 @@ export const Auth: React.FC = () => {
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
       }
-
-    } catch (err) {
-      console.error('Team code check failed:', err);
+    } catch {
       setTeamCodeStatus('invalid');
       setManagerInfo(null);
     }
@@ -81,20 +75,13 @@ export const Auth: React.FC = () => {
         code: code.toUpperCase() 
       });
 
-      if (error) {
-        console.error('Code availability check error:', error);
-        return false;
-      }
-
+      if (error) return false;
       return data === true;
-
-    } catch (err) {
-      console.error('Code check failed:', err);
+    } catch {
       return false;
     }
   };
 
-  // Debounced team code check
   const handleTeamCodeChange = (value: string) => {
     const upperValue = value.toUpperCase().replace(/\s/g, '');
     setTeamCode(upperValue);
@@ -102,11 +89,9 @@ export const Auth: React.FC = () => {
     setManagerInfo(null);
 
     if (selectedRole === 'member' && upperValue.length >= 3) {
-      const timeoutId = setTimeout(() => {
+      setTimeout(() => {
         verifyTeamCode(upperValue);
       }, 500);
-      
-      return () => clearTimeout(timeoutId);
     }
   };
 
@@ -127,13 +112,15 @@ export const Auth: React.FC = () => {
     setLoading(true);
 
     try {
+      const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${redirectUrl}/reset-password`,
       });
 
       if (error) throw error;
 
-      setSuccessMessage("Password reset link sent! Check your email inbox.");
+      setSuccessMessage("Password reset link sent! Check your email inbox (also check spam folder).");
     } catch (err: any) {
       setError(err.message || "Failed to send reset email");
     } finally {
@@ -155,9 +142,6 @@ export const Auth: React.FC = () => {
     try {
       if (mode === "signup") {
         
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // VALIDATION
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'member' && !teamCode) {
           throw new Error("Please enter a Team Code to join.");
         }
@@ -169,9 +153,6 @@ export const Auth: React.FC = () => {
 
         let managerId: string | null = null;
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MEMBER: Verify Team Code
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'member') {
           if (teamCodeStatus === 'valid' && managerInfo) {
             managerId = managerInfo.id;
@@ -194,9 +175,6 @@ export const Auth: React.FC = () => {
           }
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔍 MANAGER: Verify Code is Available
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'manager') {
           const isAvailable = await checkTeamCodeAvailability(teamCode);
           
@@ -205,9 +183,6 @@ export const Auth: React.FC = () => {
           }
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // ✅ USE signUp FROM useAuth
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Creating account...");
 
         if (selectedRole === 'member') {
@@ -238,11 +213,7 @@ export const Auth: React.FC = () => {
         setStatusMessage("Success! Opening dashboard...");
         
       } else {
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // LOGIN LOGIC
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Logging in...");
-        
         await signIn({ email, password });
       }
       
@@ -276,13 +247,10 @@ export const Auth: React.FC = () => {
           </p>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🔑 FORGOT PASSWORD FORM */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* FORGOT PASSWORD FORM */}
         {mode === "forgot_password" && (
           <form className="space-y-5" onSubmit={handleForgotPassword}>
             
-            {/* Success Message */}
             {successMessage && (
               <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <CheckCircle size={18} />
@@ -290,7 +258,6 @@ export const Auth: React.FC = () => {
               </div>
             )}
 
-            {/* Error Message */}
             {error && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <XCircle size={18} />
@@ -343,9 +310,7 @@ export const Auth: React.FC = () => {
           </form>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 📝 LOGIN / SIGNUP FORM */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* LOGIN / SIGNUP FORM */}
         {mode !== "forgot_password" && (
           <form className="space-y-5" onSubmit={handleSubmit}>
             
@@ -387,7 +352,6 @@ export const Auth: React.FC = () => {
               />
             </div>
 
-            {/* Forgot Password Link (Login Only) */}
             {mode === "login" && (
               <div className="text-right">
                 <button
@@ -404,7 +368,6 @@ export const Auth: React.FC = () => {
               </div>
             )}
 
-            {/* Role & Team Code Section */}
             {mode === "signup" && (
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
                 <div>
@@ -449,8 +412,7 @@ export const Auth: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Dynamic Input based on Role */}
-                <div className="animate-fade-in-up">
+                <div>
                   {selectedRole === 'member' ? (
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-1">
@@ -472,7 +434,6 @@ export const Auth: React.FC = () => {
                           required 
                         />
                         
-                        {/* Status Icon */}
                         <div className="absolute right-3 top-3">
                           {teamCodeStatus === 'checking' && (
                             <Loader2 size={18} className="text-blue-500 animate-spin" />
@@ -486,7 +447,6 @@ export const Auth: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* Status Message */}
                       {teamCodeStatus === 'valid' && managerInfo && (
                         <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                           <CheckCircle size={12} />
@@ -531,7 +491,6 @@ export const Auth: React.FC = () => {
               </div>
             )}
 
-            {/* Error Message */}
             {error && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <XCircle size={18} />
@@ -539,7 +498,6 @@ export const Auth: React.FC = () => {
               </div>
             )}
             
-            {/* Status Message */}
             {statusMessage && (
               <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <Loader2 size={18} className="animate-spin" />
@@ -547,7 +505,6 @@ export const Auth: React.FC = () => {
               </div>
             )}
 
-            {/* Submit Button */}
             <button 
               type="submit" 
               disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
@@ -573,7 +530,6 @@ export const Auth: React.FC = () => {
           </form>
         )}
 
-        {/* Mode Toggle */}
         {mode !== "forgot_password" && (
           <div className="mt-8 text-center">
             <p className="text-slate-500 text-sm">
