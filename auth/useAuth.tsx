@@ -45,9 +45,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🔒 REFS TO PREVENT RACE CONDITIONS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const mountedRef = useRef(true);
-  const initStartedRef = useRef(false);
+  const initCompletedRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
-  const loadingProfileRef = useRef(false);
+  const processingRef = useRef(false);
 
   const isAuthenticated = !!session && !!profile;
 
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⚡ CREATE TEMP PROFILE (for fallback only)
+  // ⚡ CREATE TEMP PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = useCallback((user: SupabaseUser): User => ({
     id: user.id,
@@ -124,15 +124,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 🔄 LOAD USER PROFILE (FIXED VERSION)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
+  const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<boolean> => {
     // Prevent duplicate loading for same user
-    if (currentUserIdRef.current === user.id && loadingProfileRef.current) {
+    if (currentUserIdRef.current === user.id && processingRef.current) {
       console.log("⏭️ Already loading profile for this user, skipping");
-      return;
+      return false;
     }
 
+    processingRef.current = true;
     currentUserIdRef.current = user.id;
-    loadingProfileRef.current = true;
 
     console.log("🔄 Loading profile for:", user.email);
     
@@ -140,7 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // First try to fetch existing profile
       let fullProfile = await fetchProfile(user.id);
       
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) {
+        processingRef.current = false;
+        return false;
+      }
 
       if (!fullProfile) {
         // User exists in auth but not in users table - create entry
@@ -163,38 +166,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         const { error } = await supabase.from("users").upsert(userData);
         
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          processingRef.current = false;
+          return false;
+        }
         
         if (!error) {
           fullProfile = await fetchProfile(user.id);
         }
         
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          processingRef.current = false;
+          return false;
+        }
       }
 
       // Set profile (real or temp fallback)
       if (mountedRef.current) {
-        if (fullProfile) {
-          setProfile(fullProfile);
-        } else {
-          // Last resort: use temp profile
-          console.log("⚠️ Using temp profile as fallback");
-          setProfile(createTempProfile(user));
-        }
-        
-        // ✅ KEY FIX: Only set loading false AFTER profile is set
-        setLoading(false);
-        console.log("✅ Profile loading complete");
+        const profileToSet = fullProfile || createTempProfile(user);
+        setProfile(profileToSet);
+        console.log("✅ Profile set successfully:", profileToSet.email);
+        processingRef.current = false;
+        return true;
       }
+      
+      processingRef.current = false;
+      return false;
     } catch (err) {
       console.error("❌ loadUserProfile error:", err);
       if (mountedRef.current) {
         // Fallback to temp profile on error
         setProfile(createTempProfile(user));
-        setLoading(false);
       }
-    } finally {
-      loadingProfileRef.current = false;
+      processingRef.current = false;
+      return true; // Still consider it "done" so we can proceed
     }
   }, [fetchProfile, createTempProfile]);
 
@@ -273,17 +278,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🚀 INITIALIZE AUTH (FIXED VERSION)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
-    // ✅ KEY FIX: Use ref to prevent double init in Strict Mode
-    if (initStartedRef.current) {
-      console.log("⏭️ Auth init already started, skipping duplicate");
-      return;
-    }
-    initStartedRef.current = true;
+    // Reset mounted ref
     mountedRef.current = true;
 
     console.log("🔐 Auth Init starting...");
 
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    let safetyTimer: NodeJS.Timeout | null = null;
+
     const initializeAuth = async () => {
+      // Skip if already completed (for Strict Mode)
+      if (initCompletedRef.current) {
+        console.log("⏭️ Auth init already completed, skipping");
+        return;
+      }
+
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
@@ -294,18 +303,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setProfile(null);
           setLoading(false);
+          initCompletedRef.current = true;
           return;
         }
 
         if (currentSession?.user) {
           console.log("✅ Session found:", currentSession.user.email);
           setSession(currentSession);
+          
+          // Load profile and wait for it
           await loadUserProfile(currentSession.user);
+          
+          if (mountedRef.current) {
+            setLoading(false);
+            initCompletedRef.current = true;
+            console.log("✅ Auth init complete (authenticated)");
+          }
         } else {
           console.log("ℹ️ No active session");
           setSession(null);
           setProfile(null);
           setLoading(false);
+          initCompletedRef.current = true;
+          console.log("✅ Auth init complete (not authenticated)");
         }
       } catch (err) {
         console.error("❌ Auth init error:", err);
@@ -313,37 +333,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setProfile(null);
           setLoading(false);
+          initCompletedRef.current = true;
         }
       }
     };
 
-    // Safety timeout - ensures loading never stays stuck
-    const safetyTimer = setTimeout(() => {
-      if (mountedRef.current && loading) {
-        console.warn("⚠️ Safety timeout triggered - forcing load complete");
-        setLoading(false);
-      }
-    }, 5000); // 5 second max wait
-
-    initializeAuth();
-
-    // Auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    // Set up auth state change listener FIRST
+    const { data } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mountedRef.current) return;
 
         console.log("🔔 Auth event:", event);
 
+        // Skip initial events during first load
+        if (!initCompletedRef.current && event === 'INITIAL_SESSION') {
+          console.log("⏭️ Skipping INITIAL_SESSION during init");
+          return;
+        }
+
         switch (event) {
           case 'SIGNED_IN':
             if (newSession?.user) {
-              // ✅ KEY FIX: Check if this is a different user
-              if (currentUserIdRef.current !== newSession.user.id) {
+              // Check if this is a different user or first sign in after init
+              const isDifferentUser = currentUserIdRef.current !== newSession.user.id;
+              
+              if (isDifferentUser || !initCompletedRef.current) {
+                console.log("🔄 Processing SIGNED_IN for:", newSession.user.email);
                 setSession(newSession);
                 setLoading(true);
+                
                 await loadUserProfile(newSession.user);
+                
+                if (mountedRef.current) {
+                  setLoading(false);
+                }
               } else {
-                // Same user, just update session
+                // Same user, just update session token
                 setSession(newSession);
               }
             }
@@ -352,6 +377,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           case 'SIGNED_OUT':
             console.log("👋 User signed out via auth event");
             currentUserIdRef.current = null;
+            processingRef.current = false;
             setSession(null);
             setProfile(null);
             setLoading(false);
@@ -369,7 +395,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (newSession?.user) {
               console.log("👤 User updated");
               setSession(newSession);
-              // Refresh profile to get latest data
               const updatedProfile = await fetchProfile(newSession.user.id);
               if (updatedProfile && mountedRef.current) {
                 setProfile(updatedProfile);
@@ -378,20 +403,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             break;
 
           default:
-            // Handle INITIAL_SESSION if needed
             break;
         }
       }
     );
 
+    authSubscription = data.subscription;
+
+    // Safety timeout - ensures loading never stays stuck forever
+    safetyTimer = setTimeout(() => {
+      if (mountedRef.current && loading && !initCompletedRef.current) {
+        console.warn("⚠️ Safety timeout triggered - forcing load complete");
+        setLoading(false);
+        initCompletedRef.current = true;
+      }
+    }, 8000); // 8 second max wait
+
+    // Run initialization
+    initializeAuth();
+
     // Cleanup function
     return () => {
       console.log("🧹 Auth cleanup");
       mountedRef.current = false;
-      clearTimeout(safetyTimer);
-      subscription.unsubscribe();
-      // ✅ Reset for Strict Mode remount
-      initStartedRef.current = false;
+      
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+      }
+      
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+      
+      // Reset for Strict Mode remount
+      initCompletedRef.current = false;
+      processingRef.current = false;
     };
   }, []); // Empty deps - only run once
 
@@ -500,7 +546,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      console.log("✅ Sign in successful");
+      console.log("✅ Sign in initiated");
       // onAuthStateChange will handle the rest
     } catch (err) {
       setLoading(false);
@@ -516,6 +562,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Clear state immediately
     currentUserIdRef.current = null;
+    processingRef.current = false;
     setSession(null);
     setProfile(null);
     localStorage.removeItem('leadflow-auth-session');
