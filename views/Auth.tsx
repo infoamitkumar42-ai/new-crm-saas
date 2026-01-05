@@ -5,14 +5,14 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types"; 
-import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
 
 // 🔗 APPS SCRIPT URL (Sheet Creator)
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzTzo-Ep9I9_SzEbDJJXQeusZtkmawvXo3u6BZkkRPUaCI_CQYpNhUcDuBqBnj0f7KW/exec";
 
 export const Auth: React.FC = () => {
   const { refreshProfile, signUp, signIn } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");
   
   // Form State
   const [email, setEmail] = useState("");
@@ -28,6 +28,7 @@ export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ═══════════════════════════════════════════════════════════
   // 🔍 TEAM CODE VERIFICATION (Using Secure RPC Function)
@@ -43,7 +44,6 @@ export const Auth: React.FC = () => {
     setTeamCodeStatus('checking');
 
     try {
-      // ✅ Use RPC function - works WITHOUT authentication!
       const { data, error } = await supabase.rpc('verify_team_code', { 
         code: code.toUpperCase() 
       });
@@ -55,7 +55,6 @@ export const Auth: React.FC = () => {
         return;
       }
 
-      // Check if valid
       if (data && data.length > 0 && data[0].is_valid) {
         setTeamCodeStatus('valid');
         setManagerInfo({
@@ -102,7 +101,6 @@ export const Auth: React.FC = () => {
     setTeamCodeStatus('idle');
     setManagerInfo(null);
 
-    // Debounce the verification
     if (selectedRole === 'member' && upperValue.length >= 3) {
       const timeoutId = setTimeout(() => {
         verifyTeamCode(upperValue);
@@ -113,12 +111,44 @@ export const Auth: React.FC = () => {
   };
 
   // ═══════════════════════════════════════════════════════════
-  // 📝 FORM SUBMISSION (FIXED!)
+  // 🔑 FORGOT PASSWORD HANDLER
+  // ═══════════════════════════════════════════════════════════
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setSuccessMessage("Password reset link sent! Check your email inbox.");
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // 📝 FORM SUBMISSION (LOGIN / SIGNUP)
   // ═══════════════════════════════════════════════════════════
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
     setStatusMessage("");
 
@@ -143,12 +173,10 @@ export const Auth: React.FC = () => {
         // 🔍 MEMBER: Verify Team Code
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (selectedRole === 'member') {
-          // Use already verified managerInfo if available
           if (teamCodeStatus === 'valid' && managerInfo) {
             managerId = managerInfo.id;
             setStatusMessage(`Joining ${managerInfo.name}'s team...`);
           } else {
-            // Re-verify if needed
             const { data, error: rpcError } = await supabase.rpc('verify_team_code', { 
               code: teamCode 
             });
@@ -178,22 +206,20 @@ export const Auth: React.FC = () => {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // ✅ USE signUp FROM useAuth (FIXED!)
+        // ✅ USE signUp FROM useAuth
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         setStatusMessage("Creating account...");
 
         if (selectedRole === 'member') {
-          // Member signup - pass managerId
           await signUp({
             email: email.trim(),
             password,
             name: name.trim(),
             role: 'member',
             teamCode: teamCode.trim().toUpperCase(),
-            managerId: managerId!  // ← KEY FIX: Pass manager ID!
+            managerId: managerId!
           });
         } else {
-          // Manager signup - pass teamCode only
           await signUp({
             email: email.trim(),
             password,
@@ -229,7 +255,7 @@ export const Auth: React.FC = () => {
   };
 
   // ═══════════════════════════════════════════════════════════
-  // 🎨 RENDER (100% ORIGINAL - NO CHANGES!)
+  // 🎨 RENDER
   // ═══════════════════════════════════════════════════════════
 
   return (
@@ -239,239 +265,335 @@ export const Auth: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {mode === "login" ? "Welcome Back" : "Join LeadFlow"}
+            {mode === "login" && "Welcome Back"}
+            {mode === "signup" && "Join LeadFlow"}
+            {mode === "forgot_password" && "Reset Password"}
           </h2>
           <p className="text-slate-500 mt-2 text-sm">
-            {mode === "login" ? "Login to access your dashboard" : "Start managing or working on leads today"}
+            {mode === "login" && "Login to access your dashboard"}
+            {mode === "signup" && "Start managing or working on leads today"}
+            {mode === "forgot_password" && "We'll send you a reset link"}
           </p>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          
-          {mode === "signup" && (
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🔑 FORGOT PASSWORD FORM */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {mode === "forgot_password" && (
+          <form className="space-y-5" onSubmit={handleForgotPassword}>
+            
+            {/* Success Message */}
+            {successMessage && (
+              <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+                <CheckCircle size={18} />
+                {successMessage}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+                <XCircle size={18} />
+                {error}
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+                <input 
+                  className="w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  type="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  placeholder="name@company.com" 
+                  required 
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  Sending...
+                </span>
+              ) : (
+                "Send Reset Link"
+              )}
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError(null);
+                setSuccessMessage(null);
+              }}
+              className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm font-medium"
+            >
+              <ArrowLeft size={16} />
+              Back to Login
+            </button>
+          </form>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📝 LOGIN / SIGNUP FORM */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {mode !== "forgot_password" && (
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            
+            {mode === "signup" && (
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
+                <input 
+                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                  placeholder="e.g. Rahul Kumar" 
+                  required 
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
               <input 
                 className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder="e.g. Rahul Kumar" 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                placeholder="name@company.com" 
                 required 
               />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-            <input 
-              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-              type="email" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              placeholder="name@company.com" 
-              required 
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
+              <input 
+                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                type="password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                placeholder="••••••••" 
+                required 
+                minLength={6}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
-            <input 
-              className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-              type="password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              placeholder="••••••••" 
-              required 
-              minLength={6}
-            />
-          </div>
+            {/* Forgot Password Link (Login Only) */}
+            {mode === "login" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("forgot_password");
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
-          {/* Role & Team Code Section */}
-          {mode === "signup" && (
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                  Select Your Role
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole("member");
-                      setTeamCode("");
-                      setTeamCodeStatus('idle');
-                      setManagerInfo(null);
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                      selectedRole === 'member' 
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
-                    }`}
-                  >
-                    <Users size={20} className="mb-1" />
-                    <span className="text-xs font-bold">Team Member</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole("manager");
-                      setTeamCode("");
-                      setTeamCodeStatus('idle');
-                      setManagerInfo(null);
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                      selectedRole === 'manager' 
-                        ? 'bg-indigo-600 border-indigo-600 text-white' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
-                    }`}
-                  >
-                    <Briefcase size={20} className="mb-1" />
-                    <span className="text-xs font-bold">Manager</span>
-                  </button>
+            {/* Role & Team Code Section */}
+            {mode === "signup" && (
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                    Select Your Role
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole("member");
+                        setTeamCode("");
+                        setTeamCodeStatus('idle');
+                        setManagerInfo(null);
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                        selectedRole === 'member' 
+                          ? 'bg-blue-600 border-blue-600 text-white' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                      }`}
+                    >
+                      <Users size={20} className="mb-1" />
+                      <span className="text-xs font-bold">Team Member</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole("manager");
+                        setTeamCode("");
+                        setTeamCodeStatus('idle');
+                        setManagerInfo(null);
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                        selectedRole === 'manager' 
+                          ? 'bg-indigo-600 border-indigo-600 text-white' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                      }`}
+                    >
+                      <Briefcase size={20} className="mb-1" />
+                      <span className="text-xs font-bold">Manager</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dynamic Input based on Role */}
+                <div className="animate-fade-in-up">
+                  {selectedRole === 'member' ? (
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Enter Team Code <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
+                        <input 
+                          className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${
+                            teamCodeStatus === 'valid' 
+                              ? 'border-green-500 focus:ring-green-500 bg-green-50' 
+                              : teamCodeStatus === 'invalid'
+                              ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                              : 'focus:ring-blue-500'
+                          }`}
+                          value={teamCode} 
+                          onChange={e => handleTeamCodeChange(e.target.value)} 
+                          placeholder="e.g. WIN11" 
+                          required 
+                        />
+                        
+                        {/* Status Icon */}
+                        <div className="absolute right-3 top-3">
+                          {teamCodeStatus === 'checking' && (
+                            <Loader2 size={18} className="text-blue-500 animate-spin" />
+                          )}
+                          {teamCodeStatus === 'valid' && (
+                            <CheckCircle size={18} className="text-green-500" />
+                          )}
+                          {teamCodeStatus === 'invalid' && (
+                            <XCircle size={18} className="text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Status Message */}
+                      {teamCodeStatus === 'valid' && managerInfo && (
+                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                          <CheckCircle size={12} />
+                          Joining {managerInfo.name}'s team
+                        </p>
+                      )}
+                      {teamCodeStatus === 'invalid' && (
+                        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                          <XCircle size={12} />
+                          Invalid code. Ask your manager for the correct code.
+                        </p>
+                      )}
+                      {teamCodeStatus === 'idle' && teamCode.length === 0 && (
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                          <FileSpreadsheet size={12} />
+                          A personal Google Sheet will be created for you!
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Create Your Team Code <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Users className="absolute left-3 top-3 text-slate-400" size={18} />
+                        <input 
+                          className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
+                          value={teamCode} 
+                          onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
+                          placeholder="e.g. WINNERS_CLUB" 
+                          required 
+                          minLength={3}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        This is the code your team members will use to join.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Dynamic Input based on Role */}
-              <div className="animate-fade-in-up">
-                {selectedRole === 'member' ? (
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Enter Team Code <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
-                      <input 
-                        className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${
-                          teamCodeStatus === 'valid' 
-                            ? 'border-green-500 focus:ring-green-500 bg-green-50' 
-                            : teamCodeStatus === 'invalid'
-                            ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                            : 'focus:ring-blue-500'
-                        }`}
-                        value={teamCode} 
-                        onChange={e => handleTeamCodeChange(e.target.value)} 
-                        placeholder="e.g. WIN11" 
-                        required 
-                      />
-                      
-                      {/* Status Icon */}
-                      <div className="absolute right-3 top-3">
-                        {teamCodeStatus === 'checking' && (
-                          <Loader2 size={18} className="text-blue-500 animate-spin" />
-                        )}
-                        {teamCodeStatus === 'valid' && (
-                          <CheckCircle size={18} className="text-green-500" />
-                        )}
-                        {teamCodeStatus === 'invalid' && (
-                          <XCircle size={18} className="text-red-500" />
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Status Message */}
-                    {teamCodeStatus === 'valid' && managerInfo && (
-                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                        <CheckCircle size={12} />
-                        Joining {managerInfo.name}'s team
-                      </p>
-                    )}
-                    {teamCodeStatus === 'invalid' && (
-                      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                        <XCircle size={12} />
-                        Invalid code. Ask your manager for the correct code.
-                      </p>
-                    )}
-                    {teamCodeStatus === 'idle' && teamCode.length === 0 && (
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                        <FileSpreadsheet size={12} />
-                        A personal Google Sheet will be created for you!
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Create Your Team Code <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-3 text-slate-400" size={18} />
-                      <input 
-                        className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
-                        value={teamCode} 
-                        onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
-                        placeholder="e.g. WINNERS_CLUB" 
-                        required 
-                        minLength={3}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      This is the code your team members will use to join.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
-              <XCircle size={18} />
-              {error}
-            </div>
-          )}
-          
-          {/* Status Message */}
-          {statusMessage && (
-            <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
-              <Loader2 size={18} className="animate-spin" />
-              {statusMessage}
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <button 
-            type="submit" 
-            disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
-            className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-              mode === 'signup' && selectedRole === 'manager' 
-                ? 'bg-indigo-600 hover:bg-indigo-700' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 size={18} className="animate-spin" />
-                Processing...
-              </span>
-            ) : mode === "login" ? (
-              "Log In"
-            ) : selectedRole === 'manager' ? (
-              "Create Manager Account"
-            ) : (
-              "Join Team"
             )}
-          </button>
-        </form>
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+                <XCircle size={18} />
+                {error}
+              </div>
+            )}
+            
+            {/* Status Message */}
+            {statusMessage && (
+              <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+                <Loader2 size={18} className="animate-spin" />
+                {statusMessage}
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button 
+              type="submit" 
+              disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
+              className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
+                mode === 'signup' && selectedRole === 'manager' 
+                  ? 'bg-indigo-600 hover:bg-indigo-700' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  Processing...
+                </span>
+              ) : mode === "login" ? (
+                "Log In"
+              ) : selectedRole === 'manager' ? (
+                "Create Manager Account"
+              ) : (
+                "Join Team"
+              )}
+            </button>
+          </form>
+        )}
 
         {/* Mode Toggle */}
-        <div className="mt-8 text-center">
-          <p className="text-slate-500 text-sm">
-            {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
-            <button 
-              className="ml-2 font-bold text-blue-600 hover:underline" 
-              onClick={() => { 
-                setMode(mode === "login" ? "signup" : "login"); 
-                setError(null);
-                setTeamCode("");
-                setTeamCodeStatus('idle');
-                setManagerInfo(null);
-              }}
-            >
-              {mode === "login" ? "Create Account" : "Login Here"}
-            </button>
-          </p>
-        </div>
+        {mode !== "forgot_password" && (
+          <div className="mt-8 text-center">
+            <p className="text-slate-500 text-sm">
+              {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
+              <button 
+                className="ml-2 font-bold text-blue-600 hover:underline" 
+                onClick={() => { 
+                  setMode(mode === "login" ? "signup" : "login"); 
+                  setError(null);
+                  setSuccessMessage(null);
+                  setTeamCode("");
+                  setTeamCodeStatus('idle');
+                  setManagerInfo(null);
+                }}
+              >
+                {mode === "login" ? "Create Account" : "Login Here"}
+              </button>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
