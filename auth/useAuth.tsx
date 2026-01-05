@@ -1,19 +1,24 @@
-// src/auth/useAuth.tsx v4.0 (FINAL WORKING)
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - useAuth.tsx v4.0 (FINAL FAST LOGIN)           ║
+ * ║  Fix: Removed Sheet Creation from Login Flow               ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
 
-// Context Type Definition
 interface AuthContextValue {
   session: Session | null;
   profile: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signIn: (params: { email: string; password: string }) => Promise<void>;
   signUp: (params: any) => Promise<void>;
+  signIn: (params: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -24,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
-  // 📥 Fetch Profile
+  // 📥 Fetch Profile (Simple & Fast)
   const fetchProfile = useCallback(async (userId: string) => {
     try {
       console.log('📥 Fetching profile:', userId);
@@ -34,7 +39,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("id", userId)
         .maybeSingle();
 
-      if (error) console.error('❌ Profile Error:', error.message);
+      if (error) {
+        console.error('❌ Profile Error:', error.message);
+        return null;
+      }
       return data;
     } catch (err) {
       console.error('❌ Exception:', err);
@@ -42,7 +50,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // 🚀 Initialize
+  // 🔄 Refresh Profile Helper
+  const refreshProfile = useCallback(async () => {
+    if (session?.user) {
+      const data = await fetchProfile(session.user.id);
+      if (data && mountedRef.current) setProfile(data);
+    }
+  }, [session, fetchProfile]);
+
+  // 🚀 Initialize Auth
   useEffect(() => {
     mountedRef.current = true;
     console.log('🚀 Auth Init...');
@@ -67,10 +83,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'SIGNED_IN' && newSession?.user) {
         setSession(newSession);
         const userProfile = await fetchProfile(newSession.user.id);
-        if (mountedRef.current) setProfile(userProfile);
+        if (mountedRef.current) {
+          setProfile(userProfile);
+          setLoading(false); // Stop loading immediately
+        }
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setProfile(null);
+        setLoading(false);
       }
     });
 
@@ -82,21 +102,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [fetchProfile]);
 
-  // 🔓 Sign In Function
-  const signIn = async ({ email, password }: { email: string; password: string }) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    } catch (error) {
-      console.error('Login Error:', error);
-      throw error;
-    }
-  };
-
-  // 📝 Sign Up Function
+  // 📝 Sign Up
   const signUp = async (params: any) => {
+    setLoading(true);
+    const { email, password, name, role, teamCode, managerId } = params;
     try {
-      const { email, password, name, role, teamCode, managerId } = params;
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -106,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
 
       if (data.user) {
-        // Create profile in DB
+        // Create DB Entry
         await supabase.from('users').insert({
           id: data.user.id,
           email,
@@ -114,16 +124,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: role || 'member',
           team_code: teamCode,
           manager_id: managerId,
-          is_active: true
+          is_active: true,
+          created_at: new Date().toISOString()
         });
       }
-    } catch (error) {
-      console.error('Signup Error:', error);
+    } catch (error: any) {
+      console.error('Sign Up Error:', error);
+      throw error;
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  };
+
+  // 🔓 Sign In
+  const signIn = async ({ email, password }: { email: string; password: string }) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Login Error:', error);
+      setLoading(false);
       throw error;
     }
   };
 
-  // 👋 Sign Out Function
+  // 👋 Sign Out
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -136,9 +162,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       profile, 
       loading, 
       isAuthenticated: !!session,
-      signIn,
       signUp,
-      signOut
+      signIn,
+      signOut,
+      refreshProfile
     }}>
       {children}
     </AuthContext.Provider>
