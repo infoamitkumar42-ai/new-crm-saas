@@ -1,12 +1,25 @@
-// src/supabaseClient.ts
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - supabaseClient.ts v2.0                        ║
+ * ║  Last Updated: January 5, 2025                             ║
+ * ║  Features: Persistent session, auto refresh                ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { ENV } from "./config/env";
+
+// ✅ Direct URL and Key (fallback if ENV not available)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("❌ Missing Supabase configuration!");
+}
 
 // ✅ Create Supabase client with PERSISTENT SESSION
 export const supabase = createClient(
-  ENV.SUPABASE_URL,
-  ENV.SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       // ✅ Store session in localStorage (persists across browser restarts)
@@ -37,8 +50,7 @@ export const supabase = createClient(
 );
 
 /**
- * Centralized logging service.
- * Persists events to the 'logs' table in Supabase.
+ * Centralized logging service
  */
 export async function logEvent(
   event: string, 
@@ -46,37 +58,26 @@ export async function logEvent(
   userId?: string, 
   client: SupabaseClient = supabase
 ) {
-  // Always log to console for immediate debugging
   console.log(`[LOG]: ${event}`, payload);
 
   try {
     let targetUserId = userId;
 
-    // If running in browser and no userId provided, try to get from current session
     if (!targetUserId && typeof window !== 'undefined') {
       const { data } = await client.auth.getSession();
       targetUserId = data.session?.user?.id;
     }
 
     if (targetUserId) {
-      const { error } = await client.from('logs').insert({
+      await client.from('logs').insert({
         user_id: targetUserId,
         action: event,
         details: payload,
         created_at: new Date().toISOString()
       });
-
-      if (error) {
-        // Suppress table not found errors
-        if (error.code === '42P01' || error.message.includes('Could not find the table')) {
-          // Silent - table doesn't exist
-        } else {
-          console.error("Failed to write log:", error.message);
-        }
-      }
     }
   } catch (err) {
-    console.error("Exception in logEvent:", err);
+    // Silent fail for logging
   }
 }
 
