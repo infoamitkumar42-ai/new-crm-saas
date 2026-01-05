@@ -1,6 +1,6 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v2.1                      ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v2.2                      ║
  * ║  Last Updated: January 6, 2025                             ║
  * ║  Features:                                                 ║
  * ║  - ✅ Pause/Resume System                                  ║
@@ -9,6 +9,7 @@
  * ║  - ✅ Real-time Notifications (when active)                ║
  * ║  - ✅ Invalid Lead Reporting                               ║
  * ║  - ✅ Total Plan Progress Tracking                         ║
+ * ║  - ✅ Fixed Loading State Issue                            ║
  * ║                                                            ║
  * ║  ⚠️  DO NOT MODIFY WITHOUT APPROVAL                        ║
  * ╚════════════════════════════════════════════════════════════╝
@@ -47,9 +48,9 @@ interface UserProfile {
   sheet_url: string;
   filters: any;
   last_activity: string;
-  is_active?: boolean;           // ✅ PAUSE/RESUME STATE
-  days_extended?: number;        // ✅ PLAN EXTENSION - Days added
-  total_leads_promised?: number; // ✅ PLAN EXTENSION - Total leads in plan
+  is_active?: boolean;
+  days_extended?: number;
+  total_leads_promised?: number;
 }
 
 interface Lead {
@@ -244,7 +245,6 @@ export const MemberDashboard = () => {
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
-  // ✅ PLAN EXTENSION COMPUTED VALUES
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
   const totalReceived = profile?.total_leads_received || 0;
@@ -260,9 +260,6 @@ export const MemberDashboard = () => {
     return { text: 'STANDARD', color: 'bg-slate-600 text-white', icon: Shield as LucideIcon };
   }, [profile?.plan_weight]);
 
-  // ============================================================
-  // ✅ DELIVERY STATUS - PAUSE AWARE
-  // ============================================================
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
       return {
@@ -275,7 +272,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // ✅ PRIORITY 1: Check if plan expired
     if (profile.payment_status !== 'active' || isExpired) {
       return {
         title: 'Plan Inactive',
@@ -287,7 +283,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // ✅ PRIORITY 2: Check if user manually paused
     if (isPaused) {
       return {
         title: 'Delivery Paused',
@@ -299,7 +294,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // ✅ PRIORITY 3: Check working hours
     if (!isWithinWorkingHours()) {
       return {
         title: 'Off Hours',
@@ -311,7 +305,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // ✅ PRIORITY 4: Check daily limit
     if (isLimitReached) {
       return {
         title: 'Daily Limit Reached',
@@ -323,7 +316,6 @@ export const MemberDashboard = () => {
       };
     }
 
-    // ✅ DEFAULT: Active and ready
     return {
       title: 'Actively Receiving',
       subtitle: `${remainingToday} more leads today`,
@@ -378,21 +370,43 @@ export const MemberDashboard = () => {
   }, [leads, statusFilter, dateFilter]);
 
   // ============================================================
-  // DATA FETCHING
+  // ✅ FIXED DATA FETCHING - Proper error handling
   // ============================================================
 
   const fetchData = async () => {
     try {
       setRefreshing(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('📡 Fetching user data...');
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ Auth error:', authError);
+        throw authError;
+      }
 
-      const { data: userData } = await supabase
+      if (!user) {
+        console.warn('⚠️ No user found - redirecting to login');
+        // Redirect to login or handle unauthenticated state
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
+
+      console.log('✅ User authenticated:', user.id);
+
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
 
+      if (userError) {
+        console.error('❌ Error fetching user profile:', userError);
+        throw userError;
+      }
+
+      console.log('✅ User profile loaded:', userData);
       setProfile(userData);
 
       await supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id);
@@ -408,18 +422,27 @@ export const MemberDashboard = () => {
         setManagerName('Direct (No Manager)');
       }
 
-      const { data: leadsData } = await supabase
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (leadsError) {
+        console.error('❌ Error fetching leads:', leadsError);
+        // Don't throw - leads might not exist yet
+      }
+
+      console.log(`✅ Loaded ${leadsData?.length || 0} leads`);
       setLeads(leadsData || []);
-    } catch (error) {
-      console.error('Dashboard Error:', error);
+
+    } catch (error: any) {
+      console.error('❌ Dashboard Error:', error);
+      alert(`Error loading dashboard: ${error.message || 'Unknown error'}\n\nPlease refresh the page.`);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      console.log('✅ Data fetch complete');
     }
   };
 
@@ -428,12 +451,11 @@ export const MemberDashboard = () => {
   }, []);
 
   // ============================================================
-  // ✅ REALTIME SUBSCRIPTION - PAUSE AWARE
+  // REALTIME SUBSCRIPTION - PAUSE AWARE
   // ============================================================
   useEffect(() => {
     if (!profile?.id) return;
 
-    // ✅ Only subscribe if user is active (not paused)
     if (isPaused) {
       console.log('🔇 Realtime disabled (user paused)');
       return;
@@ -452,7 +474,6 @@ export const MemberDashboard = () => {
         console.log('🆕 New lead received:', payload.new);
         setLeads(prev => [payload.new as Lead, ...prev]);
         
-        // ✅ Show browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('🔥 New Lead Received!', {
             body: `${(payload.new as Lead).name} - ${(payload.new as Lead).city}`,
@@ -474,7 +495,7 @@ export const MemberDashboard = () => {
   }, [profile?.id, isPaused]);
 
   // ============================================================
-  // ✅ PAUSE/RESUME HANDLER (LOCKED)
+  // PAUSE/RESUME HANDLER
   // ============================================================
   const toggleDeliveryPause = async () => {
     if (!profile) {
@@ -491,7 +512,6 @@ export const MemberDashboard = () => {
       newActiveStatus
     });
 
-    // Optimistic update
     setProfile(prev => prev ? { 
       ...prev, 
       is_active: newActiveStatus,
@@ -635,6 +655,7 @@ export const MemberDashboard = () => {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-500">Loading your workspace...</p>
+          <p className="text-xs text-slate-400 mt-2">Please wait...</p>
         </div>
       </div>
     );
@@ -678,7 +699,6 @@ export const MemberDashboard = () => {
 
       {/* Top Banners */}
       <div className="relative z-30">
-        {/* ✅ PAUSED BANNER - Highest Priority */}
         {isPaused && !isExpired && (
           <div className="bg-orange-500 text-white py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
@@ -816,7 +836,6 @@ export const MemberDashboard = () => {
                   <div className="text-[10px] sm:text-xs text-indigo-200">Remaining</div>
                 </div>
                 
-                {/* ✅ PAUSE/RESUME BUTTON */}
                 {profile?.payment_status === 'active' && !isExpired && (
                   <button 
                     onClick={toggleDeliveryPause} 
@@ -853,7 +872,6 @@ export const MemberDashboard = () => {
               </div>
             </div>
             
-            {/* Daily Progress Bar */}
             <div className="mt-4 pt-4 border-t border-white/20">
               <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                 <span className="text-indigo-200">Today's Progress</span>
@@ -867,7 +885,6 @@ export const MemberDashboard = () => {
               </div>
             </div>
 
-            {/* ✅ PLAN EXTENSION INFO */}
             {daysExtended > 0 && (
               <div className="mt-3 flex items-center gap-2 text-green-200 text-xs bg-green-500/20 px-3 py-2 rounded-lg">
                 <Gift size={14} />
@@ -875,7 +892,6 @@ export const MemberDashboard = () => {
               </div>
             )}
 
-            {/* ✅ TOTAL PLAN PROGRESS BAR */}
             <div className="mt-3 pt-3 border-t border-white/10">
               <div className="flex items-center justify-between text-xs text-indigo-200 mb-1">
                 <span>Total Plan Progress</span>
@@ -992,7 +1008,6 @@ export const MemberDashboard = () => {
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => (
                 <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
-                  {/* Lead Header */}
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
@@ -1009,7 +1024,6 @@ export const MemberDashboard = () => {
                     </span>
                   </div>
                   
-                  {/* Notes Display */}
                   {lead.notes && (
                     <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
                       <StickyNote size={12} className="mt-0.5 flex-shrink-0 text-amber-500" />
@@ -1017,7 +1031,6 @@ export const MemberDashboard = () => {
                     </div>
                   )}
                   
-                  {/* Action Buttons */}
                   <div className="grid grid-cols-4 gap-2 mb-3">
                     <a 
                       href={`tel:${lead.phone}`} 
@@ -1055,7 +1068,6 @@ export const MemberDashboard = () => {
                     </button>
                   </div>
                   
-                  {/* Status Dropdown */}
                   <div className="relative">
                     <select 
                       value={lead.status} 
