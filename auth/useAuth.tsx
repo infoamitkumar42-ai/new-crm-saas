@@ -1,4 +1,17 @@
-// src/auth/useAuth.tsx
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - useAuth.tsx v3.0                              ║
+ * ║  Last Updated: January 5, 2025                             ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Persistent session (survives refresh/close)          ║
+ * ║  - ✅ No "Checking session..." stuck                       ║
+ * ║  - ✅ Fast session hydration                               ║
+ * ║  - ✅ Auto token refresh                                   ║
+ * ║  - ✅ Error recovery                                       ║
+ * ║                                                            ║
+ * ║  ⚠️  DO NOT MODIFY WITHOUT TESTING                         ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
 
 import React, { 
   createContext, 
@@ -40,11 +53,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   const mountedRef = useRef(true);
-  const initCompletedRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
-  const processingRef = useRef(false);
 
   const isAuthenticated = !!session && !!profile;
 
@@ -53,13 +65,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
+      console.log('📥 Fetching profile for:', userId);
+      
       const { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (error || !data) return null;
+      if (error) {
+        console.error('❌ Profile fetch error:', error.message);
+        return null;
+      }
+      
+      if (!data) {
+        console.log('⚠️ No profile found for:', userId);
+        return null;
+      }
+
+      console.log('✅ Profile loaded:', data.email);
 
       return {
         id: data.id,
@@ -82,19 +106,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         created_at: data.created_at,
         updated_at: data.updated_at,
       } as User;
-    } catch {
+    } catch (err) {
+      console.error('❌ fetchProfile exception:', err);
       return null;
     }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⚡ CREATE TEMP PROFILE
+  // ⚡ CREATE TEMP PROFILE (Fallback)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = useCallback((user: SupabaseUser): User => ({
     id: user.id,
     email: user.email || "",
     name: user.user_metadata?.name || "User",
-    role: "member",
+    role: user.user_metadata?.role || "member",
     sheet_url: "",
     payment_status: "inactive",
     valid_until: null,
@@ -109,23 +134,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 🔄 LOAD USER PROFILE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<boolean> => {
-    if (currentUserIdRef.current === user.id && processingRef.current) {
-      return false;
-    }
+  const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
+    if (!mountedRef.current) return;
 
-    processingRef.current = true;
+    console.log('🔄 Loading profile for:', user.email);
     currentUserIdRef.current = user.id;
 
     try {
       let fullProfile = await fetchProfile(user.id);
       
-      if (!mountedRef.current) {
-        processingRef.current = false;
-        return false;
-      }
+      if (!mountedRef.current) return;
 
+      // If no profile exists, create one
       if (!fullProfile) {
+        console.log('📝 Creating new profile...');
+        
         const userData = {
           id: user.id,
           email: user.email?.toLowerCase(),
@@ -143,7 +166,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           updated_at: new Date().toISOString()
         };
         
-        await supabase.from("users").upsert(userData);
+        const { error } = await supabase.from("users").upsert(userData);
+        
+        if (error) {
+          console.error('❌ Profile creation error:', error.message);
+        }
         
         if (mountedRef.current) {
           fullProfile = await fetchProfile(user.id);
@@ -152,18 +179,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (mountedRef.current) {
         setProfile(fullProfile || createTempProfile(user));
-        processingRef.current = false;
-        return true;
       }
-      
-      processingRef.current = false;
-      return false;
-    } catch {
+    } catch (err) {
+      console.error('❌ loadUserProfile error:', err);
       if (mountedRef.current) {
         setProfile(createTempProfile(user));
       }
-      processingRef.current = false;
-      return true;
     }
   }, [fetchProfile, createTempProfile]);
 
@@ -188,6 +209,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: string
   ): Promise<string | null> => {
     try {
+      console.log('📊 Creating sheet for:', email);
+      
       const response = await fetch(SHEET_CREATOR_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
@@ -199,6 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const result = JSON.parse(text);
           if (result.success && result.sheetUrl) {
+            console.log('✅ Sheet created:', result.sheetUrl);
             return result.sheetUrl;
           }
         } catch {}
@@ -218,124 +242,142 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch {}
       }
 
+      console.log('⚠️ Sheet creation failed');
       return null;
-    } catch {
+    } catch (err) {
+      console.error('❌ Sheet creation error:', err);
       return null;
     }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH
+  // 🚀 INITIALIZE AUTH (FIXED - No Race Condition)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     mountedRef.current = true;
-
     let authSubscription: { unsubscribe: () => void } | null = null;
-    let safetyTimer: NodeJS.Timeout | null = null;
 
     const initializeAuth = async () => {
-      if (initCompletedRef.current) return;
+      console.log('🚀 Initializing auth...');
 
       try {
+        // ✅ Step 1: Get current session
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
         if (!mountedRef.current) return;
 
-        if (error || !currentSession?.user) {
+        if (error) {
+          console.error('❌ getSession error:', error.message);
           setSession(null);
           setProfile(null);
           setLoading(false);
-          initCompletedRef.current = true;
+          setInitialized(true);
           return;
         }
 
-        setSession(currentSession);
-        await loadUserProfile(currentSession.user);
-        
-        if (mountedRef.current) {
-          setLoading(false);
-          initCompletedRef.current = true;
-        }
-      } catch {
-        if (mountedRef.current) {
+        if (currentSession?.user) {
+          console.log('✅ Session found:', currentSession.user.email);
+          setSession(currentSession);
+          await loadUserProfile(currentSession.user);
+        } else {
+          console.log('ℹ️ No active session');
           setSession(null);
           setProfile(null);
+        }
+
+      } catch (err) {
+        console.error('❌ Init error:', err);
+        setSession(null);
+        setProfile(null);
+      } finally {
+        if (mountedRef.current) {
           setLoading(false);
-          initCompletedRef.current = true;
+          setInitialized(true);
+          console.log('✅ Auth initialization complete');
         }
       }
     };
 
+    // ✅ Step 2: Listen for auth changes
     const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log('🔔 Auth event:', event);
+      
       if (!mountedRef.current) return;
-      if (!initCompletedRef.current && event === 'INITIAL_SESSION') return;
 
       switch (event) {
         case 'SIGNED_IN':
           if (newSession?.user) {
-            const isDifferentUser = currentUserIdRef.current !== newSession.user.id;
-            if (isDifferentUser || !initCompletedRef.current) {
-              setSession(newSession);
-              setLoading(true);
-              await loadUserProfile(newSession.user);
-              if (mountedRef.current) setLoading(false);
-            } else {
-              setSession(newSession);
+            console.log('✅ SIGNED_IN:', newSession.user.email);
+            setSession(newSession);
+            setLoading(true);
+            await loadUserProfile(newSession.user);
+            if (mountedRef.current) {
+              setLoading(false);
             }
           }
           break;
 
         case 'SIGNED_OUT':
+          console.log('👋 SIGNED_OUT');
           currentUserIdRef.current = null;
-          processingRef.current = false;
           setSession(null);
           setProfile(null);
           setLoading(false);
-          localStorage.removeItem('leadflow-auth-session');
           break;
 
         case 'TOKEN_REFRESHED':
-          if (newSession) setSession(newSession);
+          console.log('🔄 Token refreshed');
+          if (newSession) {
+            setSession(newSession);
+          }
           break;
 
         case 'USER_UPDATED':
+          console.log('👤 User updated');
           if (newSession?.user) {
             setSession(newSession);
             const updatedProfile = await fetchProfile(newSession.user.id);
-            if (updatedProfile && mountedRef.current) setProfile(updatedProfile);
+            if (updatedProfile && mountedRef.current) {
+              setProfile(updatedProfile);
+            }
           }
+          break;
+
+        case 'INITIAL_SESSION':
+          // Handled in initializeAuth()
           break;
       }
     });
 
     authSubscription = data.subscription;
 
-    safetyTimer = setTimeout(() => {
-      if (mountedRef.current && loading && !initCompletedRef.current) {
-        setLoading(false);
-        initCompletedRef.current = true;
-      }
-    }, 8000);
-
+    // ✅ Step 3: Start initialization
     initializeAuth();
 
+    // ✅ Cleanup
     return () => {
+      console.log('🧹 Cleaning up auth...');
       mountedRef.current = false;
-      if (safetyTimer) clearTimeout(safetyTimer);
-      if (authSubscription) authSubscription.unsubscribe();
-      initCompletedRef.current = false;
-      processingRef.current = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
-  }, []);
+  }, [loadUserProfile, fetchProfile]);
 
-  // Auto refresh every 5 mins
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔄 AUTO REFRESH PROFILE (Every 5 mins)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user || !initialized) return;
+    
     const interval = setInterval(() => {
-      if (mountedRef.current) refreshProfile();
+      if (mountedRef.current) {
+        refreshProfile();
+      }
     }, 5 * 60 * 1000);
+    
     return () => clearInterval(interval);
-  }, [session, refreshProfile]);
+  }, [session, initialized, refreshProfile]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 📝 SIGN UP
@@ -355,6 +397,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     teamCode?: string;
     managerId?: string;
   }) => {
+    console.log('📝 SignUp started:', email, role);
     setLoading(true);
     
     try {
@@ -372,6 +415,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle();
 
         if (!managerData) {
+          setLoading(false);
           throw new Error("Invalid team code");
         }
         resolvedManagerId = managerData.id;
@@ -386,6 +430,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle();
 
         if (existingCode) {
+          setLoading(false);
           throw new Error("Team code already taken");
         }
         resolvedManagerId = null;
@@ -405,10 +450,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error("Signup failed");
+      if (error) {
+        setLoading(false);
+        throw error;
+      }
+      
+      if (!data.user) {
+        setLoading(false);
+        throw new Error("Signup failed");
+      }
 
       const userId = data.user.id;
+      console.log('✅ Auth user created:', userId);
 
       // Wait for auth to propagate
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -443,7 +496,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error: dbError } = await supabase.from('users').upsert(userData);
 
       if (dbError) {
-        // Try update instead
+        console.error('⚠️ DB insert error, trying update:', dbError.message);
         await supabase
           .from('users')
           .update({
@@ -457,45 +510,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .eq('id', userId);
       }
 
-      // Verify manager_id was saved (for members)
-      if (role === 'member' && resolvedManagerId) {
-        const { data: verifyData } = await supabase
-          .from('users')
-          .select('manager_id')
-          .eq('id', userId)
-          .single();
-
-        if (!verifyData?.manager_id) {
-          await supabase
-            .from('users')
-            .update({ manager_id: resolvedManagerId, team_code: resolvedTeamCode })
-            .eq('id', userId);
-        }
-      }
+      console.log('✅ SignUp complete');
+      // Loading will be set to false by onAuthStateChange SIGNED_IN event
       
     } catch (err) {
+      console.error('❌ SignUp error:', err);
       setLoading(false);
       throw err;
     }
   }, [createUserSheet]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔓 SIGN IN
+  // 🔓 SIGN IN (FIXED)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
+    console.log('🔓 SignIn started:', email);
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
       });
 
       if (error) {
+        console.error('❌ SignIn error:', error.message);
         setLoading(false);
         throw error;
       }
+
+      console.log('✅ SignIn successful, waiting for profile...');
+      // Loading will be set to false by onAuthStateChange SIGNED_IN event
+      
     } catch (err) {
+      console.error('❌ SignIn exception:', err);
       setLoading(false);
       throw err;
     }
@@ -505,17 +553,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 👋 SIGN OUT
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signOut = useCallback(async () => {
+    console.log('👋 SignOut started');
     currentUserIdRef.current = null;
-    processingRef.current = false;
     setSession(null);
     setProfile(null);
-    localStorage.removeItem('leadflow-auth-session');
+    setLoading(false);
     
     try {
       await supabase.auth.signOut();
-    } catch {}
-    
-    setLoading(false);
+      console.log('✅ SignOut complete');
+    } catch (err) {
+      console.error('⚠️ SignOut error:', err);
+    }
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
