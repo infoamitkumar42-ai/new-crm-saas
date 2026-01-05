@@ -24,7 +24,7 @@ import { ShippingPolicy } from './views/legal/ShippingPolicy';
 import { ContactUs } from './views/legal/ContactUs';
 
 // ============================================================
-// 🛡️ PROTECTED ROUTE COMPONENT
+// 🛡️ PROTECTED ROUTE
 // ============================================================
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode;
@@ -32,49 +32,37 @@ const ProtectedRoute: React.FC<{
 }> = ({ children, allowedRoles }) => {
   const { isAuthenticated, profile, loading } = useAuth();
 
-  // ✅ FIX: Only show loader if we are loading AND don't know the user yet
-  // Agar user mil gaya hai (isAuthenticated is true), toh loading ka wait mat karo
-  if (loading && !isAuthenticated) {
+  // ✅ IF AUTHENTICATED: Show content immediately (Ignore loading)
+  if (isAuthenticated) {
+    // Role check
+    if (allowedRoles && profile && !allowedRoles.includes(profile.role || '')) {
+      return <Navigate to="/" replace />;
+    }
+    return <>{children}</>;
+  }
+
+  // ✅ IF NOT AUTHENTICATED & LOADING: Show Loader
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
-          <p className="text-slate-500 text-sm">Loading workspace...</p>
-        </div>
+        <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+        <p className="text-slate-500 text-sm">Loading workspace...</p>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role || '')) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children}</>;
+  // ✅ IF NOT AUTHENTICATED & NOT LOADING: Redirect to Login
+  return <Navigate to="/login" replace />;
 };
 
 // ============================================================
-// 🔀 DASHBOARD ROUTER (Role-based)
+// 🔀 DASHBOARD ROUTER
 // ============================================================
 const DashboardRouter: React.FC = () => {
-  const { profile, loading } = useAuth();
+  const { profile } = useAuth();
 
-  // ✅ FIX: Wait for loading ONLY if profile is missing
-  if (loading && !profile) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
-  }
-
-  // Double check
-  if (!profile) {
-    return <Navigate to="/login" replace />;
-  }
+  // Profile should exist if we reached here via ProtectedRoute
+  if (!profile) return null;
 
   const role = profile.role?.toLowerCase().trim();
 
@@ -94,12 +82,12 @@ const DashboardRouter: React.FC = () => {
 };
 
 // ============================================================
-// 🌐 PUBLIC ROUTE (Redirect if logged in)
+// 🌐 PUBLIC ROUTE
 // ============================================================
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
-  // ✅ FIX: Only load if we are not sure about auth status
+  // Only show loader if we are loading AND don't know auth status yet
   if (loading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -116,41 +104,13 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 // ============================================================
-// 🔧 SERVICE WORKER KEEP ALIVE
-// ============================================================
-function initServiceWorkerKeepAlive() {
-  if (!('serviceWorker' in navigator)) return;
-  
-  const keepAlive = async () => {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      if (registration.active) {
-        const messageChannel = new MessageChannel();
-        registration.active.postMessage('KEEP_ALIVE', [messageChannel.port2]);
-      }
-    } catch (err) {
-      // Silent fail
-    }
-  };
-  
-  setInterval(keepAlive, 25000);
-  keepAlive();
-}
-
-// ============================================================
-// 🎯 MAIN APP ROUTES
+// 🎯 MAIN APP
 // ============================================================
 const AppRoutes: React.FC = () => {
   const { isAuthenticated, profile } = useAuth();
 
-  // Initialize Service Worker
-  useEffect(() => {
-    initServiceWorkerKeepAlive();
-  }, []);
-
   return (
     <>
-      {/* Notifications - Only show when authenticated */}
       {isAuthenticated && profile && (
         <>
           <NotificationBanner />
@@ -159,80 +119,37 @@ const AppRoutes: React.FC = () => {
       )}
 
       <Routes>
-        {/* ━━━ PUBLIC ROUTES ━━━ */}
-        <Route path="/login" element={
-          <PublicRoute>
-            <Auth />
-          </PublicRoute>
-        } />
-
-        <Route path="/signup" element={
-          <PublicRoute>
-            <Auth />
-          </PublicRoute>
-        } />
-
+        <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path="/signup" element={<PublicRoute><Auth /></PublicRoute>} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        
         <Route path="/landing" element={<Landing />} />
 
-        {/* ━━━ MAIN DASHBOARD ━━━ */}
-        {/* If authenticated, show dashboard, else show Landing page */}
+        {/* Root Route */}
         <Route path="/" element={
           isAuthenticated ? <DashboardRouter /> : <Landing />
         } />
 
-        {/* ━━━ PROTECTED MEMBER ROUTES ━━━ */}
-        <Route path="/target" element={
-          <ProtectedRoute>
-            <Layout>
-              <TargetAudience />
-            </Layout>
-          </ProtectedRoute>
-        } />
+        {/* Protected Routes */}
+        <Route path="/target" element={<ProtectedRoute><Layout><TargetAudience /></Layout></ProtectedRoute>} />
+        <Route path="/subscription" element={<ProtectedRoute><Subscription onClose={() => window.history.back()} /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
 
-        <Route path="/subscription" element={
-          <ProtectedRoute>
-            <Subscription onClose={() => window.history.back()} />
-          </ProtectedRoute>
-        } />
+        <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/manager/*" element={<ProtectedRoute allowedRoles={['manager', 'admin']}><ManagerDashboard /></ProtectedRoute>} />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <DashboardRouter />
-          </ProtectedRoute>
-        } />
-
-        {/* ━━━ ROLE-SPECIFIC ROUTES ━━━ */}
-        <Route path="/admin/*" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/manager/*" element={
-          <ProtectedRoute allowedRoles={['manager', 'admin']}>
-            <ManagerDashboard />
-          </ProtectedRoute>
-        } />
-
-        {/* ━━━ LEGAL PAGES ━━━ */}
+        {/* Legal */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/shipping" element={<ShippingPolicy />} />
         <Route path="/contact" element={<ContactUs />} />
 
-        {/* ━━━ FALLBACK ━━━ */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 };
 
-// ============================================================
-// 🚀 MAIN APP COMPONENT
-// ============================================================
 function App() {
   return (
     <BrowserRouter>
