@@ -1,3 +1,17 @@
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - MemberDashboard.tsx v2.0                      ║
+ * ║  Last Updated: January 5, 2025                             ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Pause/Resume System                                  ║
+ * ║  - ✅ Lead Distribution Respect Pause State                ║
+ * ║  - ✅ Real-time Notifications (when active)                ║
+ * ║  - ✅ Invalid Lead Reporting                               ║
+ * ║                                                            ║
+ * ║  ⚠️  DO NOT MODIFY WITHOUT APPROVAL                        ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import {
@@ -31,7 +45,7 @@ interface UserProfile {
   sheet_url: string;
   filters: any;
   last_activity: string;
-  is_active?: boolean;
+  is_active?: boolean; // ✅ PAUSE/RESUME STATE
 }
 
 interface Lead {
@@ -66,7 +80,7 @@ interface DeliveryStatusInfo {
 }
 
 // ============================================================
-// GLOBAL HELPER FUNCTIONS (Defined OUTSIDE component)
+// GLOBAL HELPER FUNCTIONS
 // ============================================================
 
 const getTimeAgo = (dateString: string): string => {
@@ -190,7 +204,7 @@ export const MemberDashboard = () => {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // ============================================================
-  // WHATSAPP LINK GENERATOR (Fixed - uses userName parameter)
+  // WHATSAPP LINK GENERATOR
   // ============================================================
   const getWhatsAppLink = (phone: string, leadName: string, userName: string): string => {
     const safeName = leadName || 'there';
@@ -224,7 +238,7 @@ export const MemberDashboard = () => {
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
-  const isPaused = profile?.is_active === false;
+  const isPaused = profile?.is_active === false; // ✅ PAUSE STATE
 
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
@@ -236,7 +250,7 @@ export const MemberDashboard = () => {
   }, [profile?.plan_weight]);
 
   // ============================================================
-  // DELIVERY STATUS - Always Premium Gradient (Indigo/Purple)
+  // ✅ DELIVERY STATUS - PAUSE AWARE
   // ============================================================
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
@@ -250,6 +264,7 @@ export const MemberDashboard = () => {
       };
     }
 
+    // ✅ PRIORITY 1: Check if plan expired
     if (profile.payment_status !== 'active' || isExpired) {
       return {
         title: 'Plan Inactive',
@@ -261,6 +276,7 @@ export const MemberDashboard = () => {
       };
     }
 
+    // ✅ PRIORITY 2: Check if user manually paused
     if (isPaused) {
       return {
         title: 'Delivery Paused',
@@ -272,6 +288,7 @@ export const MemberDashboard = () => {
       };
     }
 
+    // ✅ PRIORITY 3: Check working hours
     if (!isWithinWorkingHours()) {
       return {
         title: 'Off Hours',
@@ -283,6 +300,7 @@ export const MemberDashboard = () => {
       };
     }
 
+    // ✅ PRIORITY 4: Check daily limit
     if (isLimitReached) {
       return {
         title: 'Daily Limit Reached',
@@ -294,6 +312,7 @@ export const MemberDashboard = () => {
       };
     }
 
+    // ✅ DEFAULT: Active and ready
     return {
       title: 'Actively Receiving',
       subtitle: `${remainingToday} more leads today`,
@@ -397,8 +416,19 @@ export const MemberDashboard = () => {
     fetchData();
   }, []);
 
+  // ============================================================
+  // ✅ REALTIME SUBSCRIPTION - PAUSE AWARE
+  // ============================================================
   useEffect(() => {
     if (!profile?.id) return;
+
+    // ✅ Only subscribe if user is active (not paused)
+    if (isPaused) {
+      console.log('🔇 Realtime disabled (user paused)');
+      return;
+    }
+
+    console.log('🔔 Realtime enabled (user active)');
 
     const channel = supabase
       .channel(`member-leads-${profile.id}`)
@@ -408,7 +438,17 @@ export const MemberDashboard = () => {
         table: 'leads',
         filter: `user_id=eq.${profile.id}`,
       }, (payload) => {
+        console.log('🆕 New lead received:', payload.new);
         setLeads(prev => [payload.new as Lead, ...prev]);
+        
+        // ✅ Optional: Show browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('🔥 New Lead Received!', {
+            body: `${(payload.new as Lead).name} - ${(payload.new as Lead).city}`,
+            icon: '/logo.png',
+            tag: 'new-lead'
+          });
+        }
       })
       .subscribe();
 
@@ -420,10 +460,77 @@ export const MemberDashboard = () => {
       supabase.removeChannel(channel);
       clearInterval(activityInterval);
     };
-  }, [profile?.id]);
+  }, [profile?.id, isPaused]); // ✅ Re-subscribe when pause state changes
 
   // ============================================================
-  // HANDLERS
+  // ✅ PAUSE/RESUME HANDLER (LOCKED)
+  // ============================================================
+  const toggleDeliveryPause = async () => {
+    if (!profile) {
+      console.error('No profile loaded');
+      return;
+    }
+
+    const currentlyPaused = profile.is_active === false;
+    const newActiveStatus = currentlyPaused; // If paused, set to active (true)
+
+    console.log('🔄 Toggle Pause:', {
+      currentlyPaused,
+      currentIsActive: profile.is_active,
+      newActiveStatus
+    });
+
+    // Optimistic update
+    setProfile(prev => prev ? { 
+      ...prev, 
+      is_active: newActiveStatus,
+      updated_at: new Date().toISOString()
+    } : null);
+
+    try {
+      // Update database
+      const { data, error } = await supabase
+        .from('users')
+        .update({ 
+          is_active: newActiveStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Update error:', error);
+        throw error;
+      }
+
+      console.log('✅ Update successful:', data);
+
+      // Success message
+      const message = newActiveStatus 
+        ? '✅ Lead delivery resumed! You will receive new leads during working hours (8 AM - 10 PM).' 
+        : '⏸️ Lead delivery paused. No new leads will be assigned until you resume.';
+      
+      alert(message);
+
+      // Refresh to sync state
+      await fetchData();
+
+    } catch (err: any) {
+      console.error('❌ Failed to update delivery status:', err);
+      
+      // Revert optimistic update
+      setProfile(prev => prev ? { 
+        ...prev, 
+        is_active: !newActiveStatus 
+      } : null);
+
+      alert(`❌ Error: ${err.message || 'Unknown error'}\n\nPlease refresh the page and try again.`);
+    }
+  };
+
+  // ============================================================
+  // OTHER HANDLERS
   // ============================================================
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
@@ -436,22 +543,6 @@ export const MemberDashboard = () => {
     if (error) {
       alert('Error updating status!');
       fetchData();
-    }
-  };
-
-  const toggleDeliveryPause = async () => {
-    if (!profile) return;
-    const newStatus = !isPaused;
-    setProfile(prev => prev ? { ...prev, is_active: !newStatus } : null);
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ is_active: !newStatus })
-      .eq('id', profile.id);
-    
-    if (error) {
-      setProfile(prev => prev ? { ...prev, is_active: newStatus } : null);
-      alert('Error updating delivery status');
     }
   };
 
@@ -475,9 +566,6 @@ export const MemberDashboard = () => {
     }
   };
 
-  // ============================================================
-  // NEW: REPORT INVALID LEAD HANDLER
-  // ============================================================
   const handleReportInvalidLead = async () => {
     if (!showReportModal || !profile) return;
     if (!reportReason.trim()) {
@@ -487,7 +575,6 @@ export const MemberDashboard = () => {
 
     setReportingLead(true);
     try {
-      // 1. Insert into lead_replacements table
       const { error: insertError } = await supabase
         .from('lead_replacements')
         .insert({
@@ -502,7 +589,6 @@ export const MemberDashboard = () => {
 
       if (insertError) throw insertError;
 
-      // 2. Update lead status to 'Invalid'
       const { error: updateError } = await supabase
         .from('leads')
         .update({ 
@@ -514,14 +600,12 @@ export const MemberDashboard = () => {
 
       if (updateError) throw updateError;
 
-      // 3. Update local state
       setLeads(prev => prev.map(l => 
         l.id === showReportModal.id 
           ? { ...l, status: 'Invalid', notes: (l.notes || '') + `\n[REPORTED: ${reportReason.trim()}]` } 
           : l
       ));
 
-      // 4. Close modal and reset
       setShowReportModal(null);
       setReportReason('');
       alert('✅ Lead reported successfully! A replacement may be provided based on your plan.');
@@ -588,7 +672,26 @@ export const MemberDashboard = () => {
 
       {/* Top Banners */}
       <div className="relative z-30">
-        {!isWithinWorkingHours() && !isExpired && !bannerDismissed && (
+        {/* ✅ PAUSED BANNER - Highest Priority */}
+        {isPaused && !isExpired && (
+          <div className="bg-orange-500 text-white py-2.5 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Pause size={16} className="flex-shrink-0 animate-pulse" />
+                <span>⏸️ Lead delivery is paused. Click Resume to start receiving leads.</span>
+              </div>
+              <button 
+                onClick={toggleDeliveryPause} 
+                className="bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-orange-50 flex-shrink-0 flex items-center gap-1"
+              >
+                <Play size={12} />
+                Resume
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isWithinWorkingHours() && !isExpired && !isPaused && !bannerDismissed && (
           <div className="bg-amber-500 text-amber-950 py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -602,7 +705,7 @@ export const MemberDashboard = () => {
           </div>
         )}
 
-        {isExpiringSoon && !isExpired && !bannerDismissed && (
+        {isExpiringSoon && !isExpired && !isPaused && !bannerDismissed && (
           <div className={`${daysLeft && daysLeft <= 2 ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'} py-2.5 px-4`}>
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -617,7 +720,7 @@ export const MemberDashboard = () => {
           </div>
         )}
 
-        {isLimitReached && !isExpired && (
+        {isLimitReached && !isExpired && !isPaused && (
           <div className="bg-emerald-600 text-white py-2.5 px-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -666,7 +769,7 @@ export const MemberDashboard = () => {
             <button 
               onClick={fetchData} 
               disabled={refreshing} 
-              className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+              className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg transition-all disabled:opacity-50"
             >
               <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -683,7 +786,7 @@ export const MemberDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
         
-        {/* Delivery Status Card - ALWAYS Indigo/Purple Gradient */}
+        {/* Delivery Status Card */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl shadow-indigo-500/25">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
@@ -707,16 +810,31 @@ export const MemberDashboard = () => {
                   <div className="text-[10px] sm:text-xs text-indigo-200">Remaining</div>
                 </div>
                 
+                {/* ✅ PAUSE/RESUME BUTTON */}
                 {profile?.payment_status === 'active' && !isExpired && (
                   <button 
                     onClick={toggleDeliveryPause} 
-                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border ${
+                    disabled={refreshing}
+                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${
                       isPaused 
-                        ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100' 
+                        ? 'bg-green-500/30 border-green-400/30 hover:bg-green-500/40 text-green-100 shadow-lg shadow-green-500/20' 
                         : 'bg-white/15 border-white/10 hover:bg-white/25 text-white'
                     }`}
+                    title={isPaused ? 'Click to resume lead delivery' : 'Click to pause lead delivery'}
                   >
-                    {isPaused ? <><Play size={14} /><span>Resume</span></> : <><Pause size={14} /><span>Pause</span></>}
+                    {refreshing ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : isPaused ? (
+                      <>
+                        <Play size={14} />
+                        <span>Resume</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pause size={14} />
+                        <span>Pause</span>
+                      </>
+                    )}
                   </button>
                 )}
                 
@@ -868,9 +986,8 @@ export const MemberDashboard = () => {
                     </div>
                   )}
                   
-                  {/* Action Buttons - 4 Column Grid */}
+                  {/* Action Buttons */}
                   <div className="grid grid-cols-4 gap-2 mb-3">
-                    {/* Call Button */}
                     <a 
                       href={`tel:${lead.phone}`} 
                       className="flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs hover:bg-blue-100 transition-colors"
@@ -879,7 +996,6 @@ export const MemberDashboard = () => {
                       <span className="hidden sm:inline">Call</span>
                     </a>
                     
-                    {/* WhatsApp Button */}
                     <a 
                       href={getWhatsAppLink(lead.phone, lead.name, profile?.name || '')} 
                       target="_blank" 
@@ -890,7 +1006,6 @@ export const MemberDashboard = () => {
                       <span className="hidden sm:inline">WhatsApp</span>
                     </a>
                     
-                    {/* Notes Button */}
                     <button 
                       onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} 
                       className="flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-medium text-xs hover:bg-slate-200 transition-colors"
@@ -899,7 +1014,6 @@ export const MemberDashboard = () => {
                       <span className="hidden sm:inline">Note</span>
                     </button>
                     
-                    {/* Report Invalid Button - NEW */}
                     <button 
                       onClick={() => { setShowReportModal(lead); setReportReason(''); }} 
                       className="flex flex-col items-center justify-center gap-1 bg-red-50 text-red-600 py-2.5 rounded-xl font-medium text-xs hover:bg-red-100 transition-colors"
@@ -973,13 +1087,17 @@ export const MemberDashboard = () => {
                 <p className="font-bold text-purple-900 text-sm">⚡ Your Priority</p>
                 <p className="text-xs text-purple-700 mt-1">Higher plans get leads faster. Your level: <b>{priorityBadge.text}</b>.</p>
               </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <p className="font-bold text-orange-900 text-sm">⏸️ Paused Delivery</p>
+                <p className="text-xs text-orange-800 mt-1">If paused, you won't receive leads. Click <b>Resume</b> to start.</p>
+              </div>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="font-bold text-amber-900 text-sm">❓ Common Reasons</p>
                 <ul className="text-xs text-amber-800 list-disc pl-4 space-y-1 mt-2">
                   <li>Off hours (after 10 PM)</li>
                   <li>Daily limit reached</li>
                   <li>Plan expired or inactive</li>
-                  <li>Delivery paused</li>
+                  <li>Delivery manually paused</li>
                   <li>High demand</li>
                 </ul>
               </div>
@@ -1042,7 +1160,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Report Invalid Lead Modal - NEW */}
+      {/* Report Invalid Lead Modal */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md animate-slide-up sm:animate-fade-in">
@@ -1066,7 +1184,6 @@ export const MemberDashboard = () => {
             </div>
             
             <div className="p-4 sm:p-6">
-              {/* Quick Reason Buttons */}
               <p className="text-sm font-medium text-slate-700 mb-3">Select reason:</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {[
@@ -1091,7 +1208,6 @@ export const MemberDashboard = () => {
                 ))}
               </div>
               
-              {/* Custom Reason Input */}
               <p className="text-sm font-medium text-slate-700 mb-2">Or write your reason:</p>
               <textarea 
                 value={reportReason} 
