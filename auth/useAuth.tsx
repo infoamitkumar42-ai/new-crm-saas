@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from "react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, logEvent } from "../supabaseClient";
 import { User } from "../types";
@@ -22,98 +22,122 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Prevent double firing in Strict Mode
+  const initialized = useRef(false);
 
   const isAuthenticated = !!session && !!profile;
 
-  const fetchProfileData = async (userId: string): Promise<User | null> => {
+  // 1. Helper to fetch DB Profile
+  const fetchProfileFromDB = async (userId: string): Promise<User | null> => {
     try {
-      const { data } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+      
+      if (error) throw error;
       return data as User;
-    } catch {
+    } catch (err) {
+      console.error("Profile Fetch Error:", err);
       return null;
     }
   };
 
+  // 2. Main Setup Function
+  const setupUser = async (currentSession: Session) => {
+    try {
+      const user = currentSession.user;
+      setSession(currentSession);
+
+      // Create a basic profile immediately so UI doesn't break
+      const fallbackProfile: User = {
+        id: user.id,
+        email: user.email || "",
+        name: user.user_metadata?.name || "User",
+        role: "member",
+        sheet_url: "",
+        payment_status: "inactive",
+        valid_until: null,
+        filters: {},
+        daily_limit: 0,
+        leads_today: 0,
+        total_leads_received: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+
+      // Try to get real profile
+      const dbProfile = await fetchProfileFromDB(user.id);
+
+      if (dbProfile) {
+        setProfile(dbProfile);
+      } else {
+        // If not in DB, set fallback and create in DB background
+        setProfile(fallbackProfile);
+        await supabase.from("users").upsert({ 
+          ...fallbackProfile, 
+          updated_at: new Date().toISOString() 
+        });
+      }
+    } catch (error) {
+      console.error("Setup User Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
+    if (initialized.current) return;
+    initialized.current = true;
 
-    const initAuth = async () => {
+    const init = async () => {
+      console.log("🔐 Starting Auth Check...");
+      
       try {
-        // 1. Get Session
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
 
-        if (currentSession?.user) {
-          if (mounted) setSession(currentSession);
-
-          // 2. Set Temp Profile (Instant Load)
-          const tempProfile: User = {
-            id: currentSession.user.id,
-            email: currentSession.user.email || "",
-            name: currentSession.user.user_metadata?.name || "User",
-            role: "member",
-            sheet_url: "",
-            payment_status: "inactive",
-            valid_until: null,
-            filters: {},
-            daily_limit: 0,
-            leads_today: 0,
-            total_leads_received: 0,
-            is_active: true,
-            created_at: new Date().toISOString(),
-          };
-
-          if (mounted) setProfile(tempProfile);
-
-          // 3. Stop Loading IMMEDIATELY
-          if (mounted) setLoading(false);
-
-          // 4. Fetch Real Data in Background
-          const realProfile = await fetchProfileData(currentSession.user.id);
-          if (realProfile && mounted) {
-            setProfile(realProfile);
-          } else {
-            // Create user if missing
-            await supabase.from("users").upsert({ ...tempProfile, updated_at: new Date().toISOString() });
-          }
-
+        if (initialSession) {
+          console.log("✅ Session Found");
+          await setupUser(initialSession);
         } else {
-          // No Session
-          if (mounted) {
-            setSession(null);
-            setProfile(null);
-            setLoading(false);
-          }
+          console.log("ℹ️ No Session");
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Auth Init Error:", error);
-        if (mounted) setLoading(false);
+      } catch (err) {
+        console.error("Auth Init Failed:", err);
+        setLoading(false);
       }
     };
 
-    initAuth();
+    init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!mounted) return;
+      console.log(`🔔 Auth Event: ${event}`);
       
       if (event === 'SIGNED_IN' && newSession) {
+        // Only run setup if we don't have a profile yet to avoid loops
         setSession(newSession);
-        // Refresh profile quietly
-        const p = await fetchProfileData(newSession.user.id);
-        if (p) setProfile(p);
+        await setupUser(newSession);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setProfile(null);
         setLoading(false);
         localStorage.removeItem('leadflow-auth-session');
+      } else if (event === 'TOKEN_REFRESHED' && newSession) {
+        setSession(newSession);
       }
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
+  // Actions
   const signUp = async (params: any) => {
     const { data, error } = await supabase.auth.signUp({
       email: params.email,
@@ -122,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     if (error) throw error;
     
+    // Background Sheet Creation
     if (params.role === 'member' && data.user) {
       fetch(SHEET_CREATOR_URL, {
         method: 'POST',
@@ -147,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshProfile = async () => {
     if (session?.user) {
-      const p = await fetchProfileData(session.user.id);
+      const p = await fetchProfileFromDB(session.user.id);
       if (p) setProfile(p);
     }
   };
