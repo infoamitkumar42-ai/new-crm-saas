@@ -1,8 +1,12 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - razorpay-webhook.ts v2.0                      ║
+ * ║  🔒 LOCKED - razorpay-webhook.ts v3.0                      ║
  * ║  Last Updated: January 5, 2025                             ║
  * ║  Production Payment Handler                                ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Plan Extension Fields Added                          ║
+ * ║  - ✅ Total Leads Tracking                                 ║
+ * ║  - ✅ Plan Start Date                                      ║
  * ║                                                            ║
  * ║  ⚠️  ONLY 5 ACTIVE PLANS - NO LEGACY PLANS                ║
  * ╚════════════════════════════════════════════════════════════╝
@@ -64,8 +68,6 @@ const PLAN_CONFIG: Record<string, {
     weight: 9,
     maxReplacements: 10
   }
-  
-  // ❌ REMOVED: 'professional' (old demo plan)
 };
 
 export default async function handler(req: any, res: any) {
@@ -82,7 +84,7 @@ export default async function handler(req: any, res: any) {
       status: 'active',
       message: 'LeadFlow Webhook Ready (Production)',
       plans: Object.keys(PLAN_CONFIG),
-      version: '2.0',
+      version: '3.0',
       timestamp: new Date().toISOString()
     });
   }
@@ -119,7 +121,7 @@ export default async function handler(req: any, res: any) {
         
         console.log('✅ Signature verified');
       } else {
-        console.warn('⚠️ Webhook secret not configured - SKIP IN PRODUCTION!');
+        console.warn('⚠️ Webhook secret not configured');
       }
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -130,12 +132,12 @@ export default async function handler(req: any, res: any) {
         const userId = payment.notes?.user_id;
         const planName = (payment.notes?.plan_name || 'starter').toLowerCase().replace(/[\s-]+/g, '_');
         const userEmail = payment.notes?.user_email || payment.email || '';
-        const amount = payment.amount / 100; // Paise to Rupees
+        const amount = payment.amount / 100;
 
         console.log('💳 Processing:', { userId, planName, amount });
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 3. Validate Plan (CRITICAL - Prevent fraud)
+        // 3. Validate Plan
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const config = PLAN_CONFIG[planName];
         
@@ -148,7 +150,6 @@ export default async function handler(req: any, res: any) {
           });
         }
         
-        // Verify amount matches plan price
         if (amount !== config.price) {
           console.error('❌ Amount mismatch:', { expected: config.price, received: amount });
           return res.status(400).json({ 
@@ -161,7 +162,7 @@ export default async function handler(req: any, res: any) {
         console.log('✅ Plan validated:', planName, '₹' + amount);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 4. Save Payment Record (Idempotency check)
+        // 4. Idempotency Check
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const paymentCheckResp = await fetch(
           `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payment.id}&select=id`,
@@ -180,7 +181,7 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, message: 'Already processed' });
         }
         
-        // Insert payment record
+        // Save payment record
         await fetch(`${supabaseUrl}/rest/v1/payments`, {
           method: 'POST',
           headers: { 
@@ -234,10 +235,10 @@ export default async function handler(req: any, res: any) {
         const now = new Date();
         const validUntil = new Date();
         validUntil.setDate(now.getDate() + config.duration);
-        validUntil.setHours(23, 59, 59, 999); // End of day
+        validUntil.setHours(23, 59, 59, 999);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 7. Update User (Activate Plan)
+        // 7. Update User (Activate Plan + Extension Fields)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const updateResp = await fetch(
           `${supabaseUrl}/rest/v1/users?id=eq.${finalUserId}`,
@@ -249,14 +250,24 @@ export default async function handler(req: any, res: any) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+              // Basic Plan Fields
               plan_name: planName,
               payment_status: 'active',
               daily_limit: config.dailyLeads,
               plan_weight: config.weight,
               max_replacements: config.maxReplacements,
               valid_until: validUntil.toISOString(),
-              leads_today: 0, // Reset counter
-              updated_at: new Date().toISOString()
+              leads_today: 0,
+              
+              // ✅ NEW: Plan Extension Fields
+              plan_start_date: now.toISOString(),
+              original_plan_days: config.duration,
+              days_extended: 0,
+              total_leads_promised: config.totalLeads,
+              total_leads_received: 0,
+              missed_leads_today: 0,
+              
+              updated_at: now.toISOString()
             })
           }
         );
@@ -264,13 +275,15 @@ export default async function handler(req: any, res: any) {
         if (updateResp.ok) {
           console.log('✅ Plan Activated:', planName);
           console.log('   Daily Limit:', config.dailyLeads);
-          console.log('   Weight:', config.weight);
+          console.log('   Total Leads:', config.totalLeads);
+          console.log('   Duration:', config.duration, 'days');
           console.log('   Valid Until:', validUntil.toISOString());
           
           return res.status(200).json({ 
             success: true, 
             message: 'Plan Activated',
             plan: planName,
+            totalLeads: config.totalLeads,
             validUntil: validUntil.toISOString()
           });
         } else {
@@ -283,7 +296,6 @@ export default async function handler(req: any, res: any) {
 
     } catch (error: any) {
       console.error('❌ Webhook Error:', error.message);
-      console.error('Stack:', error.stack);
       return res.status(500).json({ error: error.message });
     }
   }
