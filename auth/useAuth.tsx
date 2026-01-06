@@ -1,16 +1,14 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v6.0                              ║
+ * ║  🔒 LOCKED - useAuth.tsx v6.1 (FIXED)                      ║
  * ║  Locked Date: January 6, 2025                              ║
- * ║  Status: STABLE - CRITICAL AUTH & REFRESH LOGIC            ║
+ * ║  Status: STABLE - FIXED 400 ERROR                          ║
  * ║                                                            ║
  * ║  Features:                                                 ║
- * ║  - ✅ Raw Fetch implementation (No 406 Error)              ║
- * ║  - ✅ Cache-Busting Refresh (Fixed stale data)             ║
+ * ║  - ✅ Removed Invalid 't' Parameter (Fixes 400 Error)      ║
+ * ║  - ✅ Strict Cache-Control Headers                         ║
  * ║  - ✅ Auto-Refresh Timer                                   ║
  * ║  - ✅ Session Persistence                                  ║
- * ║                                                            ║
- * ║  ⚠️  DO NOT REMOVE TIMESTAMP FROM FETCH URL                ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -60,11 +58,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ✅ FIXED: Use raw fetch with timestamp to avoid caching (Race Condition Fix)
+  // ✅ FIXED: Removed '&t=' from URL to prevent 400 Bad Request
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
       const response = await fetch(
-        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}&t=${Date.now()}`, // Added timestamp to bust cache
+        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`, // Clean URL
         {
           method: 'GET',
           headers: {
@@ -73,7 +71,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Prefer': 'return=representation',
-            'Cache-Control': 'no-cache, no-store, must-revalidate' // Additional headers
+            'Cache-Control': 'no-cache, no-store, must-revalidate', // Headers prevent caching
+            'Pragma': 'no-cache',
+            'Expires': '0'
           }
         }
       );
@@ -280,7 +280,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       let resolvedManagerId: string | null = managerId || null;
       let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
 
-      // For Members - resolve manager
       if (role === 'member' && resolvedTeamCode && !resolvedManagerId) {
         const { data: managerData } = await supabase
           .from('users')
@@ -296,7 +295,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = managerData.id;
       }
 
-      // For Managers - check code availability
       if (role === 'manager' && resolvedTeamCode) {
         const { data: existingCode } = await supabase
           .from('users')
@@ -311,7 +309,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = null;
       }
 
-      // Create Auth User
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -335,12 +332,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Signup failed");
       }
 
-      // Create Sheet
       if (role === 'member') {
         createUserSheetBackground(data.user.id, email, name);
       }
 
-      // Wait for trigger
       await new Promise(resolve => setTimeout(resolve, 2000));
 
     } catch (err) {
