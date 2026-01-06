@@ -1,8 +1,8 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 PRODUCTION READY - useAuth.tsx v5.0                    ║
+ * ║  🔒 FINAL PRODUCTION - useAuth.tsx v6.0                    ║
  * ║  Date: January 6, 2025                                     ║
- * ║  Status: STABLE & WORKING - NO RLS ISSUES                  ║
+ * ║  Status: WORKING - RAW FETCH - NO 406 ERRORS               ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -18,6 +18,7 @@ import React, {
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
+import { ENV } from "../config/env";
 
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
@@ -51,18 +52,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
+  // ✅ FIXED: Use raw fetch to avoid 406
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      const response = await fetch(
+        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': ENV.SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Prefer': 'return=representation'
+          }
+        }
+      );
 
-      if (error || !data) return null;
+      if (!response.ok) {
+        console.error('Fetch failed:', response.status);
+        return null;
+      }
 
-      return data as User;
-    } catch {
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        console.warn('No user found');
+        return null;
+      }
+
+      console.log('✅ Profile fetched:', data[0].name);
+      return data[0] as User;
+      
+    } catch (err) {
+      console.error('Fetch exception:', err);
       return null;
     }
   }, []);
@@ -89,8 +112,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!mountedRef.current) return;
 
     try {
-      // Wait a bit for trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('🔍 Loading profile for:', user.email);
+      
+      // Wait for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       let userProfile = await fetchProfile(user.id);
 
@@ -98,14 +123,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Retry once if not found
       if (!userProfile) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.warn('Retrying profile fetch...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
         userProfile = await fetchProfile(user.id);
       }
 
       if (mountedRef.current) {
-        setProfile(userProfile || createTempProfile(user));
+        if (userProfile) {
+          console.log('✅ Profile loaded:', userProfile.name);
+          setProfile(userProfile);
+        } else {
+          console.warn('⚠️ Using temp profile');
+          setProfile(createTempProfile(user));
+        }
       }
     } catch (err) {
+      console.error('Load error:', err);
       if (mountedRef.current) {
         setProfile(createTempProfile(user));
       }
@@ -268,7 +301,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = null;
       }
 
-      // Create Auth User (trigger will create DB entry)
+      // Create Auth User
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -292,13 +325,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Signup failed");
       }
 
-      // Create Sheet in Background
+      // Create Sheet
       if (role === 'member') {
         createUserSheetBackground(data.user.id, email, name);
       }
 
-      // Wait for trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Wait for trigger
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
     } catch (err) {
       setLoading(false);
