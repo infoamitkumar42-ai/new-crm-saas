@@ -1,5 +1,6 @@
+// Claude's Code (With minor fix for Deno imports if needed)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import webpush from "npm:web-push@3.6.7";
+import webpush from "https://esm.sh/web-push@3.6.7";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,34 +9,40 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // 1. Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const payload = await req.json();
-    
+    console.log("📥 Received payload:", JSON.stringify(payload));
+
     let userId: string;
     let title: string;
     let body: string;
     let data: any = {};
 
+    // 2. Determine Notification Content
     if (payload.type === "INSERT" && payload.record) {
+      console.log("📌 New Lead Webhook!");
       const record = payload.record;
       userId = record.user_id;
 
       if (!userId) {
+        console.log("⚠️ No user_id, skipping");
         return new Response(JSON.stringify({ message: "No user_id" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
 
-      title = "🔥 Naya Lead Aaya Hai!";
-      body = `👤 ${record.name || "Unknown"} | 📞 ${record.phone || "N/A"}`;
+      title = "🔥 New Lead Alert!";
+      body = `👤 ${record.name || "Unknown"} | 📞 ${record.phone || "N/A"}\nTap to view details`;
       data = { url: "/leads", leadId: record.id };
 
     } else if (payload.userId) {
+      console.log("📌 Direct call");
       userId = payload.userId;
       title = payload.title || "📢 Notification";
       body = payload.body || "";
@@ -47,6 +54,9 @@ serve(async (req) => {
       });
     }
 
+    console.log("👤 Target User:", userId);
+
+    // 3. Load Secrets
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -56,7 +66,7 @@ serve(async (req) => {
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
 
     if (!vapidSubject || !vapidPublicKey || !vapidPrivateKey) {
-      console.error("VAPID missing");
+      console.error("❌ VAPID keys missing!");
       return new Response(JSON.stringify({ error: "VAPID not configured" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
@@ -65,19 +75,28 @@ serve(async (req) => {
 
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
-    // Fetch subscriptions (optimized query)
+    // 4. Fetch User Subscriptions
     const { data: subscriptions, error: fetchError } = await supabase
       .from("push_subscriptions")
-      .select("id, endpoint, p256dh, auth")
+      .select("*")
       .eq("user_id", userId);
 
-    if (fetchError || !subscriptions || subscriptions.length === 0) {
+    if (fetchError) {
+      console.error("❌ Database error:", fetchError);
+      return new Response(JSON.stringify({ error: "Database error" }), { status: 500 });
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log("⚠️ No subscriptions found for user");
       return new Response(JSON.stringify({ message: "No subscriptions" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
+    console.log(`📱 Found ${subscriptions.length} devices`);
+
+    // 5. Send Notifications
     const notificationPayload = JSON.stringify({
       title,
       body,
@@ -90,7 +109,6 @@ serve(async (req) => {
       data,
     });
 
-    // Send to all subscriptions in parallel (fast!)
     const results = await Promise.all(
       subscriptions.map(async (sub) => {
         try {
@@ -103,28 +121,25 @@ serve(async (req) => {
           );
           return { success: true, id: sub.id };
         } catch (err: any) {
-          // Cleanup invalid subscriptions
+          console.error(`❌ Failed for ${sub.id}:`, err.message);
           if (err.statusCode === 410 || err.statusCode === 404) {
             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
-          return { success: false, id: sub.id };
+          return { success: false, id: sub.id, error: err.message };
         }
       })
     );
 
     const successCount = results.filter(r => r.success).length;
+    console.log(`📊 Sent: ${successCount}/${results.length}`);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      sent: successCount,
-      total: results.length
-    }), {
+    return new Response(JSON.stringify({ success: true, sent: successCount }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
 
   } catch (err: any) {
-    console.error("Error:", err.message);
+    console.error("❌ Unhandled error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
