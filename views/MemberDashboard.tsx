@@ -1,6 +1,6 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v3.0                      ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v3.1                      ║
  * ║  Locked Date: January 6, 2025                              ║
  * ║  Status: STABLE - DO NOT MODIFY                            ║
  * ║                                                            ║
@@ -1148,4 +1148,52 @@ export const MemberDashboard = () => {
             </div>
 
             <div className="p-4 sm:p-6">
-              <p className="text-sm font-medium text-slate-700 mb-3">Select reason:</p
+              <p className="text-sm font-medium text-slate-700 mb-3">Select reason:</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {['Wrong Number', 'Not Interested', 'Duplicate Lead', 'Fake Information', 'Already Customer', 'Number Not Reachable'].map((reason) => (
+                  <button
+                    key={reason}
+                    onClick={() => setReportReason(reason)}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border ${reportReason === reason ? 'bg-red-50 border-red-300 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Or write your reason..."
+                className="w-full border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-red-500 resize-none h-24"
+              />
+
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => setShowReportModal(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium text-sm">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReportInvalidLead}
+                  disabled={reportingLead || !reportReason.trim()}
+                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {reportingLead ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Flag size={16} /> Submit</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Styles */}
+      <style>{`
+        @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+      `}</style>
+    </div>
+  );
+};
+
+export default MemberDashboard;
