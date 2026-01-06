@@ -1,3 +1,14 @@
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - AdminDashboard.tsx v2.0                       ║
+ * ║  Status: STABLE - UPDATED PLAN OPTIONS                     ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Includes All New Plans (Weekly/Turbo Boost)          ║
+ * ║  - ✅ Fixes Plan Activation Modal                          ║
+ * ║  - ✅ Corrects Plan Weight & Limits                        ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
+
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import {
@@ -210,14 +221,14 @@ export const AdminDashboard: React.FC = () => {
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // 🔥 UPDATED PLAN OPTIONS (Matches Subscription.tsx)
   const planOptions = [
     { id: 'none', name: 'No Plan', daily_limit: 0, days: 0, plan_weight: 0 },
-    { id: 'starter', name: 'Starter', daily_limit: 2, days: 30, plan_weight: 1 },
-    { id: 'supervisor', name: 'Supervisor', daily_limit: 6, days: 30, plan_weight: 3 },
-    { id: 'manager', name: 'Manager', daily_limit: 16, days: 30, plan_weight: 5 },
-    { id: 'fast_start', name: 'Fast Start', daily_limit: 10, days: 7, plan_weight: 8 },
-    { id: 'turbo_weekly', name: 'Turbo Weekly', daily_limit: 25, days: 7, plan_weight: 10 },
-    { id: 'max_blast', name: 'Max Blast', daily_limit: 40, days: 7, plan_weight: 12 },
+    { id: 'starter', name: 'Starter', daily_limit: 5, days: 10, plan_weight: 1 },
+    { id: 'supervisor', name: 'Supervisor', daily_limit: 7, days: 15, plan_weight: 3 },
+    { id: 'manager', name: 'Manager', daily_limit: 8, days: 20, plan_weight: 5 },
+    { id: 'weekly_boost', name: 'Weekly Boost', daily_limit: 12, days: 7, plan_weight: 7 },
+    { id: 'turbo_boost', name: 'Turbo Boost', daily_limit: 14, days: 7, plan_weight: 9 },
   ] as const;
 
   // ============================================================
@@ -423,7 +434,8 @@ export const AdminDashboard: React.FC = () => {
         daily_limit: plan.daily_limit,
         valid_until: plan.id === 'none' ? null : validUntil.toISOString(),
         leads_today: 0,
-        plan_weight: plan.plan_weight
+        plan_weight: plan.plan_weight,
+        plan_start_date: new Date().toISOString() // Ensure start date is set
       };
 
       const { error } = await supabase
@@ -659,6 +671,8 @@ export const AdminDashboard: React.FC = () => {
       case 'manager': return 'bg-purple-100 text-purple-700';
       case 'supervisor': return 'bg-blue-100 text-blue-700';
       case 'starter': return 'bg-green-100 text-green-700';
+      case 'weekly_boost': return 'bg-orange-100 text-orange-700';
+      case 'turbo_boost': return 'bg-red-100 text-red-700';
       default: return 'bg-slate-100 text-slate-600';
     }
   };
