@@ -1,11 +1,3 @@
-/**
- * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 FINAL PRODUCTION - useAuth.tsx v6.0                    ║
- * ║  Date: January 6, 2025                                     ║
- * ║  Status: WORKING - RAW FETCH - NO 406 ERRORS               ║
- * ╚════════════════════════════════════════════════════════════╝
- */
-
 import React, {
   createContext,
   useContext,
@@ -52,11 +44,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ✅ FIXED: Use raw fetch to avoid 406
+  // ✅ FIXED: Use raw fetch with timestamp to avoid caching (Race Condition Fix)
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
       const response = await fetch(
-        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`,
+        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}&t=${Date.now()}`, // Added timestamp to bust cache
         {
           method: 'GET',
           headers: {
@@ -64,7 +56,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Prefer': 'return=representation'
+            'Prefer': 'return=representation',
+            'Cache-Control': 'no-cache, no-store, must-revalidate' // Additional headers
           }
         }
       );
@@ -147,6 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
+      console.log('🔄 Force refreshing profile...');
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
