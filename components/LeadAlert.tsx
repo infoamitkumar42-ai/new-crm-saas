@@ -1,18 +1,15 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - LeadAlert.tsx vFinal                          ║
+ * ║  🔒 LOCKED - LeadAlert.tsx vFinal (Bug Fixed)              ║
  * ║  Status: STRONG - VAPID PUSH ENABLED                       ║
- * ║  Features:                                                 ║
- * ║  - ✅ Background Push (Works when screen off)              ║
- * ║  - ✅ Foreground Polling (Instant alert)                   ║
- * ║  - ✅ Sound & Vibration                                    ║
+ * ║  Fix: Renamed 'alert' state to 'banner' to fix crash       ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { X, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
+import { X, Volume2, VolumeX, Bell } from 'lucide-react';
 
 // 🔑 YOUR GENERATED PUBLIC KEY
 const PUBLIC_VAPID_KEY = 'BJkGd-k1-IQB-WO6jwTsj6XaZYXny8W4bxd4PQ1TEv6blS5AlR_PlBURJiTsf1cC7qpZ7E2QQUAo611f4PoOS58';
@@ -33,7 +30,8 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
-  const [alert, setAlert] = useState<{ show: boolean; lead: any | null }>({ show: false, lead: null });
+  // 🔥 FIX: Renamed 'alert' to 'banner' to avoid conflict with window.alert()
+  const [banner, setBanner] = useState<{ show: boolean; lead: any | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,7 +47,7 @@ export const LeadAlert: React.FC = () => {
     document.addEventListener('touchstart', unlock, { once: true });
   }, []);
 
-  // ✅ SUBSCRIBE TO PUSH (The Strong Logic)
+  // ✅ SUBSCRIBE TO PUSH
   const subscribeToPush = async () => {
     if (!session?.user) return;
     setLoading(true);
@@ -61,17 +59,14 @@ export const LeadAlert: React.FC = () => {
 
       const reg = await navigator.serviceWorker.ready;
       
-      // Subscribe user
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
       });
 
-      // Prepare keys for DB
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('p256dh')!))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('auth')!))));
 
-      // Save to Supabase
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: session.user.id,
         endpoint: sub.endpoint,
@@ -90,9 +85,10 @@ export const LeadAlert: React.FC = () => {
         icon: "/icon-192x192.png"
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Subscription failed:", err);
-      alert("Please enable notifications in your browser settings first.");
+      // 🔥 FIX: Now window.alert will work because we renamed the state
+      window.alert("Please enable notifications in your browser settings (Click the Lock icon 🔒).");
     } finally {
       setLoading(false);
     }
@@ -109,7 +105,7 @@ export const LeadAlert: React.FC = () => {
     }
   }, []);
 
-  // 📡 POLLING BACKUP (For when app is open)
+  // 📡 POLLING BACKUP
   useEffect(() => {
     if (!session?.user?.id) return;
     const interval = setInterval(async () => {
@@ -125,20 +121,17 @@ export const LeadAlert: React.FC = () => {
         const newLead = data[0];
         lastCheckTimeRef.current = newLead.created_at;
         
-        // Play Sound
         if (soundEnabled && audioRef.current) {
           audioRef.current.currentTime = 0;
           audioRef.current.play().catch(() => {});
         }
 
         // Show Banner
-        setAlert({ show: true, lead: newLead });
+        setBanner({ show: true, lead: newLead });
         
-        // Vibrate
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-        // Auto hide banner
-        setTimeout(() => setAlert({ show: false, lead: null }), 8000);
+        setTimeout(() => setBanner({ show: false, lead: null }), 8000);
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -147,7 +140,7 @@ export const LeadAlert: React.FC = () => {
   return (
     <>
       {/* Top Banner Alert */}
-      {alert.show && alert.lead && (
+      {banner.show && banner.lead && (
         <div className="fixed top-4 left-0 w-full z-[9999] flex justify-center px-4 animate-slide-down">
           <div className="w-full max-w-md bg-gradient-to-r from-gray-900 to-slate-800 text-white p-4 rounded-xl shadow-2xl border-l-4 border-green-500 flex items-center gap-4">
             <div className="p-3 bg-white/10 rounded-full animate-pulse">
@@ -155,10 +148,10 @@ export const LeadAlert: React.FC = () => {
             </div>
             <div className="flex-1">
               <p className="font-bold text-sm text-green-400">NEW LEAD ARRIVED</p>
-              <p className="font-semibold text-lg">{alert.lead.name}</p>
-              <p className="text-xs text-gray-400">{alert.lead.phone} • {alert.lead.city || 'Online'}</p>
+              <p className="font-semibold text-lg">{banner.lead.name}</p>
+              <p className="text-xs text-gray-400">{banner.lead.phone} • {banner.lead.city || 'Online'}</p>
             </div>
-            <button onClick={() => setAlert({ show: false, lead: null })} className="p-2 hover:bg-white/10 rounded-full">
+            <button onClick={() => setBanner({ show: false, lead: null })} className="p-2 hover:bg-white/10 rounded-full">
               <X size={20} />
             </button>
           </div>
@@ -167,7 +160,6 @@ export const LeadAlert: React.FC = () => {
 
       {/* Floating Controls */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-        {/* Subscription Button (Only visible if not subscribed) */}
         {!isSubscribed && (
           <button
             onClick={subscribeToPush}
@@ -179,7 +171,6 @@ export const LeadAlert: React.FC = () => {
           </button>
         )}
 
-        {/* Sound Toggle */}
         <button
           onClick={() => setSoundEnabled(p => !p)}
           className={`p-3 rounded-full shadow-lg border transition-all ${
