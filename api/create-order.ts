@@ -17,10 +17,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Razorpay from 'razorpay';
 
-// Initialize Razorpay Instance
+// Initialize Razorpay Instance with Secure Backend Keys
 const razorpay = new Razorpay({
-  key_id: process.env.VITE_RAZORPAY_KEY_ID!,
-  key_secret: process.env.VITE_RAZORPAY_KEY_SECRET!,
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
