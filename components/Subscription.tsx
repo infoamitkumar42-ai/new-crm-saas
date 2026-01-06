@@ -1,16 +1,15 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - Subscription.tsx v2.5                         ║
+ * ║  🔒 LOCKED - Subscription.tsx v3.0 (FINAL)                 ║
  * ║  Locked Date: January 6, 2025                              ║
- * ║  Status: STABLE - CRITICAL PAYMENT LOGIC                   ║
+ * ║  Status: STABLE - CONNECTED TO BACKEND                     ║
  * ║                                                            ║
  * ║  Features:                                                 ║
- * ║  - ✅ Razorpay Integration                                 ║
+ * ║  - ✅ Calls /api/create-order (Enables Auto-Capture)       ║
  * ║  - ✅ 5-Second Delay Logic (Race Condition Fix)            ║
  * ║  - ✅ Cache-Busting Redirect Logic                         ║
- * ║  - ✅ Plan UI & Calculations                               ║
  * ║                                                            ║
- * ║  ⚠️  DO NOT MODIFY WAIT TIMERS WITHOUT TESTING             ║
+ * ║  ⚠️  DO NOT REMOVE THE FETCH CALL TO /api/create-order     ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -25,7 +24,6 @@ import {
 
 interface SubscriptionProps {
   onClose?: () => void;
-  // Add these optional props to satisfy TypeScript if passed from App.tsx
   user?: any;
   onPaymentSuccess?: () => void;
 }
@@ -42,7 +40,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // FINAL PLAN CONFIGURATION WITH REPLACEMENT LIMITS
+  // FINAL PLAN CONFIGURATION
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    
   const plans = {
@@ -242,18 +240,34 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         return;
       }
 
-      // Production amount (paise)
-      const amount = plan.price * 100;
-      
-      // For testing, use ₹1
-      // const amount = 100; // Uncomment for testing
+      // 🔥 STEP 1: CREATE ORDER ON BACKEND (Enables Auto-Capture)
+      // This is the missing link!
+      const orderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: plan.id,
+          price: plan.price,
+          userId: user.id
+        }),
+      });
 
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create order on server');
+      }
+
+      const orderData = await orderResponse.json();
+
+      // 🔥 STEP 2: OPEN RAZORPAY WITH BACKEND ORDER ID
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: amount,
-        currency: "INR",
+        amount: orderData.amount, // Use amount from backend
+        currency: orderData.currency,
         name: "LeadFlow CRM",
         description: `${plan.name} Plan - ${plan.duration} Days`,
+        order_id: orderData.id, // <--- CRITICAL: Links this payment to backend auto-capture rules
         prefill: {
           name: user.user_metadata?.full_name || '',
           email: user.email,
@@ -274,16 +288,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         handler: async function(response: any) {
           console.log('✅ Payment Success:', response);
           
-          // 🔥 CRITICAL FIX: User Feedback & Wait Logic
+          // User Feedback
           alert("🎉 Payment Successful! Please wait while we activate your plan...");
-          
-          // Keep loading state active
           setLoading(plan.id);
 
-          // Wait 5 seconds to let webhook process
+          // Wait 5 seconds for Webhook
           await new Promise(resolve => setTimeout(resolve, 5000));
 
-          // Redirect with Flag and Timestamp to force refresh
+          // Force Refresh
           window.location.href = `/?payment_success=true&t=${Date.now()}`;
         },
         modal: {
@@ -305,7 +317,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
 
     } catch (error: any) {
       console.error("Payment Error:", error);
-      alert("Error: " + error.message);
+      alert("Error: " + (error.message || "Something went wrong"));
       setLoading(null);
     }
   };
@@ -325,7 +337,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   const currentPlans = plans[activeTab];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // RENDER
+  // RENDER (UI Same as before)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   return (
