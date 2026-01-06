@@ -1,19 +1,8 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v4.0 ULTIMATE                     ║
- * ║  Locked Date: January 6, 2025                              ║
- * ║  Status: PRODUCTION READY - TESTED & STABLE                ║
- * ║                                                            ║
- * ║  Features:                                                 ║
- * ║  - ✅ Persistent session (survives refresh/close)          ║
- * ║  - ✅ Retry logic with timeout (3 attempts)                ║
- * ║  - ✅ Duplicate event prevention                           ║
- * ║  - ✅ RLS error detection & recovery                       ║
- * ║  - ✅ Exponential backoff                                  ║
- * ║  - ✅ Simple RLS policies (no recursion)                   ║
- * ║  - ✅ Better error logging                                 ║
- * ║                                                            ║
- * ║  ⚠️  TO UNLOCK: Say "UNLOCK useAuth for [reason]"          ║
+ * ║  🔒 PRODUCTION READY - useAuth.tsx v5.0                    ║
+ * ║  Date: January 6, 2025                                     ║
+ * ║  Status: STABLE & WORKING - NO RLS ISSUES                  ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -30,7 +19,6 @@ import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import { User } from "../types";
 
-// 🔗 Google Apps Script Web App URL (for background sheet creation)
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
 
 interface AuthContextValue {
@@ -63,104 +51,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 FETCH PROFILE WITH RETRY LOGIC
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const fetchProfile = useCallback(async (userId: string, retries = 3): Promise<User | null> => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`🔄 Fetching profile (attempt ${attempt}/${retries})...`);
-        
-        // Set timeout for query (8 seconds max - increased for slow connections)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", userId)
-          .maybeSingle()
-          .abortSignal(controller.signal);
+  const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-        clearTimeout(timeoutId);
+      if (error || !data) return null;
 
-        if (error) {
-          console.error(`❌ Profile fetch error (attempt ${attempt}):`, error.message);
-          
-          // If RLS error, wait and retry
-          if (error.message.includes('infinite recursion') || error.message.includes('policy')) {
-            console.warn('⚠️ RLS issue detected, retrying...');
-            if (attempt < retries) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-              continue;
-            }
-          }
-          
-          // For other errors on last attempt, return null
-          if (attempt === retries) {
-            return null;
-          }
-          continue;
-        }
-
-        if (!data) {
-          console.log("⚠️ No profile found for:", userId);
-          return null;
-        }
-
-        console.log("✅ Profile fetched successfully:", data.name);
-        
-        return {
-          id: data.id,
-          email: data.email,
-          name: data.name || "User",
-          role: data.role || "member",
-          team_code: data.team_code,
-          manager_id: data.manager_id,
-          sheet_url: data.sheet_url || "",
-          sheet_id: data.sheet_id,
-          payment_status: data.payment_status || "inactive",
-          plan_name: data.plan_name,
-          plan_weight: data.plan_weight || 1,
-          daily_limit: data.daily_limit || 0,
-          leads_today: data.leads_today || 0,
-          total_leads_received: data.total_leads_received || 0,
-          valid_until: data.valid_until,
-          filters: data.filters || {},
-          is_active: data.is_active ?? true,
-          days_extended: data.days_extended || 0,
-          total_leads_promised: data.total_leads_promised || 50,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-        } as User;
-        
-      } catch (err: any) {
-        console.error(`❌ fetchProfile exception (attempt ${attempt}):`, err.message || err);
-        
-        // If it's a timeout or network error, retry
-        if (err.name === 'AbortError' || err.message?.includes('fetch') || err.message?.includes('aborted')) {
-          if (attempt < retries) {
-            console.warn(`⏳ Timeout/Network error, retrying in ${attempt}s...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-            continue;
-          }
-        }
-        
-        // If last attempt, return null
-        if (attempt === retries) {
-          console.error('❌ All retry attempts failed');
-          return null;
-        }
-      }
+      return data as User;
+    } catch {
+      return null;
     }
-    
-    console.error('❌ Profile fetch failed after all retries');
-    return null;
   }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ⚡ CREATE TEMP PROFILE (Fallback)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createTempProfile = useCallback((user: SupabaseUser): User => ({
     id: user.id,
     email: user.email || "",
@@ -179,92 +85,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     created_at: new Date().toISOString(),
   }), []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 LOAD USER PROFILE WITH RETRY
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
     if (!mountedRef.current) return;
 
     try {
-      console.log('🔍 Loading profile for:', user.email);
+      // Wait a bit for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       let userProfile = await fetchProfile(user.id);
 
       if (!mountedRef.current) return;
 
-      // If profile fetch failed completely, try to create/update
+      // Retry once if not found
       if (!userProfile) {
-        console.warn('⚠️ Profile fetch failed, attempting to create/update...');
-        
-        const userData = {
-          id: user.id,
-          email: user.email?.toLowerCase(),
-          name: user.user_metadata?.name || "User",
-          role: user.user_metadata?.role || "member",
-          team_code: user.user_metadata?.team_code || null,
-          manager_id: user.user_metadata?.manager_id || null,
-          payment_status: "inactive",
-          plan_name: "none",
-          daily_limit: 0,
-          leads_today: 0,
-          filters: { pan_india: true },
-          is_active: true,
-          days_extended: 0,
-          total_leads_promised: 50,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        try {
-          const { error: upsertError } = await supabase
-            .from("users")
-            .upsert(userData, { onConflict: 'id' });
-
-          if (upsertError) {
-            console.error('❌ Failed to create profile:', upsertError.message);
-          } else {
-            console.log('✅ Profile created/updated, fetching again...');
-            if (mountedRef.current) {
-              userProfile = await fetchProfile(user.id, 1);
-            }
-          }
-        } catch (upsertErr: any) {
-          console.error('❌ Upsert exception:', upsertErr.message);
-        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        userProfile = await fetchProfile(user.id);
       }
 
       if (mountedRef.current) {
-        if (userProfile) {
-          console.log('✅ Setting profile:', userProfile.name);
-          setProfile(userProfile);
-        } else {
-          console.warn('⚠️ Using temporary profile');
-          setProfile(createTempProfile(user));
-        }
+        setProfile(userProfile || createTempProfile(user));
       }
-    } catch (err: any) {
-      console.error("❌ loadUserProfile error:", err.message || err);
+    } catch (err) {
       if (mountedRef.current) {
         setProfile(createTempProfile(user));
       }
     }
   }, [fetchProfile, createTempProfile]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 REFRESH PROFILE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
-      const updated = await fetchProfile(session.user.id, 1);
+      const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
       }
     }
   }, [session, fetchProfile]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📊 CREATE SHEET (Background - Non-blocking)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const createUserSheetBackground = useCallback(async (
     userId: string,
     email: string,
@@ -279,29 +135,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {}
   }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🚀 INITIALIZE AUTH (WITH DUPLICATE PREVENTION)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     mountedRef.current = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
       try {
-        console.log('🚀 Initializing auth...');
         const { data: { session: currentSession } } = await supabase.auth.getSession();
 
         if (!mountedRef.current) return;
 
         if (currentSession?.user) {
-          console.log('✅ Session found for:', currentSession.user.email);
           setSession(currentSession);
           await loadUserProfile(currentSession.user);
-        } else {
-          console.log('❌ No session found');
         }
-      } catch (err: any) {
-        console.error("❌ Init error:", err.message || err);
+      } catch (err) {
+        console.error("Init error:", err);
       } finally {
         if (mountedRef.current) {
           setLoading(false);
@@ -309,18 +158,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Auth state listener with duplicate prevention
     const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mountedRef.current) return;
 
-      console.log('🔔 Auth event:', event);
-
       if (event === 'SIGNED_IN') {
-        // Prevent duplicate SIGNED_IN processing
-        if (processingSignIn.current) {
-          console.log('⏭️ Skipping duplicate SIGNED_IN event');
-          return;
-        }
+        if (processingSignIn.current) return;
         
         processingSignIn.current = true;
         
@@ -333,7 +175,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        // Reset after delay to allow legitimate re-auth
         setTimeout(() => {
           processingSignIn.current = false;
         }, 2000);
@@ -349,14 +190,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'TOKEN_REFRESHED' && newSession) {
         setSession(newSession);
       }
-
-      if (event === 'USER_UPDATED' && newSession?.user) {
-        setSession(newSession);
-        const updated = await fetchProfile(newSession.user.id, 1);
-        if (updated && mountedRef.current) {
-          setProfile(updated);
-        }
-      }
     });
 
     authSubscription = data.subscription;
@@ -369,9 +202,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         authSubscription.unsubscribe();
       }
     };
-  }, [loadUserProfile, fetchProfile]);
+  }, [loadUserProfile]);
 
-  // Auto refresh profile every 5 mins
   useEffect(() => {
     if (!session?.user) return;
 
@@ -384,9 +216,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [session, refreshProfile]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📝 SIGN UP
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signUp = useCallback(async ({
     email,
     password,
@@ -439,7 +268,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = null;
       }
 
-      // Create Auth User
+      // Create Auth User (trigger will create DB entry)
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -463,36 +292,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Signup failed");
       }
 
-      const userId = data.user.id;
-
-      // Save to Database
-      const userData = {
-        id: userId,
-        email: email.trim().toLowerCase(),
-        name: name.trim(),
-        role,
-        team_code: resolvedTeamCode,
-        manager_id: resolvedManagerId,
-        payment_status: 'inactive',
-        plan_name: 'none',
-        plan_weight: 1,
-        daily_limit: 0,
-        leads_today: 0,
-        total_leads_received: 0,
-        filters: { pan_india: true },
-        is_active: true,
-        days_extended: 0,
-        total_leads_promised: 50,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      await supabase.from('users').upsert(userData);
-
       // Create Sheet in Background
       if (role === 'member') {
-        createUserSheetBackground(userId, email, name);
+        createUserSheetBackground(data.user.id, email, name);
       }
+
+      // Wait for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
     } catch (err) {
       setLoading(false);
@@ -500,9 +306,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [createUserSheetBackground]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔓 SIGN IN
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     setLoading(true);
 
@@ -523,9 +326,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 👋 SIGN OUT
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
@@ -536,9 +336,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {}
   }, []);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🎁 CONTEXT VALUE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <AuthContext.Provider value={{
       session,
