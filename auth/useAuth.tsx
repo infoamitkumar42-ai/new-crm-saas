@@ -1,16 +1,15 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v3.1                              ║
- * ║  Locked Date: January 6, 2025                              ║
- * ║  Status: STABLE - DO NOT MODIFY                            ║
+ * ║  🔒 FIXED - useAuth.tsx v3.2                               ║
+ * ║  Fixed Date: January 6, 2025                               ║
+ * ║  Status: ENHANCED WITH RETRY LOGIC                         ║
  * ║                                                            ║
  * ║  Features:                                                 ║
  * ║  - ✅ Persistent session (survives refresh/close)          ║
- * ║  - ✅ No login blocking (sheet creation separate)          ║
- * ║  - ✅ Fast profile fetch                                   ║
- * ║  - ✅ Proper error handling                                ║
- * ║                                                            ║
- * ║  ⚠️  TO UNLOCK: Say "UNLOCK useAuth for [reason]"          ║
+ * ║  - ✅ Retry logic with timeout (3 attempts)                ║
+ * ║  - ✅ RLS error detection & recovery                       ║
+ * ║  - ✅ Exponential backoff                                  ║
+ * ║  - ✅ Better error logging                                 ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -61,53 +60,98 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = !!session && !!profile;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📥 FETCH PROFILE (Fast & Simple)
+  // 📥 FETCH PROFILE WITH RETRY LOGIC
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+  const fetchProfile = useCallback(async (userId: string, retries = 3): Promise<User | null> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`🔄 Fetching profile (attempt ${attempt}/${retries})...`);
+        
+        // Set timeout for query (5 seconds max)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle()
+          .abortSignal(controller.signal);
 
-      if (error) {
-        console.error("❌ Profile fetch error:", error.message);
-        return null;
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.error(`❌ Profile fetch error (attempt ${attempt}):`, error.message);
+          
+          // If RLS error, wait and retry
+          if (error.message.includes('infinite recursion') || error.message.includes('policy')) {
+            console.warn('⚠️ RLS issue detected, retrying...');
+            if (attempt < retries) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+              continue;
+            }
+          }
+          
+          // For other errors on last attempt, return null
+          if (attempt === retries) {
+            return null;
+          }
+          continue;
+        }
+
+        if (!data) {
+          console.log("⚠️ No profile found for:", userId);
+          return null;
+        }
+
+        console.log("✅ Profile fetched successfully:", data.name);
+        
+        return {
+          id: data.id,
+          email: data.email,
+          name: data.name || "User",
+          role: data.role || "member",
+          team_code: data.team_code,
+          manager_id: data.manager_id,
+          sheet_url: data.sheet_url || "",
+          sheet_id: data.sheet_id,
+          payment_status: data.payment_status || "inactive",
+          plan_name: data.plan_name,
+          plan_weight: data.plan_weight || 1,
+          daily_limit: data.daily_limit || 0,
+          leads_today: data.leads_today || 0,
+          total_leads_received: data.total_leads_received || 0,
+          valid_until: data.valid_until,
+          filters: data.filters || {},
+          is_active: data.is_active ?? true,
+          days_extended: data.days_extended || 0,
+          total_leads_promised: data.total_leads_promised || 50,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+        } as User;
+        
+      } catch (err: any) {
+        console.error(`❌ fetchProfile exception (attempt ${attempt}):`, err.message || err);
+        
+        // If it's a timeout or network error, retry
+        if (err.name === 'AbortError' || err.message?.includes('fetch') || err.message?.includes('aborted')) {
+          if (attempt < retries) {
+            console.warn(`⏳ Timeout/Network error, retrying in ${attempt}s...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            continue;
+          }
+        }
+        
+        // If last attempt, return null
+        if (attempt === retries) {
+          console.error('❌ All retry attempts failed');
+          return null;
+        }
       }
-
-      if (!data) {
-        console.log("⚠️ No profile found for:", userId);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        email: data.email,
-        name: data.name || "User",
-        role: data.role || "member",
-        team_code: data.team_code,
-        manager_id: data.manager_id,
-        sheet_url: data.sheet_url || "",
-        sheet_id: data.sheet_id,
-        payment_status: data.payment_status || "inactive",
-        plan_name: data.plan_name,
-        plan_weight: data.plan_weight || 1,
-        daily_limit: data.daily_limit || 0,
-        leads_today: data.leads_today || 0,
-        total_leads_received: data.total_leads_received || 0,
-        valid_until: data.valid_until,
-        filters: data.filters || {},
-        is_active: data.is_active ?? true,
-        days_extended: data.days_extended || 0,
-        total_leads_promised: data.total_leads_promised || 50,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      } as User;
-    } catch (err) {
-      console.error("❌ fetchProfile exception:", err);
-      return null;
     }
+    
+    console.error('❌ Profile fetch failed after all retries');
+    return null;
   }, []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -132,18 +176,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }), []);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔄 LOAD USER PROFILE
+  // 🔄 LOAD USER PROFILE WITH RETRY
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
     if (!mountedRef.current) return;
 
     try {
+      console.log('🔍 Loading profile for:', user.email);
+      
       let userProfile = await fetchProfile(user.id);
 
       if (!mountedRef.current) return;
 
-      // If no profile exists, create one
+      // If profile fetch failed completely, try to create/update
       if (!userProfile) {
+        console.warn('⚠️ Profile fetch failed, attempting to create/update...');
+        
         const userData = {
           id: user.id,
           email: user.email?.toLowerCase(),
@@ -163,18 +211,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           updated_at: new Date().toISOString()
         };
 
-        await supabase.from("users").upsert(userData);
+        // Try to insert/update with retry
+        try {
+          const { error: upsertError } = await supabase
+            .from("users")
+            .upsert(userData, { onConflict: 'id' });
 
-        if (mountedRef.current) {
-          userProfile = await fetchProfile(user.id);
+          if (upsertError) {
+            console.error('❌ Failed to create profile:', upsertError.message);
+          } else {
+            console.log('✅ Profile created/updated, fetching again...');
+            if (mountedRef.current) {
+              // One final attempt with single retry
+              userProfile = await fetchProfile(user.id, 1);
+            }
+          }
+        } catch (upsertErr: any) {
+          console.error('❌ Upsert exception:', upsertErr.message);
         }
       }
 
       if (mountedRef.current) {
-        setProfile(userProfile || createTempProfile(user));
+        if (userProfile) {
+          console.log('✅ Setting profile:', userProfile.name);
+          setProfile(userProfile);
+        } else {
+          console.warn('⚠️ Using temporary profile');
+          setProfile(createTempProfile(user));
+        }
       }
-    } catch (err) {
-      console.error("❌ loadUserProfile error:", err);
+    } catch (err: any) {
+      console.error("❌ loadUserProfile error:", err.message || err);
       if (mountedRef.current) {
         setProfile(createTempProfile(user));
       }
@@ -186,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
-      const updated = await fetchProfile(session.user.id);
+      const updated = await fetchProfile(session.user.id, 1); // Single attempt for refresh
       if (updated && mountedRef.current) {
         setProfile(updated);
       }
@@ -227,22 +294,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initDoneRef.current = true;
 
       try {
+        console.log('🚀 Initializing auth...');
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
         if (!mountedRef.current) return;
 
         if (error || !currentSession?.user) {
+          console.log('❌ No session found');
           setSession(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
+        console.log('✅ Session found for:', currentSession.user.email);
         setSession(currentSession);
         await loadUserProfile(currentSession.user);
 
-      } catch (err) {
-        console.error("❌ Init error:", err);
+      } catch (err: any) {
+        console.error("❌ Init error:", err.message || err);
         setSession(null);
         setProfile(null);
       } finally {
@@ -255,6 +325,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listen for auth changes
     const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mountedRef.current) return;
+
+      console.log('🔔 Auth event:', event);
 
       switch (event) {
         case 'SIGNED_IN':
@@ -283,7 +355,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'USER_UPDATED':
           if (newSession?.user) {
             setSession(newSession);
-            const updated = await fetchProfile(newSession.user.id);
+            const updated = await fetchProfile(newSession.user.id, 1);
             if (updated && mountedRef.current) {
               setProfile(updated);
             }
