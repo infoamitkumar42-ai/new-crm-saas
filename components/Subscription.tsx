@@ -1,3 +1,19 @@
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - Subscription.tsx v2.5                         ║
+ * ║  Locked Date: January 6, 2025                              ║
+ * ║  Status: STABLE - CRITICAL PAYMENT LOGIC                   ║
+ * ║                                                            ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Razorpay Integration                                 ║
+ * ║  - ✅ 5-Second Delay Logic (Race Condition Fix)            ║
+ * ║  - ✅ Cache-Busting Redirect Logic                         ║
+ * ║  - ✅ Plan UI & Calculations                               ║
+ * ║                                                            ║
+ * ║  ⚠️  DO NOT MODIFY WAIT TIMERS WITHOUT TESTING             ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
+
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
