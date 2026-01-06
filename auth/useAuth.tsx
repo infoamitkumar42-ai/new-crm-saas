@@ -8,7 +8,6 @@
  * ║  - ✅ Manager ID lost during signup (Race Condition)       ║
  * ║  - ✅ Sheet creation failure recovery                      ║
  * ║  - ✅ Profile "None" / "No Manager" issue                  ║
- * ║                                                            ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -129,10 +128,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: string
   ): Promise<void> => {
     try {
-      // Non-blocking fire
       fetch(SHEET_CREATOR_URL, {
         method: 'POST',
-        mode: 'no-cors', // Important for reliability
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'createSheet', userId, email, name })
       }).catch(() => {});
@@ -145,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
     if (!mountedRef.current) return;
 
-    // 🔒 STOP if signup is in progress (prevents overwriting Manager ID)
+    // 🔒 STOP if signup is in progress
     if (isSigningUpRef.current) {
       console.log("🔒 Signup in progress, pausing auto-load...");
       return; 
@@ -322,7 +320,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: name.trim(),
         role,
         team_code: resolvedTeamCode,
-        manager_id: resolvedManagerId, // ✅ CRITICAL: Insert immediately
+        manager_id: resolvedManagerId, // ✅ CRITICAL
         payment_status: 'inactive',
         plan_name: 'none',
         plan_weight: 1,
