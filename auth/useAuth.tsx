@@ -1,3 +1,19 @@
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - useAuth.tsx v6.0                              ║
+ * ║  Locked Date: January 6, 2025                              ║
+ * ║  Status: STABLE - CRITICAL AUTH & REFRESH LOGIC            ║
+ * ║                                                            ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ Raw Fetch implementation (No 406 Error)              ║
+ * ║  - ✅ Cache-Busting Refresh (Fixed stale data)             ║
+ * ║  - ✅ Auto-Refresh Timer                                   ║
+ * ║  - ✅ Session Persistence                                  ║
+ * ║                                                            ║
+ * ║  ⚠️  DO NOT REMOVE TIMESTAMP FROM FETCH URL                ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
+
 import React, {
   createContext,
   useContext,
