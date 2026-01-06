@@ -1,4 +1,14 @@
-// Claude's Code (With minor fix for Deno imports if needed)
+/**
+ * ╔════════════════════════════════════════════════════════════╗
+ * ║  🔒 LOCKED - Edge Function: send-push-notification         ║
+ * ║  Status: PRODUCTION READY                                  ║
+ * ║  Features:                                                 ║
+ * ║  - ✅ VAPID Push Notification Logic                        ║
+ * ║  - ✅ CORS Headers Handled                                 ║
+ * ║  - ✅ Auto-Cleanup of Expired Tokens                       ║
+ * ╚════════════════════════════════════════════════════════════╝
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import webpush from "https://esm.sh/web-push@3.6.7";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -56,7 +66,7 @@ serve(async (req) => {
 
     console.log("👤 Target User:", userId);
 
-    // 3. Load Secrets
+    // 3. Load Secrets & Init Supabase
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -123,6 +133,7 @@ serve(async (req) => {
         } catch (err: any) {
           console.error(`❌ Failed for ${sub.id}:`, err.message);
           if (err.statusCode === 410 || err.statusCode === 404) {
+            console.log("🗑️ Cleaning up expired subscription");
             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
           return { success: false, id: sub.id, error: err.message };
