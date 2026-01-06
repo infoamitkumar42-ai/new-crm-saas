@@ -1,22 +1,16 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - razorpay-webhook.ts v3.0                      ║
- * ║  Last Updated: January 5, 2025                             ║
- * ║  Production Payment Handler                                ║
- * ║  Features:                                                 ║
- * ║  - ✅ Plan Extension Fields Added                          ║
- * ║  - ✅ Total Leads Tracking                                 ║
- * ║  - ✅ Plan Start Date                                      ║
- * ║                                                            ║
- * ║  ⚠️  ONLY 5 ACTIVE PLANS - NO LEGACY PLANS                ║
+ * ║  🔒 Razorpay Webhook v4 – PRODUCTION READY                ║
+ * ║  SAFE • IDPOTENT • NO AUTO-REFUND • SCALE READY           ║
+ * ║  Author: LeadFlow CRM                                     ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
 import crypto from 'crypto';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FINAL PLAN CONFIGURATION (Matches PRD)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ─────────────────────────────────────────────
+// PLAN CONFIG (Single Source of Truth)
+// ─────────────────────────────────────────────
 const PLAN_CONFIG: Record<string, {
   price: number;
   duration: number;
@@ -25,8 +19,7 @@ const PLAN_CONFIG: Record<string, {
   weight: number;
   maxReplacements: number;
 }> = {
-  // Monthly Plans
-  'starter': {
+  starter: {
     price: 999,
     duration: 10,
     dailyLeads: 5,
@@ -34,7 +27,7 @@ const PLAN_CONFIG: Record<string, {
     weight: 1,
     maxReplacements: 5
   },
-  'supervisor': {
+  supervisor: {
     price: 1999,
     duration: 15,
     dailyLeads: 7,
@@ -42,7 +35,7 @@ const PLAN_CONFIG: Record<string, {
     weight: 3,
     maxReplacements: 10
   },
-  'manager': {
+  manager: {
     price: 2999,
     duration: 20,
     dailyLeads: 8,
@@ -50,9 +43,7 @@ const PLAN_CONFIG: Record<string, {
     weight: 5,
     maxReplacements: 16
   },
-  
-  // 7-Day Booster Plans
-  'weekly_boost': {
+  weekly_boost: {
     price: 1999,
     duration: 7,
     dailyLeads: 12,
@@ -60,7 +51,7 @@ const PLAN_CONFIG: Record<string, {
     weight: 7,
     maxReplacements: 8
   },
-  'turbo_boost': {
+  turbo_boost: {
     price: 2499,
     duration: 7,
     dailyLeads: 14,
@@ -71,234 +62,175 @@ const PLAN_CONFIG: Record<string, {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Razorpay-Signature');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  
-  // Health check
+
+  // ───── Health Check ─────
   if (req.method === 'GET') {
     return res.status(200).json({
-      status: 'active',
-      message: 'LeadFlow Webhook Ready (Production)',
-      plans: Object.keys(PLAN_CONFIG),
-      version: '3.0',
-      timestamp: new Date().toISOString()
+      status: 'ok',
+      service: 'LeadFlow Razorpay Webhook',
+      version: 'v4'
     });
   }
 
-  if (req.method === 'POST') {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📦 Webhook received:', req.body?.event);
-    
-    try {
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      
-      if (!supabaseUrl || !supabaseKey) {
-        console.error('❌ Missing Supabase config');
-        return res.status(500).json({ error: 'Server config error' });
-      }
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 1. Signature Verification (PRODUCTION)
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (webhookSecret) {
-        const signature = req.headers['x-razorpay-signature'];
-        const body = JSON.stringify(req.body);
-        const expectedSignature = crypto
-          .createHmac('sha256', webhookSecret)
-          .update(body)
-          .digest('hex');
-        
-        if (signature !== expectedSignature) {
-          console.error('❌ Invalid Signature');
-          return res.status(401).json({ error: 'Invalid signature' });
-        }
-        
-        console.log('✅ Signature verified');
-      } else {
-        console.warn('⚠️ Webhook secret not configured');
-      }
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 2. Process Payment
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (req.body?.event === 'payment.captured' || req.body?.event === 'payment.authorized') {
-        const payment = req.body.payload?.payment?.entity;
-        const userId = payment.notes?.user_id;
-        const planName = (payment.notes?.plan_name || 'starter').toLowerCase().replace(/[\s-]+/g, '_');
-        const userEmail = payment.notes?.user_email || payment.email || '';
-        const amount = payment.amount / 100;
-
-        console.log('💳 Processing:', { userId, planName, amount });
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 3. Validate Plan
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const config = PLAN_CONFIG[planName];
-        
-        if (!config) {
-          console.error('❌ Invalid plan:', planName);
-          return res.status(400).json({ 
-            error: 'Invalid plan',
-            plan: planName,
-            availablePlans: Object.keys(PLAN_CONFIG)
-          });
-        }
-        
-        if (amount !== config.price) {
-          console.error('❌ Amount mismatch:', { expected: config.price, received: amount });
-          return res.status(400).json({ 
-            error: 'Amount mismatch',
-            expected: config.price,
-            received: amount
-          });
-        }
-        
-        console.log('✅ Plan validated:', planName, '₹' + amount);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 4. Idempotency Check
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const paymentCheckResp = await fetch(
-          `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payment.id}&select=id`,
-          {
-            headers: { 
-              'apikey': supabaseKey, 
-              'Authorization': `Bearer ${supabaseKey}`
-            }
-          }
-        );
-        
-        const existingPayments = await paymentCheckResp.json();
-        
-        if (existingPayments && existingPayments.length > 0) {
-          console.log('⚠️ Payment already processed:', payment.id);
-          return res.status(200).json({ success: true, message: 'Already processed' });
-        }
-        
-        // Save payment record
-        await fetch(`${supabaseUrl}/rest/v1/payments`, {
-          method: 'POST',
-          headers: { 
-            'apikey': supabaseKey, 
-            'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            user_id: userId || null,
-            razorpay_payment_id: payment.id,
-            amount: amount,
-            plan_name: planName,
-            payer_email: userEmail,
-            status: 'captured',
-            raw_payload: payment
-          })
-        });
-        
-        console.log('✅ Payment record saved');
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 5. Find User
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        let finalUserId = userId;
-        
-        if (!finalUserId && userEmail) {
-          const userResp = await fetch(
-            `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(userEmail)}&select=id&limit=1`,
-            { 
-              headers: { 
-                'apikey': supabaseKey, 
-                'Authorization': `Bearer ${supabaseKey}` 
-              } 
-            }
-          );
-          const users = await userResp.json();
-          if (users?.[0]) finalUserId = users[0].id;
-        }
-        
-        if (!finalUserId) {
-          console.error('❌ User not found');
-          return res.status(400).json({ error: 'User not found' });
-        }
-        
-        console.log('✅ User found:', finalUserId);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 6. Calculate Validity
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const now = new Date();
-        const validUntil = new Date();
-        validUntil.setDate(now.getDate() + config.duration);
-        validUntil.setHours(23, 59, 59, 999);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 7. Update User (Activate Plan + Extension Fields)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const updateResp = await fetch(
-          `${supabaseUrl}/rest/v1/users?id=eq.${finalUserId}`,
-          {
-            method: 'PATCH',
-            headers: { 
-              'apikey': supabaseKey, 
-              'Authorization': `Bearer ${supabaseKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              // Basic Plan Fields
-              plan_name: planName,
-              payment_status: 'active',
-              daily_limit: config.dailyLeads,
-              plan_weight: config.weight,
-              max_replacements: config.maxReplacements,
-              valid_until: validUntil.toISOString(),
-              leads_today: 0,
-              
-              // ✅ NEW: Plan Extension Fields
-              plan_start_date: now.toISOString(),
-              original_plan_days: config.duration,
-              days_extended: 0,
-              total_leads_promised: config.totalLeads,
-              total_leads_received: 0,
-              missed_leads_today: 0,
-              
-              updated_at: now.toISOString()
-            })
-          }
-        );
-
-        if (updateResp.ok) {
-          console.log('✅ Plan Activated:', planName);
-          console.log('   Daily Limit:', config.dailyLeads);
-          console.log('   Total Leads:', config.totalLeads);
-          console.log('   Duration:', config.duration, 'days');
-          console.log('   Valid Until:', validUntil.toISOString());
-          
-          return res.status(200).json({ 
-            success: true, 
-            message: 'Plan Activated',
-            plan: planName,
-            totalLeads: config.totalLeads,
-            validUntil: validUntil.toISOString()
-          });
-        } else {
-          console.error('❌ User update failed');
-          return res.status(500).json({ error: 'User update failed' });
-        }
-      }
-
-      return res.status(200).json({ received: true });
-
-    } catch (error: any) {
-      console.error('❌ Webhook Error:', error.message);
-      return res.status(500).json({ error: error.message });
-    }
+  if (req.method !== 'POST') {
+    return res.status(405).end();
   }
 
-  return res.status(405).end();
+  try {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!webhookSecret || !supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ error: 'Server misconfiguration' });
+    }
+
+    // ─────────────────────────────────────────────
+    // 1️⃣ VERIFY SIGNATURE (MANDATORY)
+    // ─────────────────────────────────────────────
+    const signature = req.headers['x-razorpay-signature'];
+    const body = JSON.stringify(req.body);
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(body)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      console.error('❌ Invalid Razorpay signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    // ─────────────────────────────────────────────
+    // 2️⃣ PROCESS ONLY payment.captured
+    // ─────────────────────────────────────────────
+    if (req.body.event !== 'payment.captured') {
+      return res.status(200).json({ ignored: true });
+    }
+
+    const payment = req.body.payload?.payment?.entity;
+    if (!payment) {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    // ─────────────────────────────────────────────
+    // 3️⃣ STRICT NOTES VALIDATION
+    // ─────────────────────────────────────────────
+    const userId = payment.notes?.user_id;
+    const planName = payment.notes?.plan_name;
+
+    if (!userId || !planName) {
+      console.error('❌ Missing notes', payment.notes);
+      return res.status(400).json({ error: 'Missing user_id or plan_name in notes' });
+    }
+
+    const normalizedPlan = planName.toLowerCase().replace(/[\s-]+/g, '_');
+    const config = PLAN_CONFIG[normalizedPlan];
+
+    if (!config) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+
+    const amountPaid = payment.amount / 100;
+    if (amountPaid !== config.price) {
+      return res.status(400).json({ error: 'Amount mismatch' });
+    }
+
+    // ─────────────────────────────────────────────
+    // 4️⃣ IDEMPOTENCY CHECK (NO DOUBLE PROCESS)
+    // ─────────────────────────────────────────────
+    const paymentCheck = await fetch(
+      `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payment.id}&select=id`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
+        }
+      }
+    );
+
+    const existing = await paymentCheck.json();
+    if (existing?.length) {
+      return res.status(200).json({ success: true, duplicate: true });
+    }
+
+    // ─────────────────────────────────────────────
+    // 5️⃣ SAVE PAYMENT RECORD
+    // ─────────────────────────────────────────────
+    await fetch(`${supabaseUrl}/rest/v1/payments`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        razorpay_payment_id: payment.id,
+        amount: amountPaid,
+        plan_name: normalizedPlan,
+        status: 'captured',
+        raw_payload: payment
+      })
+    });
+
+    // ─────────────────────────────────────────────
+    // 6️⃣ ACTIVATE PLAN
+    // ─────────────────────────────────────────────
+    const now = new Date();
+    const validUntil = new Date();
+    validUntil.setDate(now.getDate() + config.duration);
+    validUntil.setHours(23, 59, 59, 999);
+
+    const updateUser = await fetch(
+      `${supabaseUrl}/rest/v1/users?id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          plan_name: normalizedPlan,
+          payment_status: 'active',
+          daily_limit: config.dailyLeads,
+          plan_weight: config.weight,
+          max_replacements: config.maxReplacements,
+          valid_until: validUntil.toISOString(),
+          leads_today: 0,
+
+          plan_start_date: now.toISOString(),
+          original_plan_days: config.duration,
+          days_extended: 0,
+          total_leads_promised: config.totalLeads,
+          total_leads_received: 0,
+
+          updated_at: now.toISOString()
+        })
+      }
+    );
+
+    if (!updateUser.ok) {
+      return res.status(500).json({ error: 'User update failed' });
+    }
+
+    // ─────────────────────────────────────────────
+    // ✅ SUCCESS
+    // ─────────────────────────────────────────────
+    return res.status(200).json({
+      success: true,
+      plan: normalizedPlan,
+      validUntil: validUntil.toISOString()
+    });
+
+  } catch (err: any) {
+    console.error('❌ Webhook crash:', err.message);
+    return res.status(500).json({ error: 'Webhook error' });
+  }
 }
