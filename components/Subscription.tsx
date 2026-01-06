@@ -28,7 +28,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FINAL PLAN CONFIGURATION WITH REPLACEMENT LIMITS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
+   
   const plans = {
     monthly: [
       {
@@ -211,9 +211,9 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PAYMENT HANDLER
+  // PAYMENT HANDLER (UPDATED FIX)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
+   
   const handleSubscribe = async (plan: typeof plans.monthly[0]) => {
     setLoading(plan.id);
     
@@ -257,8 +257,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         },
         handler: async function(response: any) {
           console.log('✅ Payment Success:', response);
-          alert("🎉 Payment Successful! Your plan is now active.");
-          window.location.href = '/';
+          
+          // 🔥 CRITICAL FIX: User Feedback & Wait Logic
+          alert("🎉 Payment Successful! Please wait while we activate your plan...");
+          
+          // Keep loading state active
+          setLoading(plan.id);
+
+          // Wait 5 seconds to let webhook process
+          await new Promise(resolve => setTimeout(resolve, 5000));
+
+          // Redirect with Flag and Timestamp to force refresh
+          window.location.href = `/?payment_success=true&t=${Date.now()}`;
         },
         modal: {
           ondismiss: function() {
