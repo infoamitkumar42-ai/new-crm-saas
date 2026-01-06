@@ -26,6 +26,7 @@ import {
   CheckCircle2, AlertTriangle, Flag, Gift
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
+import { useAuth } from '../auth/useAuth'; // ✅ Added for Payment Fix
 
 // ============================================================
 // TYPES
@@ -177,6 +178,7 @@ const StatCard = ({
 // ============================================================
 
 export const MemberDashboard = () => {
+  const { refreshProfile } = useAuth(); // ✅ Get refresh capability
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -421,9 +423,27 @@ export const MemberDashboard = () => {
     }
   };
 
+  // ✅ NEW: Check for Payment Success flag & Force Refresh
   useEffect(() => {
-    fetchData();
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_success') === 'true') {
+      console.log('💰 Payment success detected! Force refreshing...');
+      setLoading(true); // Show loading UI
+      
+      // Force refresh auth profile then fetch dashboard data
+      if (refreshProfile) {
+        refreshProfile().then(() => {
+          fetchData().then(() => {
+            // Remove the flag from URL
+            window.history.replaceState({}, '', '/');
+            console.log('✅ Refreshed & Cleaned URL');
+          });
+        });
+      }
+    } else {
+      fetchData(); // Normal load
+    }
+  }, [refreshProfile]); // Dependency on refreshProfile
 
   // ============================================================
   // REALTIME SUBSCRIPTION
