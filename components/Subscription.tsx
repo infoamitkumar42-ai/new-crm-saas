@@ -1,13 +1,13 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - Subscription.tsx v3.0 (FINAL)                 ║
+ * ║  🔒 LOCKED - Subscription.tsx v5.0 (FINAL PRODUCTION)      ║
  * ║  Locked Date: January 6, 2025                              ║
  * ║  Status: STABLE - CONNECTED TO BACKEND                     ║
  * ║                                                            ║
  * ║  Features:                                                 ║
- * ║  - ✅ Calls /api/create-order (Enables Auto-Capture)       ║
- * ║  - ✅ 5-Second Delay Logic (Race Condition Fix)            ║
- * ║  - ✅ Cache-Busting Redirect Logic                         ║
+ * ║  - ✅ Calls /api/create-order (Secure & Auto-Capture)      ║
+ * ║  - ✅ 5-Second Wait Logic (Fixes Inactive Plan Issue)      ║
+ * ║  - ✅ Auto-Refresh after Payment                           ║
  * ║                                                            ║
  * ║  ⚠️  DO NOT REMOVE THE FETCH CALL TO /api/create-order     ║
  * ╚════════════════════════════════════════════════════════════╝
@@ -225,7 +225,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PAYMENT HANDLER (UPDATED FIX)
+  // PAYMENT HANDLER (SECURE API CALL)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    
   const handleSubscribe = async (plan: typeof plans.monthly[0]) => {
@@ -240,8 +240,8 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         return;
       }
 
-      // 🔥 STEP 1: CREATE ORDER ON BACKEND (Enables Auto-Capture)
-      // This is the missing link!
+      // 🔥 STEP 1: CREATE ORDER VIA BACKEND API
+      // This protects your Secret Key & Ensures Auto-Capture
       const orderResponse = await fetch('/api/create-order', {
         method: 'POST',
         headers: {
@@ -255,19 +255,20 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
       });
 
       if (!orderResponse.ok) {
-        throw new Error('Failed to create order on server');
+        const errorData = await orderResponse.json();
+        throw new Error(errorData.error || 'Failed to create order');
       }
 
       const orderData = await orderResponse.json();
 
       // 🔥 STEP 2: OPEN RAZORPAY WITH BACKEND ORDER ID
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: orderData.amount, // Use amount from backend
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use Public Key for Frontend
+        amount: orderData.amount,
         currency: orderData.currency,
         name: "LeadFlow CRM",
-        description: `${plan.name} Plan - ${plan.duration} Days`,
-        order_id: orderData.id, // <--- CRITICAL: Links this payment to backend auto-capture rules
+        description: `${plan.name} Plan`,
+        order_id: orderData.id, // ✅ Critical: Connects to Backend Order
         prefill: {
           name: user.user_metadata?.full_name || '',
           email: user.email,
@@ -275,12 +276,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         },
         notes: {
           user_id: user.id,
-          plan_name: plan.id,
-          plan_duration: plan.duration.toString(),
-          daily_leads: plan.dailyLeads.toString(),
-          total_leads: plan.totalLeads.toString(),
-          replacement_limit: plan.replacementLimit.toString(),
-          user_email: user.email
+          plan_name: plan.id
         },
         theme: {
           color: activeTab === 'monthly' ? "#2563EB" : "#EA580C"
@@ -288,14 +284,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         handler: async function(response: any) {
           console.log('✅ Payment Success:', response);
           
-          // User Feedback
+          // Show Feedback
           alert("🎉 Payment Successful! Please wait while we activate your plan...");
           setLoading(plan.id);
 
-          // Wait 5 seconds for Webhook
+          // Wait 5 seconds for Webhook to process
           await new Promise(resolve => setTimeout(resolve, 5000));
 
-          // Force Refresh
+          // Force Refresh Dashboard
           window.location.href = `/?payment_success=true&t=${Date.now()}`;
         },
         modal: {
@@ -337,7 +333,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   const currentPlans = plans[activeTab];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // RENDER (UI Same as before)
+  // RENDER
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   return (
