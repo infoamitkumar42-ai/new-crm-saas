@@ -8,10 +8,11 @@
  * ║                                                                        ║
  * ║   📋 CHANGELOG & FEATURES:                                             ║
  * ║   ------------------------------------------------------------------   ║
- * ║   1. UI RESTORATION:                                                   ║
+ * ║   1. UI RESTORATION (THE MOBILE LOOK):                                 ║
  * ║      - Re-implemented the "Indigo-Purple" Gradient Status Card.        ║
- * ║      - Added "Glassmorphism" effects (Blur + Translucency).            ║
- * ║      - Restored the "Remaining Leads" box layout.                      ║
+ * ║      - CHANGED LAYOUT: Vertical Boxy Design (Not Horizontal Strip).    ║
+ * ║      - "Remaining Leads" is now a BIG SQUARE BOX on the left.          ║
+ * ║      - "Pause/Resume" is a BIG BUTTON on the right.                    ║
  * ║                                                                        ║
  * ║   2. LOGIC OPTIMIZATION:                                               ║
  * ║      - Pause/Resume Button is strictly INSIDE the Status Card.         ║
@@ -399,8 +400,8 @@ export const MemberDashboard = () => {
     }
     if (isLimitReached) {
       return { 
-        title: 'Daily Limit Reached', 
-        subtitle: `Received ${dailyLimit} leads today`, 
+        title: 'Goal Reached', 
+        subtitle: `Received ${dailyLimit} leads`, 
         icon: CheckCircle2, 
         iconBgColor: 'bg-green-500/30', 
         iconColor: 'text-green-200', 
@@ -743,400 +744,122 @@ export const MemberDashboard = () => {
       {/* Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
 
-        {/* 🔥 PREMIUM DELIVERY STATUS CARD */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl">
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
+        {/* 🔥 MATCHED UI: VERTICAL STATUS CARD 🔥 */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white rounded-3xl p-5 mb-5 shadow-2xl">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-24 translate-x-20 blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col h-full gap-5">
+            {/* Top Row: Icon + Status Text */}
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-2xl bg-white/20 backdrop-blur-md`}>
+                <StatusIcon size={28} className={deliveryStatus.iconColor} />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold tracking-widest text-white/70">Delivery Status</div>
+                <div className="text-xl font-bold">{deliveryStatus.title}</div>
+                <div className="text-xs text-white/80">{deliveryStatus.subtitle}</div>
+              </div>
+            </div>
 
-          <div className="relative z-10">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              
-              {/* Left: Status Info */}
-              <div className="flex items-center gap-3 sm:gap-4 flex-1">
-                <div className={`p-3 sm:p-4 rounded-xl ${deliveryStatus.iconBgColor} backdrop-blur-sm`}>
-                  <StatusIcon size={24} className={deliveryStatus.iconColor} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] sm:text-xs text-indigo-200 font-bold uppercase tracking-wide">Delivery Status</div>
-                  <div className="text-lg sm:text-2xl font-black mt-0.5 truncate">{deliveryStatus.title}</div>
-                  <div className="text-xs sm:text-sm text-indigo-200 mt-0.5">{deliveryStatus.subtitle}</div>
-                </div>
+            {/* Middle Row: The Boxy Layout (Exact Match) */}
+            <div className="flex gap-3">
+              {/* Left Box: Remaining Count (Big Square) */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex flex-col items-center justify-center w-1/3 min-w-[100px] aspect-square border border-white/10 shadow-inner">
+                <span className="text-4xl font-black text-white drop-shadow-md">{remainingToday}</span>
+                <span className="text-[10px] uppercase font-medium text-white/80 mt-1">Remaining</span>
               </div>
 
-              {/* Right: Actions (Remaining + Pause) */}
-              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                <div className="flex-1 sm:flex-none bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 sm:py-3 text-center border border-white/10">
-                  <div className="text-xl sm:text-2xl font-black">{remainingToday}</div>
-                  <div className="text-[10px] sm:text-xs text-indigo-200">Left</div>
-                </div>
-
-                {/* Pause/Resume Button Inside Card */}
+              {/* Right Box: Actions */}
+              <div className="flex-1 flex flex-col justify-center gap-3">
                 {profile.payment_status === 'active' && !isExpired && (
                   <button
                     onClick={toggleDeliveryPause}
-                    disabled={refreshing}
-                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border ${
-                      isPaused
-                        ? 'bg-green-500/30 border-green-400/30 text-green-100'
-                        : 'bg-white/15 border-white/10 text-white'
+                    className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${
+                      isPaused ? 'bg-white text-indigo-600' : 'bg-white/20 backdrop-blur-md border border-white/20 hover:bg-white/30'
                     }`}
                   >
-                    {refreshing ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : isPaused ? (
-                      <><Play size={14} /><span>Resume</span></>
-                    ) : (
-                      <><Pause size={14} /><span>Pause</span></>
-                    )}
+                    {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
+                    {isPaused ? 'RESUME' : 'PAUSE'}
                   </button>
                 )}
-
-                <button onClick={() => setShowDeliveryInfo(true)} className="bg-white/15 hover:bg-white/25 backdrop-blur-sm p-2.5 sm:p-3 rounded-xl border border-white/10">
-                  <AlertCircle size={18} />
-                </button>
+                
+                <div className="flex gap-2">
+                   <button onClick={() => setShowDeliveryInfo(true)} className="flex-1 bg-white/10 hover:bg-white/20 p-3 rounded-xl flex justify-center border border-white/10">
+                      <AlertCircle size={20} />
+                   </button>
+                </div>
               </div>
             </div>
 
-            {/* Progress Bars */}
-            <div className="mt-4 pt-4 border-t border-white/20">
-              <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
-                <span className="text-indigo-200">Today's Progress</span>
-                <span className="font-bold">{leadsToday} / {dailyLimit}</span>
+            {/* Bottom Row: Progress Bars */}
+            <div className="space-y-3 pt-2 border-t border-white/10">
+              <div>
+                <div className="flex justify-between text-xs mb-1 opacity-90"><span>Today's Progress</span><b>{leadsToday} / {dailyLimit}</b></div>
+                <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${dailyProgress}%` }} /></div>
               </div>
-              <div className="w-full bg-white/20 rounded-full h-2.5 sm:h-3 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-500"
-                  style={{ width: `${dailyProgress}%` }}
-                />
+              
+              <div>
+                <div className="flex justify-between text-xs mb-1 opacity-90"><span>Total Plan Progress</span><b>{totalReceived} / {totalPromised} leads</b></div>
+                <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden"><div className="h-full bg-white/70 rounded-full" style={{ width: `${totalProgress}%` }} /></div>
+                <div className="text-[10px] mt-1 opacity-70">{remainingLeads} leads remaining in your plan</div>
               </div>
             </div>
-
-            {/* Extension Info */}
-            {daysExtended > 0 && (
-              <div className="mt-3 flex items-center gap-2 text-green-200 text-xs bg-green-500/20 px-3 py-2 rounded-lg">
-                <Gift size={14} />
-                <span>🎁 Plan extended by {daysExtended} day{daysExtended > 1 ? 's' : ''}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* STATS ROW */}
+        {/* Stats Row */}
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 sm:mb-6 -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5 sm:overflow-visible scrollbar-hide">
           <StatCard label="Total" value={totalReceived} color="slate" icon={<Target size={14} />} />
           <StatCard label="Fresh" value={stats.fresh} color="green" icon={<Clock size={14} />} />
           <StatCard label="Closed" value={stats.closed} color="purple" icon={<Check size={14} />} />
           <StatCard label="Conv." value={`${conversionRate}%`} color="orange" icon={<Flame size={14} />} />
-          {/* Calendar removed for better spacing, added to weekly */}
-          <StatCard label="This Week" value={weeklyLeads} color="blue" icon={<Calendar size={14} />} />
         </div>
 
-        {/* FILTERS */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm flex gap-2 sm:gap-3">
-          <div className="relative flex-1">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer"
-            >
-              <option value="all">All Status</option>
-              <option value="Fresh">🔵 Fresh</option>
-              <option value="Call Back">🔄 Callback</option>
-              <option value="Interested">✅ Interested</option>
-              <option value="Closed">🎉 Closed</option>
-            </select>
-            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-
-          <div className="relative flex-1">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">Last 7 Days</option>
-            </select>
-            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
+        {/* Filters */}
+        <div className="flex gap-2 mb-4">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex-1 p-2.5 border rounded-xl text-sm bg-white outline-none"><option value="all">All Status</option><option value="Fresh">🔵 Fresh</option><option value="Interested">✅ Interested</option><option value="Closed">🎉 Closed</option></select>
+          <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="flex-1 p-2.5 border rounded-xl text-sm bg-white outline-none"><option value="all">All Time</option><option value="today">Today</option></select>
         </div>
 
-        {/* LEADS LIST */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-            <h2 className="font-bold text-slate-800 text-sm sm:text-base">My Leads</h2>
-            <span className="text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-500 font-medium">
-              {filteredLeads.length} leads
-            </span>
-          </div>
-
-          {filteredLeads.length === 0 ? (
-            <div className="p-8 sm:p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Target size={32} className="text-slate-400" />
-              </div>
-              <p className="font-semibold text-slate-800 text-sm sm:text-base">No leads found</p>
-              <p className="text-xs text-slate-500 mt-1">Leads will appear here soon!</p>
-            </div>
-          ) : (
+        {/* Leads List */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between"><h2 className="font-bold text-slate-800 text-sm">My Leads</h2><span className="text-xs bg-white px-2 py-1 rounded border">{filteredLeads.length}</span></div>
+          {filteredLeads.length === 0 ? <div className="p-12 text-center text-slate-400"><Target size={32} className="mx-auto mb-2" /><p>No leads found</p></div> : 
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => {
-                // 🔥 NIGHT LEAD & TIME LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
-
                 return (
-                  <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
-                    {/* Lead Header */}
-                    <div className="flex justify-between items-start mb-2 sm:mb-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
-                        <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                          <MapPin size={10} />
-                          <span className="truncate">{lead.city || 'N/A'}</span>
-                        </div>
-                      </div>
-
-                      {/* Smart Time Badge */}
-                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${
-                        isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}>
-                        {isNightLead && <Moon size={10} className="fill-current" />}
-                        {!isNightLead && <Clock size={10} />}
-                        <span>{formatSmartTime(lead.created_at)}</span>
+                  <div key={lead.id} className="p-4 hover:bg-slate-50 transition">
+                    <div className="flex justify-between mb-2">
+                      <div><div className="font-bold text-slate-900">{lead.name}</div><div className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={10} /> {lead.city || 'N/A'}</div></div>
+                      <div className={`px-2 py-1 rounded text-[10px] font-bold border flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-50 text-slate-600'}`}>
+                        {isNightLead ? <Moon size={10} /> : <Clock size={10} />}
+                        {formatSmartTime(lead.created_at)}
                       </div>
                     </div>
-
-                    {/* 🔥 MOOD PROTECTION BLUE TIP */}
-                    {isNightLead && (
-                      <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex gap-2.5 items-start">
-                        <Lightbulb size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                            <span className="font-bold">Pro Tip:</span> Night Lead! Call pick hone ke chances kam ho sakte hain.
-                          </p>
-                          <p className="text-[10px] text-blue-600 mt-0.5 font-bold">
-                            Agar Call na uthe to turant WhatsApp karna! 🚀
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Notes */}
-                    {lead.notes && (
-                      <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
-                        <StickyNote size={12} className="mt-0.5 text-amber-500" />
-                        <span className="line-clamp-2">{lead.notes}</span>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
+                    {isNightLead && <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2 flex gap-2"><Lightbulb size={16} className="text-blue-500" /><div><p className="text-xs text-blue-800 font-bold">Pro Tip: Night Lead!</p><p className="text-[10px] text-blue-600">WhatsApp recommended.</p></div></div>}
+                    {lead.notes && <div className="text-xs bg-amber-50 p-2 rounded mb-3 text-slate-600 border-amber-100 border">{lead.notes}</div>}
                     <div className="grid grid-cols-4 gap-2 mb-3">
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs hover:bg-blue-100"
-                      >
-                        <Phone size={16} />
-                        <span className="hidden sm:inline">Call</span>
-                      </a>
-
-                      <a
-                        href={getWhatsAppLink(lead.phone, lead.name, profile.name || '')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center justify-center gap-1 bg-green-500 text-white py-2.5 rounded-xl font-medium text-xs hover:bg-green-600"
-                      >
-                        <MessageSquare size={16} />
-                        <span className="hidden sm:inline">WhatsApp</span>
-                      </a>
-
-                      <button
-                        onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
-                        className="flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-medium text-xs hover:bg-slate-200"
-                      >
-                        <StickyNote size={16} />
-                        <span className="hidden sm:inline">Note</span>
-                      </button>
-
-                      <button
-                        onClick={() => { setShowReportModal(lead); setReportReason(''); }}
-                        className="flex flex-col items-center justify-center gap-1 bg-red-50 text-red-600 py-2.5 rounded-xl font-medium text-xs hover:bg-red-100"
-                      >
-                        <Flag size={16} />
-                        <span className="hidden sm:inline">Report</span>
-                      </button>
+                      <a href={`tel:${lead.phone}`} className="col-span-1 flex flex-col items-center justify-center bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold"><Phone size={14} /> Call</a>
+                      <a href={getWhatsAppLink(lead.phone, lead.name, profile.name)} target="_blank" className="col-span-1 flex flex-col items-center justify-center bg-green-500 text-white py-2 rounded-lg text-xs font-bold"><MessageSquare size={14} /> WA</a>
+                      <button onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} className="col-span-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-xs font-bold flex flex-col items-center"><StickyNote size={14} /> Note</button>
+                      <button onClick={() => { setShowReportModal(lead); setReportReason(''); }} className="col-span-1 bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold flex flex-col items-center"><Flag size={14} /> Report</button>
                     </div>
-
-                    {/* Status Dropdown */}
-                    <div className="relative">
-                      <select
-                        value={lead.status}
-                        onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                        className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 appearance-none cursor-pointer"
-                      >
-                        <option value="Fresh">🔵 Fresh</option>
-                        <option value="Contacted">📞 Contacted</option>
-                        <option value="Call Back">🔄 Call Back</option>
-                        <option value="Interested">✅ Interested</option>
-                        <option value="Closed">🎉 Closed</option>
-                        <option value="Rejected">❌ Rejected</option>
-                        <option value="Invalid">🚫 Invalid</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
+                    <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="w-full text-xs border rounded-lg p-2 bg-white"><option value="Fresh">🔵 Fresh</option><option value="Interested">✅ Interested</option><option value="Closed">🎉 Closed</option><option value="Call Back">🔄 Call Back</option><option value="Invalid">🚫 Invalid</option></select>
                   </div>
                 );
               })}
             </div>
-          )}
+          }
         </div>
       </main>
 
-      {/* MOBILE BOTTOM CTA */}
-      {!isExpired && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 p-3 sm:hidden z-30 shadow-xl">
-          <button onClick={() => setShowSubscription(true)} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg">
-            <Zap size={18} /> Upgrade for More Leads
-          </button>
-        </div>
-      )}
-
-      {/* DELIVERY INFO MODAL */}
-      {showDeliveryInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[85vh] overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-slate-900">Why leads may delay?</h3>
-              <button onClick={() => setShowDeliveryInfo(false)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100">
-                <X size={22} />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="font-bold text-blue-900 text-sm">⏰ Working Hours</p>
-                <p className="text-xs text-blue-700 mt-1">Leads delivered <b>8 AM – 10 PM</b> IST.</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p className="font-bold text-slate-800 text-sm">📊 Daily Limit</p>
-                <p className="text-xs text-slate-600 mt-1">Your plan: <b>{dailyLimit}</b> leads/day.</p>
-              </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                <p className="font-bold text-orange-900 text-sm">⏸️ Paused Delivery</p>
-                <p className="text-xs text-orange-800 mt-1">If paused, click <b>Resume</b> to start.</p>
-              </div>
-              <button
-                onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm"
-              >
-                ⚡ Upgrade for Faster Delivery
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NOTES MODAL */}
-      {showNotesModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-lg text-slate-900">📝 Add Note</h3>
-                <p className="text-sm text-slate-500 mt-1">{showNotesModal.name}</p>
-              </div>
-              <button onClick={() => setShowNotesModal(null)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100">
-                <X size={22} />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6">
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Add notes about this lead..."
-                className="w-full border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 resize-none h-32"
-                autoFocus
-              />
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => setShowNotesModal(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium text-sm">
-                  Cancel
-                </button>
-                <button
-                  onClick={saveNote}
-                  disabled={savingNote}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {savingNote ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Check size={16} /> Save</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REPORT MODAL */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
-            <div className="p-4 sm:p-6 border-b border-slate-100">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg text-red-600 flex items-center gap-2">
-                    <Flag size={20} /> Report Invalid Lead
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1">{showReportModal.name}</p>
-                </div>
-                <button onClick={() => setShowReportModal(null)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100">
-                  <X size={22} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-6">
-              <p className="text-sm font-medium text-slate-700 mb-3">Select reason:</p>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {['Wrong Number', 'Not Interested', 'Duplicate Lead', 'Fake Information', 'Already Customer', 'Number Not Reachable'].map((reason) => (
-                  <button
-                    key={reason}
-                    onClick={() => setReportReason(reason)}
-                    className={`px-3 py-2 text-xs font-medium rounded-lg border ${reportReason === reason ? 'bg-red-50 border-red-300 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
-                  >
-                    {reason}
-                  </button>
-                ))}
-              </div>
-
-              <textarea
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
-                placeholder="Or write your reason..."
-                className="w-full border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-red-500 resize-none h-24"
-              />
-
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => setShowReportModal(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium text-sm">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleReportInvalidLead}
-                  disabled={reportingLead || !reportReason.trim()}
-                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {reportingLead ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Flag size={16} /> Submit</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GLOBAL STYLES */}
-      <style>{`
-        @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
-        .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-      `}</style>
+      {/* Modals */}
+      {showNotesModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl w-full max-w-sm p-4"><h3 className="font-bold mb-2">Add Note</h3><textarea value={noteText} onChange={e => setNoteText(e.target.value)} className="w-full border p-2 rounded h-24" /><div className="flex gap-2 mt-2"><button onClick={() => setShowNotesModal(null)} className="flex-1 border p-2 rounded">Cancel</button><button onClick={saveNote} className="flex-1 bg-blue-600 text-white p-2 rounded">Save</button></div></div></div>}
+      {showReportModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl w-full max-w-sm p-4"><h3 className="font-bold text-red-600 mb-2">Report Invalid</h3><div className="grid grid-cols-2 gap-2 mb-2">{['Wrong Number', 'Not Interested'].map(r => <button key={r} onClick={() => setReportReason(r)} className="border p-1 text-xs rounded">{r}</button>)}</div><textarea value={reportReason} onChange={e => setReportReason(e.target.value)} className="w-full border p-2 rounded h-20" placeholder="Reason..." /><div className="flex gap-2 mt-2"><button onClick={() => setShowReportModal(null)} className="flex-1 border p-2 rounded">Cancel</button><button onClick={handleReportInvalidLead} className="flex-1 bg-red-600 text-white p-2 rounded">Report</button></div></div></div>}
+      
+      {!isExpired && <div className="fixed bottom-0 w-full bg-white p-3 border-t sm:hidden z-30"><button onClick={() => setShowSubscription(true)} className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold flex justify-center gap-2"><Zap size={18} /> Upgrade</button></div>}
+      <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
     </div>
   );
 };
