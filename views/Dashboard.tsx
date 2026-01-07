@@ -1,9 +1,15 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * ============================================================================
+ * DASHBOARD.TSX - FIXED WITH REAL-TIME NOTIFICATION & SOUND
+ * ============================================================================
+ */
+
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   LayoutDashboard, ExternalLink, Phone, MapPin, Star, AlertCircle,
   Zap, Clock, TrendingUp, Users, Activity, BarChart3, Timer,
-  CheckCircle, XCircle, RefreshCw, Bell, Target, Flame
+  CheckCircle, XCircle, RefreshCw, Bell, Target, Flame, Volume2
 } from 'lucide-react';
 
 // Types
@@ -71,35 +77,54 @@ export const Dashboard = () => {
   const [userDistribution, setUserDistribution] = useState<UserDistribution[]>([]);
   const [recentDistributions, setRecentDistributions] = useState<RecentDistribution[]>([]);
   const [hourlyChart, setHourlyChart] = useState<number[]>([]);
-  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
-  // Current time check
+  // --- NEW: Notification Sound Logic ---
+  const playNotificationSound = useCallback(() => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(e => console.log("Audio blocked: User must interact first", e));
+    
+    // Browser Push Notification
+    if (Notification.permission === "granted") {
+      new Notification("🚀 New Lead Assigned!", {
+        body: "Check dashboard for details",
+        icon: "/vite.svg"
+      });
+    }
+  }, []);
+
+  const enableAudio = () => {
+    setAudioEnabled(true);
+    Notification.requestPermission();
+    // Play a silent sound to unlock audio context on mobile
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.volume = 0;
+    audio.play().then(() => {
+      console.log("Audio Unlocked ✅");
+    });
+  };
+
   const isWithinWorkingHours = () => {
     const now = new Date();
     const hour = now.getHours();
     return hour >= 8 && hour < 22;
   };
 
-  // Fetch all dashboard data
   const fetchDashboardData = async () => {
     try {
       setRefreshing(true);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
       setUser(user);
 
-      // Get today's date range
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // 1. Fetch Today's Stats
       const { data: todayLeads } = await supabase
         .from('leads')
         .select('*')
@@ -108,10 +133,7 @@ export const Dashboard = () => {
 
       const distributed = todayLeads?.filter(l => l.user_id).length || 0;
       
-      // 2. Fetch Queue Status
-      const { data: queueData } = await supabase
-        .from('lead_queue')
-        .select('status');
+      const { data: queueData } = await supabase.from('lead_queue').select('status');
       
       const queueStats = {
         pending: queueData?.filter(q => q.status === 'pending').length || 0,
@@ -121,13 +143,11 @@ export const Dashboard = () => {
         nextRetryIn: calculateNextRetry()
       };
       
-      // 3. Fetch Orphan Leads
       const { count: orphanCount } = await supabase
         .from('orphan_leads')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
       
-      // 4. Fetch Active Users with Distribution
       const { data: activeUsers } = await supabase
         .from('users')
         .select('*')
@@ -135,7 +155,6 @@ export const Dashboard = () => {
         .eq('role', 'member')
         .gt('valid_until', new Date().toISOString());
       
-      // 5. Calculate User Distribution
       const distribution: UserDistribution[] = activeUsers?.map(u => ({
         id: u.id,
         name: u.name,
@@ -148,13 +167,9 @@ export const Dashboard = () => {
         isBooster: ['fast_start', 'turbo_weekly', 'max_blast'].includes(u.plan_name)
       })) || [];
       
-      // 6. Fetch Recent Distributions (with scores)
       const { data: recentLeads } = await supabase
         .from('leads')
-        .select(`
-          *,
-          users!leads_user_id_fkey(name, email)
-        `)
+        .select('*, users!leads_user_id_fkey(name, email)')
         .gte('created_at', today.toISOString())
         .not('user_id', 'is', null)
         .order('assigned_at', { ascending: false })
@@ -168,18 +183,14 @@ export const Dashboard = () => {
         assigned_to: l.users?.name || 'Unknown User',
         score: l.distribution_score || 0,
         assigned_at: l.assigned_at,
-        queue_time: calculateQueueTime(l.created_at, l.assigned_at)
+        queue_time: Math.floor((new Date(l.assigned_at).getTime() - new Date(l.created_at).getTime()) / 1000)
       })) || [];
       
-      // 7. Generate Hourly Chart Data
-      const hourly = await generateHourlyChart(todayLeads);
+      const hourly = new Array(24).fill(0);
+      todayLeads?.forEach(lead => {
+        hourly[new Date(lead.created_at).getHours()]++;
+      });
       
-      // 8. Calculate Average Score
-      const avgScore = recent.length > 0
-        ? Math.round(recent.reduce((sum, r) => sum + r.score, 0) / recent.length)
-        : 0;
-      
-      // Update all states
       setStats({
         totalLeadsToday: todayLeads?.length || 0,
         distributedToday: distributed,
@@ -187,7 +198,7 @@ export const Dashboard = () => {
         orphanLeads: orphanCount || 0,
         activeUsers: activeUsers?.length || 0,
         distributionRate: todayLeads?.length > 0 ? Math.round((distributed / todayLeads.length) * 100) : 0,
-        avgScore
+        avgScore: recent.length > 0 ? Math.round(recent.reduce((sum, r) => sum + r.score, 0) / recent.length) : 0
       });
       
       setQueueStatus(queueStats);
@@ -203,123 +214,63 @@ export const Dashboard = () => {
     }
   };
 
-  // Calculate next retry time
   const calculateNextRetry = (): string => {
     const now = new Date();
-    const hour = now.getHours();
-    
-    if (hour >= 22 || hour < 8) {
-      // Outside working hours, next retry at 8 AM
-      const nextMorning = new Date(now);
-      if (hour >= 22) {
-        nextMorning.setDate(nextMorning.getDate() + 1);
-      }
-      nextMorning.setHours(8, 0, 0, 0);
-      const diff = nextMorning.getTime() - now.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      return `${hours}h ${mins}m`;
-    } else {
-      // Within working hours, every 30 mins
-      return '30m';
-    }
+    if (now.getHours() >= 22 || now.getHours() < 8) return 'Morning 8AM';
+    return '30m';
   };
 
-  // Calculate queue time
-  const calculateQueueTime = (created: string, assigned: string): number => {
-    if (!created || !assigned) return 0;
-    const diff = new Date(assigned).getTime() - new Date(created).getTime();
-    return Math.floor(diff / 1000); // seconds
-  };
-
-  // Generate hourly distribution chart
-  const generateHourlyChart = async (leads: any[]): Promise<number[]> => {
-    const hourly = new Array(24).fill(0);
-    
-    if (!leads) return hourly;
-    
-    leads.forEach(lead => {
-      const hour = new Date(lead.created_at).getHours();
-      hourly[hour]++;
-    });
-    
-    return hourly;
-  };
-
-  // Format time
-  const formatTime = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-    return `${Math.floor(seconds / 3600)}h`;
-  };
-
-  // Setup auto-refresh
   useEffect(() => {
     fetchDashboardData();
     
-    // Auto-refresh every 30 seconds
-    const interval = autoRefresh ? setInterval(() => {
-      fetchDashboardData();
-    }, 30000) : null;
-
-    // Real-time subscription
+    // REAL-TIME UPDATES WITH SOUND
     const channel = supabase
-      .channel('dashboard-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'leads'
-      }, () => {
-        fetchDashboardData();
+      .channel('dashboard-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, (payload) => {
+        console.log("New lead detected! 🔔");
+        playNotificationSound(); // Trigger Sound
+        fetchDashboardData();    // Refresh UI
       })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'lead_queue'
-      }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lead_queue' }, () => {
         fetchDashboardData();
       })
       .subscribe();
+
+    const interval = autoRefresh ? setInterval(fetchDashboardData, 60000) : null;
 
     return () => {
       if (interval) clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, playNotificationSound]);
 
-  if (loading) {
-    return (
-      <div className="p-8 text-center">
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-500">Loading Dashboard...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 text-center text-slate-500">Loading Dashboard...</div>;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto p-4">
       
       {/* Header */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Lead Distribution Dashboard</h1>
             <p className="text-sm text-slate-500">
-              Real-time monitoring • {isWithinWorkingHours() ? '🟢 Working Hours' : '🔴 Off Hours'}
+              {isWithinWorkingHours() ? '🟢 Active' : '🔴 Off Hours'} • Auto-sync Enabled
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded"
-              />
-              Auto-refresh
-            </label>
-            
+          <div className="flex flex-wrap items-center gap-3">
+            {/* AUDIO UNLOCK BUTTON */}
+            <button
+              onClick={enableAudio}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                audioEnabled ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700 animate-pulse'
+              }`}
+            >
+              <Volume2 size={16} />
+              {audioEnabled ? 'Sound Active' : 'Enable Sound'}
+            </button>
+
             <button
               onClick={fetchDashboardData}
               disabled={refreshing}
@@ -331,260 +282,73 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Key Metrics */}
+        {/* Metric Cards Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard
-            icon={<Activity />}
-            label="Today's Leads"
-            value={stats.totalLeadsToday}
-            change={`${stats.distributedToday} distributed`}
-            color="blue"
-          />
-          
-          <MetricCard
-            icon={<Target />}
-            label="Distribution Rate"
-            value={`${stats.distributionRate}%`}
-            change={stats.distributionRate >= 90 ? 'Excellent' : stats.distributionRate >= 70 ? 'Good' : 'Needs Attention'}
-            color={stats.distributionRate >= 90 ? 'green' : stats.distributionRate >= 70 ? 'yellow' : 'red'}
-          />
-          
-          <MetricCard
-            icon={<Timer />}
-            label="Queue Status"
-            value={queueStatus.pending}
-            change={`Next: ${queueStatus.nextRetryIn}`}
-            color={queueStatus.pending > 10 ? 'orange' : 'green'}
-          />
-          
-          <MetricCard
-            icon={<Zap />}
-            label="Avg Score"
-            value={stats.avgScore}
-            change="Hybrid scoring"
-            color="purple"
-          />
+          <MetricCard icon={<Activity />} label="Today's Leads" value={stats.totalLeadsToday} change={`${stats.distributedToday} assigned`} color="blue" />
+          <MetricCard icon={<Target />} label="Dist. Rate" value={`${stats.distributionRate}%`} change="Efficiency" color="green" />
+          <MetricCard icon={<Timer />} label="In Queue" value={queueStatus.pending} change={`Failed: ${queueStatus.failed}`} color="orange" />
+          <MetricCard icon={<Zap />} label="Avg Score" value={stats.avgScore} change="Lead Quality" color="purple" />
         </div>
       </div>
 
-      {/* Queue Monitor */}
-      {(queueStatus.pending > 0 || queueStatus.failed > 0) && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="text-orange-600" size={20} />
-              <div>
-                <p className="font-semibold text-orange-900">Queue Alert</p>
-                <p className="text-sm text-orange-700">
-                  {queueStatus.pending} leads pending • {queueStatus.failed} failed
-                  {!isWithinWorkingHours() && ' • Will process at 8 AM'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                Processing: {queueStatus.processing}
-              </span>
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                Completed: {queueStatus.completed}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Tables Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* User Distribution */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100">
-          <div className="p-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Users size={18} />
-              Active Users Distribution
-            </h2>
-          </div>
-          
-          <div className="p-4 max-h-96 overflow-y-auto">
-            {userDistribution.length === 0 ? (
-              <p className="text-center text-slate-500 py-8">No active users</p>
-            ) : (
-              <div className="space-y-3">
-                {userDistribution.map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-800">{user.name}</span>
-                        {user.isBooster && (
-                          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium flex items-center gap-1">
-                            <Flame size={10} />
-                            Booster
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        {user.plan_name} • Weight: {user.plan_weight}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="font-semibold text-slate-800">
-                        {user.leads_today}/{user.daily_limit}
-                      </div>
-                      <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all ${
-                            user.percentage >= 100 ? 'bg-red-500' :
-                            user.percentage >= 80 ? 'bg-orange-500' :
-                            user.percentage >= 50 ? 'bg-yellow-500' :
-                            'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min(100, user.percentage)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Distributions */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100">
-          <div className="p-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <BarChart3 size={18} />
-              Recent Distributions
-            </h2>
-          </div>
-          
-          <div className="p-4 max-h-96 overflow-y-auto">
-            {recentDistributions.length === 0 ? (
-              <p className="text-center text-slate-500 py-8">No distributions today</p>
-            ) : (
-              <div className="space-y-3">
-                {recentDistributions.map(dist => (
-                  <div key={dist.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg text-sm">
-                    <div className="flex-1">
-                      <div className="font-medium text-slate-800">{dist.lead_name}</div>
-                      <div className="text-xs text-slate-500">
-                        <MapPin size={10} className="inline mr-1" />
-                        {dist.lead_city} • Assigned to {dist.assigned_to}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-xs">
-                        <Star size={12} className="text-yellow-500" />
-                        Score: {dist.score}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        Queue: {formatTime(dist.queue_time)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Hourly Distribution Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <Clock size={18} />
-          Hourly Distribution (Today)
-        </h2>
-        
-        <div className="flex items-end justify-between h-32 gap-1">
-          {hourlyChart.map((count, hour) => {
-            const maxCount = Math.max(...hourlyChart);
-            const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
-            const isWorkingHour = hour >= 8 && hour < 22;
-            const isCurrentHour = new Date().getHours() === hour;
-            
-            return (
-              <div key={hour} className="flex-1 flex flex-col items-center">
-                <div className="w-full flex flex-col items-center">
-                  <span className="text-xs text-slate-500 mb-1">{count > 0 ? count : ''}</span>
-                  <div
-                    className={`w-full transition-all rounded-t ${
-                      isCurrentHour ? 'bg-blue-600' :
-                      isWorkingHour ? 'bg-green-500' : 'bg-slate-300'
-                    }`}
-                    style={{ height: `${height}px`, minHeight: count > 0 ? '4px' : '0' }}
-                  />
+        {/* User Stats */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-4 border-b font-semibold bg-slate-50">Team Performance</div>
+          <div className="p-4 space-y-3 overflow-y-auto max-h-[400px]">
+            {userDistribution.map(u => (
+              <div key={u.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <div className="font-medium text-sm">{u.name}</div>
+                  <div className="text-[10px] text-slate-500 uppercase">{u.plan_name}</div>
                 </div>
-                <span className="text-xs text-slate-400 mt-1">
-                  {hour % 3 === 0 ? hour : ''}
-                </span>
+                <div className="text-right">
+                  <div className="text-sm font-bold">{u.leads_today}/{u.daily_limit}</div>
+                  <div className="w-20 h-1.5 bg-slate-200 rounded-full mt-1">
+                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${Math.min(100, u.percentage)}%` }} />
+                  </div>
+                </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
-        
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs text-slate-500">
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-green-500 rounded" />
-            Working Hours (8 AM - 10 PM)
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-blue-600 rounded" />
-            Current Hour
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-slate-300 rounded" />
-            Off Hours
-          </span>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-4 border-b font-semibold bg-slate-50">Recent Activity</div>
+          <div className="p-4 space-y-3 overflow-y-auto max-h-[400px]">
+            {recentDistributions.map(dist => (
+              <div key={dist.id} className="flex items-center justify-between p-3 border-b border-slate-50">
+                <div className="text-sm">
+                  <div className="font-medium">{dist.lead_name}</div>
+                  <div className="text-xs text-slate-500">{dist.lead_city} → {dist.assigned_to}</div>
+                </div>
+                <div className="text-right text-[10px] text-slate-400">
+                  {new Date(dist.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-
     </div>
   );
 };
 
-// Metric Card Component
-const MetricCard = ({ 
-  icon, 
-  label, 
-  value, 
-  change, 
-  color 
-}: { 
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  change: string;
-  color: string;
-}) => {
-  const colors: Record<string, string> = {
-    blue: 'border-blue-200 bg-blue-50',
-    green: 'border-green-200 bg-green-50',
-    yellow: 'border-yellow-200 bg-yellow-50',
-    red: 'border-red-200 bg-red-50',
-    orange: 'border-orange-200 bg-orange-50',
-    purple: 'border-purple-200 bg-purple-50'
+const MetricCard = ({ icon, label, value, change, color }: any) => {
+  const styles: any = {
+    blue: 'border-blue-100 bg-blue-50 text-blue-600',
+    green: 'border-green-100 bg-green-50 text-green-600',
+    orange: 'border-orange-100 bg-orange-50 text-orange-600',
+    purple: 'border-purple-100 bg-purple-50 text-purple-600'
   };
-
-  const iconColors: Record<string, string> = {
-    blue: 'text-blue-600',
-    green: 'text-green-600',
-    yellow: 'text-yellow-600',
-    red: 'text-red-600',
-    orange: 'text-orange-600',
-    purple: 'text-purple-600'
-  };
-
   return (
-    <div className={`p-4 rounded-xl border ${colors[color]}`}>
-      <div className={`${iconColors[color]} mb-2`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 20 })}
-      </div>
-      <div className="text-2xl font-bold text-slate-800">{value}</div>
-      <div className="text-xs text-slate-600 font-medium">{label}</div>
-      <div className="text-xs text-slate-500 mt-1">{change}</div>
+    <div className={`p-4 rounded-xl border ${styles[color]}`}>
+      <div className="mb-1">{icon}</div>
+      <div className="text-xl font-bold text-slate-800">{value}</div>
+      <div className="text-[10px] text-slate-500 font-medium uppercase">{label}</div>
+      <div className="text-[10px] mt-1 opacity-80">{change}</div>
     </div>
   );
 };
