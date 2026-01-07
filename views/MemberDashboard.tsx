@@ -1,17 +1,14 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v3.4 (PREMIUM RESTORED)   ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v3.5 (FINAL FIXED)        ║
  * ║  Updated: January 8, 2026                                  ║
- * ║  Based on: v3.1 (Original Best UI)                         ║
+ * ║  Fixes:                                                    ║
+ * ║  - ✅ Fixed 'StatCard is not defined' error                ║
+ * ║  - ✅ Restored Original Gradient UI (Premium Look)         ║
+ * ║  - ✅ Pause Button moved back INSIDE the Status Card       ║
+ * ║  - ✅ Time Format: "Jan 8, 02:30 PM"                       ║
  * ║                                                            ║
- * ║  Features:                                                 ║
- * ║  - ✅ UI Rolled back to Gradient Cards (Premium Look)      ║
- * ║  - ✅ Pause/Resume back inside Status Card                 ║
- * ║  - ✅ Smart Time: "Jan 8, 2:30 PM" (Date + Time)           ║
- * ║  - ✅ Night Mode Logic + Blue Tip Integrated               ║
- * ║  - ✅ Target Audience Button Added                         ║
- * ║                                                            ║
- * ║  ⚠️  STATUS: FINAL & VERIFIED                              ║
+ * ║  ⚠️  INSTRUCTIONS: Copy ALL code below & Paste             ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -26,11 +23,11 @@ import {
   CheckCircle2, AlertTriangle, Flag, Gift, Users, User, Lightbulb
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
-import { TargetAudience } from '../components/TargetAudience'; // ✅ Ensure this file exists
+import { TargetAudience } from '../components/TargetAudience';
 import { useAuth } from '../auth/useAuth';
 
 // ============================================================
-// TYPES
+// 1. TYPES & INTERFACES
 // ============================================================
 
 interface UserProfile {
@@ -81,29 +78,29 @@ interface DeliveryStatusInfo {
 }
 
 // ============================================================
-// HELPER FUNCTIONS (Improved)
+// 2. HELPER FUNCTIONS
 // ============================================================
 
-// 🔥 SMART TIME FORMATTER (Date + Time)
 const formatSmartTime = (dateString: string): string => {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
     const now = new Date();
     
-    // Time part (e.g., "02:30 PM")
+    // Time part
     const timeStr = new Intl.DateTimeFormat('en-US', {
       hour: 'numeric', minute: 'numeric', hour12: true
     }).format(date);
 
-    // Date part
+    // Date part checks
     const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    const isYesterday = new Date(now.setDate(now.getDate() - 1)).getDate() === date.getDate();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth();
 
-    if (isToday) return timeStr; // "02:30 PM"
-    if (isYesterday) return `Yesterday, ${timeStr}`; // "Yesterday, 02:30 PM"
+    if (isToday) return timeStr;
+    if (isYesterday) return `Yesterday, ${timeStr}`;
     
-    // Older dates: "Jan 8, 02:30 PM"
     const dateStr = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
     return `${dateStr}, ${timeStr}`;
   } catch {
@@ -140,8 +137,60 @@ const getTimeUntilOpen = (): string => {
   return '';
 };
 
+const getWhatsAppLink = (phone: string, leadName: string, userName: string): string => {
+  const safeName = leadName || 'there';
+  const safeUserName = userName || 'LeadFlow';
+  const message = encodeURIComponent(
+    `Hi ${safeName}, I'm ${safeUserName} from LeadFlow. I saw your inquiry and wanted to connect. Are you available to discuss?`
+  );
+  const cleanPhone = phone.replace(/\D/g, '');
+  const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  return `https://wa.me/${prefixedPhone}?text=${message}`;
+};
+
 // ============================================================
-// MAIN COMPONENT
+// 3. SUB-COMPONENTS (DEFINED BEFORE USE)
+// ============================================================
+
+const StatCard = ({
+  label,
+  value,
+  color,
+  icon
+}: {
+  label: string;
+  value: number | string;
+  color: string;
+  icon: React.ReactNode
+}) => {
+  const colors: Record<string, string> = {
+    slate: 'border-l-slate-400 bg-slate-50/50',
+    blue: 'border-l-blue-500 bg-blue-50/50',
+    green: 'border-l-green-500 bg-green-50/50',
+    purple: 'border-l-purple-500 bg-purple-50/50',
+    orange: 'border-l-orange-500 bg-orange-50/50'
+  };
+  const iconColors: Record<string, string> = {
+    slate: 'text-slate-600',
+    blue: 'text-blue-600',
+    green: 'text-green-600',
+    purple: 'text-purple-600',
+    orange: 'text-orange-600'
+  };
+
+  return (
+    <div className={`flex-shrink-0 w-[100px] sm:w-auto bg-white p-3 rounded-xl shadow-sm border border-slate-100 border-l-4 ${colors[color]}`}>
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className={iconColors[color]}>{icon}</span>
+        <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase truncate">{label}</span>
+      </div>
+      <p className="text-lg sm:text-xl font-bold text-slate-900">{value}</p>
+    </div>
+  );
+};
+
+// ============================================================
+// 4. MAIN COMPONENT
 // ============================================================
 
 export const MemberDashboard = () => {
@@ -161,7 +210,7 @@ export const MemberDashboard = () => {
   const [showReportModal, setShowReportModal] = useState<Lead | null>(null);
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
-  const [showTargetAudience, setShowTargetAudience] = useState(false); // ✅ Target Audience
+  const [showTargetAudience, setShowTargetAudience] = useState(false);
 
   // Form States
   const [noteText, setNoteText] = useState('');
@@ -170,22 +219,9 @@ export const MemberDashboard = () => {
   const [reportingLead, setReportingLead] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // WhatsApp Link
-  const getWhatsAppLink = (phone: string, leadName: string, userName: string): string => {
-    const safeName = leadName || 'there';
-    const safeUserName = userName || 'LeadFlow';
-    const message = encodeURIComponent(
-      `Hi ${safeName}, I'm ${safeUserName} from LeadFlow. I saw your inquiry and wanted to connect. Are you available to discuss?`
-    );
-    const cleanPhone = phone.replace(/\D/g, '');
-    const prefixedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    return `https://wa.me/${prefixedPhone}?text=${message}`;
-  };
-
-  // ============================================================
+  // ==========================
   // COMPUTED VALUES
-  // ============================================================
-
+  // ==========================
   const getDaysUntilExpiry = () => {
     if (!profile?.valid_until) return null;
     const expiry = new Date(profile.valid_until);
@@ -273,7 +309,7 @@ export const MemberDashboard = () => {
   }, [leads, statusFilter, dateFilter]);
 
   // ============================================================
-  // DATA FETCHING
+  // DATA FETCHING & EFFECTS
   // ============================================================
 
   const fetchData = async () => {
@@ -311,7 +347,7 @@ export const MemberDashboard = () => {
   }, [profile?.id, isPaused]);
 
   // ============================================================
-  // HANDLERS
+  // ACTION HANDLERS
   // ============================================================
 
   const toggleDeliveryPause = async () => {
@@ -346,12 +382,14 @@ export const MemberDashboard = () => {
     setReportingLead(false); setShowReportModal(null); alert('✅ Reported!');
   };
 
-  // Status Card Component (Restored from v3.1)
   const StatusIcon = deliveryStatus.icon;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!profile) return <div className="p-8 text-center"><AlertTriangle size={48} className="mx-auto text-amber-500 mb-4" /><h2>Profile Not Found</h2><button onClick={() => supabase.auth.signOut()} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg">Retry</button></div>;
 
+  // ============================================================
+  // RENDER UI
+  // ============================================================
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
       {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
@@ -369,7 +407,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Top Banner (Only for Off Hours & Expiry) */}
+      {/* Top Banner: Off Hours Only */}
       <div className="relative z-30">
         {!isWithinWorkingHours() && !isExpired && !isPaused && !bannerDismissed && (
           <div className="bg-amber-500 text-amber-950 py-2.5 px-4"><div className="max-w-7xl mx-auto flex items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm font-medium"><Moon size={16} /><span>⏰ Off Hours ({getTimeUntilOpen()})</span></div><button onClick={() => setBannerDismissed(true)} className="p-1"><X size={16} /></button></div></div>
@@ -380,7 +418,10 @@ export const MemberDashboard = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2"><h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">👋 {profile.name?.split(' ')[0]}</h1><span className={`hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${priorityBadge.color}`}>{priorityBadge.text}</span></div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">👋 {profile.name?.split(' ')[0]}</h1>
+              <span className={`hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${priorityBadge.color}`}>{priorityBadge.text}</span>
+            </div>
             <div className="text-xs text-slate-500 truncate"><span className="text-green-600 font-medium capitalize">{profile.plan_name}</span> • {managerName}</div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -395,7 +436,7 @@ export const MemberDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
 
-        {/* ✅ RESTORED: Gradient Delivery Status Card */}
+        {/* ✅ RESTORED: Gradient Delivery Status Card with Pause Button Inside */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
