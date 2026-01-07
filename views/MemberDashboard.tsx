@@ -1,14 +1,14 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v3.5 (FINAL FIXED)        ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v3.6 (CLEANED)            ║
  * ║  Updated: January 8, 2026                                  ║
  * ║  Fixes:                                                    ║
- * ║  - ✅ Fixed 'StatCard is not defined' error                ║
- * ║  - ✅ Restored Original Gradient UI (Premium Look)         ║
- * ║  - ✅ Pause Button moved back INSIDE the Status Card       ║
- * ║  - ✅ Time Format: "Jan 8, 02:30 PM"                       ║
+ * ║  - ❌ Removed redundant Target Audience button/logic       ║
+ * ║  - ✅ Premium Gradient UI is Active                        ║
+ * ║  - ✅ Pause Button is inside the Card                      ║
+ * ║  - ✅ Date & Time Fixed (e.g., "Jan 8, 02:30 PM")          ║
  * ║                                                            ║
- * ║  ⚠️  INSTRUCTIONS: Copy ALL code below & Paste             ║
+ * ║  ⚠️  STATUS: FINAL & VERIFIED                              ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -20,10 +20,9 @@ import {
   StickyNote, Check, LogOut, Zap, Crown, Lock,
   Flame, ArrowUp, Bell, Shield,
   AlertCircle, Award, ChevronDown, Moon, Pause, Play,
-  CheckCircle2, AlertTriangle, Flag, Gift, Users, User, Lightbulb
+  CheckCircle2, AlertTriangle, Flag, Gift, User, Lightbulb
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
-import { TargetAudience } from '../components/TargetAudience';
 import { useAuth } from '../auth/useAuth';
 
 // ============================================================
@@ -149,7 +148,7 @@ const getWhatsAppLink = (phone: string, leadName: string, userName: string): str
 };
 
 // ============================================================
-// 3. SUB-COMPONENTS (DEFINED BEFORE USE)
+// 3. SUB-COMPONENTS
 // ============================================================
 
 const StatCard = ({
@@ -210,7 +209,6 @@ export const MemberDashboard = () => {
   const [showReportModal, setShowReportModal] = useState<Lead | null>(null);
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
-  const [showTargetAudience, setShowTargetAudience] = useState(false);
 
   // Form States
   const [noteText, setNoteText] = useState('');
@@ -244,7 +242,6 @@ export const MemberDashboard = () => {
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
   const totalReceived = profile?.total_leads_received || 0;
-  const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
   const priorityBadge = useMemo(() => {
@@ -393,7 +390,6 @@ export const MemberDashboard = () => {
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
       {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
-      {showTargetAudience && <TargetAudience onClose={() => setShowTargetAudience(false)} />}
       
       {isExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -425,7 +421,6 @@ export const MemberDashboard = () => {
             <div className="text-xs text-slate-500 truncate"><span className="text-green-600 font-medium capitalize">{profile.plan_name}</span> • {managerName}</div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <button onClick={() => setShowTargetAudience(true)} className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-3 sm:py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"><Users size={18} /><span className="hidden sm:inline ml-1.5 text-sm font-medium">Audience</span></button>
             {profile.sheet_url && <a href={profile.sheet_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><FileSpreadsheet size={18} /><span className="hidden sm:inline ml-1.5 text-sm font-medium">Sheet</span></a>}
             <button onClick={fetchData} disabled={refreshing} className="w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center"><RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} /></button>
             <button onClick={() => supabase.auth.signOut()} className="w-9 h-9 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg flex items-center justify-center"><LogOut size={18} /></button>
