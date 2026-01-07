@@ -1,35 +1,61 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - MemberDashboard.tsx v4.0 (ULTIMATE STABLE)    ║
- * ║  Based on: v3.1 (The Gold Standard)                        ║
+ * ║  🔒 LOCKED - MemberDashboard.tsx v4.0 (ULTIMATE EDITION)   ║
+ * ║  Type: FULL VERBOSE & EXPANDED                             ║
  * ║  Status: PRODUCTION READY                                  ║
  * ║                                                            ║
  * ║  Features Included:                                        ║
- * ║  - ✅ Premium Gradient UI (Restored)                       ║
- * ║  - ✅ Pause/Resume inside Status Card (Restored)           ║
- * ║  - ✅ Night Lead Logic + Blue Mood Tip (Added)             ║
- * ║  - ✅ Exact Date/Time Formatting (Added)                   ║
- * ║  - ✅ Mobile Optimization (PWA Ready)                      ║
- * ║  - ❌ No Experimental Shortening                           ║
+ * ║  1. Premium Gradient UI (Restored & Polished)              ║
+ * ║  2. Pause/Resume Button INSIDE Status Card                 ║
+ * ║  3. Night Lead Logic + Blue Mood Tip (Integrated)          ║
+ * ║  4. Exact Date/Time Formatting (e.g. Jan 8, 2:30 PM)       ║
+ * ║  5. Mobile Optimization (PWA Ready)                        ║
+ * ║  6. Robust Error Handling (No ReferenceErrors)             ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import {
-  Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
-  X, Calendar, Target, Clock,
-  StickyNote, Check, LogOut, Zap, Crown, Lock,
-  Flame, ArrowUp, Bell, Shield,
-  AlertCircle, Award, ChevronDown, Moon, Pause, Play,
-  CheckCircle2, AlertTriangle, Flag, Gift, User, Lightbulb
+  Phone,
+  MapPin,
+  RefreshCw,
+  FileSpreadsheet,
+  MessageSquare,
+  X,
+  Calendar,
+  Target,
+  Clock,
+  StickyNote,
+  Check,
+  LogOut,
+  Zap,
+  Crown,
+  Lock,
+  Flame,
+  ArrowUp,
+  Bell,
+  Shield,
+  AlertCircle,
+  Award,
+  ChevronDown,
+  Moon,
+  Pause,
+  Play,
+  CheckCircle2,
+  AlertTriangle,
+  Flag,
+  Gift,
+  User,
+  Lightbulb,
+  Info
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
 import { useAuth } from '../auth/useAuth';
 
-// ============================================================
-// 1. TYPES & INTERFACES (Full Definitions)
-// ============================================================
+// ============================================================================
+// 1. TYPES & INTERFACES
+// ============================================================================
 
 interface UserProfile {
   id: string;
@@ -59,7 +85,7 @@ interface Lead {
   phone: string;
   city: string;
   status: string;
-  source: string; // 'Night_Backlog', 'Fresh', etc.
+  source: string; // 'Night_Backlog', 'Fresh', 'Night_Queue' etc.
   quality_score: number;
   distribution_score: number;
   notes: string;
@@ -78,11 +104,16 @@ interface DeliveryStatusInfo {
   statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired';
 }
 
-// ============================================================
-// 2. HELPER FUNCTIONS (Robust & Safe)
-// ============================================================
+// ============================================================================
+// 2. HELPER FUNCTIONS
+// ============================================================================
 
-// 🔥 SMART TIME: Returns "Jan 8, 02:30 PM" or "Yesterday, 10:00 AM"
+/**
+ * Formats the lead timestamp into a readable format.
+ * - Today: "02:30 PM"
+ * - Yesterday: "Yesterday, 02:30 PM"
+ * - Older: "Jan 8, 02:30 PM"
+ */
 const formatSmartTime = (dateString: string): string => {
   if (!dateString) return '';
   try {
@@ -91,25 +122,26 @@ const formatSmartTime = (dateString: string): string => {
     
     // Time part (e.g., "02:30 PM")
     const timeStr = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric', minute: 'numeric', hour12: true
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
     }).format(date);
 
-    // Check if Today
+    // Date logic
     const isToday = date.getDate() === now.getDate() && 
                     date.getMonth() === now.getMonth() && 
                     date.getFullYear() === now.getFullYear();
     
-    // Check if Yesterday
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = date.getDate() === yesterday.getDate() && 
                         date.getMonth() === yesterday.getMonth() && 
                         date.getFullYear() === yesterday.getFullYear();
 
-    if (isToday) return timeStr; // Just time for today
+    if (isToday) return timeStr;
     if (isYesterday) return `Yesterday, ${timeStr}`;
     
-    // Older dates: "Jan 8, 02:30 PM"
+    // Older dates
     const dateStr = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
     return `${dateStr}, ${timeStr}`;
   } catch {
@@ -117,6 +149,9 @@ const formatSmartTime = (dateString: string): string => {
   }
 };
 
+/**
+ * Returns the color class for a lead status badge.
+ */
 const getStatusColor = (status: string): string => {
   switch (status) {
     case 'Fresh': return 'bg-blue-50 border-blue-200 text-blue-700';
@@ -131,12 +166,18 @@ const getStatusColor = (status: string): string => {
   }
 };
 
+/**
+ * Checks if current time is within working hours (8 AM - 10 PM).
+ */
 const isWithinWorkingHours = (): boolean => {
   const hour = new Date().getHours();
-  // Fixed: 8 AM to 10 PM
+  // 8:00 AM to 9:59 PM (Shop closes at 10 PM)
   return hour >= 8 && hour < 22;
 };
 
+/**
+ * Returns a string saying how long until the shop opens.
+ */
 const getTimeUntilOpen = (): string => {
   const hour = new Date().getHours();
   if (hour >= 22) {
@@ -147,6 +188,9 @@ const getTimeUntilOpen = (): string => {
   return '';
 };
 
+/**
+ * Generates a WhatsApp API link.
+ */
 const getWhatsAppLink = (phone: string, leadName: string, userName: string): string => {
   const safeName = leadName || 'there';
   const safeUserName = userName || 'LeadFlow';
@@ -158,10 +202,14 @@ const getWhatsAppLink = (phone: string, leadName: string, userName: string): str
   return `https://wa.me/${prefixedPhone}?text=${message}`;
 };
 
-// ============================================================
-// 3. UI COMPONENTS (Defined OUTSIDE to prevent errors)
-// ============================================================
+// ============================================================================
+// 3. SUB-COMPONENTS (DEFINED SEPARATELY TO AVOID ERRORS)
+// ============================================================================
 
+/**
+ * Component: StatCard
+ * Displays a single statistic with an icon and color coding.
+ */
 const StatCard = ({
   label,
   value,
@@ -199,14 +247,16 @@ const StatCard = ({
   );
 };
 
-// ============================================================
+// ============================================================================
 // 4. MAIN DASHBOARD COMPONENT
-// ============================================================
+// ============================================================================
 
 export const MemberDashboard = () => {
   const { refreshProfile } = useAuth();
   
-  // --- STATE MANAGEMENT ---
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,8 +280,11 @@ export const MemberDashboard = () => {
   const [reportingLead, setReportingLead] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // --- COMPUTED LOGIC ---
+  // --------------------------------------------------------------------------
+  // COMPUTED LOGIC & METRICS
+  // --------------------------------------------------------------------------
 
+  // Expiry Calculation
   const getDaysUntilExpiry = () => {
     if (!profile?.valid_until) return null;
     const expiry = new Date(profile.valid_until);
@@ -244,6 +297,7 @@ export const MemberDashboard = () => {
   const isExpired = daysLeft !== null && daysLeft <= 0;
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
+  // Limits & Progress
   const leadsToday = profile?.leads_today || 0;
   const dailyLimit = profile?.daily_limit || 0;
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
@@ -251,12 +305,14 @@ export const MemberDashboard = () => {
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
+  // Plan Extension Logic
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
   const totalReceived = profile?.total_leads_received || 0;
   const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
+  // Priority Badge Logic
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
     if (w >= 50) return { text: 'MANAGER', color: 'bg-red-600 text-white', icon: Crown as LucideIcon };
@@ -265,25 +321,69 @@ export const MemberDashboard = () => {
     return { text: 'STARTER', color: 'bg-slate-600 text-white', icon: User as LucideIcon };
   }, [profile?.plan_weight]);
 
+  // Delivery Status Card Logic
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
-      return { title: 'Loading...', subtitle: 'Fetching status', icon: Clock, iconBgColor: 'bg-white/20', iconColor: 'text-white', statusType: 'inactive' };
+      return { 
+        title: 'Loading...', 
+        subtitle: 'Fetching status', 
+        icon: Clock, 
+        iconBgColor: 'bg-white/20', 
+        iconColor: 'text-white', 
+        statusType: 'inactive' 
+      };
     }
     if (profile.payment_status !== 'active' || isExpired) {
-      return { title: 'Plan Inactive', subtitle: 'Renew to receive leads', icon: AlertTriangle, iconBgColor: 'bg-red-500/30', iconColor: 'text-red-200', statusType: 'expired' };
+      return { 
+        title: 'Plan Inactive', 
+        subtitle: 'Renew to receive leads', 
+        icon: AlertTriangle, 
+        iconBgColor: 'bg-red-500/30', 
+        iconColor: 'text-red-200', 
+        statusType: 'expired' 
+      };
     }
     if (isPaused) {
-      return { title: 'Delivery Paused', subtitle: 'Resume to receive leads', icon: Pause, iconBgColor: 'bg-orange-500/30', iconColor: 'text-orange-200', statusType: 'paused' };
+      return { 
+        title: 'Delivery Paused', 
+        subtitle: 'Resume to receive leads', 
+        icon: Pause, 
+        iconBgColor: 'bg-orange-500/30', 
+        iconColor: 'text-orange-200', 
+        statusType: 'paused' 
+      };
     }
     if (!isWithinWorkingHours()) {
-      return { title: 'Off Hours', subtitle: 'Delivery: 8 AM - 10 PM', icon: Moon, iconBgColor: 'bg-white/20', iconColor: 'text-indigo-200', statusType: 'off_hours' };
+      return { 
+        title: 'Off Hours', 
+        subtitle: 'Delivery: 8 AM - 10 PM', 
+        icon: Moon, 
+        iconBgColor: 'bg-white/20', 
+        iconColor: 'text-indigo-200', 
+        statusType: 'off_hours' 
+      };
     }
     if (isLimitReached) {
-      return { title: 'Daily Limit Reached', subtitle: `Received ${dailyLimit} leads today`, icon: CheckCircle2, iconBgColor: 'bg-green-500/30', iconColor: 'text-green-200', statusType: 'limit_reached' };
+      return { 
+        title: 'Daily Limit Reached', 
+        subtitle: `Received ${dailyLimit} leads today`, 
+        icon: CheckCircle2, 
+        iconBgColor: 'bg-green-500/30', 
+        iconColor: 'text-green-200', 
+        statusType: 'limit_reached' 
+      };
     }
-    return { title: 'Actively Receiving', subtitle: `${remainingToday} more leads today`, icon: Zap, iconBgColor: 'bg-green-500/30', iconColor: 'text-green-300', statusType: 'active' };
+    return { 
+      title: 'Actively Receiving', 
+      subtitle: `${remainingToday} more leads today`, 
+      icon: Zap, 
+      iconBgColor: 'bg-green-500/30', 
+      iconColor: 'text-green-300', 
+      statusType: 'active' 
+    };
   }, [profile, isExpired, isPaused, isLimitReached, remainingToday, dailyLimit]);
 
+  // Statistics Calculation
   const stats = useMemo(() => ({
     total: leads.length,
     fresh: leads.filter(l => l.status === 'Fresh').length,
@@ -303,10 +403,13 @@ export const MemberDashboard = () => {
     return leads.filter(l => new Date(l.created_at) > weekAgo).length;
   }, [leads]);
 
+  // Lead Filtering Logic
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
+      // 1. Status Filter
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
       
+      // 2. Date Filter
       if (dateFilter !== 'all') {
         const leadDate = new Date(lead.created_at);
         const now = new Date();
@@ -320,7 +423,9 @@ export const MemberDashboard = () => {
     });
   }, [leads, statusFilter, dateFilter]);
 
-  // --- DATA FETCHING ---
+  // --------------------------------------------------------------------------
+  // DATA FETCHING
+  // --------------------------------------------------------------------------
 
   const fetchData = async () => {
     try {
@@ -332,6 +437,7 @@ export const MemberDashboard = () => {
         return;
       }
 
+      // Fetch User Profile
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -347,12 +453,16 @@ export const MemberDashboard = () => {
 
       setProfile(userData);
 
-      // Update last activity
+      // Update last activity timestamp
       await supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id);
 
-      // Fetch manager
+      // Fetch Manager Name
       if (userData?.manager_id) {
-        const { data: managerData } = await supabase.from('users').select('name').eq('id', userData.manager_id).maybeSingle();
+        const { data: managerData } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', userData.manager_id)
+          .maybeSingle();
         setManagerName(managerData?.name || 'Unknown');
       } else {
         setManagerName('Direct (No Manager)');
@@ -374,6 +484,7 @@ export const MemberDashboard = () => {
     }
   };
 
+  // Trigger: Payment Success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true') {
@@ -391,7 +502,7 @@ export const MemberDashboard = () => {
     }
   }, [refreshProfile]);
 
-  // --- REALTIME ---
+  // Trigger: Realtime Updates
   useEffect(() => {
     if (!profile?.id || isPaused) return;
 
@@ -415,7 +526,9 @@ export const MemberDashboard = () => {
     };
   }, [profile?.id, isPaused]);
 
-  // --- ACTIONS ---
+  // --------------------------------------------------------------------------
+  // USER ACTIONS
+  // --------------------------------------------------------------------------
 
   const toggleDeliveryPause = async () => {
     if (!profile) return;
@@ -428,7 +541,7 @@ export const MemberDashboard = () => {
         updated_at: new Date().toISOString()
       }).eq('id', profile.id);
       
-      await fetchData(); // Refresh to sync UI
+      await fetchData(); // Sync UI
     } catch (err: any) {
       alert(`Error: ${err.message}`);
     }
@@ -478,7 +591,7 @@ export const MemberDashboard = () => {
       setLeads(prev => prev.map(l => l.id === showReportModal.id ? { ...l, status: 'Invalid' } : l));
       setShowReportModal(null);
       setReportReason('');
-      alert('✅ Lead reported!');
+      alert('✅ Lead reported successfully!');
     } catch (err: any) {
       alert('Error: ' + err.message);
     } finally {
@@ -486,10 +599,14 @@ export const MemberDashboard = () => {
     }
   };
 
+  // Status Icon Selector
   const StatusIcon = deliveryStatus.icon;
 
-  // --- RENDER ---
+  // --------------------------------------------------------------------------
+  // RENDER UI
+  // --------------------------------------------------------------------------
 
+  // 1. Loading State
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -501,6 +618,7 @@ export const MemberDashboard = () => {
     );
   }
 
+  // 2. Profile Not Found State
   if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -513,13 +631,14 @@ export const MemberDashboard = () => {
     );
   }
 
+  // 3. Main Dashboard UI
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
 
-      {/* Subscription Modal */}
+      {/* MODALS */}
       {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
 
-      {/* Expired Overlay */}
+      {/* EXPIRED OVERLAY */}
       {isExpired && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
@@ -537,7 +656,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Top Banner (Only for Off Hours) */}
+      {/* TOP BANNER (Off Hours Only) */}
       <div className="relative z-30">
         {!isWithinWorkingHours() && !isExpired && !isPaused && !bannerDismissed && (
           <div className="bg-amber-500 text-amber-950 py-2.5 px-4">
@@ -552,7 +671,7 @@ export const MemberDashboard = () => {
         )}
       </div>
 
-      {/* Header */}
+      {/* HEADER SECTION */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
@@ -573,7 +692,12 @@ export const MemberDashboard = () => {
 
           <div className="flex items-center gap-1.5 sm:gap-2">
             {profile.sheet_url && (
-              <a href={profile.sheet_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              <a
+                href={profile.sheet_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
                 <FileSpreadsheet size={18} />
                 <span className="hidden sm:inline ml-1.5 text-sm font-medium">Sheet</span>
               </a>
@@ -588,18 +712,19 @@ export const MemberDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* MAIN CONTENT AREA */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
 
-        {/* ✅ RESTORED: Gradient Delivery Status Card */}
+        {/* STATUS CARD (Premium Gradient UI) */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-xl">
-          {/* Decorative Circles */}
+          {/* Decorative Elements */}
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
 
           <div className="relative z-10">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              {/* Status Icon & Text */}
+              
+              {/* Left Side: Icon & Status Text */}
               <div className="flex items-center gap-3 sm:gap-4 flex-1">
                 <div className={`p-3 sm:p-4 rounded-xl ${deliveryStatus.iconBgColor} backdrop-blur-sm`}>
                   <StatusIcon size={24} className={deliveryStatus.iconColor} />
@@ -611,21 +736,23 @@ export const MemberDashboard = () => {
                 </div>
               </div>
 
-              {/* Action Buttons (Pause/Resume moved here!) */}
+              {/* Right Side: Action Buttons & Counters */}
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <div className="flex-1 sm:flex-none bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 sm:py-3 text-center border border-white/10">
                   <div className="text-xl sm:text-2xl font-black">{remainingToday}</div>
                   <div className="text-[10px] sm:text-xs text-indigo-200">Left</div>
                 </div>
 
+                {/* Pause/Resume Button (Moved Inside Card as requested) */}
                 {profile.payment_status === 'active' && !isExpired && (
                   <button
                     onClick={toggleDeliveryPause}
                     disabled={refreshing}
-                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border ${isPaused
-                      ? 'bg-green-500/30 border-green-400/30 text-green-100'
-                      : 'bg-white/15 border-white/10 text-white'
-                      }`}
+                    className={`flex-1 sm:flex-none backdrop-blur-sm px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border ${
+                      isPaused
+                        ? 'bg-green-500/30 border-green-400/30 text-green-100'
+                        : 'bg-white/15 border-white/10 text-white'
+                    }`}
                   >
                     {refreshing ? (
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -643,7 +770,7 @@ export const MemberDashboard = () => {
               </div>
             </div>
 
-            {/* Daily Progress Bar */}
+            {/* Progress Bars */}
             <div className="mt-4 pt-4 border-t border-white/20">
               <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
                 <span className="text-indigo-200">Today's Progress</span>
@@ -657,7 +784,7 @@ export const MemberDashboard = () => {
               </div>
             </div>
 
-            {/* Plan Extension Info */}
+            {/* Plan Extension Notification */}
             {daysExtended > 0 && (
               <div className="mt-3 flex items-center gap-2 text-green-200 text-xs bg-green-500/20 px-3 py-2 rounded-lg">
                 <Gift size={14} />
@@ -667,7 +794,7 @@ export const MemberDashboard = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* STATISTICS CARDS ROW */}
         <div className="flex gap-3 overflow-x-auto pb-2 mb-4 sm:mb-6 -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5 sm:overflow-visible scrollbar-hide">
           <StatCard label="Total" value={totalReceived} color="slate" icon={<Target size={14} />} />
           <StatCard label="This Week" value={weeklyLeads} color="blue" icon={<Calendar size={14} />} />
@@ -676,10 +803,14 @@ export const MemberDashboard = () => {
           <StatCard label="Conv." value={`${conversionRate}%`} color="orange" icon={<Flame size={14} />} />
         </div>
 
-        {/* Filters */}
+        {/* FILTERS ROW */}
         <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm flex gap-2 sm:gap-3">
           <div className="relative flex-1">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer"
+            >
               <option value="all">All Status</option>
               <option value="Fresh">🔵 Fresh</option>
               <option value="Call Back">🔄 Callback</option>
@@ -690,7 +821,11 @@ export const MemberDashboard = () => {
           </div>
 
           <div className="relative flex-1">
-            <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer">
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white appearance-none cursor-pointer"
+            >
               <option value="all">All Time</option>
               <option value="today">Today</option>
               <option value="week">Last 7 Days</option>
@@ -699,7 +834,7 @@ export const MemberDashboard = () => {
           </div>
         </div>
 
-        {/* Leads List */}
+        {/* LEADS LIST SECTION */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">My Leads</h2>
@@ -714,16 +849,18 @@ export const MemberDashboard = () => {
                 <Target size={32} className="text-slate-400" />
               </div>
               <p className="font-semibold text-slate-800 text-sm sm:text-base">No leads found</p>
+              <p className="text-xs text-slate-500 mt-1">Leads will appear here soon!</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => {
-                // 🔥 NIGHT LOGIC
+                // 🔥 NIGHT LOGIC CHECK
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
-                    {/* Lead Header */}
+                    
+                    {/* Header: Name, City, Time */}
                     <div className="flex justify-between items-start mb-2 sm:mb-3">
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
@@ -733,15 +870,17 @@ export const MemberDashboard = () => {
                         </div>
                       </div>
 
-                      {/* 🔥 SMART DATE + TIME DISPLAY */}
-                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                      {/* Time Badge (Date + Time) */}
+                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${
+                        isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
                         <span>{formatSmartTime(lead.created_at)}</span>
                       </div>
                     </div>
 
-                    {/* 🔥 BLUE MOOD PROTECTION TIP */}
+                    {/* 🔥 NIGHT LEAD TIP (Blue Box) */}
                     {isNightLead && (
                       <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex gap-2.5 items-start">
                         <Lightbulb size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
@@ -756,7 +895,7 @@ export const MemberDashboard = () => {
                       </div>
                     )}
 
-                    {/* Notes Display */}
+                    {/* Notes Section */}
                     {lead.notes && (
                       <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
                         <StickyNote size={12} className="mt-0.5 text-amber-500" />
@@ -764,32 +903,50 @@ export const MemberDashboard = () => {
                       </div>
                     )}
 
-                    {/* Action Buttons */}
+                    {/* Action Buttons Grid */}
                     <div className="grid grid-cols-4 gap-2 mb-3">
-                      <a href={`tel:${lead.phone}`} className="flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs hover:bg-blue-100">
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className="flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-600 py-2.5 rounded-xl font-medium text-xs hover:bg-blue-100"
+                      >
                         <Phone size={16} />
                         <span className="hidden sm:inline">Call</span>
                       </a>
 
-                      <a href={getWhatsAppLink(lead.phone, lead.name, profile.name || '')} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center gap-1 bg-green-500 text-white py-2.5 rounded-xl font-medium text-xs hover:bg-green-600">
+                      <a
+                        href={getWhatsAppLink(lead.phone, lead.name, profile.name || '')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center justify-center gap-1 bg-green-500 text-white py-2.5 rounded-xl font-medium text-xs hover:bg-green-600"
+                      >
                         <MessageSquare size={16} />
                         <span className="hidden sm:inline">WhatsApp</span>
                       </a>
 
-                      <button onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }} className="flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-medium text-xs hover:bg-slate-200">
+                      <button
+                        onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
+                        className="flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-medium text-xs hover:bg-slate-200"
+                      >
                         <StickyNote size={16} />
                         <span className="hidden sm:inline">Note</span>
                       </button>
 
-                      <button onClick={() => { setShowReportModal(lead); setReportReason(''); }} className="flex flex-col items-center justify-center gap-1 bg-red-50 text-red-600 py-2.5 rounded-xl font-medium text-xs hover:bg-red-100">
+                      <button
+                        onClick={() => { setShowReportModal(lead); setReportReason(''); }}
+                        className="flex flex-col items-center justify-center gap-1 bg-red-50 text-red-600 py-2.5 rounded-xl font-medium text-xs hover:bg-red-100"
+                      >
                         <Flag size={16} />
                         <span className="hidden sm:inline">Report</span>
                       </button>
                     </div>
 
-                    {/* Status Dropdown */}
+                    {/* Status Update Dropdown */}
                     <div className="relative">
-                      <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                      <select
+                        value={lead.status}
+                        onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                        className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                      >
                         <option value="Fresh">🔵 Fresh</option>
                         <option value="Contacted">📞 Contacted</option>
                         <option value="Call Back">🔄 Call Back</option>
@@ -808,7 +965,7 @@ export const MemberDashboard = () => {
         </div>
       </main>
 
-      {/* Mobile Bottom CTA */}
+      {/* MOBILE BOTTOM CTA (Upgrade) */}
       {!isExpired && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 p-3 sm:hidden z-30 shadow-xl">
           <button onClick={() => setShowSubscription(true)} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg">
@@ -817,7 +974,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Delivery Info Modal */}
+      {/* DELIVERY INFO MODAL */}
       {showDeliveryInfo && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[85vh] overflow-hidden">
@@ -840,7 +997,10 @@ export const MemberDashboard = () => {
                 <p className="font-bold text-orange-900 text-sm">⏸️ Paused Delivery</p>
                 <p className="text-xs text-orange-800 mt-1">If paused, click <b>Resume</b> to start.</p>
               </div>
-              <button onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }} className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm">
+              <button
+                onClick={() => { setShowDeliveryInfo(false); setShowSubscription(true); }}
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm"
+              >
                 ⚡ Upgrade for Faster Delivery
               </button>
             </div>
@@ -848,7 +1008,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Notes Modal */}
+      {/* NOTES MODAL */}
       {showNotesModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
@@ -886,7 +1046,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Report Modal */}
+      {/* REPORT MODAL */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
@@ -942,7 +1102,7 @@ export const MemberDashboard = () => {
         </div>
       )}
 
-      {/* Custom Styles */}
+      {/* CUSTOM STYLES */}
       <style>{`
         @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
         .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
