@@ -330,9 +330,9 @@ function fetchAndSortUsersManually() {
     return [];
   }
   
-  // Get user details
+  // Get user details (including is_active for pause/resume feature)
   var userIds = subscriptions.map(function(s) { return s.user_id; });
-  var usersQuery = 'select=id,name,email,phone&id=in.(' + userIds.join(',') + ')';
+  var usersQuery = 'select=id,name,email,phone,is_active&id=in.(' + userIds.join(',') + ')&is_active=neq.false';
   var users = supabaseSelect(SYSTEM.TABLES.USERS, usersQuery);
   
   // Create user map
