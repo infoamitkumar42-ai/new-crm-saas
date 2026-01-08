@@ -36,12 +36,31 @@ export const LeadAlert: React.FC = () => {
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
   const playedLeadsRef = useRef<Set<string>>(new Set()); // Track leads that already played sound
 
-  // Audio Init
+  // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
     audioRef.current = new Audio(SOUND_URL);
-    const unlock = () => { audioRef.current?.play().catch(() => { }); };
-    document.addEventListener('click', unlock, { once: true });
-    document.addEventListener('touchstart', unlock, { once: true });
+    audioRef.current.volume = 0.7;
+
+    // 🔥 FIX: Just unlock audio context without playing
+    const unlockAudio = () => {
+      if (audioRef.current) {
+        // Create silent play to unlock audio context (required by browsers)
+        audioRef.current.muted = true;
+        audioRef.current.play().then(() => {
+          audioRef.current!.pause();
+          audioRef.current!.currentTime = 0;
+          audioRef.current!.muted = false;
+        }).catch(() => { });
+      }
+    };
+
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
   }, []);
 
   // ✅ SUBSCRIBE TO PUSH
