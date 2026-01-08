@@ -86,7 +86,7 @@ const formatSmartTime = (dateString: string): string => {
   try {
     const date = new Date(dateString);
     const now = new Date();
-    
+
     // Time part (e.g., "02:30 PM")
     const timeStr = new Intl.DateTimeFormat('en-US', {
       hour: 'numeric', minute: 'numeric', hour12: true
@@ -98,7 +98,7 @@ const formatSmartTime = (dateString: string): string => {
 
     if (isToday) return timeStr; // "02:30 PM"
     if (isYesterday) return `Yesterday, ${timeStr}`; // "Yesterday, 02:30 PM"
-    
+
     // Older dates: "Jan 8, 02:30 PM"
     const dateStr = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
     return `${dateStr}, ${timeStr}`;
@@ -237,8 +237,15 @@ export const MemberDashboard = () => {
   const isExpired = daysLeft !== null && daysLeft <= 0;
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
-  const leadsToday = profile?.leads_today || 0;
-  const dailyLimit = profile?.daily_limit || 0;
+  // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
+  const todayLeadsCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return leads.filter(l => new Date(l.created_at) >= today).length;
+  }, [leads]);
+
+  const leadsToday = todayLeadsCount; // Use actual count from leads array
+  const dailyLimit = profile?.daily_limit || 5;
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
@@ -246,7 +253,9 @@ export const MemberDashboard = () => {
 
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 50;
-  const totalReceived = profile?.total_leads_received || 0;
+
+  // 🔥 FIX: Use actual leads count, not profile.total_leads_received
+  const totalReceived = leads.length;
   const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
@@ -765,19 +774,18 @@ export const MemberDashboard = () => {
                   <button
                     onClick={toggleDeliveryPause}
                     disabled={refreshing}
-                    className={`flex-1 w-full rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${
-                      isPaused
+                    className={`flex-1 w-full rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${isPaused
                         ? 'bg-white text-indigo-600'
                         : 'bg-white/20 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white'
-                    }`}
+                      }`}
                   >
                     {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
                     <span>{isPaused ? 'RESUME' : 'PAUSE'}</span>
                   </button>
                 )}
-                
+
                 {/* Info Button */}
-                <button 
+                <button
                   onClick={() => setShowDeliveryInfo(true)}
                   className="h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 transition-colors"
                 >
@@ -796,23 +804,23 @@ export const MemberDashboard = () => {
                   <span>{leadsToday} / {dailyLimit}</span>
                 </div>
                 <div className="w-full bg-black/20 rounded-full h-2.5 overflow-hidden backdrop-blur-sm">
-                  <div 
-                    className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all duration-500" 
-                    style={{ width: `${dailyProgress}%` }} 
+                  <div
+                    className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all duration-500"
+                    style={{ width: `${dailyProgress}%` }}
                   />
                 </div>
               </div>
-              
+
               {/* Total Progress */}
               <div>
-                 <div className="flex justify-between text-xs font-medium mb-1.5 opacity-90">
+                <div className="flex justify-between text-xs font-medium mb-1.5 opacity-90">
                   <span>Total Plan</span>
                   <span>{totalReceived} / {totalPromised}</span>
                 </div>
                 <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden backdrop-blur-sm">
-                  <div 
-                    className="h-full bg-white/80 rounded-full transition-all duration-500" 
-                    style={{ width: `${totalProgress}%` }} 
+                  <div
+                    className="h-full bg-white/80 rounded-full transition-all duration-500"
+                    style={{ width: `${totalProgress}%` }}
                   />
                 </div>
               </div>
@@ -915,9 +923,8 @@ export const MemberDashboard = () => {
                       </div>
 
                       {/* 🔥 SMART TIME DISPLAY */}
-                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${
-                        isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}>
+                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
                         <span>{formatSmartTime(lead.created_at)}</span>
