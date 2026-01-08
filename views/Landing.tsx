@@ -266,15 +266,12 @@ export const Landing = () => {
 
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <img
-                      key={i}
-                      src={`https://images.unsplash.com/photo-${1500000000000 + i * 7654321}?w=80&h=80&fit=crop&crop=face`}
-                      alt="User"
-                      className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=User${i}&background=6366f1&color=fff`; }}
-                    />
-                  ))}
+                  {/* Real Indian profile images */}
+                  <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-1">
@@ -467,7 +464,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* PRICING - MATCHES SUBSCRIPTION.TSX */}
       <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -475,76 +472,91 @@ export const Landing = () => {
               💰 SIMPLE PRICING
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Choose Your Daily Lead Limit
+              Choose Your Growth Plan
             </h2>
-            <p className="text-slate-400 text-lg">High quality leads at lowest cost.</p>
+            <p className="text-slate-400 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
-            {/* Starter */}
+            {/* Starter - ₹999/10 days */}
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-400">For Assistant Supervisors</p>
+                <p className="text-sm text-slate-400">Perfect to Begin</p>
+              </div>
+              <div className="mb-2">
+                <span className="text-sm text-slate-400 line-through">₹1,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
-                <span className="text-slate-400">/month</span>
+                <span className="text-slate-400">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 2 Fresh Leads/Day</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> ~60 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Basic Dashboard</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> WhatsApp Support</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 50 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Personal Dashboard</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> WhatsApp Alerts</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 5 Lead Replacements</li>
               </ul>
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">
                 Start Now
               </Link>
             </div>
 
-            {/* Supervisor */}
+            {/* Supervisor - ₹1,999/15 days - BEST VALUE */}
             <div className="bg-gradient-to-b from-blue-600 to-indigo-700 p-8 rounded-3xl border-2 border-blue-400 transform md:-translate-y-4 shadow-2xl shadow-blue-500/25 flex flex-col relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-4 py-1 rounded-full shadow-lg">
-                  ⚡ SUPERVISOR PLAN
+                  ⭐ BEST VALUE
                 </span>
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Supervisor</h3>
-                <p className="text-sm text-blue-200">For Serious Networkers</p>
+                <p className="text-sm text-blue-200">Most Popular Choice</p>
+              </div>
+              <div className="mb-2">
+                <span className="text-sm text-blue-200 line-through">₹2,999</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹1,999</span>
-                <span className="text-blue-200">/month</span>
+                <span className="text-blue-200">/15 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>6 Fresh Leads/Day</strong></li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> ~180 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Replacement Guarantee</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Performance Analytics</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Cost: ₹11/lead only</li>
+                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>7 Fresh Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 105 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Priority Queue (3x Faster)</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 10 Lead Replacements</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Cost: ₹19/lead only</li>
               </ul>
               <Link to="/login" className="block w-full py-4 bg-white text-blue-700 rounded-xl hover:bg-blue-50 transition-all font-bold text-center shadow-lg">
                 🚀 Get Best Value
               </Link>
             </div>
 
-            {/* Manager */}
-            <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
-              <div className="mb-6">
+            {/* Manager - ₹2,999/20 days */}
+            <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+                  👑 PRO
+                </span>
+              </div>
+              <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-400">For Team Leaders</p>
+                <p className="text-sm text-slate-400">For Serious Closers</p>
+              </div>
+              <div className="mb-2">
+                <span className="text-sm text-slate-400 line-through">₹4,499</span>
               </div>
               <div className="mb-6">
-                <span className="text-5xl font-black">₹4,999</span>
-                <span className="text-slate-400">/month</span>
+                <span className="text-5xl font-black">₹2,999</span>
+                <span className="text-slate-400">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 16 Leads/Day</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> ~480 Leads/Month</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Team Dashboard (5 members)</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Auto Assignment</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Priority Support</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 160 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Highest Priority (5x)</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 16 Lead Replacements</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Dedicated Manager</li>
               </ul>
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">
                 Go Premium
