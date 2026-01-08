@@ -31,14 +31,15 @@ export const LeadAlert: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
+  const playedLeadsRef = useRef<Set<string>>(new Set()); // Track leads that already played sound
 
   // Audio Init
   useEffect(() => {
     audioRef.current = new Audio(SOUND_URL);
-    const unlock = () => { audioRef.current?.play().catch(() => {}); };
+    const unlock = () => { audioRef.current?.play().catch(() => { }); };
     document.addEventListener('click', unlock, { once: true });
     document.addEventListener('touchstart', unlock, { once: true });
   }, []);
@@ -47,14 +48,14 @@ export const LeadAlert: React.FC = () => {
   const subscribeToPush = async () => {
     if (!session?.user) return;
     setLoading(true);
-    
+
     try {
       if (!('serviceWorker' in navigator)) {
         throw new Error("Service Worker not supported");
       }
 
       const reg = await navigator.serviceWorker.ready;
-      
+
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
@@ -74,7 +75,7 @@ export const LeadAlert: React.FC = () => {
 
       setIsSubscribed(true);
       console.log("✅ Device Subscribed for Push!");
-      
+
       new Notification("Notifications Enabled", {
         body: "You will now receive leads even when screen is off.",
         icon: "/icon-192x192.png"
@@ -82,7 +83,7 @@ export const LeadAlert: React.FC = () => {
 
     } catch (err: any) {
       console.error("Subscription failed:", err);
-      
+
       // 🔥 BETTER INSTRUCTION MESSAGE FOR USERS
       window.alert(
         "⚠️ Notifications are Blocked!\n\nTo fix this:\n1. Tap the Lock icon 🔒 in address bar.\n2. Tap 'Permissions'.\n3. Turn ON 'Notifications'.\n\nThen refresh the page."
@@ -103,7 +104,7 @@ export const LeadAlert: React.FC = () => {
     }
   }, []);
 
-  // 📡 POLLING BACKUP
+  // 📡 POLLING BACKUP - Fixed to prevent duplicate sounds
   useEffect(() => {
     if (!session?.user?.id) return;
     const interval = setInterval(async () => {
@@ -117,18 +118,32 @@ export const LeadAlert: React.FC = () => {
 
       if (data && data.length > 0) {
         const newLead = data[0];
+        const leadId = newLead.id;
+
+        // Update last check time
         lastCheckTimeRef.current = newLead.created_at;
-        
-        if (soundEnabled && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(() => {});
+
+        // 🔥 Only play sound if this lead hasn't been played before
+        if (!playedLeadsRef.current.has(leadId)) {
+          playedLeadsRef.current.add(leadId);
+
+          // Prevent Set from growing indefinitely (keep last 100)
+          if (playedLeadsRef.current.size > 100) {
+            const firstItem = playedLeadsRef.current.values().next().value;
+            playedLeadsRef.current.delete(firstItem);
+          }
+
+          if (soundEnabled && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => { });
+          }
+
+          setBanner({ show: true, lead: newLead });
+
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+          setTimeout(() => setBanner({ show: false, lead: null }), 8000);
         }
-
-        setBanner({ show: true, lead: newLead });
-        
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
-        setTimeout(() => setBanner({ show: false, lead: null }), 8000);
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -168,9 +183,8 @@ export const LeadAlert: React.FC = () => {
 
         <button
           onClick={() => setSoundEnabled(p => !p)}
-          className={`p-3 rounded-full shadow-lg border transition-all ${
-            soundEnabled ? 'bg-white text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'
-          }`}
+          className={`p-3 rounded-full shadow-lg border transition-all ${soundEnabled ? 'bg-white text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'
+            }`}
         >
           {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
         </button>
