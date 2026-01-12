@@ -636,13 +636,22 @@ function getWeightedRandomUser(users) {
     var weight = 1; // Default (Starter)
     
     var plan = (user.plan_name || '').toLowerCase();
-    
+
+    // 3:2:1 Weighted Logic (Explicit Plan Match)
     if (plan.indexOf('turbo') !== -1 || plan.indexOf('weekly') !== -1) {
+      // 🚀 High Priority (Turbo Boost, Weekly Boost)
       weight = 3;
     } else if (plan.indexOf('manager') !== -1 || plan.indexOf('supervisor') !== -1) {
+      // 💼 Medium Priority (Manager, Supervisor)
       weight = 2;
+    } else {
+      // 🌱 Standard Priority (Starter, Others)
+      weight = 1;
     }
     
+    // Validate: Ensure Manager is definitely captured
+    if (plan === 'manager') weight = 2; 
+
     weightedPool.push({ user: user, weight: weight });
     totalWeight += weight;
   }
