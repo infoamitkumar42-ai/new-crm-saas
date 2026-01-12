@@ -238,7 +238,7 @@ export const LeadAlert: React.FC = () => {
 
       {/* Floating Controls (MOVED TO TOP-RIGHT TO FLX VISIBILITY) */}
       {/* Floating Controls (Always Visible Wrapper) */}
-      <div className="fixed bottom-24 right-4 z-[99999] flex flex-col items-end gap-3 isolate">
+      <div className="fixed bottom-16 right-4 z-[99999] flex flex-col items-end gap-3 isolate">
 
         {/* Subscribe Button (Hidden if Subscribed AND Not Blocked) */}
         {(!isSubscribed || permissionStatus === 'denied') && (
