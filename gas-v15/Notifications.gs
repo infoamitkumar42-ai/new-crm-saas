@@ -28,14 +28,19 @@ function sendLeadNotification(user, lead, isNightLead) {
     return;
   }
   
-  // Send Email notification
-  if (NOTIFICATION_CONFIG.ENABLE_EMAIL && user.email) {
+  // 1. Send Email (SAFE MODE)
+  // We force try to send email even if config is flaky
+  if (user.email) {
     sendEmailAlert(user, lead, isNightLead);
   }
   
-  // Send WhatsApp notification
+  // 2. Send WhatsApp (Protected Block)
   if (NOTIFICATION_CONFIG.ENABLE_WHATSAPP && user.phone) {
-    sendWhatsAppMessage(user, lead, isNightLead);
+    try {
+      sendWhatsAppMessage(user, lead, isNightLead);
+    } catch (e) {
+      Logger.log('⚠️ WhatsApp Error (Ignored): ' + e.message);
+    }
   }
   
   // Mark lead as delivered
@@ -246,29 +251,15 @@ function sendAdminAlert(subject, body) {
 // ============================================================================
 
 function testEmailNotification() {
-  Logger.log('========== TEST EMAIL NOTIFICATION ==========');
-  
-  var testUser = {
-    user_name: 'Test User',
-    email: getConfig().ADMIN_EMAIL,
-    phone: '9876543210',
-    plan_name: 'Booster'
-  };
-  
-  var testLead = {
-    id: 'test-lead-123',
+  Logger.log('Testing Email...');
+  sendEmailAlert({
+    email: 'sunnymehre451@gmail.com',  // Replace with your email
+    user_name: 'Sunny Test',
+    phone: '9876543210'
+  }, {
     name: 'Rahul Sharma',
-    phone: '9123456789',
-    city: 'Mumbai'
-  };
-  
-  // Test real-time lead
-  Logger.log('Testing Real-time Lead Email...');
-  sendEmailAlert(testUser, testLead, false);
-  
-  // Test night lead
-  Logger.log('Testing Night Lead Email...');
-  sendEmailAlert(testUser, testLead, true);
-  
-  Logger.log('✅ Check inbox for test emails');
+    phone: '9876543210',
+    city: 'Mumbai',
+    id: 'test-123'
+  }, false);
 }

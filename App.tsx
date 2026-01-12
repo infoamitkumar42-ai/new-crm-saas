@@ -36,7 +36,7 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
 // ============================================================
 // 🛡️ PROTECTED ROUTE (FIXED)
 // ============================================================
-const ProtectedRoute: React.FC<{ 
+const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedRoles?: string[];
 }> = ({ children, allowedRoles }) => {
@@ -139,11 +139,12 @@ const AppRoutes: React.FC = () => {
 
   return (
     <>
-      {/* Only show these when fully authenticated (not loading) */}
-      {!loading && isAuthenticated && profile && (
+      <LeadAlert />
+
+      {/* Only show these when verified session exists */}
+      {!loading && isAuthenticated && (
         <>
           <NotificationBanner />
-          <LeadAlert />
         </>
       )}
 
@@ -163,13 +164,13 @@ const AppRoutes: React.FC = () => {
             <Layout><TargetAudience /></Layout>
           </ProtectedRoute>
         } />
-        
+
         <Route path="/subscription" element={
           <ProtectedRoute>
             <Subscription onClose={() => window.history.back()} />
           </ProtectedRoute>
         } />
-        
+
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <DashboardRouter />
@@ -182,7 +183,7 @@ const AppRoutes: React.FC = () => {
             <AdminDashboard />
           </ProtectedRoute>
         } />
-        
+
         {/* Manager Routes */}
         <Route path="/manager/*" element={
           <ProtectedRoute allowedRoles={['manager', 'admin']}>

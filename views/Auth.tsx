@@ -4,23 +4,23 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
-import { UserRole } from "../types"; 
+import { UserRole } from "../types";
 import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
 
 export const Auth: React.FC = () => {
   const { signUp, signIn } = useAuth();
   const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");
-  
+
   // Form State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  
+
   // Team Code
-  const [teamCode, setTeamCode] = useState(""); 
+  const [teamCode, setTeamCode] = useState("");
   const [teamCodeStatus, setTeamCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [managerInfo, setManagerInfo] = useState<{ id: string; name: string } | null>(null);
-  
+
   const [selectedRole, setSelectedRole] = useState<UserRole>("member");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -30,7 +30,7 @@ export const Auth: React.FC = () => {
   // ═══════════════════════════════════════════════════════════
   // 🔍 TEAM CODE VERIFICATION
   // ═══════════════════════════════════════════════════════════
-  
+
   const verifyTeamCode = async (code: string) => {
     if (!code || code.length < 3) {
       setTeamCodeStatus('idle');
@@ -41,27 +41,42 @@ export const Auth: React.FC = () => {
     setTeamCodeStatus('checking');
 
     try {
-      const { data, error } = await supabase.rpc('verify_team_code', { 
-        code: code.toUpperCase() 
+      // 1. Try RPC first
+      const { data, error } = await supabase.rpc('verify_team_code', {
+        code: code.toUpperCase()
       });
 
-      if (error) {
-        setTeamCodeStatus('invalid');
-        setManagerInfo(null);
-        return;
-      }
-
-      if (data && data.length > 0 && data[0].is_valid) {
+      if (!error && data && data.length > 0 && data[0].is_valid) {
         setTeamCodeStatus('valid');
         setManagerInfo({
           id: data[0].manager_id,
           name: data[0].manager_name || 'Manager'
         });
+        return;
+      }
+
+      // 2. Fallback: Direct DB Query (if RPC fails/missing or code not found in RPC logic)
+      // This helps if the SQL script wasn't run but public read access is allowed
+      console.log("RPC verification failed or returned invalid, trying direct query...");
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('team_code', code.toUpperCase())
+        .eq('role', 'manager')
+        .maybeSingle();
+
+      if (userData && !userError) {
+        setTeamCodeStatus('valid');
+        setManagerInfo({
+          id: userData.id,
+          name: userData.name || 'Manager'
+        });
       } else {
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
       }
-    } catch {
+    } catch (err) {
+      console.error("Team code verification error:", err);
       setTeamCodeStatus('invalid');
       setManagerInfo(null);
     }
@@ -71,12 +86,22 @@ export const Auth: React.FC = () => {
     if (!code || code.length < 3) return false;
 
     try {
-      const { data, error } = await supabase.rpc('check_team_code_available', { 
-        code: code.toUpperCase() 
+      // 1. Try RPC
+      const { data, error } = await supabase.rpc('check_team_code_available', {
+        code: code.toUpperCase()
       });
 
-      if (error) return false;
-      return data === true;
+      if (!error) return data === true;
+
+      // 2. Fallback: Direct DB Query
+      const { data: existingUser, error: queryError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_code', code.toUpperCase())
+        .maybeSingle();
+
+      if (queryError) return false; // safest to assume not available on error
+      return !existingUser;
     } catch {
       return false;
     }
@@ -113,7 +138,7 @@ export const Auth: React.FC = () => {
 
     try {
       const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-      
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${redirectUrl}/reset-password`,
       });
@@ -141,7 +166,7 @@ export const Auth: React.FC = () => {
 
     try {
       if (mode === "signup") {
-        
+
         if (selectedRole === 'member' && !teamCode) {
           throw new Error("Please enter a Team Code to join.");
         }
@@ -158,26 +183,42 @@ export const Auth: React.FC = () => {
             managerId = managerInfo.id;
             setStatusMessage(`Joining ${managerInfo.name}'s team...`);
           } else {
-            const { data, error: rpcError } = await supabase.rpc('verify_team_code', { 
-              code: teamCode 
+            // 1. Try RPC first
+            const { data: rpcData, error: rpcError } = await supabase.rpc('verify_team_code', {
+              code: teamCode
             });
 
-            if (rpcError) {
-              throw new Error("Unable to verify team code. Please try again.");
+            let validManager = null;
+
+            if (!rpcError && rpcData && rpcData.length > 0 && rpcData[0].is_valid) {
+              validManager = { id: rpcData[0].manager_id, name: rpcData[0].manager_name };
+            } else {
+              // 2. Fallback: Direct Query
+              console.log("RPC verify failed in submit, trying direct query...");
+              const { data: userData } = await supabase
+                .from('users')
+                .select('id, name')
+                .eq('team_code', teamCode)
+                .eq('role', 'manager')
+                .maybeSingle();
+
+              if (userData) {
+                validManager = { id: userData.id, name: userData.name };
+              }
             }
 
-            if (!data || data.length === 0 || !data[0].is_valid) {
-              throw new Error("Invalid Team Code. Please ask your manager for the correct code.");
+            if (!validManager) {
+              throw new Error("Invalid Team Code. Please ask your manager for the correct code (e.g. WINNERS).");
             }
 
-            managerId = data[0].manager_id;
-            setStatusMessage(`Joining ${data[0].manager_name}'s team...`);
+            managerId = validManager.id;
+            setStatusMessage(`Joining ${validManager.name || 'Manager'}'s team...`);
           }
         }
 
         if (selectedRole === 'manager') {
           const isAvailable = await checkTeamCodeAvailability(teamCode);
-          
+
           if (!isAvailable) {
             throw new Error("This Team Code is already taken. Please choose another.");
           }
@@ -204,19 +245,19 @@ export const Auth: React.FC = () => {
           });
         }
 
-        await logEvent('user_signup_complete', { 
-          email, 
-          role: selectedRole, 
+        await logEvent('user_signup_complete', {
+          email,
+          role: selectedRole,
           hasManager: !!managerId
         });
-        
+
         setStatusMessage("Success! Opening dashboard...");
-        
+
       } else {
         setStatusMessage("Logging in...");
         await signIn({ email, password });
       }
-      
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -232,7 +273,7 @@ export const Auth: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-        
+
         {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -250,7 +291,7 @@ export const Auth: React.FC = () => {
         {/* FORGOT PASSWORD FORM */}
         {mode === "forgot_password" && (
           <form className="space-y-5" onSubmit={handleForgotPassword}>
-            
+
             {successMessage && (
               <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <CheckCircle size={18} />
@@ -269,19 +310,19 @@ export const Auth: React.FC = () => {
               <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-                <input 
-                  className="w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                  type="email" 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)} 
-                  placeholder="name@company.com" 
-                  required 
+                <input
+                  className="w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  required
                 />
               </div>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
             >
@@ -295,7 +336,7 @@ export const Auth: React.FC = () => {
               )}
             </button>
 
-            <button 
+            <button
               type="button"
               onClick={() => {
                 setMode("login");
@@ -313,41 +354,41 @@ export const Auth: React.FC = () => {
         {/* LOGIN / SIGNUP FORM */}
         {mode !== "forgot_password" && (
           <form className="space-y-5" onSubmit={handleSubmit}>
-            
+
             {mode === "signup" && (
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
-                <input 
-                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                  placeholder="e.g. Rahul Kumar" 
-                  required 
+                <input
+                  className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Rahul Kumar"
+                  required
                 />
               </div>
             )}
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-              <input 
-                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                placeholder="name@company.com" 
-                required 
+              <input
+                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="name@company.com"
+                required
               />
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
-              <input 
-                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                placeholder="••••••••" 
-                required 
+              <input
+                className="w-full border px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
                 minLength={6}
               />
             </div>
@@ -383,11 +424,10 @@ export const Auth: React.FC = () => {
                         setTeamCodeStatus('idle');
                         setManagerInfo(null);
                       }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                        selectedRole === 'member' 
-                          ? 'bg-blue-600 border-blue-600 text-white' 
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
-                      }`}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${selectedRole === 'member'
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                        }`}
                     >
                       <Users size={20} className="mb-1" />
                       <span className="text-xs font-bold">Team Member</span>
@@ -400,11 +440,10 @@ export const Auth: React.FC = () => {
                         setTeamCodeStatus('idle');
                         setManagerInfo(null);
                       }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                        selectedRole === 'manager' 
-                          ? 'bg-indigo-600 border-indigo-600 text-white' 
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
-                      }`}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${selectedRole === 'manager'
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                        }`}
                     >
                       <Briefcase size={20} className="mb-1" />
                       <span className="text-xs font-bold">Manager</span>
@@ -420,20 +459,19 @@ export const Auth: React.FC = () => {
                       </label>
                       <div className="relative">
                         <ShieldCheck className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <input 
-                          className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${
-                            teamCodeStatus === 'valid' 
-                              ? 'border-green-500 focus:ring-green-500 bg-green-50' 
-                              : teamCodeStatus === 'invalid'
+                        <input
+                          className={`w-full border px-4 py-2.5 pl-10 pr-10 rounded-lg focus:ring-2 outline-none font-mono uppercase placeholder:normal-case transition-all ${teamCodeStatus === 'valid'
+                            ? 'border-green-500 focus:ring-green-500 bg-green-50'
+                            : teamCodeStatus === 'invalid'
                               ? 'border-red-500 focus:ring-red-500 bg-red-50'
                               : 'focus:ring-blue-500'
-                          }`}
-                          value={teamCode} 
-                          onChange={e => handleTeamCodeChange(e.target.value)} 
-                          placeholder="e.g. WIN11" 
-                          required 
+                            }`}
+                          value={teamCode}
+                          onChange={e => handleTeamCodeChange(e.target.value)}
+                          placeholder="e.g. WIN11"
+                          required
                         />
-                        
+
                         <div className="absolute right-3 top-3">
                           {teamCodeStatus === 'checking' && (
                             <Loader2 size={18} className="text-blue-500 animate-spin" />
@@ -446,7 +484,7 @@ export const Auth: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      
+
                       {teamCodeStatus === 'valid' && managerInfo && (
                         <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                           <CheckCircle size={12} />
@@ -473,12 +511,12 @@ export const Auth: React.FC = () => {
                       </label>
                       <div className="relative">
                         <Users className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <input 
+                        <input
                           className="w-full border px-4 py-2.5 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase placeholder:normal-case"
-                          value={teamCode} 
-                          onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))} 
-                          placeholder="e.g. WINNERS_CLUB" 
-                          required 
+                          value={teamCode}
+                          onChange={e => setTeamCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                          placeholder="e.g. WINNERS_CLUB"
+                          required
                           minLength={3}
                         />
                       </div>
@@ -497,7 +535,7 @@ export const Auth: React.FC = () => {
                 {error}
               </div>
             )}
-            
+
             {statusMessage && (
               <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
                 <Loader2 size={18} className="animate-spin" />
@@ -505,14 +543,13 @@ export const Auth: React.FC = () => {
               </div>
             )}
 
-            <button 
-              type="submit" 
-              disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)} 
-              className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                mode === 'signup' && selectedRole === 'manager' 
-                  ? 'bg-indigo-600 hover:bg-indigo-700' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+            <button
+              type="submit"
+              disabled={loading || (mode === 'signup' && selectedRole === 'member' && teamCodeStatus !== 'valid' && teamCode.length > 0)}
+              className={`w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${mode === 'signup' && selectedRole === 'manager'
+                ? 'bg-indigo-600 hover:bg-indigo-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+                }`}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -534,10 +571,10 @@ export const Auth: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-slate-500 text-sm">
               {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
-              <button 
-                className="ml-2 font-bold text-blue-600 hover:underline" 
-                onClick={() => { 
-                  setMode(mode === "login" ? "signup" : "login"); 
+              <button
+                className="ml-2 font-bold text-blue-600 hover:underline"
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
                   setError(null);
                   setSuccessMessage(null);
                   setTeamCode("");

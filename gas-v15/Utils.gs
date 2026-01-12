@@ -2,7 +2,7 @@
  * ╔════════════════════════════════════════════════════════════════════════════╗
  * ║  LEADFLOW v15.0 - UTILS.GS (PRODUCTION-GRADE)                              ║
  * ║  Last Updated: January 2026                                                ║
- * ║  Contains: City Inference, Phone Cleaning, Quality Scoring, Matching      ║
+ * ║  Contains: City Inference, Phone Cleaning, Matching, Weighted Random       ║
  * ╚════════════════════════════════════════════════════════════════════════════╝
  */
 
@@ -121,9 +121,9 @@ function cleanName(value) {
  * Validate name
  */
 function isValidName(name) {
-  if (!name || name.length < 2) return false;
+  if (!name || name.length < 2) return true; // Relaxed
   var lower = name.toLowerCase();
-  var invalid = ['unknown', 'test', 'testing', 'asdf', 'abc', 'xyz', 'na', 'n/a', 'null', 'undefined', 'demo'];
+  var invalid = ['test', 'testing', 'asdf', 'abc', 'xyz', 'demo'];
   return invalid.indexOf(lower) === -1;
 }
 
@@ -148,7 +148,8 @@ function validateLead(lead) {
   var phone = cleanPhone(lead.phone);
   var name = cleanName(lead.name);
   if (!isValidPhone(phone)) return { isValid: false, reason: 'Invalid phone' };
-  if (!isValidName(name)) return { isValid: false, reason: 'Invalid name' };
+  // Name is now optional - if missing, cleanName/filterValidLeads will handle it
+  if (name && !isValidName(name)) return { isValid: false, reason: 'Invalid name' };
   return { isValid: true, reason: 'Valid' };
 }
 
@@ -156,15 +157,35 @@ function validateLead(lead) {
  * Filter valid leads from array
  */
 function filterValidLeads(leads) {
-  if (!leads || !Array.isArray(leads)) return [];
+  if (!leads || !Array.isArray(leads)) {
+    Logger.log('❌ Filter Error: Input is not an array');
+    return [];
+  }
+  
   var valid = [];
-  leads.forEach(function(lead) {
-    if (validateLead(lead).isValid) {
-      lead.phone = cleanPhone(lead.phone);
-      lead.name = cleanName(lead.name) || 'Enquiry';
+  Logger.log('🔍 Starting filter for ' + leads.length + ' leads...');
+  
+  leads.forEach(function(lead, index) {
+    if (index < 5) {
+      Logger.log('👉 Processing Lead #' + index + ': ' + JSON.stringify(lead).substring(0, 100) + '...');
+    }
+    
+    var validation = validateLead(lead);
+    
+    if (validation.isValid) {
+      var phoneRaw = lead.phone || lead.phone_number || '';
+      var nameRaw = lead.name || 'Enquiry';
+      
+      lead.phone = cleanPhone(phoneRaw);
+      lead.name = cleanName(nameRaw) || 'Enquiry';
       valid.push(lead);
+    } else {
+      if (index < 10) { 
+        Logger.log('❌ Reject #' + index + ': Phone=[' + (lead.phone || 'null') + '] Reason=[' + validation.reason + ']');
+      }
     }
   });
+  
   return valid;
 }
 
@@ -237,6 +258,9 @@ function mixLeadsWithRatio(realtimeLeads, backlogLeads) {
 
 var CITY_STATE_CACHE = null;
 
+// NOTE: STATE_CITIES is defined in Config.gs
+// We import it here to build the loopup cache
+
 /**
  * Build city-to-state lookup cache
  */
@@ -244,6 +268,12 @@ function buildCityStateCache() {
   if (CITY_STATE_CACHE !== null) return CITY_STATE_CACHE;
   
   CITY_STATE_CACHE = {};
+  
+  // Ensure STATE_CITIES exists (from Config.gs)
+  if (typeof STATE_CITIES === 'undefined') {
+    Logger.log('❌ ERROR: STATE_CITIES not found! Check Config.gs');
+    return {};
+  }
   
   for (var state in STATE_CITIES) {
     var cities = STATE_CITIES[state];
@@ -408,12 +438,12 @@ function inferStateFromCity(city) {
   }
   
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // STEP 5: Fallback - All India (NEVER FAILS)
+  // STEP 5: Fallback - Unknown (STRICT MODE)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if (LOG_CONFIG.VERBOSE) {
-    Logger.log('⚠️ City not found, using All India: ' + city);
+    Logger.log('⚠️ City not found, marking as Unknown: ' + city);
   }
-  return 'All India';
+  return 'Unknown';
 }
 
 /**
@@ -490,23 +520,21 @@ function isLeadMatchingUserAudience(user, lead) {
   var stateMatch = false;
   
   if (userState === 'all india' || userState === 'pan india' || userState === 'india') {
-    // User accepts all locations
-    stateMatch = true;
-  } else if (leadState === 'all india' || leadState === 'unknown') {
-    // Lead state unknown - allow match (benefit of doubt)
+    // User accepts all locations - MATCH
     stateMatch = true;
   } else if (normalizeState(userState) === normalizeState(leadState)) {
     // Exact state match
     stateMatch = true;
   } else {
-    // No match
+    // Fallback: If lead is 'Unknown' or 'All India', DO NOT match with specific state user
+    // e.g. Punjab user should NOT get All India lead
     stateMatch = false;
   }
   
   if (!stateMatch) {
     return {
       isMatch: false,
-      reason: 'State mismatch: User wants ' + user.target_state + ', Lead is from ' + (lead.state || inferStateFromCity(leadCity))
+      reason: 'State mismatch: User wants ' + user.target_state + ', Lead is from ' + (leadState === 'unknown' ? 'Unknown (' + leadCity + ')' : leadState)
     };
   }
   
@@ -542,11 +570,10 @@ function extractLeadFromRow(row) {
     name: (row[COLUMNS.NAME - 1] || "Unknown").toString().trim(),
     email: (row[COLUMNS.EMAIL - 1] || "").toString().trim(),
     phone: cleanPhone(row[COLUMNS.PHONE - 1]),
-    city: (row[COLUMNS.CITY - 1] || "India").toString().trim(),
+    city: (row[COLUMNS.CITY - 1] || "").toString().trim(),
     source: (row[COLUMNS.SOURCE - 1] || "Sheet").toString().trim()
   };
 }
-
 /**
  * Check if row is already processed
  */
@@ -585,6 +612,54 @@ function safeJsonParse(str, defaultValue) {
   } catch (e) {
     return defaultValue || null;
   }
+}
+
+// ============================================================================
+// 🎲 WEIGHTED RANDOM SELECTION (v15.0 Rule: 3:2:1)
+// ============================================================================
+
+/**
+ * Select a user from the pool based on plan weights
+ * Turbo: 3 | Supervisor: 2 | Starter: 1
+ * @param {Array} users - Pool of available users
+ * @returns {Object|null} - Selected user
+ */
+function getWeightedRandomUser(users) {
+  if (!users || users.length === 0) return null;
+  
+  var weightedPool = [];
+  var totalWeight = 0;
+  
+  // 1. Assign weights and calculate total
+  for (var i = 0; i < users.length; i++) {
+    var user = users[i];
+    var weight = 1; // Default (Starter)
+    
+    var plan = (user.plan_name || '').toLowerCase();
+    
+    if (plan.indexOf('turbo') !== -1 || plan.indexOf('weekly') !== -1) {
+      weight = 3;
+    } else if (plan.indexOf('manager') !== -1 || plan.indexOf('supervisor') !== -1) {
+      weight = 2;
+    }
+    
+    weightedPool.push({ user: user, weight: weight });
+    totalWeight += weight;
+  }
+  
+  // 2. Roll the dice
+  var random = Math.random() * totalWeight;
+  var cursor = 0;
+  
+  // 3. Find the winner
+  for (var i = 0; i < weightedPool.length; i++) {
+    cursor += weightedPool[i].weight;
+    if (cursor >= random) {
+      return weightedPool[i].user;
+    }
+  }
+  
+  return users[0]; // Fallback (should never happen)
 }
 
 // ============================================================================

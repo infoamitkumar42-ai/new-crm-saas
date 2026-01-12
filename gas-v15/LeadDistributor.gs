@@ -26,9 +26,20 @@ function distributeLeadsV15() {
   // RULE A: TIME GATE CHECK (8 AM - 10 PM)
   // =========================================================================
   
+  // 🔒 PREVENT CONCURRENT EXECUTIONS
+  var lock = LockService.getScriptLock();
+  try {
+    // Wait for up to 10 seconds for other executions to finish
+    lock.waitLock(10000); 
+  } catch (e) {
+    Logger.log('⚠️ Could not obtain lock. Another distribution is running.');
+    return { success: false, reason: 'Locked', distributed: 0 };
+  }
+
   if (!isWithinActiveHours()) {
     Logger.log('⏰ Outside active hours (8 AM - 10 PM). Exiting.');
     Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    lock.releaseLock();
     return { success: false, reason: 'Outside active hours', distributed: 0 };
   }
   
@@ -99,89 +110,89 @@ function distributeLeadsV15() {
   }
   
   // =========================================================================
-  // STEP 4: DISTRIBUTION LOOP (Speed Logic + Audience Matching)
+  // STEP 4: DISTRIBUTION LOOP (Speed Logic + Audience Matching + Weighted Random)
   // =========================================================================
   
   Logger.log('');
-  Logger.log('📤 DISTRIBUTING LEADS (with Target Audience Matching)...');
+  Logger.log('📤 DISTRIBUTING LEADS (Weighted Random 3:2:1 + Audience Match)...');
   
   var distributedCount = 0;
   var failedCount = 0;
   var noMatchCount = 0;
   var leadIndex = 0;
   
-  // Master user list (we'll filter per lead)
+  // Master user list (we will filter per lead)
   var allAvailableUsers = availableUsers.slice();
   
   while (leadIndex < validLeads.length) {
     var lead = validLeads[leadIndex];
     var assigned = false;
     
-    // =====================================================
-    // NEW: FILTER USERS BY TARGET AUDIENCE FOR THIS LEAD
-    // =====================================================
-    // Get users whose target_gender and target_state match this lead
+    // 1. Filter Users by Audience
     var matchingUsers = filterUsersForLead(allAvailableUsers, lead);
     
     if (matchingUsers.length === 0) {
-      // No users match this lead's profile (gender/state mismatch)
       Logger.log('🎯 Lead ' + (lead.name || lead.id) + ' (' + (lead.city || 'Unknown') + ') - No matching users');
       noMatchCount++;
       leadIndex++;
       continue;
     }
     
-    // Try each MATCHING user in priority order
-    for (var i = 0; i < matchingUsers.length; i++) {
-      var user = matchingUsers[i];
+    // 2. Weighted Random Selection
+    // We try to pick a winner from the pool until someone qualifies or pool is empty
+    var candidatePool = matchingUsers.slice();
+    
+    while (candidatePool.length > 0) {
+      // Pick one user based on weight (3:2:1)
+      var selectedUser = getWeightedRandomUser(candidatePool);
+      
+      if (!selectedUser) break; 
       
       // RULE F: Atomic slot claiming via RPC
-      // This checks: Active + Under limit + 15-min gap
-      var slotClaimed = tryClaimLeadSlot(user.user_id);
+      var slotClaimed = tryClaimLeadSlot(selectedUser.user_id);
       
       if (slotClaimed) {
-        // Assign lead to this user
-        var assignSuccess = assignLeadToUser(lead.id, user.user_id, lead.isNightLead);
+        // Assign lead
+        var assignSuccess = assignLeadToUser(lead.id, selectedUser.user_id, lead.isNightLead);
         
         if (assignSuccess) {
-          // RULE D: Send notification with visual signaling
-          sendLeadNotification(user, lead, lead.isNightLead);
+          sendLeadNotification(selectedUser, lead, lead.isNightLead);
           
-          Logger.log('✅ Lead → ' + (user.user_name || user.email) + 
-                    ' (' + user.plan_name + ')' +
-                    ' [' + (user.target_state || 'All India') + ']' +
+          Logger.log('✅ Lead → ' + (selectedUser.user_name || selectedUser.email) + 
+                    ' (' + selectedUser.plan_name + ')' +
+                    ' [' + (selectedUser.target_state || 'All India') + ']' +
                     (lead.isNightLead ? ' 🟦' : ''));
           
           distributedCount++;
           assigned = true;
           
-          // Remove this user from master list (they're now in cooling period)
-          var userIdx = allAvailableUsers.findIndex(function(u) { return u.user_id === user.user_id; });
+          // Remove winner from master list (Cooling period)
+          var userIdx = allAvailableUsers.findIndex(function(u) { return u.user_id === selectedUser.user_id; });
           if (userIdx !== -1) {
             allAvailableUsers.splice(userIdx, 1);
           }
           
-          break;
+          break; // Exit candidate loop, move to next lead
         }
-      } else {
-        // User is not available (limit/gap/inactive)
-        // Speed Logic: DO NOT WAIT - Remove from master list and try next
-        var userIdx = allAvailableUsers.findIndex(function(u) { return u.user_id === user.user_id; });
-        if (userIdx !== -1) {
-          allAvailableUsers.splice(userIdx, 1);
-        }
-      }
+      } 
+      
+      // If failed to claim or assign, remove from this lead's candidate pool and try another
+      // (But keep in master list for future leads if it was just a slot fail, though logic implies slot fail = unavailable)
+      // Actually, if slot claim fails, it means they are busy/limit reached. Remove from master list too to save RPC calls.
+      var poolIdx = candidatePool.findIndex(function(u) { return u.user_id === selectedUser.user_id; });
+      if (poolIdx !== -1) candidatePool.splice(poolIdx, 1);
+      
+      var masterIdx = allAvailableUsers.findIndex(function(u) { return u.user_id === selectedUser.user_id; });
+      if (masterIdx !== -1) allAvailableUsers.splice(masterIdx, 1);
     }
     
     if (!assigned) {
-      // No matching user could take this lead
-      Logger.log('⏭️ Lead ' + lead.id + ' skipped - Matching users exhausted');
+      Logger.log('⏭️ Lead ' + lead.id + ' skipped - Matching users exhausted/busy');
       failedCount++;
     }
     
     leadIndex++;
     
-    // Small delay to prevent API rate limiting
     if (distributedCount > 0 && distributedCount % 5 === 0) {
       Utilities.sleep(DISTRIBUTION_CONFIG.API_DELAY_MS);
     }
@@ -200,6 +211,13 @@ function distributeLeadsV15() {
   Logger.log('   📥 Total processed: ' + leadIndex);  
   Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
+  // Release the lock before returning
+  try {
+    lock.releaseLock();
+  } catch (e) {
+    Logger.log('⚠️ Error releasing lock: ' + e.message);
+  }
+
   return {
     success: true,
     distributed: distributedCount,

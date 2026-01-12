@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
 import { useAuth } from '../auth/useAuth';
+import LeadAlert from '../components/LeadAlert';
 
 // ============================================================
 // TYPES
@@ -430,6 +431,16 @@ export const MemberDashboard = () => {
     }
   };
 
+  // Sound Effect (Simple Ding)
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+      audio.play().catch(e => console.log('Audio play failed (interaction needed):', e));
+    } catch (e) {
+      console.error('Sound error:', e);
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true') {
@@ -457,13 +468,18 @@ export const MemberDashboard = () => {
         table: 'leads',
         filter: `user_id=eq.${profile.id}`,
       }, (payload) => {
-        setLeads(prev => [payload.new as Lead, ...prev]);
+        const newLead = payload.new as Lead;
+        setLeads(prev => [newLead, ...prev]);
 
+        // 1. Play Sound
+        playNotificationSound();
+
+        // 2. Show System Notification
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('🔥 New Lead Received!', {
-            body: `${(payload.new as Lead).name} - ${(payload.new as Lead).city}`,
+            body: `${newLead.name} from ${newLead.city}`,
             icon: '/logo.png',
-            tag: 'new-lead'
+            tag: 'new-lead-' + Date.now()
           });
         }
       })
@@ -775,8 +791,8 @@ export const MemberDashboard = () => {
                     onClick={toggleDeliveryPause}
                     disabled={refreshing}
                     className={`flex-1 w-full rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${isPaused
-                        ? 'bg-white text-indigo-600'
-                        : 'bg-white/20 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white'
+                      ? 'bg-white text-indigo-600'
+                      : 'bg-white/20 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white'
                       }`}
                   >
                     {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}

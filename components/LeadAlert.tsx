@@ -9,7 +9,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { X, Volume2, VolumeX, Bell } from 'lucide-react';
+import { X, Volume2, VolumeX, Bell, Check } from 'lucide-react';
 
 const PUBLIC_VAPID_KEY = 'BJkGd-k1-IQB-WO6jwTsj6XaZYXny8W4bxd4PQ1TEv6blS5AlR_PlBURJiTsf1cC7qpZ7E2QQUAo611f4PoOS58';
 const SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
@@ -113,15 +113,47 @@ export const LeadAlert: React.FC = () => {
   };
 
   // Check Status on Mount
+  // Check Status on Mount & Auto-Sync
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && session?.user) {
+      console.log("🔔 [LeadAlert] Checking Service Worker...");
       navigator.serviceWorker.ready.then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          if (sub) setIsSubscribed(true);
+        reg.pushManager.getSubscription().then(async sub => {
+          if (sub) {
+            console.log("✅ [LeadAlert] Found existing subscription");
+            setIsSubscribed(true);
+
+            // 🔥 AUTO-SYNC: Ensure DB matches Client (Safe Mode)
+            try {
+              const p256dhKey = sub.getKey('p256dh');
+              const authKey = sub.getKey('auth');
+
+              if (!p256dhKey || !authKey) {
+                console.warn("⚠️ [LeadAlert] Missing keys in subscription");
+                return;
+              }
+
+              const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+              const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+              await supabase.from('push_subscriptions').upsert({
+                user_id: session.user.id,
+                endpoint: sub.endpoint,
+                p256dh: p256dh,
+                auth: auth
+              }, { onConflict: 'user_id, endpoint' });
+
+              console.log("🔄 [LeadAlert] Auto-Synced Subscription to DB");
+            } catch (e) {
+              console.error("❌ [LeadAlert] Auto-sync failed", e);
+            }
+          } else {
+            console.log("ℹ️ [LeadAlert] No subscription found");
+          }
         });
       });
     }
-  }, []);
+  }, [session?.user]);
 
   // 📡 POLLING BACKUP - Fixed to prevent duplicate sounds
   useEffect(() => {
@@ -187,23 +219,35 @@ export const LeadAlert: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Controls */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-        {!isSubscribed && (
-          <button
-            onClick={subscribeToPush}
-            disabled={loading}
-            className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/30 border border-blue-400 animate-bounce transition-all"
-            title="Tap to Enable Alerts"
-          >
-            {loading ? <span className="animate-spin text-xl">↻</span> : <Bell className="w-6 h-6" />}
-          </button>
-        )}
+      {/* Floating Controls (MOVED TO TOP-RIGHT TO FLX VISIBILITY) */}
+      <div className="fixed top-28 right-4 z-[99999] flex flex-col items-end gap-3 isolate">
 
+        {/* Subscribe Button with Label */}
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${isSubscribed ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'
+            }`}>
+            {isSubscribed ? 'Alerts Active ✅' : 'Enable Leads ➡'}
+          </span>
+
+          <button
+            onClick={isSubscribed ? undefined : subscribeToPush}
+            className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${isSubscribed
+              ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40'
+              : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50'
+              }`}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            {/* Always use Bell icon to prevent render issues, just change color */}
+            {loading ? <span className="animate-spin text-xl">↻</span> : <Bell className="w-7 h-7" fill={isSubscribed ? "currentColor" : "none"} />}
+          </button>
+        </div>
+
+        {/* Sound Toggle */}
         <button
           onClick={() => setSoundEnabled(p => !p)}
-          className={`p-3 rounded-full shadow-lg border transition-all ${soundEnabled ? 'bg-white text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'
+          className={`p-3.5 rounded-full shadow-xl border transition-all ${soundEnabled ? 'bg-white text-emerald-600 border-emerald-200' : 'bg-white text-gray-400 border-gray-200'
             }`}
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
         </button>

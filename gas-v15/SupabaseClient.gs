@@ -8,12 +8,58 @@
  */
 
 // ============================================================================
+// 🛡️ FALLBACK DEFINITIONS (In case Config.gs loads after this file)
+// ============================================================================
+
+if (typeof SYSTEM === 'undefined') {
+  var SYSTEM = {
+    VERSION: '15.0',
+    NAME: 'LeadFlow',
+    TABLES: {
+      USERS: 'users',
+      LEADS: 'leads',
+      SUBSCRIPTIONS: 'users_subscription'
+    },
+    LEAD_STATUS: {
+      NEW: 'New',
+      ASSIGNED: 'Assigned',
+      DELIVERED: 'Delivered',
+      FAILED: 'Failed'
+    },
+    LEAD_SOURCE: {
+      REALTIME: 'Realtime',
+      NIGHT_BACKLOG: 'Night_Backlog'
+    }
+  };
+}
+
+if (typeof TIME_CONFIG === 'undefined') {
+  var TIME_CONFIG = {
+    TIMEZONE: 'Asia/Kolkata',
+    ACTIVE_START_HOUR: 8,
+    ACTIVE_END_HOUR: 22,
+    BACKLOG_RELEASE_HOUR: 11,
+    FOCUS_GAP_MINUTES: 15
+  };
+}
+
+if (typeof DISTRIBUTION_CONFIG === 'undefined') {
+  var DISTRIBUTION_CONFIG = {
+    MAX_LEADS_PER_RUN: 100,
+    API_DELAY_MS: 200,
+    REALTIME_TO_BACKLOG_RATIO: 2,
+    FOCUS_GAP_MINUTES: 15
+  };
+}
+
+if (typeof LOG_CONFIG === 'undefined') {
+  var LOG_CONFIG = { VERBOSE: true };
+}
+
+// ============================================================================
 // 🌐 CORE HTTP HELPERS
 // ============================================================================
 
-/**
- * Make authenticated request to Supabase REST API
- */
 function supabaseRequest(endpoint, method, payload) {
   var config = getConfig();
   
@@ -61,48 +107,23 @@ function supabaseRequest(endpoint, method, payload) {
 // 📖 CRUD OPERATIONS
 // ============================================================================
 
-/**
- * SELECT - Fetch records from table
- * @param {string} table - Table name
- * @param {string} query - Query string (e.g., 'status=eq.New&limit=10')
- * @returns {Array} - Array of records
- */
 function supabaseSelect(table, query) {
   var endpoint = table + '?' + (query || 'select=*');
   var result = supabaseRequest(endpoint, 'GET', null);
   return result.success ? (result.data || []) : [];
 }
 
-/**
- * INSERT - Add new record
- * @param {string} table - Table name
- * @param {Object} payload - Data to insert
- * @returns {boolean} - Success status
- */
 function supabaseInsert(table, payload) {
   var result = supabaseRequest(table, 'POST', payload);
   return result.success;
 }
 
-/**
- * UPDATE - Modify existing records
- * @param {string} table - Table name
- * @param {string} query - Filter query (e.g., 'id=eq.uuid')
- * @param {Object} payload - Data to update
- * @returns {boolean} - Success status
- */
 function supabaseUpdate(table, query, payload) {
   var endpoint = table + '?' + query;
   var result = supabaseRequest(endpoint, 'PATCH', payload);
   return result.success;
 }
 
-/**
- * DELETE - Remove records
- * @param {string} table - Table name
- * @param {string} query - Filter query
- * @returns {boolean} - Success status
- */
 function supabaseDelete(table, query) {
   var endpoint = table + '?' + query;
   var result = supabaseRequest(endpoint, 'DELETE', null);
@@ -113,12 +134,6 @@ function supabaseDelete(table, query) {
 // 🔧 RPC (Remote Procedure Calls)
 // ============================================================================
 
-/**
- * Call Supabase RPC function
- * @param {string} functionName - Name of the function
- * @param {Object} params - Parameters to pass
- * @returns {Object} - { success: boolean, data: any }
- */
 function callRPC(functionName, params) {
   var config = getConfig();
   
@@ -161,41 +176,34 @@ function callRPC(functionName, params) {
 // 🛡️ ATOMIC LEAD SLOT CLAIMING (v15.0 Core)
 // ============================================================================
 
-/**
- * CRITICAL: Atomically claim a lead slot for a user
- * Uses Supabase RPC to prevent race conditions
- * 
- * @param {string} userId - UUID of the user
- * @returns {boolean} - TRUE if slot claimed, FALSE if limit/gap/inactive
- */
 function tryClaimLeadSlot(userId) {
-  if (!userId) {
-    Logger.log('⚠️ tryClaimLeadSlot: No userId provided');
-    return false;
-  }
+  if (!userId) return false;
   
-  var result = callRPC('increment_lead_count_safe', {
-    target_user_id: userId
+  // 1. Fetch limit first (to pass to RPC)
+  var userQuery = 'select=daily_limit&id=eq.' + userId;
+  var users = supabaseSelect(SYSTEM.TABLES.USERS, userQuery);
+  if (users.length === 0) return false;
+  
+  var dailyLimit = users[0].daily_limit || 0;
+  if (dailyLimit <= 0) return false;
+
+  // 2. Call Atomic RPC
+  var result = callRPC('claim_lead_slot', { 
+    p_user_id: userId, 
+    p_limit: dailyLimit 
   });
   
   if (result.success && result.data === true) {
     if (LOG_CONFIG.VERBOSE) {
-      Logger.log('✅ Slot claimed for user: ' + userId);
+       Logger.log('✅ Slot claimed (Atomic): ' + userId);
     }
     return true;
   }
   
-  if (LOG_CONFIG.VERBOSE) {
-    Logger.log('⏭️ Slot NOT available for user: ' + userId + ' (limit/gap/inactive)');
-  }
+  Logger.log('⏭️ Slot claim failed (Limit Reached): ' + userId);
   return false;
 }
 
-/**
- * Reset daily lead counters for all users
- * Called at midnight IST
- * @returns {number} - Number of users reset
- */
 function resetDailyCounters() {
   var result = callRPC('reset_daily_leads', {});
   
@@ -209,22 +217,25 @@ function resetDailyCounters() {
 }
 
 // ============================================================================
-// 📥 LEAD FETCHING
+// 📥 LEAD FETCHING - FIXED TIMEZONE
 // ============================================================================
 
-/**
- * Fetch unassigned real-time leads (arrived during active hours today)
- * Real-time = Created between 8 AM and 10 PM today
- * @returns {Array} - Array of lead objects
- */
 function fetchRealtimeLeads() {
   var today = getTodayDateIST();
-  var startTime = today + 'T' + padZero(TIME_CONFIG.ACTIVE_START_HOUR) + ':00:00';
-  var endTime = today + 'T' + padZero(TIME_CONFIG.ACTIVE_END_HOUR) + ':00:00';
+  var startHourUTC = TIME_CONFIG.ACTIVE_START_HOUR - 5.5;
+  var endHourUTC = TIME_CONFIG.ACTIVE_END_HOUR - 5.5;
+  
+  var startMin = Math.round((startHourUTC % 1) * 60);
+  var startHour = Math.floor(startHourUTC);
+  var endMin = Math.round((endHourUTC % 1) * 60);
+  var endHour = Math.floor(endHourUTC);
+  
+  var startTime = today + 'T' + padZero(startHour) + ':' + padZero(startMin) + ':00%2B00:00';
+  var endTime = today + 'T' + padZero(endHour) + ':' + padZero(endMin) + ':00%2B00:00';
   
   var query = 'select=*' +
     '&status=eq.' + SYSTEM.LEAD_STATUS.NEW +
-    '&assigned_to=is.null' +
+    '&user_id=is.null' +
     '&created_at=gte.' + startTime +
     '&created_at=lt.' + endTime +
     '&order=created_at.asc' +
@@ -239,22 +250,23 @@ function fetchRealtimeLeads() {
   return leads;
 }
 
-/**
- * Fetch night/backlog leads (arrived outside active hours)
- * Night = Created between 10 PM yesterday and 8 AM today
- * @returns {Array} - Array of lead objects
- */
 function fetchBacklogLeads() {
   var today = getTodayDateIST();
   var yesterday = getYesterdayDateIST();
+  var nightStartHourUTC = TIME_CONFIG.ACTIVE_END_HOUR - 5.5;
+  var nightEndHourUTC = TIME_CONFIG.ACTIVE_START_HOUR - 5.5;
   
-  // Night window: Yesterday 10 PM to Today 8 AM
-  var nightStart = yesterday + 'T' + padZero(TIME_CONFIG.ACTIVE_END_HOUR) + ':00:00';
-  var nightEnd = today + 'T' + padZero(TIME_CONFIG.ACTIVE_START_HOUR) + ':00:00';
+  var startMin = Math.round((nightStartHourUTC % 1) * 60);
+  var startHour = Math.floor(nightStartHourUTC);
+  var endMin = Math.round((nightEndHourUTC % 1) * 60);
+  var endHour = Math.floor(nightEndHourUTC);
+  
+  var nightStart = yesterday + 'T' + padZero(startHour) + ':' + padZero(startMin) + ':00%2B00:00';
+  var nightEnd = today + 'T' + padZero(endHour) + ':' + padZero(endMin) + ':00%2B00:00';
   
   var query = 'select=*' +
     '&status=eq.' + SYSTEM.LEAD_STATUS.NEW +
-    '&assigned_to=is.null' +
+    '&user_id=is.null' +
     '&created_at=gte.' + nightStart +
     '&created_at=lt.' + nightEnd +
     '&order=created_at.asc' +
@@ -262,7 +274,6 @@ function fetchBacklogLeads() {
   
   var leads = supabaseSelect(SYSTEM.TABLES.LEADS, query);
   
-  // Mark these as backlog for visual signaling
   leads.forEach(function(lead) {
     lead.isNightLead = true;
     lead.source = SYSTEM.LEAD_SOURCE.NIGHT_BACKLOG;
@@ -275,14 +286,10 @@ function fetchBacklogLeads() {
   return leads;
 }
 
-/**
- * Fetch all unassigned leads (for fallback)
- * @returns {Array} - Array of lead objects
- */
 function fetchAllUnassignedLeads() {
   var query = 'select=*' +
     '&status=eq.' + SYSTEM.LEAD_STATUS.NEW +
-    '&assigned_to=is.null' +
+    '&user_id=is.null' +
     '&order=created_at.asc' +
     '&limit=' + DISTRIBUTION_CONFIG.MAX_LEADS_PER_RUN;
   
@@ -290,17 +297,10 @@ function fetchAllUnassignedLeads() {
 }
 
 // ============================================================================
-// 👥 USER FETCHING
+// 👥 USER FETCHING (FIXED: Added target_gender and target_state)
 // ============================================================================
 
-/**
- * Fetch active subscribers sorted by plan priority
- * Priority: Booster(1) > Manager(2) > Supervisor(3) > Starter(4)
- * 
- * @returns {Array} - Array of user objects with subscription data
- */
 function fetchActiveSubscribersByPriority() {
-  // Try to use RPC for optimized query
   var result = callRPC('get_available_users_by_priority', {});
   
   if (result.success && result.data && result.data.length > 0) {
@@ -310,75 +310,56 @@ function fetchActiveSubscribersByPriority() {
     return result.data;
   }
   
-  // Fallback: Manual fetch and sort
   Logger.log('ℹ️ RPC fallback - fetching users manually');
   return fetchAndSortUsersManually();
 }
 
-/**
- * Fallback: Fetch and sort users manually if RPC not available
- */
 function fetchAndSortUsersManually() {
-  // Get active subscriptions WITH target audience columns
-  var subsQuery = 'select=user_id,plan_name,daily_limit,leads_sent,last_lead_assigned_at,target_gender,target_state' +
-    '&plan_status=eq.Active';
-  var subscriptions = supabaseSelect(SYSTEM.TABLES.SUBSCRIPTIONS, subsQuery);
+  // FIXED: Added target_gender and target_state to query
+  var usersQuery = 'select=id,name,email,phone,plan_name,daily_limit,leads_today,last_lead_time,is_active,target_gender,target_state' +
+    '&payment_status=eq.active' +
+    '&role=eq.member' +
+    '&is_active=neq.false';
+  var users = supabaseSelect(SYSTEM.TABLES.USERS, usersQuery);
   
-  
-  if (subscriptions.length === 0) {
-    Logger.log('⚠️ No active subscriptions found');
+  if (users.length === 0) {
+    Logger.log('⚠️ No active users found');
     return [];
   }
   
-  // Get user details (including is_active for pause/resume feature)
-  var userIds = subscriptions.map(function(s) { return s.user_id; });
-  var usersQuery = 'select=id,name,email,phone,is_active&id=in.(' + userIds.join(',') + ')&is_active=neq.false';
-  var users = supabaseSelect(SYSTEM.TABLES.USERS, usersQuery);
+  Logger.log('👥 Found ' + users.length + ' active users from users table');
   
-  // Create user map
-  var userMap = {};
-  users.forEach(function(u) {
-    userMap[u.id] = u;
-  });
-  
-  // Merge and add priority
   var now = new Date();
   var fifteenMinAgo = new Date(now.getTime() - (TIME_CONFIG.FOCUS_GAP_MINUTES * 60 * 1000));
   
-  var mergedUsers = [];
+  var availableUsers = [];
   
-  subscriptions.forEach(function(sub) {
-    var user = userMap[sub.user_id];
-    if (!user) return;
-    
-    // Check if user is within cooling period
-    var lastAssigned = sub.last_lead_assigned_at ? new Date(sub.last_lead_assigned_at) : null;
+  users.forEach(function(user) {
+    var lastAssigned = user.last_lead_time ? new Date(user.last_lead_time) : null;
     var isInCoolingPeriod = lastAssigned && lastAssigned > fifteenMinAgo;
     
-    // Check if under limit
-    var isUnderLimit = (sub.leads_sent || 0) < (sub.daily_limit || 0);
+    var leadsToday = user.leads_today || 0;
+    var dailyLimit = user.daily_limit || 0;
+    var isUnderLimit = leadsToday < dailyLimit;
     
-    // Only include if available
-    if (isUnderLimit && !isInCoolingPeriod) {
-      mergedUsers.push({
-        user_id: sub.user_id,
+    if (isUnderLimit && !isInCoolingPeriod && dailyLimit > 0) {
+      availableUsers.push({
+        user_id: user.id,
         user_name: user.name,
         email: user.email,
         phone: user.phone,
-        plan_name: sub.plan_name,
-        plan_priority: PLAN_CONFIG.PRIORITY[sub.plan_name] || 5,
-        daily_limit: sub.daily_limit,
-        leads_sent: sub.leads_sent,
-        last_lead_assigned_at: sub.last_lead_assigned_at,
-        // Target Audience for matching
-        target_gender: sub.target_gender || 'Any',
-        target_state: sub.target_state || 'All India'
+        plan_name: user.plan_name,
+        plan_priority: getPlanPriority(user.plan_name),
+        daily_limit: dailyLimit,
+        leads_sent: leadsToday,
+        last_lead_assigned_at: user.last_lead_time,
+        target_gender: user.target_gender || 'Any',
+        target_state: user.target_state || 'All India'
       });
     }
   });
   
-  // Sort by priority (ascending) then by leads_sent (ascending)
-  mergedUsers.sort(function(a, b) {
+  availableUsers.sort(function(a, b) {
     if (a.plan_priority !== b.plan_priority) {
       return a.plan_priority - b.plan_priority;
     }
@@ -386,26 +367,19 @@ function fetchAndSortUsersManually() {
   });
   
   if (LOG_CONFIG.VERBOSE) {
-    Logger.log('👥 Found ' + mergedUsers.length + ' available users (manual)');
+    Logger.log('👥 ' + availableUsers.length + ' users available for leads');
   }
   
-  return mergedUsers;
+  return availableUsers;
 }
 
 // ============================================================================
 // 📝 LEAD ASSIGNMENT
 // ============================================================================
 
-/**
- * Assign a lead to a user in the database
- * @param {string} leadId - Lead UUID
- * @param {string} userId - User UUID
- * @param {boolean} isNightLead - Whether this is a backlog lead
- * @returns {boolean} - Success status
- */
 function assignLeadToUser(leadId, userId, isNightLead) {
   var payload = {
-    assigned_to: userId,
+    user_id: userId,
     status: SYSTEM.LEAD_STATUS.ASSIGNED,
     assigned_at: new Date().toISOString(),
     source: isNightLead ? SYSTEM.LEAD_SOURCE.NIGHT_BACKLOG : SYSTEM.LEAD_SOURCE.REALTIME
@@ -424,9 +398,6 @@ function assignLeadToUser(leadId, userId, isNightLead) {
   return success;
 }
 
-/**
- * Mark lead as delivered after notification sent
- */
 function markLeadDelivered(leadId) {
   return supabaseUpdate(SYSTEM.TABLES.LEADS, 'id=eq.' + leadId, {
     status: SYSTEM.LEAD_STATUS.DELIVERED,
@@ -434,9 +405,6 @@ function markLeadDelivered(leadId) {
   });
 }
 
-/**
- * Mark lead as failed
- */
 function markLeadFailed(leadId, reason) {
   return supabaseUpdate(SYSTEM.TABLES.LEADS, 'id=eq.' + leadId, {
     status: SYSTEM.LEAD_STATUS.FAILED,
@@ -448,26 +416,17 @@ function markLeadFailed(leadId, reason) {
 // 📊 HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Get today's date in IST (YYYY-MM-DD)
- */
 function getTodayDateIST() {
   var now = new Date();
   return Utilities.formatDate(now, TIME_CONFIG.TIMEZONE, 'yyyy-MM-dd');
 }
 
-/**
- * Get yesterday's date in IST (YYYY-MM-DD)
- */
 function getYesterdayDateIST() {
   var now = new Date();
   now.setDate(now.getDate() - 1);
   return Utilities.formatDate(now, TIME_CONFIG.TIMEZONE, 'yyyy-MM-dd');
 }
 
-/**
- * Pad number with leading zero
- */
 function padZero(num) {
   return num < 10 ? '0' + num : '' + num;
 }
@@ -476,9 +435,6 @@ function padZero(num) {
 // 🧪 CONNECTION TEST
 // ============================================================================
 
-/**
- * Test Supabase connection
- */
 function testSupabaseConnection() {
   Logger.log('========== SUPABASE CONNECTION TEST ==========');
   
@@ -490,8 +446,8 @@ function testSupabaseConnection() {
   }
   
   Logger.log('URL: ' + config.SUPABASE_URL);
+  Logger.log('SYSTEM.TABLES.USERS: ' + SYSTEM.TABLES.USERS);
   
-  // Test SELECT
   var users = supabaseSelect(SYSTEM.TABLES.USERS, 'select=id,email&limit=3');
   
   if (users.length > 0) {
@@ -504,17 +460,36 @@ function testSupabaseConnection() {
   }
 }
 
-/**
- * Test RPC function
- */
-function testRPCFunction() {
-  Logger.log('========== RPC FUNCTION TEST ==========');
+function debugRealtimeQuery() {
+  var today = getTodayDateIST();
+  var startHourUTC = TIME_CONFIG.ACTIVE_START_HOUR - 5.5;
+  var endHourUTC = TIME_CONFIG.ACTIVE_END_HOUR - 5.5;
   
-  // Test with a fake UUID (should return false)
-  var testResult = tryClaimLeadSlot('00000000-0000-0000-0000-000000000000');
+  var startMin = Math.round((startHourUTC % 1) * 60);
+  var startHour = Math.floor(startHourUTC);
+  var endMin = Math.round((endHourUTC % 1) * 60);
+  var endHour = Math.floor(endHourUTC);
   
-  Logger.log('Test result (should be false): ' + testResult);
-  Logger.log('✅ RPC is callable');
+  var startTime = today + 'T' + padZero(startHour) + ':' + padZero(startMin) + ':00%2B00:00';
+  var endTime = today + 'T' + padZero(endHour) + ':' + padZero(endMin) + ':00%2B00:00';
   
-  return true;
+  Logger.log('Today IST: ' + today);
+  Logger.log('Start UTC: ' + startTime);
+  Logger.log('End UTC: ' + endTime);
+  Logger.log('Current IST hour: ' + getCurrentHourIST());
+  
+  var query = 'select=id,name,created_at&status=eq.New&user_id=is.null&order=created_at.desc&limit=5';
+  var leads = supabaseSelect(SYSTEM.TABLES.LEADS, query);
+  
+  Logger.log('Found ' + leads.length + ' unassigned leads');
+  leads.forEach(function(l) {
+    Logger.log('  - ' + l.name + ' | ' + l.created_at);
+  });
+}
+
+function testSystem() {
+  Logger.log('SYSTEM defined: ' + (typeof SYSTEM !== 'undefined'));
+  if (typeof SYSTEM !== 'undefined') {
+    Logger.log('TABLES: ' + JSON.stringify(SYSTEM.TABLES));
+  }
 }

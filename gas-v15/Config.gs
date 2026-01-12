@@ -277,6 +277,7 @@ var STATE_CITIES = {
     'ferozepur city', 'ferozepur cantonment', 'talwara', 'dhariwal',
     'dinanagar', 'sujanpur', 'bhikhi', 'maur', 'jaitu', 'kot ise khan',
     'bareta', 'bhucho mandi', 'goniana', 'raman', 'mandi ahmedgarh',
+    'kurali', 'kharar', 'landran', 'nayagaon', 'naya gaon', 'mullanpur garibdass',
     'ldh', 'asr', 'jal', 'pat', 'btn', 'sas nagar', 'sahibzada ajit singh nagar',
     'ferozepur', 'ferozpur', 'bhatinda', 'ludhiyana', 'jalandher'
   ],
@@ -393,6 +394,7 @@ var STATE_CITIES = {
     'keylong', 'kaza', 'tabo', 'losar', 'kibber', 'langza',
     'komic', 'hikkim', 'demul', 'lhalung', 'dhankar', 'pin valley',
     'udaipur lahaul', 'trilokinath', 'jispa', 'darcha', 'sarchu',
+    'rehan', 'rahan', 'nurpur', 'indora',
     'hp', 'himachal', 'h.p.', 'mcleod', 'dalhousie', 'khajiar',
     'manali town', 'old manali', 'vashisht', 'prini', 'dhungri'
   ],
@@ -491,6 +493,44 @@ var STATE_CITIES = {
     'diveagar', 'harihareshwar', 'ganpatipule', 'guhagar',
     'mh', 'maharashtra state', 'mum', 'bombay city', 'punekar', 'mumbaiker',
     'thana', 'kalyan dombivali', 'pcmc area', 'navi mumbai city'
+  ],
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // RAJASTHAN - ALL DISTRICTS & TOWNS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  'Rajasthan': [
+    'jaipur', 'jodhpur', 'kota', 'bikaner', 'ajmer', 'udaipur', 'bhilwara', 'alwar',
+    'sikar', 'sriganganagar', 'ganganagar', 'pali', 'chittorgarh', 'tonk', 'kishangarh',
+    'beawar', 'hanumangarh', 'dholpur', 'sawai madhopur', 'churu', 'gangapur city',
+    'jhunjhunu', 'baran', 'bundi', 'banswara', 'nagaur', 'makrana', 'sujangarh',
+    'hindaun', 'barmer', 'nokha', 'balotra', 'dausa', 'jaisalmer', 'dungarpur',
+    'pratapgarh', 'rajsamand', 'jalore', 'sirohi', 'karoli', 'karauli',
+    'sagwara', 'pilani', 'bhiwadi', 'neemrana', 'khetri', 'nawalgarh', 'sardarshahar',
+    'fatehpur shekhawati', 'didwana', 'ladnun', 'ratangarh', 'rawatsar', 'suratgarh',
+    'anupgarh', 'raisinhnagar', 'sangaria', 'bhadra', 'pilibanga',
+    'reengus', 'shahpura', 'phulera', 'sambhar', 'chaksu', 'kotputli',
+    'behror', 'tijara', 'khairthal', 'bansur', 'thanagazi', 'laxmangarh',
+    'neem ka thana', 'shrimadhopur', 'khandela', 'losal', 'danta ramgarh',
+    'kuchaman', 'merta', 'parbatsar', 'nawa', 'degana', 'jayal',
+    'sojat', 'sumerpur', 'falna', 'rani', 'bali', 'sadri',
+    'abu road', 'mount abu', 'pindwara', 'sheoganj', 'reodar',
+    'bhinder', 'salumber', 'kanod', 'fatehnagar', 'mavli',
+    'nathdwara', 'amet', 'deogarh', 'bhim', 'kuraj',
+    'asind', 'mandal', 'jahazpur', 'shahpura bhilwara', 'gulabpura',
+    'nimbahera', 'rawatbhata', 'kapasan', 'begun', 'badi sadri',
+    'rj', 'raj', 'rajasthan state', 'pink city'
+  ],
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // JAMMU & KASHMIR
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  'Jammu & Kashmir': [
+    'jammu', 'srinagar', 'anantnag', 'baramulla', 'kathua', 'udhampur',
+    'sopore', 'leh', 'ladakh', 'kargil', 'punch', 'rajouri', 'ganderbal',
+    'pulwama', 'kulgam', 'bandipora', 'budgam', 'cupwara', 'kupwara',
+    'shopian', 'samba', 'kishtwar', 'doda', 'ramban', 'reasi',
+    'bhaderwah', 'akhnoor', 'rs pura', 'bishnah', 'vijaypur', 'hiranagar',
+    'jk', 'j&k', 'jammu and kashmir'
   ],
   
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

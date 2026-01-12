@@ -26,7 +26,7 @@ import { supabase } from "../supabaseClient";
 import { User } from "../types";
 import { ENV } from "../config/env";
 
-const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzLDTaYagAacas6-Jy5nLSpLv8hVzCrlIC-dZ7l-zWso8suYeFzajrQLnyBA_X9gVs4/exec";
+const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzq4iBT3_Cdcj2OO8XY8B5IXNSIHa0AJdYYTGCx1lGJFPbVt1RmDvF5gel0JD-12TDI/exec";
 
 interface AuthContextValue {
   session: Session | null;
@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const data = await response.json();
-      
+
       if (!data || data.length === 0) {
         console.warn('No user found');
         return null;
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('✅ Profile fetched:', data[0].name);
       return data[0] as User;
-      
+
     } catch (err) {
       console.error('Fetch exception:', err);
       return null;
@@ -122,10 +122,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       console.log('🔍 Loading profile for:', user.email);
-      
+
       // Wait for trigger to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       let userProfile = await fetchProfile(user.id);
 
       if (!mountedRef.current) return;
@@ -174,8 +174,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'createSheet', userId, email, name })
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -206,9 +206,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (event === 'SIGNED_IN') {
         if (processingSignIn.current) return;
-        
+
         processingSignIn.current = true;
-        
+
         if (newSession?.user) {
           setSession(newSession);
           setLoading(true);
@@ -217,7 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           }
         }
-        
+
         setTimeout(() => {
           processingSignIn.current = false;
         }, 2000);
@@ -371,7 +371,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       await supabase.auth.signOut();
-    } catch {}
+    } catch { }
   }, []);
 
   return (
