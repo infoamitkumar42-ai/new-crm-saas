@@ -181,7 +181,7 @@ export const LeadAlert: React.FC = () => {
           // Prevent Set from growing indefinitely (keep last 100)
           if (playedLeadsRef.current.size > 100) {
             const firstItem = playedLeadsRef.current.values().next().value;
-            playedLeadsRef.current.delete(firstItem);
+            if (firstItem) playedLeadsRef.current.delete(firstItem);
           }
 
           if (soundEnabled && audioRef.current) {
@@ -230,12 +230,21 @@ export const LeadAlert: React.FC = () => {
           </span>
 
           <button
-            onClick={isSubscribed ? undefined : subscribeToPush}
+            onClick={() => {
+              if (isSubscribed) {
+                // If already subscribed, force re-sync or test sound
+                if (window.confirm("Notifications are active! Do you want to re-sync?")) {
+                  subscribeToPush();
+                }
+              } else {
+                subscribeToPush();
+              }
+            }}
             className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${isSubscribed
-              ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40'
-              : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50'
+              ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40 cursor-pointer'
+              : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50 cursor-pointer'
               }`}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
+            style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
           >
             {/* Always use Bell icon to prevent render issues, just change color */}
             {loading ? <span className="animate-spin text-xl">↻</span> : <Bell className="w-7 h-7" fill={isSubscribed ? "currentColor" : "none"} />}
