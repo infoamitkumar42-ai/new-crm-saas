@@ -237,51 +237,43 @@ export const LeadAlert: React.FC = () => {
       )}
 
       {/* Floating Controls (MOVED TO TOP-RIGHT TO FLX VISIBILITY) */}
+      {/* Floating Controls (Always Visible Wrapper) */}
       <div className="fixed top-28 right-4 z-[99999] flex flex-col items-end gap-3 isolate">
 
-        {/* Subscribe Button with Label */}
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${permissionStatus === 'denied' ? 'bg-red-600 text-white' :
-            isSubscribed ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'
-            }`}>
-            {permissionStatus === 'denied' ? 'Blocked 🚫' : isSubscribed ? 'Alerts Active ✅' : 'Enable Leads ➡'}
-          </span>
+        {/* Subscribe Button (Hidden if Subscribed AND Not Blocked) */}
+        {(!isSubscribed || permissionStatus === 'denied') && (
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${permissionStatus === 'denied' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+              }`}>
+              {permissionStatus === 'denied' ? 'Blocked 🚫' : 'Enable Leads ➡'}
+            </span>
 
-          <button
-            onClick={() => {
-              if (permissionStatus === 'denied') {
-                window.alert(
-                  "⚠️ Notifications are Blocked by your Browser!\n\nTo unblock:\n1. Click the Lock icon 🔒 in URL bar.\n2. Click 'Permissions'.\n3. Set Notifications to 'Allow'.\n4. Refresh the page."
-                );
-              } else if (isSubscribed) {
-                if (window.confirm("Notifications are active! Re-sync?")) {
+            <button
+              onClick={() => {
+                if (permissionStatus === 'denied') {
+                  window.alert("⚠️ Notifications are Blocked by your Browser!\n\nTo unblock:\n1. Click the Lock icon 🔒 in URL bar.\n2. Click 'Permissions'.\n3. Set Notifications to 'Allow'.\n4. Refresh the page.");
+                } else {
                   subscribeToPush();
                 }
-              } else {
-                subscribeToPush();
+              }}
+              className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${permissionStatus === 'denied' ? 'bg-red-600 text-white border-red-400' : 'bg-blue-600 text-white border-white'
+                }`}
+              style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
+            >
+              {loading ? <span className="animate-spin text-xl">↻</span> :
+                permissionStatus === 'denied' ? <span className="text-xl font-bold">!</span> :
+                  <Bell className="w-7 h-7" />
               }
-            }}
-            className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${permissionStatus === 'denied' ? 'bg-red-600 text-white border-red-400 shadow-red-500/40 cursor-help' :
-              isSubscribed
-                ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40 cursor-pointer'
-                : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50 cursor-pointer'
-              }`}
-            style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
-          >
-            {/* Always use Bell icon to prevent render issues, just change color */}
-            {loading ? <span className="animate-spin text-xl">↻</span> :
-              permissionStatus === 'denied' ? <span className="text-xl font-bold">!</span> :
-                <Bell className="w-7 h-7" fill={isSubscribed ? "currentColor" : "none"} />
-            }
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
 
-        {/* Sound Toggle */}
+        {/* Sound Toggle (Always Visible) */}
         <button
           onClick={() => setSoundEnabled(p => !p)}
           className={`p-3.5 rounded-full shadow-xl border transition-all ${soundEnabled ? 'bg-white text-emerald-600 border-emerald-200' : 'bg-white text-gray-400 border-gray-200'
             }`}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
+          style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
         >
           {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
         </button>
