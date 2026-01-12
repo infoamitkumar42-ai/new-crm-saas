@@ -31,6 +31,7 @@ export const LeadAlert: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>('default');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
@@ -40,6 +41,11 @@ export const LeadAlert: React.FC = () => {
   useEffect(() => {
     audioRef.current = new Audio(SOUND_URL);
     audioRef.current.volume = 0.7;
+
+    // Check Initial Permission
+    if ('Notification' in window) {
+      setPermissionStatus(Notification.permission);
+    }
 
     // 🔥 FIX: Just unlock audio context without playing
     const unlockAudio = () => {
@@ -66,6 +72,17 @@ export const LeadAlert: React.FC = () => {
   // ✅ SUBSCRIBE TO PUSH
   const subscribeToPush = async () => {
     if (!session?.user) return;
+
+    // Refresh permission status
+    if ('Notification' in window) {
+      const currentPerm = Notification.permission;
+      setPermissionStatus(currentPerm);
+      if (currentPerm === 'denied') {
+        alert("⚠️ Notifications are Blocked! Unblock from browser settings.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -224,30 +241,38 @@ export const LeadAlert: React.FC = () => {
 
         {/* Subscribe Button with Label */}
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${isSubscribed ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${permissionStatus === 'denied' ? 'bg-red-600 text-white' :
+            isSubscribed ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'
             }`}>
-            {isSubscribed ? 'Alerts Active ✅' : 'Enable Leads ➡'}
+            {permissionStatus === 'denied' ? 'Blocked 🚫' : isSubscribed ? 'Alerts Active ✅' : 'Enable Leads ➡'}
           </span>
 
           <button
             onClick={() => {
-              if (isSubscribed) {
-                // If already subscribed, force re-sync or test sound
-                if (window.confirm("Notifications are active! Do you want to re-sync?")) {
+              if (permissionStatus === 'denied') {
+                window.alert(
+                  "⚠️ Notifications are Blocked by your Browser!\n\nTo unblock:\n1. Click the Lock icon 🔒 in URL bar.\n2. Click 'Permissions'.\n3. Set Notifications to 'Allow'.\n4. Refresh the page."
+                );
+              } else if (isSubscribed) {
+                if (window.confirm("Notifications are active! Re-sync?")) {
                   subscribeToPush();
                 }
               } else {
                 subscribeToPush();
               }
             }}
-            className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${isSubscribed
-              ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40 cursor-pointer'
-              : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50 cursor-pointer'
+            className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${permissionStatus === 'denied' ? 'bg-red-600 text-white border-red-400 shadow-red-500/40 cursor-help' :
+              isSubscribed
+                ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/40 cursor-pointer'
+                : 'bg-blue-600 hover:bg-blue-700 text-white border-white shadow-blue-600/50 cursor-pointer'
               }`}
             style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
           >
             {/* Always use Bell icon to prevent render issues, just change color */}
-            {loading ? <span className="animate-spin text-xl">↻</span> : <Bell className="w-7 h-7" fill={isSubscribed ? "currentColor" : "none"} />}
+            {loading ? <span className="animate-spin text-xl">↻</span> :
+              permissionStatus === 'denied' ? <span className="text-xl font-bold">!</span> :
+                <Bell className="w-7 h-7" fill={isSubscribed ? "currentColor" : "none"} />
+            }
           </button>
         </div>
 
