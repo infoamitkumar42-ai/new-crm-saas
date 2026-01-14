@@ -1,46 +1,21 @@
 -- ============================================================================
--- 🔧 MANUAL LEAD DISTRIBUTION (2 Leads -> Rajwinder)
+-- 📥 MANUAL DISTRIBUTION: 2 Leads to Rajwinder
+-- Email: workwithrajwinder@gmail.com
 -- ============================================================================
 
-DO $$
-DECLARE
-    v_rajwinder_id UUID;
-BEGIN
-    -- 1. Get User ID (Rajwinder)
-    SELECT id INTO v_rajwinder_id FROM users WHERE email = 'workwithrajwinder@gmail.com';
+-- Step 1: Insert Lead 1
+INSERT INTO leads (name, phone, city, user_id, status, source, assigned_at)
+SELECT 'Jaswinder Janerian', '+918437373727', 'Faridkot', id, 'Assigned', 'Manual_Import', NOW()
+FROM users WHERE email = 'workwithrajwinder@gmail.com';
 
-    IF v_rajwinder_id IS NULL THEN
-        RAISE EXCEPTION 'User Rajwinder (workwithrajwinder@gmail.com) not found!';
-    END IF;
+-- Step 2: Insert Lead 2
+INSERT INTO leads (name, phone, city, user_id, status, source, assigned_at)
+SELECT 'Gagan Surtia', '+917743034482', 'Sirsa', id, 'Assigned', 'Manual_Import', NOW()
+FROM users WHERE email = 'workwithrajwinder@gmail.com';
 
-    -- ========================================================================
-    -- 2. INSERT & ASSIGN LEADS
-    -- ========================================================================
+-- Step 3: Update Lead Counter (+2)
+UPDATE users SET leads_today = leads_today + 2 
+WHERE email = 'workwithrajwinder@gmail.com';
 
-    -- 1. Deep Moga
-    INSERT INTO leads (name, phone, city, status, user_id, assigned_at, source)
-    VALUES ('Deep Moga', '9646048467', 'Moga', 'Assigned', v_rajwinder_id, NOW(), 'Manual');
-
-    -- 2. Driver mehkma
-    INSERT INTO leads (name, phone, city, status, user_id, assigned_at, source)
-    VALUES ('Driver mehkma', '9914893879', 'JAGRAON', 'Assigned', v_rajwinder_id, NOW(), 'Manual');
-
-
-    -- ========================================================================
-    -- 3. UPDATE USER COUNTERS
-    -- ========================================================================
-
-    -- Update Rajwinder (+2 leads)
-    UPDATE users 
-    SET leads_today = leads_today + 2,
-        total_leads_received = total_leads_received + 2,
-        last_lead_time = NOW()
-    WHERE id = v_rajwinder_id;
-
-END $$;
-
--- 4. Verify Assignments
-SELECT id, name, phone, city, assigned_at, user_id, status 
-FROM leads 
-WHERE source = 'Manual' 
-AND assigned_at > NOW() - INTERVAL '1 minute';
+-- Verify
+SELECT name, email, leads_today FROM users WHERE email = 'workwithrajwinder@gmail.com';

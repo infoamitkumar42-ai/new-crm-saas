@@ -83,60 +83,89 @@ export default async function handler(req: any, res: any) {
     // 🟢 HANDLE SUCCESSFUL PAYMENTS (Captured)
     // ─────────────────────────────────────────────
     if (event === 'payment.captured') {
-        const userId = payload.notes?.user_id;
-        const planName = payload.notes?.plan_name;
+      const userId = payload.notes?.user_id;
+      const planName = payload.notes?.plan_name;
 
-        if (!userId || !planName) return res.status(400).json({ error: 'Missing notes' });
+      if (!userId || !planName) return res.status(400).json({ error: 'Missing notes' });
 
-        const normalizedPlan = planName.toLowerCase().replace(/[\s-]+/g, '_');
-        const config = PLAN_CONFIG[normalizedPlan];
+      const normalizedPlan = planName.toLowerCase().replace(/[\s-]+/g, '_');
+      const config = PLAN_CONFIG[normalizedPlan];
 
-        if (!config) return res.status(400).json({ error: 'Invalid plan' });
+      if (!config) return res.status(400).json({ error: 'Invalid plan' });
 
-        // Idempotency Check
-        const paymentCheck = await fetch(
-            `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payload.id}&select=id`,
-            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
-        );
-        const existing = await paymentCheck.json();
-        if (existing?.length) return res.status(200).json({ success: true, duplicate: true });
+      // Idempotency Check
+      const paymentCheck = await fetch(
+        `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payload.id}&select=id`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+      );
+      const existing = await paymentCheck.json();
+      if (existing?.length) return res.status(200).json({ success: true, duplicate: true });
 
-        // Save Payment
-        await fetch(`${supabaseUrl}/rest/v1/payments`, {
-            method: 'POST',
-            headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: userId,
-                razorpay_payment_id: payload.id,
-                amount: payload.amount / 100,
-                plan_name: normalizedPlan,
-                status: 'captured',
-                raw_payload: payload
-            })
-        });
+      // Save Payment
+      await fetch(`${supabaseUrl}/rest/v1/payments`, {
+        method: 'POST',
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          razorpay_payment_id: payload.id,
+          amount: payload.amount / 100,
+          plan_name: normalizedPlan,
+          status: 'captured',
+          raw_payload: payload
+        })
+      });
 
-        // Activate User Plan
-        const now = new Date();
-        const validUntil = new Date();
-        validUntil.setDate(now.getDate() + config.duration);
-        
-        await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
-            method: 'PATCH',
-            headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                plan_name: normalizedPlan,
-                payment_status: 'active',
-                daily_limit: config.dailyLeads,
-                plan_weight: config.weight,
-                max_replacements: config.maxReplacements,
-                valid_until: validUntil.toISOString(),
-                leads_today: 0,
-                plan_start_date: now.toISOString(),
-                updated_at: now.toISOString()
-            })
-        });
+      // Activate User Plan
+      const now = new Date();
+      const validUntil = new Date();
+      validUntil.setDate(now.getDate() + config.duration);
 
-        return res.status(200).json({ success: true, plan: normalizedPlan });
+      // 🆕 Calculate plan activation time (next 8 AM IST)
+      // If bought after 8 AM → activate next day 8 AM
+      // If bought before 8 AM → activate same day 8 AM
+      const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const istHour = istNow.getHours();
+
+      const activationTime = new Date(now);
+      if (istHour >= 8) {
+        // Next day 8 AM IST
+        activationTime.setDate(activationTime.getDate() + 1);
+      }
+      // Set to 8 AM IST (2:30 AM UTC)
+      activationTime.setUTCHours(2, 30, 0, 0);
+
+      // Check if user was already active (renewal vs new purchase)
+      const existingUser = await fetch(
+        `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=plan_name,payment_status`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+      );
+      const existingData = await existingUser.json();
+      const isRenewal = existingData?.[0]?.payment_status === 'active' && existingData?.[0]?.plan_name !== 'none';
+
+      await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
+        method: 'PATCH',
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_name: normalizedPlan,
+          payment_status: 'active',
+          daily_limit: isRenewal ? config.dailyLeads : 0, // No leads until activation for new users
+          plan_weight: config.weight,
+          max_replacements: config.maxReplacements,
+          valid_until: validUntil.toISOString(),
+          leads_today: 0,
+          plan_start_date: now.toISOString(),
+          plan_activation_time: isRenewal ? null : activationTime.toISOString(), // Only for new users
+          is_plan_pending: isRenewal ? false : true, // Only for new users
+          updated_at: now.toISOString()
+        })
+      });
+
+      return res.status(200).json({
+        success: true,
+        plan: normalizedPlan,
+        activation_time: isRenewal ? 'immediate' : activationTime.toISOString(),
+        is_pending: !isRenewal
+      });
     }
 
     return res.status(200).json({ ignored: true });

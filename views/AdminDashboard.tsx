@@ -16,8 +16,9 @@ import {
   Search, CheckCircle, LogOut, Download,
   AlertTriangle, UserCheck, UserX, ChevronDown, X,
   Activity, BarChart3, Clock, Zap, Target, PieChart,
-  Globe, Wifi, WifiOff, Timer
+  Globe, Wifi, WifiOff, Timer, Edit3
 } from 'lucide-react';
+import UserQuickEdit from '../components/UserQuickEdit';
 
 // ============================================================
 // Types & Interfaces
@@ -211,6 +212,7 @@ export const AdminDashboard: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showPlanModal, setShowPlanModal] = useState<AdminUserRow | null>(null);
+  const [showEditModal, setShowEditModal] = useState<AdminUserRow | null>(null);
 
   // Upload
   const [showUpload, setShowUpload] = useState(false);
@@ -457,7 +459,7 @@ export const AdminDashboard: React.FC = () => {
 
   const deleteUser = useCallback(async (userId: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
+
     setActionLoading(userId);
     try {
       const { error } = await supabase.from('users').delete().eq('id', userId);
@@ -474,7 +476,7 @@ export const AdminDashboard: React.FC = () => {
 
   const assignOrphanLead = useCallback(async (orphan: OrphanLeadRow, userId: string) => {
     setActionLoading(orphan.id);
-    
+
     try {
       const { error: insertError } = await supabase.from('leads').insert({
         user_id: userId,
@@ -531,7 +533,7 @@ export const AdminDashboard: React.FC = () => {
       }
 
       setUploadStatus(`✅ Uploaded ${successCount} leads`);
-      
+
       setTimeout(() => {
         setBulkData('');
         setUploadStatus('');
@@ -698,7 +700,7 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -784,7 +786,7 @@ export const AdminDashboard: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
+
         {/* Error Alert */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
@@ -792,7 +794,7 @@ export const AdminDashboard: React.FC = () => {
               <AlertTriangle className="text-red-500" size={20} />
               <p className="text-red-700 font-medium text-sm">{error}</p>
             </div>
-            <button 
+            <button
               onClick={fetchAnalytics}
               className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
             >
@@ -886,7 +888,7 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+
           {/* Hourly Activity Chart */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -908,10 +910,9 @@ export const AdminDashboard: React.FC = () => {
                     return (
                       <div key={`login-${hour.hour}`} className="flex-1 flex flex-col items-center">
                         <div
-                          className={`w-full transition-all rounded-t ${
-                            isCurrentHour ? 'bg-blue-600' :
+                          className={`w-full transition-all rounded-t ${isCurrentHour ? 'bg-blue-600' :
                             isWorkingHour ? 'bg-green-500' : 'bg-slate-300'
-                          }`}
+                            }`}
                           style={{ height: `${height}%`, minHeight: hour.logins > 0 ? '2px' : '0' }}
                           title={`${hour.hour}:00 - ${hour.logins} logins`}
                         />
@@ -1094,10 +1095,9 @@ export const AdminDashboard: React.FC = () => {
                       <span className="font-medium">{activity.leadsReceived}</span>
                     </td>
                     <td className="p-4">
-                      <span className={`font-medium ${
-                        activity.conversionRate > 20 ? 'text-green-600' :
+                      <span className={`font-medium ${activity.conversionRate > 20 ? 'text-green-600' :
                         activity.conversionRate > 10 ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
+                        }`}>
                         {activity.conversionRate.toFixed(1)}%
                       </span>
                     </td>
@@ -1111,7 +1111,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="p-4 bg-slate-50 text-center border-t">
-            <button 
+            <button
               onClick={async () => { await fetchOpsData(); setShowUsersModal(true); }}
               className="text-sm text-blue-600 font-medium hover:underline"
             >
@@ -1132,9 +1132,8 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className={`bg-gradient-to-r ${
-            stats.queuedLeads > 10 ? 'from-red-500 to-orange-500' : 'from-orange-400 to-amber-500'
-          } text-white rounded-xl p-4`}>
+          <div className={`bg-gradient-to-r ${stats.queuedLeads > 10 ? 'from-red-500 to-orange-500' : 'from-orange-400 to-amber-500'
+            } text-white rounded-xl p-4`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100">Queue Status</p>
@@ -1165,21 +1164,21 @@ export const AdminDashboard: React.FC = () => {
       {showUsersModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            
+
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">👑 User Management</h3>
                 <p className="text-xs text-slate-500">Search • Activate/Deactivate • Change Plan • Delete</p>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={exportUsersCSV} 
+                <button
+                  onClick={exportUsersCSV}
                   className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 flex items-center gap-2"
                 >
                   <Download size={16} /> Export CSV
                 </button>
-                <button 
-                  onClick={() => setShowUsersModal(false)} 
+                <button
+                  onClick={() => setShowUsersModal(false)}
                   className="p-2 rounded-lg hover:bg-slate-100"
                 >
                   <X size={20} />
@@ -1198,9 +1197,9 @@ export const AdminDashboard: React.FC = () => {
                 />
               </div>
 
-              <select 
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" 
-                value={roleFilter} 
+              <select
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value as 'all' | Role)}
               >
                 <option value="all">All Roles</option>
@@ -1209,9 +1208,9 @@ export const AdminDashboard: React.FC = () => {
                 <option value="member">Member</option>
               </select>
 
-              <select 
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" 
-                value={statusFilter} 
+              <select
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
               >
                 <option value="all">All Status</option>
@@ -1219,8 +1218,8 @@ export const AdminDashboard: React.FC = () => {
                 <option value="inactive">Inactive</option>
               </select>
 
-              <button 
-                onClick={fetchOpsData} 
+              <button
+                onClick={fetchOpsData}
                 className="px-3 py-2 border border-slate-200 rounded-lg text-sm hover:bg-slate-50 flex items-center gap-2"
               >
                 <RefreshCw size={16} /> Refresh
@@ -1252,8 +1251,8 @@ export const AdminDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-3 text-center">
-                        <button 
-                          onClick={() => setShowPlanModal(u)} 
+                        <button
+                          onClick={() => setShowPlanModal(u)}
                           className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium"
                         >
                           {u.plan_name || 'none'} <ChevronDown size={14} />
@@ -1278,12 +1277,20 @@ export const AdminDashboard: React.FC = () => {
                       <td className="p-3 text-center font-medium">
                         {u.leads_today ?? 0}/{u.daily_limit ?? 0}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setShowEditModal(u)}
+                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
+                          title="Edit User"
+                        >
+                          <Edit3 size={16} />
+                        </button>
                         {u.role !== 'admin' && (
-                          <button 
-                            disabled={actionLoading === u.id} 
-                            onClick={() => deleteUser(u.id)} 
+                          <button
+                            disabled={actionLoading === u.id}
+                            onClick={() => deleteUser(u.id)}
                             className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                            title="Delete User"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1315,21 +1322,21 @@ export const AdminDashboard: React.FC = () => {
       {showOrphansModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            
+
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">⚠️ Orphan Leads</h3>
                 <p className="text-xs text-slate-500">Bulk Upload • Assign to members</p>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setShowUpload(v => !v)} 
+                <button
+                  onClick={() => setShowUpload(v => !v)}
                   className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
                 >
                   <Upload size={16} /> Bulk Upload
                 </button>
-                <button 
-                  onClick={() => setShowOrphansModal(false)} 
+                <button
+                  onClick={() => setShowOrphansModal(false)}
                   className="p-2 rounded-lg hover:bg-slate-100"
                 >
                   <X size={20} />
@@ -1370,8 +1377,8 @@ export const AdminDashboard: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {orphanLeads.map(orphan => (
-                    <div 
-                      key={orphan.id} 
+                    <div
+                      key={orphan.id}
                       className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                     >
                       <div>
@@ -1426,14 +1433,14 @@ export const AdminDashboard: React.FC = () => {
       {showPlanModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
-            
+
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Change Plan</h3>
                 <p className="text-xs text-slate-500">{showPlanModal.name} • {showPlanModal.email}</p>
               </div>
-              <button 
-                onClick={() => setShowPlanModal(null)} 
+              <button
+                onClick={() => setShowPlanModal(null)}
                 className="p-2 rounded-lg hover:bg-slate-100"
               >
                 <X size={20} />
@@ -1446,11 +1453,10 @@ export const AdminDashboard: React.FC = () => {
                   key={plan.id}
                   disabled={actionLoading === showPlanModal.id}
                   onClick={() => activatePlan(showPlanModal, plan.id)}
-                  className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
-                    (showPlanModal.plan_name || 'none') === plan.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-blue-300'
-                  }`}
+                  className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${(showPlanModal.plan_name || 'none') === plan.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-200 hover:border-blue-300'
+                    }`}
                 >
                   <div className="text-left">
                     <div className="font-bold text-slate-900">{plan.name}</div>
@@ -1467,6 +1473,28 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ============================================================
+          USER QUICK EDIT MODAL
+      ============================================================ */}
+      {showEditModal && (
+        <UserQuickEdit
+          user={{
+            id: showEditModal.id,
+            name: showEditModal.name || '',
+            email: showEditModal.email,
+            daily_limit: showEditModal.daily_limit,
+            leads_today: showEditModal.leads_today,
+            plan_name: showEditModal.plan_name,
+            is_active: showEditModal.payment_status === 'active'
+          }}
+          onClose={() => setShowEditModal(null)}
+          onSave={() => {
+            fetchOpsData();
+            fetchAnalytics();
+          }}
+        />
       )}
 
     </div>

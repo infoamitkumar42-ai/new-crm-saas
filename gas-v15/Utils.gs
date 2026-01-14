@@ -746,3 +746,36 @@ function testUtils() {
   
   Logger.log('==========================================');
 }
+
+// ============================================================================
+// 🎯 NEW PRIORITY LOGIC (Supervisor First Cap 2)
+// ============================================================================
+
+/**
+ * Selects a user based on PURE STRICT ROUND-ROBIN
+ * NO TIER SYSTEM - Just pick whoever has the MINIMUM leads_today
+ * Sort by leads_today ASC, then by user_id for deterministic order
+ */
+function getPriorityUser(users) {
+  if (!users || users.length === 0) return null;
+  
+  // PURE ROTATION: Sort ALL users by leads_today (ascending)
+  // Whoever has the LEAST leads gets the next lead
+  users.sort(function(a, b) {
+    var leadsA = a.leads_today || 0;
+    var leadsB = b.leads_today || 0;
+    
+    // Primary: Sort by leads_today (ascending) - 0 comes before 1, 1 before 2
+    if (leadsA !== leadsB) {
+      return leadsA - leadsB;
+    }
+    
+    // Secondary: Sort by user_id (deterministic tie-break for rotation)
+    var idA = a.user_id || '';
+    var idB = b.user_id || '';
+    return idA.localeCompare(idB);
+  });
+  
+  // Pick the FIRST user (who has absolute minimum leads)
+  return users[0];
+}

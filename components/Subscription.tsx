@@ -15,8 +15,8 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
-  Check, Zap, Shield, Crown, Rocket, Flame, Clock, 
+import {
+  Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
   Phone, MessageCircle, RefreshCw, Sparkles, Users,
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
@@ -42,7 +42,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FINAL PLAN CONFIGURATION
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   
+
   const plans = {
     monthly: [
       {
@@ -227,13 +227,13 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PAYMENT HANDLER (SECURE API CALL)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   
+
   const handleSubscribe = async (plan: typeof plans.monthly[0]) => {
     setLoading(plan.id);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         alert("Please login first to subscribe.");
         setLoading(null);
@@ -281,11 +281,11 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         theme: {
           color: activeTab === 'monthly' ? "#2563EB" : "#EA580C"
         },
-        handler: async function(response: any) {
+        handler: async function (response: any) {
           console.log('✅ Payment Success:', response);
-          
-          // Show Feedback
-          alert("🎉 Payment Successful! Please wait while we activate your plan...");
+
+          // Show Feedback with plan activation info
+          alert("🎉 Payment Successful!\\n\\n⏰ Aapka plan KAL SUBAH 8 AM se active hoga.\\nLeads milna shuru ho jayengi!\\n\\nPlease wait while we setup your account...");
           setLoading(plan.id);
 
           // Wait 5 seconds for Webhook to process
@@ -295,20 +295,20 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
           window.location.href = `/?payment_success=true&t=${Date.now()}`;
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setLoading(null);
           }
         }
       };
 
       const rzp = new window.Razorpay(options);
-      
-      rzp.on('payment.failed', function(response: any) {
+
+      rzp.on('payment.failed', function (response: any) {
         console.error('❌ Payment Failed:', response.error);
         alert(`Payment Failed: ${response.error.description}`);
         setLoading(null);
       });
-      
+
       rzp.open();
 
     } catch (error: any) {
@@ -339,7 +339,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">
       <div className="h-full w-full overflow-y-auto">
-        
+
         {/* ━━━ Floating Particles Background ━━━ */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -371,7 +371,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         </div>
 
         <div className="px-4 py-5 pb-32 relative z-10">
-          
+
           {/* ━━━ Welcome Offer Banner ━━━ */}
           <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-4 mb-6 shadow-2xl shadow-emerald-500/20">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvZz48L3N2Zz4=')] opacity-30"></div>
@@ -401,22 +401,20 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
             <div className="bg-white/10 backdrop-blur-xl p-1.5 rounded-2xl border border-white/20 inline-flex w-full max-w-sm">
               <button
                 onClick={() => setActiveTab('monthly')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                  activeTab === 'monthly'
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
                     : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Clock size={18} />
                 Monthly Plans
               </button>
               <button
                 onClick={() => setActiveTab('boost')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                  activeTab === 'boost'
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'boost'
                     ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
                     : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Zap size={18} />
                 7-Day Boost
@@ -429,19 +427,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
             {currentPlans.map((plan) => {
               const PlanIcon = plan.icon;
               const isExpanded = expandedPlan === plan.id;
-              
+
               return (
                 <div
                   key={plan.id}
-                  className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${
-                    plan.highlight 
+                  className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${plan.highlight
                       ? 'ring-2 ring-offset-2 ring-offset-slate-900 ' + (activeTab === 'monthly' ? 'ring-blue-400' : 'ring-orange-400')
                       : ''
-                  }`}
+                    }`}
                 >
                   {/* Card Background */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${plan.lightGradient} opacity-95`}></div>
-                  
+
                   {/* Highlight Glow */}
                   {plan.highlight && (
                     <div className={`absolute inset-0 bg-gradient-to-br ${plan.gradient} opacity-5`}></div>
@@ -468,7 +465,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                       <div className="flex-1">
                         <h3 className="text-xl font-black text-slate-900">{plan.name}</h3>
                         <p className="text-sm text-slate-500">{plan.subtitle}</p>
-                        
+
                         {/* Priority Badge */}
                         <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full ${plan.priorityColor} text-white text-xs font-bold`}>
                           <Zap size={12} />
@@ -633,7 +630,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
           <div className="mt-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-xl rounded-2xl p-4 border border-blue-400/30">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-400 shadow-lg flex-shrink-0">
-                <img 
+                <img
                   src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face"
                   alt="Rahul Kumar"
                   className="w-full h-full object-cover"

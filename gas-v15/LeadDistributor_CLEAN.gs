@@ -29,7 +29,6 @@ function distributeLeadsV15() {
   // 🔒 PREVENT CONCURRENT EXECUTIONS
   var lock = LockService.getScriptLock();
   try {
-    // Wait for up to 10 seconds for other executions to finish
     lock.waitLock(10000); 
   } catch (e) {
     Logger.log('⚠️ Could not obtain lock. Another distribution is running.');
@@ -69,7 +68,6 @@ function distributeLeadsV15() {
     backlogLeads = fetchBacklogLeads();
     Logger.log('   Backlog leads: ' + backlogLeads.length);
     
-    // Apply 2:1 ratio mixing
     mixedQueue = mixLeadsWithRatio(realtimeLeads, backlogLeads);
   } else {
     Logger.log('   ⏰ Before 11 AM - Only real-time leads');
@@ -110,18 +108,17 @@ function distributeLeadsV15() {
   }
   
   // =========================================================================
-  // STEP 4: DISTRIBUTION LOOP (Speed Logic + Audience Matching + Weighted Random)
+  // STEP 4: DISTRIBUTION LOOP (Strict Round-Robin + Audience Matching)
   // =========================================================================
   
   Logger.log('');
-  Logger.log('📤 DISTRIBUTING LEADS (Weighted Random 3:2:1 + Audience Match)...');
+  Logger.log('📤 DISTRIBUTING LEADS (Strict Round-Robin + Audience Match)...');
   
   var distributedCount = 0;
   var failedCount = 0;
   var noMatchCount = 0;
   var leadIndex = 0;
   
-  // Master user list (we will filter per lead)
   var allAvailableUsers = availableUsers.slice();
   
   while (leadIndex < validLeads.length) {
@@ -138,20 +135,17 @@ function distributeLeadsV15() {
       continue;
     }
     
-    // 2. Strict Priority Selection (Supervisor First Cap 2)
+    // 2. Strict Priority Selection (Round-Robin)
     var candidatePool = matchingUsers.slice();
     
     while (candidatePool.length > 0) {
-      // Logic moved to Utils.getPriorityUser for consistency & testing
       var selectedUser = getPriorityUser(candidatePool);
       
       if (!selectedUser) break; 
       
-      // RULE F: Atomic slot claiming via RPC
       var slotClaimed = tryClaimLeadSlot(selectedUser.user_id);
       
       if (slotClaimed) {
-        // Assign lead
         var assignSuccess = assignLeadToUser(lead.id, selectedUser.user_id, lead.isNightLead);
         
         if (assignSuccess) {
@@ -166,21 +160,18 @@ function distributeLeadsV15() {
           assigned = true;
           
           // CRITICAL FIX: Update in-memory lead count for rotation accuracy
-          // Increment leads_today for the selected user in ALL pools
           selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
           
-          // Also update in master pool for next lead's rotation
           var masterUser = allAvailableUsers.find(function(u) { return u.user_id === selectedUser.user_id; });
           if (masterUser) {
             masterUser.leads_today = (masterUser.leads_today || 0) + 1;
           }
           
-          Logger.log('🔄 Updated in-memory count for ' + (selectedUser.user_name || selectedUser.email) + ': ' + selectedUser.leads_today);
+          Logger.log('🔄 Updated in-memory count: ' + selectedUser.leads_today);
           
-          break; // Exit candidate loop, move to next lead
+          break;
         }
       } else {
-        // If failed to claim or assign, remove from this lead's candidate pool and try another
         var poolIdx = candidatePool.findIndex(function(u) { return u.user_id === selectedUser.user_id; });
         if (poolIdx !== -1) candidatePool.splice(poolIdx, 1);
         
@@ -214,7 +205,6 @@ function distributeLeadsV15() {
   Logger.log('   📥 Total processed: ' + leadIndex);  
   Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
-  // Release the lock before returning
   try {
     lock.releaseLock();
   } catch (e) {
@@ -233,10 +223,6 @@ function distributeLeadsV15() {
 // 🔄 ALTERNATIVE: Round-Robin Distribution
 // ============================================================================
 
-/**
- * Distribute leads using round-robin among available users
- * Ensures fair distribution across all priority levels
- */
 function distributeLeadsRoundRobin() {
   Logger.log('🔄 Running Round-Robin Distribution...');
   
@@ -255,8 +241,6 @@ function distributeLeadsRoundRobin() {
   
   for (var i = 0; i < leads.length; i++) {
     var lead = leads[i];
-    
-    // Get fresh list of available users for each lead
     var users = fetchActiveSubscribersByPriority();
     
     if (users.length === 0) {
@@ -264,7 +248,6 @@ function distributeLeadsRoundRobin() {
       break;
     }
     
-    // Try the highest priority available user
     var user = users[0];
     
     if (tryClaimLeadSlot(user.user_id)) {

@@ -50,6 +50,8 @@ interface UserProfile {
   is_active?: boolean;
   days_extended?: number;
   total_leads_promised?: number;
+  is_plan_pending?: boolean;
+  plan_activation_time?: string;
 }
 
 interface Lead {
@@ -700,6 +702,18 @@ export const MemberDashboard = () => {
                 <CheckCircle2 size={16} />
                 <span>🎯 Goal met! {dailyLimit} leads received.</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 Pending Plan Banner */}
+        {profile?.is_plan_pending && profile?.plan_activation_time && (
+          <div className="bg-blue-600 text-white py-3 px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
+              <Clock size={18} className="animate-pulse" />
+              <span className="text-sm font-medium">
+                ⏰ Aapka plan <span className="font-bold">{profile.plan_name}</span> kal subah 8 AM se active hoga. Leads milna shuru ho jayengi!
+              </span>
             </div>
           </div>
         )}
