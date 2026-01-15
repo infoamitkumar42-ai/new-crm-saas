@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { 
-  Users, UserPlus, Copy, Check, LogOut, 
+import {
+  Users, UserPlus, Copy, Check, LogOut,
   LayoutDashboard, RefreshCw, MessageSquare, Award,
-  Target, UserCheck, Clock, Share2, TrendingUp
+  Target, UserCheck, Clock, Share2, TrendingUp,
+  Phone, Download, Trophy, Medal, Crown,
+  ChevronRight, BarChart3, Calendar
 } from 'lucide-react';
 
 // ============================================================
@@ -15,6 +17,7 @@ interface TeamMember {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   payment_status: string;
   plan_name: string;
   daily_limit: number;
@@ -34,14 +37,19 @@ interface Stats {
   conversionRate: number;
 }
 
-// Lead data structure for type safety
+interface DailyStats {
+  date: string;
+  leads: number;
+}
+
 interface Lead {
   user_id: string;
   status: string;
+  created_at?: string;
 }
 
-// Strict color type
 type ColorType = 'blue' | 'green' | 'purple' | 'orange' | 'emerald' | 'pink';
+type TabType = 'overview' | 'team' | 'analytics';
 
 // ============================================================
 // Component
@@ -49,6 +57,7 @@ type ColorType = 'blue' | 'green' | 'purple' | 'orange' | 'emerald' | 'pink';
 
 export const ManagerDashboard = () => {
   const { session, signOut } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [stats, setStats] = useState<Stats>({
     teamSize: 0,
     activeMembers: 0,
@@ -59,25 +68,24 @@ export const ManagerDashboard = () => {
   });
   const [teamCode, setTeamCode] = useState('');
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<DailyStats[]>([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Ref for setTimeout cleanup to prevent memory leaks
+
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   // ============================================================
-  // Optimized Data Fetch (N+1 Fixed)
+  // Optimized Data Fetch
   // ============================================================
-  
+
   const fetchManagerData = useCallback(async () => {
     try {
       setRefreshing(true);
-      setError(null); // Clear previous errors
-      
-      const managerId = session?.user.id;
+      setError(null);
 
+      const managerId = session?.user.id;
       if (!managerId) {
         setError("User session not found. Please login again.");
         return;
@@ -89,7 +97,7 @@ export const ManagerDashboard = () => {
         .select('team_code, name')
         .eq('id', managerId)
         .single();
-      
+
       if (managerData?.team_code) {
         setTeamCode(managerData.team_code);
       }
@@ -101,19 +109,19 @@ export const ManagerDashboard = () => {
         .eq('manager_id', managerId)
         .order('created_at', { ascending: false });
 
-      // 3. OPTIMIZATION: Fetch leads in ONE query (N+1 Fix)
+      // 3. Fetch all leads for the team
       const memberIds = (members || []).map(m => m.id);
-      
       let leadsMap: { [key: string]: { total: number; interested: number; closed: number } } = {};
-      
+      let allLeads: Lead[] = [];
+
       if (memberIds.length > 0) {
-        // Fetch all leads for the team at once
         const { data: leads } = await supabase
           .from('leads')
-          .select('user_id, status')
+          .select('user_id, status, created_at')
           .in('user_id', memberIds);
 
-        // Aggregate counts in JS (Fast & Memory Efficient)
+        allLeads = leads || [];
+
         if (leads) {
           leads.forEach((lead: Lead) => {
             if (!leadsMap[lead.user_id]) {
@@ -126,20 +134,36 @@ export const ManagerDashboard = () => {
         }
       }
 
-      // 4. Merge stats back into member list
+      // 4. Calculate Weekly Stats
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      const dailyLeadCounts = last7Days.map(date => {
+        const count = allLeads.filter(lead =>
+          lead.created_at?.startsWith(date)
+        ).length;
+        return { date, leads: count };
+      });
+
+      setWeeklyStats(dailyLeadCounts);
+
+      // 5. Merge stats into member list
       const membersWithStats = (members || []).map((member) => {
-        const stats = leadsMap[member.id] || { total: 0, interested: 0, closed: 0 };
+        const memberStats = leadsMap[member.id] || { total: 0, interested: 0, closed: 0 };
         return {
           ...member,
-          total_leads: stats.total,
-          interested_leads: stats.interested,
-          closed_leads: stats.closed
+          total_leads: memberStats.total,
+          interested_leads: memberStats.interested,
+          closed_leads: memberStats.closed
         };
       });
 
       setTeamMembers(membersWithStats);
 
-      // 5. Calculate Overall Stats
+      // 6. Calculate Overall Stats
       const totalLeads = membersWithStats.reduce((sum, m) => sum + (m.total_leads || 0), 0);
       const interestedLeads = membersWithStats.reduce((sum, m) => sum + (m.interested_leads || 0), 0);
       const closedLeads = membersWithStats.reduce((sum, m) => sum + (m.closed_leads || 0), 0);
@@ -164,20 +188,15 @@ export const ManagerDashboard = () => {
   }, [session?.user.id]);
 
   // ============================================================
-  // Helper Functions (With Fixes)
+  // Helper Functions
   // ============================================================
-  
+
   const copyCode = useCallback(() => {
     if (!teamCode) return;
     navigator.clipboard.writeText(teamCode).then(() => {
       setCopied(true);
-      
-      // Cleanup previous timeout to prevent memory leak
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      
-      timeoutRef.current = setTimeout(() => {
-        setCopied(false);
-      }, 2000);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     });
   }, [teamCode]);
 
@@ -192,32 +211,64 @@ export const ManagerDashboard = () => {
     window.open(`https://wa.me/?text=${message}`, '_blank');
   }, [teamCode]);
 
+  const messageOnWhatsApp = (phone: string, name: string) => {
+    const message = encodeURIComponent(`Hi ${name}! 👋`);
+    window.open(`https://wa.me/91${phone}?text=${message}`, '_blank');
+  };
+
+  const callMember = (phone: string) => {
+    window.open(`tel:+91${phone}`, '_self');
+  };
+
+  const exportCSV = () => {
+    const headers = ['Name', 'Email', 'Phone', 'Plan', 'Status', 'Total Leads', 'Interested', 'Closed'];
+    const rows = teamMembers.map(m => [
+      m.name, m.email, m.phone || '', m.plan_name, m.payment_status,
+      m.total_leads, m.interested_leads, m.closed_leads
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `team_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
   const getStatusColor = (status: string) => {
-    return status === 'active' 
-      ? 'bg-green-100 text-green-700 border-green-200' 
+    return status === 'active'
+      ? 'bg-green-100 text-green-700 border-green-200'
       : 'bg-slate-100 text-slate-600 border-slate-200';
   };
 
   const getPlanColor = (plan: string) => {
-    switch(plan) {
+    switch (plan) {
       case 'starter': return 'bg-blue-50 text-blue-700';
       case 'supervisor': return 'bg-purple-50 text-purple-700';
       case 'manager': return 'bg-orange-50 text-orange-700';
+      case 'weekly_boost': return 'bg-pink-50 text-pink-700';
+      case 'turbo_boost': return 'bg-red-50 text-red-700';
       default: return 'bg-slate-50 text-slate-600';
     }
   };
 
+  const getTop3Performers = () => {
+    return [...teamMembers]
+      .sort((a, b) => (b.closed_leads || 0) - (a.closed_leads || 0))
+      .slice(0, 3);
+  };
+
   // ============================================================
-  // Effects (With Cleanup)
+  // Effects
   // ============================================================
-  
+
   useEffect(() => {
     if (session?.user.id) {
       fetchManagerData();
     }
   }, [session?.user.id, fetchManagerData]);
 
-  // Cleanup effect for timers
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -227,249 +278,227 @@ export const ManagerDashboard = () => {
   // ============================================================
   // Render
   // ============================================================
-  
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading Team Data...</p>
+          <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading Dashboard...</p>
         </div>
       </div>
     );
   }
 
+  const maxLeadsInWeek = Math.max(...weeklyStats.map(d => d.leads), 1);
+  const top3 = getTop3Performers();
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      
+    <div className="min-h-screen bg-slate-50 font-sans pb-20 md:pb-0">
+
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+      <header className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl text-white shadow-lg">
+              <div className="bg-white/20 p-2.5 rounded-xl">
                 <LayoutDashboard size={22} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-800">Manager Panel</h1>
-                <p className="text-xs text-slate-500">Team Overview & Analytics</p>
+                <h1 className="text-lg font-bold">Manager Dashboard</h1>
+                <p className="text-xs text-blue-100">Team Performance</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={fetchManagerData}
                 disabled={refreshing}
-                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
               >
-                <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
               </button>
-              
-              <button 
+
+              <button
                 onClick={signOut}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium text-sm"
+                className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
               >
                 <LogOut size={18} />
-                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        
-        {/* Error Alert (New Feature) */}
+      <main className="max-w-7xl mx-auto px-4 py-4">
+
+        {/* Error Alert */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-red-500 p-2 bg-white rounded-full">
-                <RefreshCw size={20} />
-              </div>
-              <p className="text-red-700 font-medium text-sm">{error}</p>
-            </div>
-            <button 
-              onClick={fetchManagerData}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors"
-            >
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+            <p className="text-red-700 font-medium text-sm">{error}</p>
+            <button onClick={fetchManagerData} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold">
               Retry
             </button>
           </div>
         )}
 
-        {/* Team Code Section */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full -ml-16 -mb-16 blur-xl"></div>
-          
-          <div className="relative z-10">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                  <Share2 size={24} /> Grow Your Team
-                </h2>
-                <p className="text-blue-100 text-sm max-w-md">
-                  Share your unique code with sales agents. They'll automatically join your team on signup!
-                </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-                <div className="bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center gap-3 border border-white/20">
-                  <span className="text-2xl sm:text-3xl font-mono font-bold tracking-widest px-2">
-                    {teamCode || 'NO CODE'}
-                  </span>
-                  <button 
-                    onClick={copyCode} 
-                    className="bg-white text-blue-600 p-2.5 rounded-lg hover:bg-blue-50 transition-colors shadow-md"
-                    title="Copy Code"
-                  >
-                    {copied ? <Check size={20}/> : <Copy size={20}/>}
-                  </button>
-                </div>
-                
-                <button 
-                  onClick={shareOnWhatsApp}
-                  className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg"
-                >
-                  <MessageSquare size={20} />
-                  <span>Share on WhatsApp</span>
+        {/* Team Code Card */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-5 text-white mb-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Your Team Code</p>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-mono font-bold tracking-widest">{teamCode || 'NO CODE'}</span>
+                <button onClick={copyCode} className="bg-white/10 p-2 rounded-lg hover:bg-white/20">
+                  {copied ? <Check size={18} /> : <Copy size={18} />}
                 </button>
               </div>
             </div>
+
+            <button
+              onClick={shareOnWhatsApp}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 px-4 py-2.5 rounded-xl font-bold text-sm w-full sm:w-auto justify-center"
+            >
+              <MessageSquare size={18} />
+              Share on WhatsApp
+            </button>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <StatCard 
-            icon={<Users size={20} />} 
-            label="Team Size" 
-            value={stats.teamSize} 
-            color="blue"
-          />
-          <StatCard 
-            icon={<UserCheck size={20} />} 
-            label="Active" 
-            value={stats.activeMembers} 
-            color="green"
-          />
-          <StatCard 
-            icon={<Target size={20} />} 
-            label="Total Leads" 
-            value={stats.totalLeads} 
-            color="purple"
-          />
-          <StatCard 
-            icon={<Clock size={20} />} 
-            label="Interested" 
-            value={stats.interestedLeads} 
-            color="orange"
-          />
-          <StatCard 
-            icon={<Award size={20} />} 
-            label="Closed" 
-            value={stats.closedLeads} 
-            color="emerald"
-          />
-          <StatCard 
-            icon={<TrendingUp size={20} />} 
-            label="Conversion" 
-            value={`${stats.conversionRate}%`} 
-            color="pink"
-          />
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+            <Users size={20} className="text-blue-500 mx-auto mb-1" />
+            <p className="text-2xl font-bold text-slate-900">{stats.teamSize}</p>
+            <p className="text-xs text-slate-500">Team</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+            <Target size={20} className="text-purple-500 mx-auto mb-1" />
+            <p className="text-2xl font-bold text-slate-900">{stats.totalLeads}</p>
+            <p className="text-xs text-slate-500">Leads</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+            <TrendingUp size={20} className="text-green-500 mx-auto mb-1" />
+            <p className="text-2xl font-bold text-slate-900">{stats.conversionRate}%</p>
+            <p className="text-xs text-slate-500">Conv.</p>
+          </div>
         </div>
 
-        {/* Team Members Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <Users size={18} /> Team Members ({teamMembers.length})
-            </h3>
-          </div>
-
-          {teamMembers.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UserPlus size={32} className="text-slate-400" />
+        {/* Tab Content based on activeTab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Weekly Chart */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <BarChart3 size={18} className="text-blue-500" />
+                  Last 7 Days
+                </h3>
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  <Calendar size={14} /> Weekly
+                </span>
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">No Team Members Yet</h3>
-              <p className="text-slate-500 mb-4 max-w-sm mx-auto">
-                Share your team code <span className="font-mono font-bold text-blue-600">{teamCode}</span> with agents to grow your team!
-              </p>
-              <button 
-                onClick={shareOnWhatsApp}
-                className="inline-flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-600 transition-all"
-              >
-                <MessageSquare size={18} /> Invite via WhatsApp
+
+              <div className="flex items-end justify-between h-32 gap-2">
+                {weeklyStats.map((day, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    <div
+                      className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-500"
+                      style={{ height: `${(day.leads / maxLeadsInWeek) * 100}%`, minHeight: day.leads > 0 ? '8px' : '2px' }}
+                    />
+                    <span className="text-xs text-slate-500 mt-2">
+                      {new Date(day.date).toLocaleDateString('en', { weekday: 'short' }).charAt(0)}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700">{day.leads}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Performers */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <Trophy size={18} className="text-yellow-500" />
+                Top Performers
+              </h3>
+
+              {top3.length > 0 ? (
+                <div className="space-y-3">
+                  {top3.map((member, i) => (
+                    <div key={member.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${i === 0 ? 'bg-yellow-100' : i === 1 ? 'bg-slate-200' : 'bg-orange-100'
+                        }`}>
+                        {i === 0 ? <Crown size={20} className="text-yellow-600" /> :
+                          i === 1 ? <Medal size={20} className="text-slate-600" /> :
+                            <Award size={20} className="text-orange-600" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 text-sm">{member.name}</p>
+                        <p className="text-xs text-slate-500">{member.closed_leads || 0} closed</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-600">{member.total_leads || 0}</p>
+                        <p className="text-xs text-slate-500">leads</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-500 py-4">No team members yet</p>
+              )}
+            </div>
+
+            {/* Quick Stats Row */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl text-white">
+                <UserCheck size={24} className="mb-2 opacity-80" />
+                <p className="text-2xl font-bold">{stats.activeMembers}</p>
+                <p className="text-xs opacity-80">Active Members</p>
+              </div>
+              <div className="bg-gradient-to-br from-orange-500 to-red-500 p-4 rounded-xl text-white">
+                <Award size={24} className="mb-2 opacity-80" />
+                <p className="text-2xl font-bold">{stats.closedLeads}</p>
+                <p className="text-xs opacity-80">Total Closed</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'team' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Users size={18} />
+                Team ({teamMembers.length})
+              </h3>
+              <button onClick={exportCSV} className="flex items-center gap-1 text-blue-600 text-sm font-medium">
+                <Download size={16} />
+                Export
               </button>
             </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b uppercase text-xs">
-                    <tr>
-                      <th className="p-4 pl-6">Member</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Plan</th>
-                      <th className="p-4 text-center">Total Leads</th>
-                      <th className="p-4 text-center">Interested</th>
-                      <th className="p-4 text-center">Closed</th>
-                      <th className="p-4 text-center">Today</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {teamMembers.map((member) => (
-                      <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-4 pl-6">
-                          <div className="font-bold text-slate-900">{member.name || 'No Name'}</div>
-                          <div className="text-xs text-slate-500">{member.email}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(member.payment_status)}`}>
-                            {member.payment_status === 'active' ? '● Active' : '○ Inactive'}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${getPlanColor(member.plan_name)}`}>
-                            {member.plan_name || 'None'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="font-bold text-slate-900">{member.total_leads}</span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="font-bold text-orange-600">{member.interested_leads}</span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="font-bold text-green-600">{member.closed_leads}</span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="text-slate-600">
-                            {member.leads_today} / {member.daily_limit}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
 
-              {/* Mobile Cards */}
-              <div className="md:hidden divide-y divide-slate-100">
+            {teamMembers.length === 0 ? (
+              <div className="p-8 text-center">
+                <UserPlus size={40} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500">No team members yet</p>
+                <button onClick={shareOnWhatsApp} className="mt-3 text-sm text-blue-600 font-medium">
+                  Invite Members →
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
                 {teamMembers.map((member) => (
                   <div key={member.id} className="p-4">
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-bold text-slate-900">{member.name || 'No Name'}</div>
-                        <div className="text-xs text-slate-500">{member.email}</div>
+                        <p className="font-bold text-slate-900">{member.name || 'No Name'}</p>
+                        <p className="text-xs text-slate-500">{member.email}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(member.payment_status)}`}>
-                        {member.payment_status === 'active' ? 'Active' : 'Inactive'}
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(member.payment_status)}`}>
+                        {member.payment_status === 'active' ? '● Active' : '○ Inactive'}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${getPlanColor(member.plan_name)}`}>
                         {member.plan_name || 'No Plan'}
@@ -478,61 +507,118 @@ export const ManagerDashboard = () => {
                         Today: {member.leads_today}/{member.daily_limit}
                       </span>
                     </div>
-                    
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-slate-50 p-2 rounded-lg text-center">
-                        <div className="text-lg font-bold text-slate-900">{member.total_leads}</div>
-                        <div className="text-xs text-slate-500">Total</div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2">
+                        <span className="bg-slate-100 px-2 py-1 rounded text-xs">
+                          📊 {member.total_leads || 0}
+                        </span>
+                        <span className="bg-orange-50 text-orange-600 px-2 py-1 rounded text-xs">
+                          🔥 {member.interested_leads || 0}
+                        </span>
+                        <span className="bg-green-50 text-green-600 px-2 py-1 rounded text-xs">
+                          ✅ {member.closed_leads || 0}
+                        </span>
                       </div>
-                      <div className="bg-orange-50 p-2 rounded-lg text-center">
-                        <div className="text-lg font-bold text-orange-600">{member.interested_leads}</div>
-                        <div className="text-xs text-orange-600">Interested</div>
-                      </div>
-                      <div className="bg-green-50 p-2 rounded-lg text-center">
-                        <div className="text-lg font-bold text-green-600">{member.closed_leads}</div>
-                        <div className="text-xs text-green-600">Closed</div>
-                      </div>
+
+                      {member.phone && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => messageOnWhatsApp(member.phone!, member.name)}
+                            className="p-2 bg-green-100 text-green-600 rounded-lg"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                          <button
+                            onClick={() => callMember(member.phone!)}
+                            className="p-2 bg-blue-100 text-blue-600 rounded-lg"
+                          >
+                            <Phone size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </>
-          )}
-        </div>
-
-        {/* Performance Tip */}
-        <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <div className="p-2 bg-amber-100 rounded-lg">
-            <Award size={20} className="text-amber-600" />
+            )}
           </div>
-          <div>
-            <h4 className="font-bold text-amber-800">Pro Tip: Boost Conversions</h4>
-            <p className="text-sm text-amber-700">
-              Members who follow up within 5 minutes have 21x higher conversion rates! 
-              Encourage your team to call leads immediately.
-            </p>
-          </div>
-        </div>
+        )}
 
+        {activeTab === 'analytics' && (
+          <>
+            {/* Detailed Stats */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <StatCard icon={<Users size={20} />} label="Team Size" value={stats.teamSize} color="blue" />
+              <StatCard icon={<UserCheck size={20} />} label="Active" value={stats.activeMembers} color="green" />
+              <StatCard icon={<Target size={20} />} label="Total Leads" value={stats.totalLeads} color="purple" />
+              <StatCard icon={<Clock size={20} />} label="Interested" value={stats.interestedLeads} color="orange" />
+              <StatCard icon={<Award size={20} />} label="Closed" value={stats.closedLeads} color="emerald" />
+              <StatCard icon={<TrendingUp size={20} />} label="Conversion" value={`${stats.conversionRate}%`} color="pink" />
+            </div>
+
+            {/* Performance Tip */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Award size={20} className="text-amber-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-amber-800">Pro Tip</h4>
+                  <p className="text-sm text-amber-700">
+                    Members who follow up within 5 minutes have 21x higher conversion rates!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 z-50">
+        <div className="flex justify-around">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex flex-col items-center py-2 px-4 rounded-xl ${activeTab === 'overview' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+          >
+            <LayoutDashboard size={20} />
+            <span className="text-xs mt-1 font-medium">Overview</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`flex flex-col items-center py-2 px-4 rounded-xl ${activeTab === 'team' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+          >
+            <Users size={20} />
+            <span className="text-xs mt-1 font-medium">Team</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex flex-col items-center py-2 px-4 rounded-xl ${activeTab === 'analytics' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}
+          >
+            <BarChart3 size={20} />
+            <span className="text-xs mt-1 font-medium">Analytics</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 };
 
 // ============================================================
-// Stat Card Component (Type-Safe)
+// Stat Card Component
 // ============================================================
 
-const StatCard = ({ 
-  icon, 
-  label, 
-  value, 
-  color 
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
-  value: string | number; 
-  color: ColorType; // Strict type checking
+const StatCard = ({
+  icon,
+  label,
+  value,
+  color
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color: ColorType;
 }) => {
   const colors: Record<ColorType, string> = {
     blue: 'bg-blue-50 text-blue-600',
