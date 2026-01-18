@@ -39,6 +39,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // FINAL PLAN CONFIGURATION WITH REPLACEMENT LIMITS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+  const PLAN_WEIGHTS: Record<string, number> = {
+    'starter': 1,
+    'supervisor': 3,
+    'manager': 5,
+    'weekly_boost': 7,
+    'turbo_boost': 9
+  };
+
   const plans = {
     monthly: [
       {
@@ -234,8 +242,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         alert("Please login first to subscribe.");
         setLoading(null);
         return;
-        setLoading(null);
-        return;
       }
 
       // 🛑 DOWNGRADE CHECK (Smart Protection) - Fetch latest profile first
@@ -246,14 +252,17 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         .eq('id', user.id)
         .single();
 
-      if (latestProfile && latestProfile.plan_weight && latestProfile.valid_until) {
-        const currentWeight = latestProfile.plan_weight || 0;
+      if (latestProfile && latestProfile.valid_until) {
+        // Fallback: If plan_weight is missing (old user), derive it from plan_name
+        const currentWeight = latestProfile.plan_weight || PLAN_WEIGHTS[latestProfile.plan_name] || 0;
         const newWeight = plan.weight || 0;
         const isValid = new Date(latestProfile.valid_until) > new Date();
 
         console.log(`🔍 Checking Downgrade: Current (${currentWeight}) vs New (${newWeight}) | Valid: ${isValid}`);
 
         // Only block if plan is active AND it's a downgrade
+        // Also check if they are trying to buy the SAME plan (Extension is allowed, but we alert just in case?)
+        // Actually, preventing Downgrade is key. 
         if (isValid && newWeight < currentWeight) {
           alert(`⚠️ Down-grade Not Allowed!\n\nYou are currently on the "${latestProfile.plan_name}" plan.\nYou cannot switch to a lower plan ("${plan.name}") until your current plan expires.\n\nPlease enjoy your premium benefits! 🚀`);
           setLoading(null);
