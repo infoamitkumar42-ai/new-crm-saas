@@ -285,7 +285,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
           console.log('✅ Payment Success:', response);
 
           // Show Feedback with plan activation info
-          alert("🎉 Payment Successful!\\n\\n⏰ Aapka plan KAL SUBAH 8 AM se active hoga.\\nLeads milna shuru ho jayengi!\\n\\nPlease wait while we setup your account...");
+          alert("🎉 Payment Successful!\\n\\n⏰ Aapka plan 30 MINUTE mein active hoga.\\nLeads milna shuru ho jayengi!\\n\\nPlease wait while we setup your account...");
           setLoading(plan.id);
 
           // Wait 5 seconds for Webhook to process
@@ -402,8 +402,8 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
               <button
                 onClick={() => setActiveTab('monthly')}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Clock size={18} />
@@ -412,8 +412,8 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
               <button
                 onClick={() => setActiveTab('boost')}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'boost'
-                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Zap size={18} />
@@ -432,8 +432,8 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                 <div
                   key={plan.id}
                   className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${plan.highlight
-                      ? 'ring-2 ring-offset-2 ring-offset-slate-900 ' + (activeTab === 'monthly' ? 'ring-blue-400' : 'ring-orange-400')
-                      : ''
+                    ? 'ring-2 ring-offset-2 ring-offset-slate-900 ' + (activeTab === 'monthly' ? 'ring-blue-400' : 'ring-orange-400')
+                    : ''
                     }`}
                 >
                   {/* Card Background */}

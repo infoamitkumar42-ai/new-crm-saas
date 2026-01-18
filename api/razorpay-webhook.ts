@@ -120,19 +120,9 @@ export default async function handler(req: any, res: any) {
       const validUntil = new Date();
       validUntil.setDate(now.getDate() + config.duration);
 
-      // 🆕 Calculate plan activation time (next 8 AM IST)
-      // If bought after 8 AM → activate next day 8 AM
-      // If bought before 8 AM → activate same day 8 AM
-      const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-      const istHour = istNow.getHours();
-
-      const activationTime = new Date(now);
-      if (istHour >= 8) {
-        // Next day 8 AM IST
-        activationTime.setDate(activationTime.getDate() + 1);
-      }
-      // Set to 8 AM IST (2:30 AM UTC)
-      activationTime.setUTCHours(2, 30, 0, 0);
+      // 🆕 Calculate plan activation time (30 minutes from now)
+      // New users get 30 minute delay for fair distribution
+      const activationTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
 
       // Check if user was already active (renewal vs new purchase)
       const existingUser = await fetch(

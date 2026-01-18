@@ -1,0 +1,102 @@
+| event_message                                    | event_type | function_id                          | id                                   | level | timestamp        |
+| ------------------------------------------------ | ---------- | ------------------------------------ | ------------------------------------ | ----- | ---------------- |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 6a183c7d-1b37-404b-a804-88a3bc56be2b | log   | 1768635525229000 |
+| ✅ Himanshu Sharma: 10 → 11                      | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a57253ac-c6b8-4d62-8c21-1bee79d96b9a | info  | 1768635326756000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e7a5818f-b8b8-4229-9360-aabaac25023c | info  | 1768635326212000 |
+| ✅ Aanchal Jain → Himanshu Sharma (Round 5)      | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 237c6734-4689-41c2-a7f0-cd33f738d2e4 | info  | 1768635326212000 |
+| 📍 gidderbaha → punjab                           | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 358095a7-cd63-4fd7-a738-3553a7cce08c | info  | 1768635325867000 |
+| ⏰ IST: 1:05:25 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 00a277f5-5bac-4996-90b0-9bf34e1611fe | info  | 1768635325866000 |
+| 👤 Aanchal Jain | 7973474331 | gidderbaha       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9380d919-d6dc-45ab-a070-ce49f8ead382 | info  | 1768635325708000 |
+| 🚀 Lead: 1928288465240180                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ec741138-fd7d-4fd1-8153-b004deef2c40 | info  | 1768635325222000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | cbbb7d4b-df31-4064-98cc-557ea2e159b6 | info  | 1768635325222000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 548ae70f-c127-4e45-b581-6e606be3e56a | info  | 1768635325215000 |
+| booted (time: 32ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e3767205-a2eb-44df-a6e7-b29a37551696 | log   | 1768635325211000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 06906774-4ab5-4907-b43e-cbfa1013404a | log   | 1768635270194000 |
+| ✅ Himanshu Sharma: 9 → 10                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 77b09d14-7bb8-4e3b-b8b6-e195b55db459 | info  | 1768635071650000 |
+| ✅ Arshdeep Singh → Himanshu Sharma (Round 4)    | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | afd48c55-2b3a-4311-826a-0c6f31c3bfa5 | info  | 1768635071311000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 38b08951-10f1-4e40-a1a0-9ead3079a91a | info  | 1768635071310000 |
+| ⏰ IST: 1:01:11 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5b81030f-0ddd-4063-905d-d3c2710d7480 | info  | 1768635071012000 |
+| 📍 ask g → unknown                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 009b32b3-6de9-4754-8da4-a4112a077c69 | info  | 1768635071012000 |
+| 👤 Arshdeep Singh | 8264244870 | ask g           | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 438d01c8-ffff-44d2-aa65-2365115b2da6 | info  | 1768635070861000 |
+| 🚀 Lead: 1629289241774225                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 71a289a3-ab1c-415f-b4db-f45acb09f222 | info  | 1768635070185000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3b25b25c-d33d-46ab-aaa8-d681815143c3 | info  | 1768635070185000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 39eababb-6811-42ac-992d-e81eb84f4655 | info  | 1768635070178000 |
+| booted (time: 32ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 880e9a9a-6c3b-4554-9628-ca6570a76b92 | log   | 1768635070175000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 04a7dfd2-ba96-4d46-9236-6c8c8092869d | log   | 1768635040423000 |
+| ❌ Page not found: 100895028112372               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3469e3bc-e598-4f7d-aa88-2109640969cd | error | 1768634841084000 |
+| 🚀 Lead: 1522329388832000                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | d0c40c58-f2d7-43c8-afd5-33bf225fc107 | info  | 1768634840414000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | debc5371-3259-491d-bb27-160b27d806f6 | info  | 1768634840414000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a16a0612-c0ac-4e38-a1cb-b5a51fccd643 | info  | 1768634840408000 |
+| booted (time: 31ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 604da453-5afd-4e11-bcf2-5370508ffb1b | log   | 1768634840405000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ddd8df4d-3936-43c7-bba5-9434d8105faa | log   | 1768634834253000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 8670acb7-d4bc-4806-938e-1e00e94ad5ce | log   | 1768634808278000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b7852aa8-e5a3-4320-b709-31c6c23a63ac | log   | 1768634772378000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 23f1a1c0-6abb-4692-8084-2a7a51d37541 | log   | 1768634731059000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3b7c727b-8533-413c-a082-247f73e4e44d | log   | 1768634707850000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 591b7a26-36b1-44bb-9547-fe4dd2098718 | info  | 1768634636269000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 57a779fe-6d82-4a1c-9189-bb464b6a8df8 | info  | 1768634636269000 |
+| ⏰ IST: 12:53:55 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | dbed6b44-dd3d-4bf8-8771-377b92ba72ca | info  | 1768634635732000 |
+| 📍 kotdwara → uttarakhand                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3e7204f4-556f-4d87-9cfa-5d399c7ccd49 | info  | 1768634635732000 |
+| 👤 Deep | 8077685230 | kotdwara                  | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ab925115-e37b-402d-8f19-f74abc89da98 | info  | 1768634635454000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c8e6c3b1-872d-4f00-b018-4ce7a8c17bc3 | info  | 1768634634247000 |
+| 🚀 Lead: 1406895784207621                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a0fa8fd0-e8fd-4e20-85c3-fc1034c8c4ca | info  | 1768634634247000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 1f9613d4-ea60-4cb1-ae42-61bf4fdb34cc | info  | 1768634634240000 |
+| booted (time: 30ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 56e3cc58-6f0d-4bdd-9d52-7429ed8c32d8 | log   | 1768634634236000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3b616022-4a67-4a2f-88ab-e0351c4ec6ab | log   | 1768634616149000 |
+| ❌ Page not found: 100895028112372               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 737966c9-c3ce-45f8-93a7-969d7a1f2c0b | error | 1768634608520000 |
+| 🚀 Lead: 838998842474794                         | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 6dcd4306-d072-45fa-94f3-e76d8f1e293f | info  | 1768634608272000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | cd52770f-cbf4-45da-bfc0-7d096900e888 | info  | 1768634608271000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2a7c536a-af2a-4d32-8c9e-8a1f6e9a3b44 | info  | 1768634608264000 |
+| booted (time: 30ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9620ddba-5ef9-4e59-a646-b12dfbaac604 | log   | 1768634608262000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 8aea81a3-e8d1-4c0e-b145-c099bb9c0100 | info  | 1768634573289000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 09ba07e3-3243-4714-87fa-894f8edbe04f | info  | 1768634573289000 |
+| 📍 agra → uttar pradesh                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4e57abc6-cf32-4632-9c6d-f96431838279 | info  | 1768634573003000 |
+| ⏰ IST: 12:52:53 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 696e9038-6948-4901-9170-da6f0a5ef39d | info  | 1768634573002000 |
+| 👤 its___-sunny)/yaduvanshi | 6395881997 | agra | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b7e2dc70-e21b-4f44-8ae8-e6ee09297451 | info  | 1768634572845000 |
+| 🚀 Lead: 1563845511565746                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b999828d-5075-437c-93c5-7126e33467d5 | info  | 1768634572371000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 16befdcd-4ba3-4582-9672-df58998c3a17 | info  | 1768634572371000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fc09f28a-b319-4b07-876a-45ae928d3f59 | info  | 1768634572363000 |
+| booted (time: 32ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4543f888-7c87-4b8f-a58a-634d1101b01c | log   | 1768634572360000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b7a1fab5-7978-43ab-9386-d2788f4dd0dd | info  | 1768634532922000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 00aed8c2-4185-47bd-ae4e-979d7698f81d | info  | 1768634532922000 |
+| ⏰ IST: 12:52:12 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 77037861-40a2-43c4-b8e7-69ad240c994b | info  | 1768634532185000 |
+| 📍 saharanpur → unknown                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f1a61ff3-629d-42cf-9d4e-a13be60e9fa8 | info  | 1768634532185000 |
+| 👤 Gagan Deep | 9458809748 | saharanpur          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fd14fc4e-eec4-4fdc-953e-50b62201c065 | info  | 1768634531989000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3bf38f75-4b5c-4bd3-a892-a2d64f5528c3 | info  | 1768634531053000 |
+| 🚀 Lead: 1275303554408561                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 8951c96c-897b-4562-8b3f-dee82442d223 | info  | 1768634531053000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b4321118-ae02-4ae3-803c-ce321aade4d4 | info  | 1768634531047000 |
+| booted (time: 30ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0a51c918-4c9f-4dd1-be5f-a1751b04db1f | log   | 1768634531044000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3f01349a-5c6b-4756-80db-5e110e3620c4 | info  | 1768634508893000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f505188e-5acb-48fb-9066-2c85b49e0487 | info  | 1768634508893000 |
+| 📍 latur → unknown                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | eeeaec0a-ce03-4751-8286-91d31ff5ee17 | info  | 1768634508615000 |
+| ⏰ IST: 12:51:48 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | bbe08bf8-42a5-4a42-94d7-8d4d11d9a83e | info  | 1768634508614000 |
+| 👤 Vaishnavi survse | 9403560782 | latur         | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c37ae5ff-7a5e-494f-bd0f-7aae680211de | info  | 1768634508461000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 8b9c159b-5d8c-4110-8df9-5369760add80 | info  | 1768634507843000 |
+| 🚀 Lead: 870261645617228                         | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2023b8a1-946d-4ad7-a1be-2358760518f4 | info  | 1768634507843000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | d53351bd-521d-40fc-8672-92d2d9b80a91 | info  | 1768634507835000 |
+| booted (time: 34ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 50034b83-d77f-41ba-81be-cc3612344521 | log   | 1768634507832000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e583be7f-f0ae-4d5c-9063-a9b1c1677e98 | log   | 1768634438486000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 966e7ece-7218-4dc5-8b3c-de1220439d98 | info  | 1768634417865000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 786f193b-e745-4964-95c6-30b35c796416 | info  | 1768634417865000 |
+| ⏰ IST: 12:50:17 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4e2484bf-ccf0-49db-8927-91f88e77d13e | info  | 1768634417503000 |
+| 📍 panjab → unknown                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c9c08e9a-cba8-46ef-8872-97b425277da8 | info  | 1768634417503000 |
+| 👤 Rajinder Thakur | 9041846186 | panjab         | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 1bdfe190-07a7-46b4-950a-ba043444888e | info  | 1768634417311000 |
+| 🚀 Lead: 2204094113452046                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c8473f09-0daa-4c17-8320-92fa56e4f629 | info  | 1768634416144000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ad754a85-556e-481e-b65f-363f53fc867e | info  | 1768634416144000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 14bf3ebd-0c84-4cb3-970a-13c286660ad9 | info  | 1768634416138000 |
+| booted (time: 31ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f8456811-a0ae-4851-bc15-d49d565439fa | log   | 1768634416135000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 7851dfd7-8561-4111-ada0-10727c3eec8c | log   | 1768634347415000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e6b65c4d-cd5b-4031-a4bf-466ca2d914fa | info  | 1768634239888000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 6330f7a0-d4c1-42c4-9da2-b5f97573507d | info  | 1768634239888000 |
+| 📍 karnal → haryana                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2ef37245-0de4-4ec0-b4a7-a826ff602d1a | info  | 1768634239591000 |
+| ⏰ IST: 12:47:19 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2f72db46-ae29-4a00-a1eb-ba2db42b11f7 | info  | 1768634239591000 |
+| 👤 Gracy Singh | 9879766000 | karnal             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ab03a883-97e2-474a-a20c-c1b78e85803f | info  | 1768634239439000 |
+| 🚀 Lead: 1924205058491358                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fd5e986e-de5a-4768-8e4a-359c0e62a9b7 | info  | 1768634238477000 |
+| 📥 Webhook v24 - Smart Distribution              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4ae3b49f-edfe-418e-aff1-d4137c269f9f | info  | 1768634238477000 |
+| Listening on http://localhost:9999/              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 50c2c142-9ce5-42a8-9b78-414e0fe3d5ea | info  | 1768634238470000 |
+| booted (time: 33ms)                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 002356fb-7b64-4f7d-bb55-bc053ca76fd2 | log   | 1768634238466000 |
+| shutdown                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 067fe48e-06ad-44d4-ae39-7f92cb70f824 | log   | 1768634237110000 |
+| ⚠️ No eligible users                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2a79d094-6b53-4d71-8c84-58fe32184a67 | info  | 1768634149356000 |
+| 👥 Team: 1 members                               | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c3a0d98f-9595-4ea7-8d21-f8abc8da5d55 | info  | 1768634149356000 |
+| 📍 haryana → unknown                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 228be5f0-cb2d-4008-bb1b-d97ec41e8bff | info  | 1768634148924000 |
+| ⏰ IST: 12:45:48 PM | Working: YES                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b2036581-1250-4e0e-9fa8-1e5e83521ff8 | info  | 1768634148924000 |

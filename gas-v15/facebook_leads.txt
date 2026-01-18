@@ -1,0 +1,182 @@
+| event_message                                                                    | event_type | function_id                          | id                                   | level | timestamp        |
+| -------------------------------------------------------------------------------- | ---------- | ------------------------------------ | ------------------------------------ | ----- | ---------------- |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | d2692fdd-3c6f-4ebb-8e6f-6193fc200da6 | log   | 1768641890505000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3f4a2220-9d75-4783-b4ba-c1b924989259 | log   | 1768641874396000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 649e0d1c-769a-47b4-95a7-27a1fc20f5b9 | log   | 1768641830221000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 485d0a40-036b-440f-b9e3-884aad41bdaa | info  | 1768641818377000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 41193e07-64f8-4089-9bfa-72efbf6d0791 | info  | 1768641818377000 |
+| 📍 kotdwara → uttarakhand
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3a502f2a-57bb-43bc-90e8-67b98e09a3c0 | info  | 1768641817836000 |
+| ⏰ IST: 2:53:37 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 705687ce-eed8-4d16-9816-f50bde03a909 | info  | 1768641817836000 |
+| 👤 Pihu Rana | 7505269589 | kotdwara
+                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a50f8cab-1c97-4b49-a500-7352d93f67ef | info  | 1768641817555000 |
+| 🚀 Lead: 861322550003304
+                                                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5da4dd57-d9aa-43ce-9180-a5939cbda93d | info  | 1768641816251000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2900c981-104c-409e-93d4-d4cbadfb567a | info  | 1768641816251000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | d259e7a9-d051-4b38-b5c2-7dcfb3c02e7b | info  | 1768641816244000 |
+| booted (time: 30ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f84ff24b-8079-4fbc-82ce-be920eaabae9 | log   | 1768641816242000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 65bff35f-1dc3-4325-816f-f9049dae28fd | info  | 1768641808641000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0dcef374-7885-4299-9c64-3b6aa0fd4dfc | info  | 1768641808641000 |
+| 📍 ludhiana → punjab
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 80761255-92b9-4e72-9a87-b3a5efe970b6 | info  | 1768641808350000 |
+| ⏰ IST: 2:53:28 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 041fe039-a67f-48e0-b92b-b747b6675203 | info  | 1768641808350000 |
+| 👤 Nisha Matharoo | 6280427212 | ludhiana
+                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2a08ab3e-6207-4dbf-8f23-43db5d8cc104 | info  | 1768641808194000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 66147cc6-2d2f-4d0f-8f8b-3d15388c7ccf | info  | 1768641807461000 |
+| 🚀 Lead: 1174298334551379
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a0d91220-2066-48db-bb6e-a20464129f9d | info  | 1768641807461000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c4ab9bad-2db3-49c5-99c0-22d16a14574b | info  | 1768641807453000 |
+| booted (time: 32ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e6175513-197c-4eec-96ab-479d17be7adc | log   | 1768641807449000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 076f0e16-a5a7-49a1-9941-90cc3960121a | log   | 1768641755097000 |
+| 🔄 DUPLICATE: 8054542446
+                                                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9e169a25-50e4-4491-b0c7-1a26cf5d9a42 | info  | 1768641692183000 |
+| 👤 Meenu | 8054542446 | amritsar
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ffc5bb7b-64bd-4d36-ab04-16364490596f | info  | 1768641691911000 |
+| 🚀 Lead: 25161914063510111
+                                                      | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5aa55c99-b0d9-4794-8c9e-faa3e4fa34d4 | info  | 1768641690500000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 6ed8977d-29e0-4682-9205-5195c9a1e93c | info  | 1768641690500000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 203a04dd-c9cd-427f-8641-04eaef9ef1fe | info  | 1768641690489000 |
+| booted (time: 35ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 765d459a-33a0-49ba-9b51-937fcc6f5dfc | log   | 1768641690486000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 352a080e-e4d8-43eb-898b-6bb68c41f1e4 | info  | 1768641675565000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5a0b505c-82cd-439f-b63b-b4ba40afff61 | info  | 1768641675565000 |
+| ⏰ IST: 2:51:15 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ad71f246-e30d-48f9-9709-8644b616cee3 | info  | 1768641675140000 |
+| 📍 panipat chaudhari hospital krishna colony → haryana
+                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fd9beef2-d93e-48fa-b934-5389ba480e39 | info  | 1768641675140000 |
+| 👤 Preeti Singh Preeti | 7015036662 | panipat chaudhari hospital krishna colony
+ | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 7e4b0d12-0c83-46b1-a405-7473d34776e8 | info  | 1768641674935000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 91702922-20b7-4229-981f-0f9cee78cb52 | info  | 1768641674386000 |
+| 🚀 Lead: 1444284623904453
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0c3a9e62-03d9-4120-950f-b892490b8018 | info  | 1768641674386000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | bcc563fe-59c8-405a-893f-41bb005b2611 | info  | 1768641674377000 |
+| booted (time: 42ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0398a161-8dbd-437d-9778-5813c09e337d | log   | 1768641674374000 |
+| 🔄 DUPLICATE: 8054542446
+                                                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f4086993-75d0-4e61-b8f4-c2fa765fb5a1 | info  | 1768641662648000 |
+| 👤 Meenu | 8054542446 | amritsar
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9f4e1eca-013b-4465-9ae2-549df4834c2b | info  | 1768641662419000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a990ea52-df79-47be-9770-d0c9624c40bf | info  | 1768641661168000 |
+| 🚀 Lead: 25161914063510111
+                                                      | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 914442cc-48b8-4c13-b50d-ddb3ab5b6d9c | info  | 1768641661168000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 6ab000d5-b5bd-4928-95e1-b26d1e3e3ae7 | info  | 1768641660741000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 476a187e-d335-4899-b425-6b14e93b16ee | log   | 1768641640852000 |
+| booted (time: 31ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a2b3105d-1d7a-4a72-a36d-fd92d6e4f054 | log   | 1768641630209000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e61ea36c-58e3-4ab4-abaa-22ab4e2a7188 | info  | 1768641556761000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5a99a475-5d4c-4585-b2db-fa9961c68f78 | info  | 1768641556761000 |
+| 📍 delhi → delhi
+                                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9b0abd7a-0118-4d57-970f-c63315ee0f86 | info  | 1768641556468000 |
+| ⏰ IST: 2:49:16 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a50b06df-1b22-46d0-82c1-72371f7e67ec | info  | 1768641556468000 |
+| 👤 Savita Rathor | 9217120380 | delhi
+                                           | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 01c0116d-f7d2-4ff9-bccb-c7dc08ec9a96 | info  | 1768641556311000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9dbc652a-6b41-4124-bcec-9e4a890f63a4 | info  | 1768641555091000 |
+| 🚀 Lead: 906407238728751
+                                                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 7ea179d1-ad51-42b7-8a72-46bd02246254 | info  | 1768641555091000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 80a2c215-d158-4476-9bef-64fa9edc4b42 | info  | 1768641555083000 |
+| booted (time: 36ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f774d607-5b2c-4b18-966d-6d2128343b60 | log   | 1768641555080000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2c25ead0-96b0-4aeb-a918-c7a36fcdad54 | log   | 1768641453593000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4529f380-ad01-4259-b722-a718a0ced7bd | info  | 1768641442624000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f5bd5382-4b7e-45a6-ae39-718bd06feb10 | info  | 1768641442624000 |
+| 📍 tafgn → unknown
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b00e4a48-b48c-4f69-8760-87591fd066cf | info  | 1768641442246000 |
+| ⏰ IST: 2:47:22 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ab01d551-b278-4cd7-9e90-687897dd9142 | info  | 1768641442246000 |
+| 👤 Shallu | 8146781611 | tafgn
+                                                  | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c1b7f4fd-2a8b-43e6-a708-6d1c6fd45555 | info  | 1768641442055000 |
+| 🚀 Lead: 4244686475849001
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 66c04f1a-a15f-42b9-8b4f-11a41e55ce1f | info  | 1768641440843000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a12794f0-f3a6-4376-97fd-b7c9e39fddc1 | info  | 1768641440843000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 39231f96-d5c6-4960-9e1b-8e166ce790bf | info  | 1768641440833000 |
+| booted (time: 50ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b5bd7c6c-3b32-4e0d-8c66-7132d06a643e | log   | 1768641440829000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0b48a1c4-463c-491d-804b-6163c54b9558 | log   | 1768641341808000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 56d90555-b06c-44b1-b90c-c6aaebfa3850 | info  | 1768641254920000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 1d91210b-b9cd-4053-b95d-5cafc145791d | info  | 1768641254920000 |
+| 📍 barabanki uttar pradesh → unknown
+                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3336e5a3-6bf4-4499-8758-849485bccc70 | info  | 1768641254565000 |
+| ⏰ IST: 2:44:14 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | aa8e62a8-bde6-45b7-b8ff-e1ef9d1e7578 | info  | 1768641254565000 |
+| 👤 Sheelu verma | 9235958131 | barabanki uttar pradesh
+                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5406890e-9cba-474b-9166-f2910d343cdd | info  | 1768641254395000 |
+| 🚀 Lead: 2034572180661302
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 3186396a-0c22-4231-b56d-bf70678f15df | info  | 1768641253581000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | e083de54-0e2d-4b31-8907-f26e3d17a65e | info  | 1768641253581000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | b92fd402-d5d7-4882-919b-84b7acd0fd98 | info  | 1768641253574000 |
+| booted (time: 32ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 521c98a6-9b5b-4f07-bc81-df18fcb481d0 | log   | 1768641253572000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ee30b736-a78e-4cb8-bce8-025772a32a5d | log   | 1768641220160000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 4cadd2f3-6ad7-4f7d-a172-1d6880450b21 | log   | 1768641211840000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 64322fc2-095a-48d4-b3af-e66d35b0cd9d | info  | 1768641143063000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9302d33c-d5db-4075-99ee-adc287a4c2c5 | info  | 1768641143062000 |
+| ⏰ IST: 2:42:22 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2fa4f511-b4c7-4cc2-a24e-5cff2b309b54 | info  | 1768641142679000 |
+| 📍 bhagalpur → unknown
+                                                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c9236f9b-277f-4f0d-b0fc-6293ef5e69a2 | info  | 1768641142679000 |
+| 👤 Kajal Kumari | 8292694342 | bhagalpur
+                                        | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | d23c3a45-d7f4-4501-a88d-0872d2bfa376 | info  | 1768641142478000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | c63d893c-9f21-47e2-85b2-17217b8c8d58 | info  | 1768641141798000 |
+| 🚀 Lead: 1839432263360966
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 14b70e0d-44cc-483d-8430-1f074a0acb10 | info  | 1768641141798000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 63ade263-ee10-4b0e-a537-8b8c92181abb | info  | 1768641141789000 |
+| booted (time: 42ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 8c0863f4-d83f-4922-ad02-3820c340b4f2 | log   | 1768641141785000 |
+| shutdown                                                                         | Shutdown   | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 04916996-6e2e-41d5-844c-0fe6796e58bb | log   | 1768641022188000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5591ff48-a8d9-4caa-872a-ee71556396b0 | info  | 1768641021497000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 821a5bf3-d1ce-4012-8a78-9f4ea27933bc | info  | 1768641021497000 |
+| 📍 rekha → unknown
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2429aca7-b445-4be2-9962-d764778409f8 | info  | 1768641021215000 |
+| ⏰ IST: 2:40:21 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fea87a70-9671-4932-8d81-b52f3bd3a76f | info  | 1768641021215000 |
+| 👤 Rekha Aadibasi | 6267782526 | rekha
+                                          | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 2cb14145-2c77-4118-8466-cabebf988ea6 | info  | 1768641021068000 |
+| 🚀 Lead: 1565114241451480
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | a1e9e344-683f-40a0-b318-fc95aa90328f | info  | 1768641020146000 |
+| 📥 Webhook v24 - Smart Distribution
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 0bc59143-ac0c-4787-9402-915db9e177f1 | info  | 1768641020146000 |
+| Listening on http://localhost:9999/
+                                             | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 5e5ed542-a426-4c31-bdba-d539f2237059 | info  | 1768641020139000 |
+| booted (time: 32ms)                                                              | Boot       | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | f58eab9b-c458-4d83-a33f-61475556232f | log   | 1768641020136000 |
+| ⚠️ No eligible users
+                                                            | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 26259d1b-57db-40fc-a464-651881ccc41a | info  | 1768641013816000 |
+| 👥 Team: 1 members
+                                                              | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9ccaef8a-527e-4f83-a43f-59a3e16c5d87 | info  | 1768641013815000 |
+| ⏰ IST: 2:40:13 PM | Working: YES
+                                                | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | fa4af266-f0ef-4052-bf32-17154b579385 | info  | 1768641013439000 |
+| 📍 bhilwara → rajasthan
+                                                         | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | ef9be6cc-395c-496c-bd5b-25bde8d47663 | info  | 1768641013439000 |
+| 👤 Priyanka Gurjar | 7877649586 | bhilwara
+                                      | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | 9b9dba48-6a58-492b-9a55-1faf484f4fb3 | info  | 1768641012897000 |
+| 🚀 Lead: 1399841028447873
+                                                       | Log        | 0ee3dd6b-25f2-40b4-89d2-bbf898744892 | feffa59c-4232-4cf3-add8-8eafffa45f8d | info  | 1768641011833000 |

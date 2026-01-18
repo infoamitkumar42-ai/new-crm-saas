@@ -1,0 +1,29 @@
+full_name	phone	city	created_time
+Ravinder Singh Aulakh	p:+918847390782	Ludhiana	2026-01-16T23:52:54+05:30
+Taran Palwan	p:+919914420430	Nabha	2026-01-16T23:50:18+05:30
+Tannu	p:+917681938539	Zirakpur	2026-01-16T23:16:24+05:30
+Veerpal kaur	p:+919115761564	Ferozepur	2026-01-16T23:08:00+05:30
+ਕਮਲ ਔਜਲਾ	p:+918437714324	Aujla	2026-01-16T22:51:41+05:30
+jass dosanjh	p:7652832532	Amritsar	2026-01-16T22:39:04+05:30
+Laddi Tha Barber	p:+916204907848	Ludhiana	2026-01-16T22:38:14+05:30
+Gurwinder Singh	p:+919888057090	gidderbaha	2026-01-16T22:26:42+05:30
+Inderjit Singh	p:+918728009100	Nabha	2026-01-16T22:16:21+05:30
+Vikramjit Singh Toor	p:+919855154754	Khanna	2026-01-16T22:11:24+05:30
+ਇੰਦਰ	p:+918557919257	Moonak	2026-01-16T22:08:37+05:30
+Karan	p:905699774	Bathinda	2026-01-16T21:47:16+05:30
+ਸਨੀ virdi	p:+919815399620	ludhiana	2026-01-16T21:30:31+05:30
+🅻🅺🅷🆅🅸🆁	p:+918054273744	Moga	2026-01-16T20:28:47+05:30
+Amandeep Gill	p:+916239072710	Khanna	2026-01-16T20:28:35+05:30
+Khushi Sidhu	p:+917347626245	Ludhiana	2026-01-16T20:05:25+05:30
+Harry Lalka	p:+918968526161	Khanna	2026-01-16T20:03:28+05:30
+Mohit Pahwa	p:+917719418241	AMLOH	2026-01-16T19:59:18+05:30
+ਪਿੰਡਾ ਵਾਲੇ_2429	p:+919855859750	Y	2026-01-16T19:57:00+05:30
+Sukh Lakhowaliya	p:+919465694956	Gurdaspur	2026-01-16T19:55:08+05:30
+Narinder Kang	p:+917814035674	Patiala	2026-01-16T19:49:43+05:30
+jashandeep singh  	p:+918360702106	Ludhiana	2026-01-16T15:27:34+05:30
+man_preet_gill	p:+917710748975	Chamkaur Sahib	2026-01-16T14:49:53+05:30
+AK Bhardwaj	p:8360369839	Jalandhar	2026-01-16T14:35:48+05:30
+Rupinder Singh	p:+919855013593	Morinda	2026-01-16T14:21:03+05:30
+pinder uppal	p:+919814233069	Ludhiana	2026-01-16T14:12:05+05:30
+KHUSH SARPANCH	p:9041081386	Tarn Taran	2026-01-16T14:03:42+05:30
+Lovepreet	p:+919653692446	Sirhind	2026-01-16T14:01:07+05:30

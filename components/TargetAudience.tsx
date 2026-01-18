@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
+import {
   MapPin, Users, Check, Save, AlertCircle, ArrowLeft,
   ChevronDown, Globe, Loader2, X, Home, Search
 } from 'lucide-react';
@@ -27,7 +27,7 @@ const safeArray = (val: unknown): string[] => {
 // COMPLETE STATE-CITY DATA (FROM CONFIG.GS)
 // ============================================================
 const STATE_CITIES: Record<string, string[]> = {
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PUNJAB - ALL 23 DISTRICTS + MAJOR TOWNS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -37,7 +37,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Pathankot', 'Moga', 'Batala', 'Abohar', 'Malerkotla', 'Khanna',
     'Phagwara', 'Muktsar', 'Barnala', 'Rajpura', 'Firozpur', 'Kapurthala',
     'Hoshiarpur', 'Faridkot', 'Sangrur', 'Kotkapura', 'Sunam', 'Gurdaspur',
-    
+
     // Towns & Tehsils
     'Zirakpur', 'Dera Bassi', 'Kharar', 'Nangal', 'Rupnagar', 'Ropar',
     'Nawanshahr', 'SBS Nagar', 'Anandpur Sahib', 'Fatehgarh Sahib', 'Sirhind',
@@ -55,38 +55,38 @@ const STATE_CITIES: Record<string, string[]> = {
     'Ferozepur City', 'Ferozepur Cantonment', 'Talwara', 'Dhariwal',
     'Dinanagar', 'Sujanpur', 'Bhikhi', 'Maur', 'Jaitu'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // CHANDIGARH (Union Territory)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   'Chandigarh': [
-    'Chandigarh', 'Manimajra', 'Burail', 'Dhanas', 'Maloya', 
+    'Chandigarh', 'Manimajra', 'Burail', 'Dhanas', 'Maloya',
     'Behlana', 'Hallomajra', 'Kajheri', 'Sector 17', 'Sector 22',
     'Sector 35', 'Sector 43', 'Industrial Area'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // HARYANA - ALL 22 DISTRICTS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   'Haryana': [
     // Panchkula & Nearby
     'Panchkula', 'Pinjore', 'Kalka', 'Barwala', 'Raipur Rani', 'Morni',
-    
+
     // Ambala
     'Ambala', 'Ambala City', 'Ambala Cantonment', 'Barara', 'Naraingarh', 'Shahzadpur',
-    
+
     // Kurukshetra
     'Kurukshetra', 'Thanesar', 'Pehowa', 'Shahabad', 'Ladwa', 'Babain',
-    
+
     // Karnal
     'Karnal', 'Gharaunda', 'Nilokheri', 'Indri', 'Assandh', 'Taraori',
-    
+
     // Panipat
     'Panipat', 'Samalkha', 'Israna', 'Madlauda', 'Bapoli',
-    
+
     // Yamunanagar
     'Yamunanagar', 'Jagadhri', 'Chhachhrauli', 'Radaur', 'Sadhaura', 'Bilaspur',
-    
+
     // Major Cities
     'Gurugram', 'Gurgaon', 'Faridabad', 'Rohtak', 'Hisar', 'Sirsa',
     'Sonipat', 'Jhajjar', 'Rewari', 'Mahendragarh', 'Bhiwani', 'Jind',
@@ -95,102 +95,102 @@ const STATE_CITIES: Record<string, string[]> = {
     'Hansi', 'Uklana', 'Ratia', 'Tohana', 'Jakhal',
     'Safidon', 'Julana', 'Narwana', 'Uchana', 'Ellenabad', 'Dabwali',
     'Rania', 'Kalanwali',
-    
+
     // Tricity Area
     'Peer Muchalla', 'Dhakoli', 'Baltana', 'Nayagaon', 'Ramgarh', 'Surajpur'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // DELHI NCR - ALL 11 DISTRICTS + AREAS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   'Delhi': [
     // Central Delhi
-    'Connaught Place', 'Karol Bagh', 'Paharganj', 'Chandni Chowk', 
+    'Connaught Place', 'Karol Bagh', 'Paharganj', 'Chandni Chowk',
     'Daryaganj', 'ITO', 'Mandi House', 'Rajiv Chowk',
-    
+
     // South Delhi
     'Saket', 'Malviya Nagar', 'Hauz Khas', 'Green Park', 'Lajpat Nagar',
     'Defence Colony', 'Greater Kailash', 'GK1', 'GK2', 'CR Park',
-    'Nehru Place', 'Kalkaji', 'Govindpuri', 'Okhla', 'Jasola', 
-    'Sarita Vihar', 'Badarpur', 'Tughlakabad', 'Mehrauli', 
+    'Nehru Place', 'Kalkaji', 'Govindpuri', 'Okhla', 'Jasola',
+    'Sarita Vihar', 'Badarpur', 'Tughlakabad', 'Mehrauli',
     'Vasant Kunj', 'Vasant Vihar', 'Munirka', 'RK Puram',
-    
+
     // North Delhi
     'Civil Lines', 'Model Town', 'GTB Nagar', 'Mukherjee Nagar',
     'Kamla Nagar', 'Shakti Nagar', 'Gulabi Bagh', 'Sadar Bazar',
     'Kashmere Gate', 'Burari', 'Jahangirpuri', 'Adarsh Nagar',
     'Azadpur', 'Shalimar Bagh', 'Ashok Vihar', 'Wazirpur', 'Pitampura',
     'Rohini', 'Rithala', 'Badli', 'Narela', 'Alipur',
-    
+
     // East Delhi
     'Preet Vihar', 'Laxmi Nagar', 'Nirman Vihar', 'Anand Vihar',
     'Kaushambi', 'Vaishali', 'Indirapuram', 'Karkardooma',
     'Shahdara', 'Dilshad Garden', 'Seelampur', 'Welcome',
     'Krishna Nagar', 'Gandhi Nagar', 'Patparganj', 'Mayur Vihar',
     'Trilokpuri', 'Kalyanpuri', 'Geeta Colony', 'Vivek Vihar',
-    
+
     // West Delhi
     'Rajouri Garden', 'Subhash Nagar', 'Tagore Garden', 'Janakpuri',
     'Vikaspuri', 'Uttam Nagar', 'Dwarka', 'Palam', 'Dabri',
     'Najafgarh', 'Nangloi', 'Mundka', 'Hari Nagar', 'Tilak Nagar',
     'Moti Nagar', 'Kirti Nagar', 'Patel Nagar', 'Rajinder Nagar',
     'Naraina', 'Mayapuri',
-    
+
     // South West Delhi
     'Bijwasan', 'Kapashera', 'Mahipalpur', 'Aerocity', 'IGI Airport',
-    
+
     // NCR Areas
     'Noida', 'Greater Noida', 'Ghaziabad', 'Faridabad', 'Gurugram'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // HIMACHAL PRADESH - ALL 12 DISTRICTS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   'Himachal Pradesh': [
     // Shimla District
-    'Shimla', 'Kufri', 'Fagu', 'Narkanda', 'Theog', 'Kotkhai', 
+    'Shimla', 'Kufri', 'Fagu', 'Narkanda', 'Theog', 'Kotkhai',
     'Jubbal', 'Rohru', 'Rampur Bushahr', 'Sarahan', 'Kumarsain',
     'Suni', 'Kandaghat', 'Chail', 'Mashobra', 'Naldehra',
-    
+
     // Kangra District
-    'Kangra', 'Dharamshala', 'McLeodganj', 'Palampur', 'Baijnath', 
-    'Bir', 'Billing', 'Nagrota Bagwan', 'Jaisinghpur', 'Jawali', 
+    'Kangra', 'Dharamshala', 'McLeodganj', 'Palampur', 'Baijnath',
+    'Bir', 'Billing', 'Nagrota Bagwan', 'Jaisinghpur', 'Jawali',
     'Nurpur', 'Indora', 'Fatehpur', 'Dehra Gopipur', 'Shahpur',
-    
+
     // Kullu District
     'Kullu', 'Manali', 'Bhuntar', 'Kasol', 'Manikaran', 'Naggar',
     'Banjar', 'Sainj', 'Ani', 'Katrain', 'Solang', 'Rohtang',
-    
+
     // Mandi District
     'Mandi', 'Sundernagar', 'Jogindernagar', 'Rewalsar', 'Karsog',
     'Sarkaghat', 'Pandoh', 'Aut', 'Barot',
-    
+
     // Solan District
     'Solan', 'Baddi', 'Barotiwala', 'Nalagarh', 'Parwanoo', 'Kasauli',
     'Dagshai', 'Subathu', 'Arki', 'Dharampur',
-    
+
     // Una District
     'Una', 'Amb', 'Gagret', 'Haroli', 'Bangana', 'Chintpurni',
-    
+
     // Hamirpur District
     'Hamirpur', 'Nadaun', 'Sujanpur', 'Bhoranj', 'Barsar',
-    
+
     // Bilaspur District
     'Bilaspur', 'Ghumarwin', 'Naina Devi', 'Swarghat',
-    
+
     // Sirmaur District
     'Nahan', 'Paonta Sahib', 'Rajgarh', 'Renuka',
-    
+
     // Chamba District
     'Chamba', 'Dalhousie', 'Khajjiar', 'Banikhet', 'Bharmour',
-    
+
     // Kinnaur District
     'Reckong Peo', 'Kalpa', 'Sangla', 'Chitkul', 'Nako',
-    
+
     // Lahaul Spiti
     'Keylong', 'Kaza', 'Tabo', 'Kibber', 'Langza', 'Dhankar'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // UTTARAKHAND - ALL 13 DISTRICTS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -199,49 +199,49 @@ const STATE_CITIES: Record<string, string[]> = {
     'Dehradun', 'Mussoorie', 'Rishikesh', 'Vikasnagar', 'Doiwala',
     'Premnagar', 'Clement Town', 'Rajpur', 'Sahastradhara', 'Selaqui',
     'Maldevta', 'Chakrata', 'Kalsi',
-    
+
     // Haridwar District
     'Haridwar', 'Roorkee', 'Jwalapur', 'BHEL', 'Laksar', 'Manglaur',
     'Kankhal', 'Har Ki Pauri', 'Bahadrabad',
-    
+
     // Nainital District
     'Nainital', 'Haldwani', 'Kathgodam', 'Bhimtal', 'Naukuchiatal',
     'Sattal', 'Bhowali', 'Ramgarh', 'Mukteshwar', 'Ramnagar',
-    
+
     // Almora District
     'Almora', 'Ranikhet', 'Kausani', 'Binsar', 'Jageshwar',
-    
+
     // Udham Singh Nagar
     'Rudrapur', 'Kashipur', 'Jaspur', 'Khatima', 'Sitarganj',
     'Bazpur', 'Gadarpur', 'Pantnagar', 'Kichha',
-    
+
     // Pauri Garhwal
     'Pauri', 'Kotdwar', 'Lansdowne', 'Srinagar Garhwal', 'Satpuli',
-    
+
     // Tehri Garhwal
     'Tehri', 'New Tehri', 'Chamba', 'Narendranagar', 'Devprayag',
     'Dhanolti', 'Kanatal',
-    
+
     // Chamoli District
     'Gopeshwar', 'Chamoli', 'Joshimath', 'Badrinath', 'Auli',
     'Karnaprayag', 'Valley of Flowers',
-    
+
     // Rudraprayag District
     'Rudraprayag', 'Kedarnath', 'Gaurikund', 'Guptkashi', 'Chopta',
-    
+
     // Uttarkashi District
     'Uttarkashi', 'Gangotri', 'Yamunotri', 'Barkot', 'Harsil',
-    
+
     // Pithoragarh District
     'Pithoragarh', 'Dharchula', 'Munsiyari', 'Gangolihat',
-    
+
     // Champawat District
     'Champawat', 'Tanakpur', 'Lohaghat', 'Purnagiri',
-    
+
     // Bageshwar District
     'Bageshwar', 'Kanda', 'Garur'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // MAHARASHTRA - ALL 36 DISTRICTS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -255,12 +255,12 @@ const STATE_CITIES: Record<string, string[]> = {
     'Vile Parle', 'Juhu', 'Versova', 'Lokhandwala', 'Mulund', 'Thane',
     'Kalyan', 'Dombivli', 'Badlapur', 'Ambernath', 'Ulhasnagar',
     'Vasai', 'Virar', 'Nalasopara', 'Palghar', 'Boisar', 'Mira Road', 'Bhayandar',
-    
+
     // Navi Mumbai
     'Navi Mumbai', 'Vashi', 'Nerul', 'Belapur', 'CBD Belapur', 'Kharghar',
     'Panvel', 'Airoli', 'Ghansoli', 'Kopar Khairane', 'Turbhe', 'Sanpada',
     'Seawoods', 'Ulwe', 'Kamothe', 'Kalamboli', 'Taloja',
-    
+
     // Pune & Around
     'Pune', 'Shivajinagar', 'Deccan', 'FC Road', 'JM Road',
     'Koregaon Park', 'Kalyani Nagar', 'Viman Nagar', 'Kharadi', 'Hadapsar',
@@ -270,28 +270,28 @@ const STATE_CITIES: Record<string, string[]> = {
     'Bibvewadi', 'Katraj', 'Sinhagad Road', 'Warje', 'Kothrud', 'Bavdhan',
     'Pimpri', 'Chinchwad', 'PCMC', 'Nigdi', 'Pradhikaran', 'Akurdi', 'Ravet',
     'Talegaon', 'Lonavala', 'Khandala', 'Chakan', 'Alandi', 'Bhosari',
-    
+
     // Nagpur & Vidarbha
     'Nagpur', 'Sitabuldi', 'Dharampeth', 'Civil Lines Nagpur', 'Sadar',
     'Wardha', 'Amravati', 'Akola', 'Yavatmal', 'Chandrapur', 'Gondia', 'Bhandara',
-    
+
     // Nashik & North Maharashtra
     'Nashik', 'Nashik Road', 'Panchavati', 'Satpur', 'CIDCO Nashik',
     'Deolali', 'Igatpuri', 'Manmad', 'Malegaon', 'Trimbakeshwar',
     'Dhule', 'Jalgaon', 'Bhusawal', 'Nandurbar',
-    
+
     // Aurangabad & Marathwada
-    'Aurangabad', 'Sambhajinagar', 'Jalna', 'Parbhani', 'Latur', 
+    'Aurangabad', 'Sambhajinagar', 'Jalna', 'Parbhani', 'Latur',
     'Nanded', 'Osmanabad', 'Beed', 'Hingoli',
-    
+
     // Kolhapur & Western Maharashtra
     'Kolhapur', 'Sangli', 'Satara', 'Solapur', 'Ichalkaranji', 'Miraj', 'Karad',
-    
+
     // Konkan
-    'Ratnagiri', 'Sindhudurg', 'Raigad', 'Alibaug', 'Murud', 'Matheran', 
+    'Ratnagiri', 'Sindhudurg', 'Raigad', 'Alibaug', 'Murud', 'Matheran',
     'Mahabaleshwar', 'Panchgani'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // RAJASTHAN - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -302,7 +302,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Beawar', 'Kishangarh', 'Pushkar', 'Mount Abu', 'Chittorgarh',
     'Barmer', 'Jaisalmer', 'Hanumangarh', 'Sawai Madhopur'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // GUJARAT - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -313,7 +313,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Veraval', 'Porbandar', 'Godhra', 'Bhuj', 'Gandhidham',
     'Palanpur', 'Valsad', 'Surendranagar', 'Dwarka'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // UTTAR PRADESH - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -327,7 +327,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Fatehpur', 'Raebareli', 'Orai', 'Sitapur', 'Bahraich',
     'Modinagar', 'Unnao', 'Lakhimpur', 'Banda', 'Hathras'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // MADHYA PRADESH - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -338,7 +338,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Chhindwara', 'Guna', 'Shivpuri', 'Vidisha', 'Damoh',
     'Mandsaur', 'Khargone', 'Neemuch', 'Pithampur', 'Hoshangabad'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // BIHAR - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -349,7 +349,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Siwan', 'Motihari', 'Nawada', 'Bagaha', 'Buxar',
     'Kishanganj', 'Sitamarhi', 'Jamalpur', 'Jehanabad', 'Aurangabad Bihar'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // WEST BENGAL - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -360,7 +360,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Raiganj', 'Krishnanagar', 'Nabadwip', 'Medinipur', 'Jalpaiguri',
     'Balurghat', 'Basirhat', 'Bankura', 'Darjeeling', 'Alipurduar'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // KARNATAKA - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -372,7 +372,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Bidar', 'Hospet', 'Gadag', 'Udupi', 'Hassan', 'Chitradurga',
     'Madikeri', 'Coorg', 'Chikmagalur', 'Mandya', 'Kolar', 'Bagalkot'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // TAMIL NADU - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -385,7 +385,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Karaikkudi', 'Neyveli', 'Cuddalore', 'Kumbakonam', 'Tiruvannamalai',
     'Pollachi', 'Rajapalayam', 'Gudiyatham', 'Pudukkottai', 'Vaniyambadi'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // TELANGANA - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -394,7 +394,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Khammam', 'Ramagundam', 'Mahbubnagar', 'Nalgonda', 'Adilabad',
     'Suryapet', 'Miryalaguda', 'Siddipet', 'Mancherial', 'Jagtial'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ANDHRA PRADESH - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -405,7 +405,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Machilipatnam', 'Adoni', 'Tenali', 'Proddatur', 'Chittoor',
     'Hindupur', 'Bhimavaram', 'Madanapalle', 'Guntakal', 'Dharmavaram'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // KERALA - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -417,7 +417,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Thalassery', 'Manjeri', 'Vatakara', 'Tirur', 'Ottapalam',
     'Kayamkulam', 'Changanassery', 'Punalur', 'Nilambur', 'Cherthala'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ODISHA - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -427,7 +427,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Jeypore', 'Bargarh', 'Brahmapur', 'Angul', 'Dhenkanal',
     'Konark', 'Paradip', 'Koraput', 'Rayagada', 'Kendujhar'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ASSAM - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -436,7 +436,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Tinsukia', 'Tezpur', 'Bongaigaon', 'Diphu', 'North Lakhimpur',
     'Dhubri', 'Karimganj', 'Sivasagar', 'Goalpara', 'Barpeta'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // JHARKHAND - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -445,7 +445,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Hazaribagh', 'Giridih', 'Ramgarh', 'Phusro', 'Medininagar',
     'Chirkunda', 'Chaibasa', 'Dumka', 'Adityapur', 'Godda'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // CHHATTISGARH - MAJOR CITIES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -454,7 +454,7 @@ const STATE_CITIES: Record<string, string[]> = {
     'Rajnandgaon', 'Raigarh', 'Jagdalpur', 'Ambikapur', 'Chirmiri',
     'Dhamtari', 'Mahasamund', 'Kumhari', 'Kawardha', 'Bemetara'
   ],
-  
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // GOA - ALL AREAS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -493,9 +493,9 @@ const parseFilters = (data: unknown): Filters => {
   if (!data || typeof data !== 'object') {
     return { ...DEFAULT_FILTERS };
   }
-  
+
   const obj = data as Record<string, unknown>;
-  
+
   return {
     pan_india: obj.pan_india === true || obj.panIndia === true,
     states: safeArray(obj.states),
@@ -509,7 +509,7 @@ const parseFilters = (data: unknown): Filters => {
 // ============================================================
 export const TargetAudience: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -526,26 +526,26 @@ export const TargetAudience: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         setError('Please login to continue');
         setLoading(false);
         return;
       }
-      
+
       setUserId(user.id);
-      
+
       const { data } = await supabase
         .from('users')
         .select('filters')
         .eq('id', user.id)
         .single();
-      
+
       const parsedFilters = parseFilters(data?.filters);
       setFilters(parsedFilters);
-      
+
     } catch (err) {
       console.error('Load error:', err);
       setFilters(DEFAULT_FILTERS);
@@ -566,11 +566,11 @@ export const TargetAudience: React.FC = () => {
       setError('User not found');
       return;
     }
-    
+
     setSaving(true);
     setError(null);
     setSaved(false);
-    
+
     try {
       const { error: saveError } = await supabase
         .from('users')
@@ -585,12 +585,12 @@ export const TargetAudience: React.FC = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
-      
+
       if (saveError) throw saveError;
-      
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      
+
     } catch (err: any) {
       console.error('Save error:', err);
       setError(err.message || 'Failed to save');
@@ -600,72 +600,62 @@ export const TargetAudience: React.FC = () => {
   };
 
   // ============================================================
-  // TOGGLE HANDLERS
+  // DISABLED STATE HANDLER
+  // ============================================================
+  const [showDisabledMessage, setShowDisabledMessage] = useState(false);
+
+  const handleDisabledClick = () => {
+    setShowDisabledMessage(true);
+    setTimeout(() => setShowDisabledMessage(false), 5000);
+  };
+
+  // ============================================================
+  // TOGGLE HANDLERS - MODIFIED TO BE DISABLED
   // ============================================================
   const togglePanIndia = () => {
+    handleDisabledClick();
+    return;
+    // Original logic disabled
+    /*
     setFilters(prev => ({
       ...prev,
       pan_india: !prev.pan_india,
       states: [],
       cities: []
     }));
+    */
   };
 
   const toggleState = (state: string) => {
+    handleDisabledClick();
+    return;
+    // Original logic disabled
+    /*
     setFilters(prev => {
-      const currentStates = safeArray(prev.states);
-      const isSelected = currentStates.includes(state);
-      
-      const newStates = isSelected
-        ? currentStates.filter(s => s !== state)
-        : [...currentStates, state];
-      
-      const stateCities = STATE_CITIES[state] || [];
-      const currentCities = safeArray(prev.cities);
-      const newCities = isSelected
-        ? currentCities.filter(c => !stateCities.includes(c))
-        : currentCities;
-      
-      return {
-        ...prev,
-        pan_india: false,
-        states: newStates,
-        cities: newCities
-      };
+      // ... original logic
     });
+    */
   };
 
   const toggleCity = (city: string) => {
+    handleDisabledClick();
+    return;
+    // Original logic disabled
+    /*
     setFilters(prev => {
-      const currentCities = safeArray(prev.cities);
-      const isSelected = currentCities.includes(city);
-      
-      return {
-        ...prev,
-        pan_india: false,
-        cities: isSelected
-          ? currentCities.filter(c => c !== city)
-          : [...currentCities, city]
-      };
+      // ... original logic
     });
+    */
   };
 
   const selectAllCitiesInState = (state: string) => {
-    const stateCities = STATE_CITIES[state] || [];
-    setFilters(prev => {
-      const currentCities = safeArray(prev.cities);
-      const newCities = [...new Set([...currentCities, ...stateCities])];
-      return { ...prev, cities: newCities };
-    });
+    handleDisabledClick();
+    return;
   };
 
   const deselectAllCitiesInState = (state: string) => {
-    const stateCities = STATE_CITIES[state] || [];
-    setFilters(prev => {
-      const currentCities = safeArray(prev.cities);
-      const newCities = currentCities.filter(c => !stateCities.includes(c));
-      return { ...prev, cities: newCities };
-    });
+    handleDisabledClick();
+    return;
   };
 
   // ============================================================
@@ -673,25 +663,25 @@ export const TargetAudience: React.FC = () => {
   // ============================================================
   const safeStates = safeArray(filters.states);
   const safeCities = safeArray(filters.cities);
-  
+
   const isStateSelected = (state: string): boolean => safeStates.includes(state);
   const isCitySelected = (city: string): boolean => safeCities.includes(city);
-  
+
   const getCityCountForState = (state: string): number => {
     const stateCities = STATE_CITIES[state] || [];
     return safeCities.filter(c => stateCities.includes(c)).length;
   };
-  
+
   const canSave = filters.pan_india || safeStates.length > 0;
 
   // Filter states by search query
   const filteredStates = searchQuery
-    ? STATES.filter(state => 
-        state.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (STATE_CITIES[state] || []).some(city => 
-          city.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+    ? STATES.filter(state =>
+      state.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (STATE_CITIES[state] || []).some(city =>
+        city.toLowerCase().includes(searchQuery.toLowerCase())
       )
+    )
     : STATES;
 
   // ============================================================
@@ -713,7 +703,28 @@ export const TargetAudience: React.FC = () => {
   // ============================================================
   return (
     <div className="min-h-screen bg-slate-50 pb-28">
-      
+
+      {/* DISABLED NOTIFICATION BANNER */}
+      {showDisabledMessage && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4 pointer-events-none">
+          <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-900 p-4 rounded shadow-lg flex items-start gap-3 pointer-events-auto animate-in slide-in-from-top-2 fade-in duration-300">
+            <AlertCircle size={24} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Preference Locked</p>
+              <p className="text-xs mt-1 leading-relaxed">
+                Abhi ke liye preference band hai. Hum Punjab, Chandigarh, HP, UK, Delhi se data generate kar rahe hain (Male & Female). Jyada conversion ke liye limitations khatam kar di gayi hain.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDisabledMessage(false)}
+              className="ml-auto text-amber-700 hover:text-amber-900"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -728,11 +739,11 @@ export const TargetAudience: React.FC = () => {
               <div>
                 <h1 className="text-lg font-bold text-slate-900">Target Audience</h1>
                 <p className="text-xs text-slate-500">
-                  {safeStates.length} states, {safeCities.length} cities selected
+                  Settings managed by Admin
                 </p>
               </div>
             </div>
-            
+
             <button
               onClick={() => navigate('/')}
               className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
@@ -744,7 +755,20 @@ export const TargetAudience: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-2xl mx-auto p-4 space-y-6">
+      <div className="max-w-2xl mx-auto p-4 space-y-6 opacity-75 pointer-events-auto">
+
+        {/* Global Notice */}
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3 items-start">
+          <div className="p-2 bg-blue-100 rounded-full shrink-0">
+            <Globe size={20} className="text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900">Preferences Managed by System</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              To ensure maximum lead flow, we are currently targeting high-potential regions (North India) with all active demographics. Manual filters are temporarily paused.
+            </p>
+          </div>
+        </div>
 
         {/* Alerts */}
         {saved && (
@@ -765,12 +789,13 @@ export const TargetAudience: React.FC = () => {
         )}
 
         {/* Gender Selection */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative group cursor-not-allowed">
+          {/* Overlay to intercept clicks if needed, but we intercept handlers */}
           <h2 className="font-bold mb-4 flex items-center gap-2 text-slate-800">
             <Users size={20} className="text-purple-600" />
             Gender Preference
           </h2>
-          
+
           <div className="grid grid-cols-3 gap-3">
             {[
               { key: 'all', label: '👥 All' },
@@ -779,12 +804,11 @@ export const TargetAudience: React.FC = () => {
             ].map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setFilters(prev => ({ ...prev, gender: key }))}
-                className={`p-4 rounded-xl border-2 font-bold text-sm transition-all ${
-                  filters.gender === key
+                onClick={handleDisabledClick}
+                className={`p-4 rounded-xl border-2 font-bold text-sm transition-all opacity-60 ${filters.gender === key
                     ? 'border-purple-500 bg-purple-50 text-purple-700'
                     : 'border-slate-100 hover:border-slate-300 text-slate-600'
-                }`}
+                  }`}
               >
                 {label}
               </button>
@@ -793,14 +817,13 @@ export const TargetAudience: React.FC = () => {
         </div>
 
         {/* Pan India Toggle */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm opacity-80">
           <button
             onClick={togglePanIndia}
-            className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${
-              filters.pan_india
+            className={`w-full flex justify-between items-center p-4 rounded-xl border-2 transition-all ${filters.pan_india
                 ? 'border-green-500 bg-green-50'
                 : 'border-slate-200 hover:border-slate-300'
-            }`}
+              }`}
           >
             <div className="flex gap-4 items-center">
               <div className={`p-3 rounded-full ${filters.pan_india ? 'bg-green-200' : 'bg-slate-100'}`}>
@@ -815,10 +838,9 @@ export const TargetAudience: React.FC = () => {
                 </span>
               </div>
             </div>
-            
-            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
-              filters.pan_india ? 'border-green-500 bg-green-500' : 'border-slate-300 bg-white'
-            }`}>
+
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${filters.pan_india ? 'border-green-500 bg-green-500' : 'border-slate-300 bg-white'
+              }`}>
               {filters.pan_india && <Check size={18} className="text-white" />}
             </div>
           </button>
@@ -832,7 +854,7 @@ export const TargetAudience: React.FC = () => {
                 <MapPin size={20} className="text-blue-600" />
                 Select Locations
               </h2>
-              
+
               {safeStates.length > 0 && (
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, states: [], cities: [] }))}
@@ -884,9 +906,8 @@ export const TargetAudience: React.FC = () => {
                 return (
                   <div
                     key={state}
-                    className={`border rounded-xl overflow-hidden transition-all ${
-                      isSelected ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200'
-                    }`}
+                    className={`border rounded-xl overflow-hidden transition-all ${isSelected ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200'
+                      }`}
                   >
                     {/* State Header */}
                     <div className="p-4 flex justify-between items-center">
@@ -894,12 +915,11 @@ export const TargetAudience: React.FC = () => {
                         className="flex items-center gap-4 flex-1 cursor-pointer"
                         onClick={() => toggleState(state)}
                       >
-                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center ${
-                          isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 bg-white'
-                        }`}>
+                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 bg-white'
+                          }`}>
                           {isSelected && <Check size={14} className="text-white" />}
                         </div>
-                        
+
                         <div>
                           <span className={`font-bold ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
                             {state}
@@ -958,7 +978,7 @@ export const TargetAudience: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
                           {cities.map(city => {
                             const citySelected = isCitySelected(city);
@@ -966,11 +986,10 @@ export const TargetAudience: React.FC = () => {
                               <button
                                 key={city}
                                 onClick={() => toggleCity(city)}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                                  citySelected
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${citySelected
                                     ? 'bg-blue-600 text-white border-blue-600'
                                     : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
-                                }`}
+                                  }`}
                               >
                                 {city}
                               </button>
@@ -1048,7 +1067,7 @@ export const TargetAudience: React.FC = () => {
               </>
             )}
           </button>
-          
+
           {!canSave && (
             <p className="text-center text-sm text-red-500 mt-2">
               Please enable Pan India or select at least one state

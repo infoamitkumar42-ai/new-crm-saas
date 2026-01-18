@@ -236,48 +236,7 @@ export const LeadAlert: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Controls (MOVED TO TOP-RIGHT TO FLX VISIBILITY) */}
-      {/* Floating Controls (Always Visible Wrapper) */}
-      <div className="fixed bottom-16 right-4 z-[99999] flex flex-col items-end gap-3 isolate">
-
-        {/* Subscribe Button (Hidden if Subscribed AND Not Blocked) */}
-        {(!isSubscribed || permissionStatus === 'denied') && (
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl animate-bounce whitespace-nowrap ${permissionStatus === 'denied' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
-              }`}>
-              {permissionStatus === 'denied' ? 'Blocked 🚫' : 'Enable Leads ➡'}
-            </span>
-
-            <button
-              onClick={() => {
-                if (permissionStatus === 'denied') {
-                  window.alert("⚠️ Notifications are Blocked by your Browser!\n\nTo unblock:\n1. Click the Lock icon 🔒 in URL bar.\n2. Click 'Permissions'.\n3. Set Notifications to 'Allow'.\n4. Refresh the page.");
-                } else {
-                  subscribeToPush();
-                }
-              }}
-              className={`p-3.5 rounded-full shadow-2xl border-2 transition-all transform active:scale-95 ${permissionStatus === 'denied' ? 'bg-red-600 text-white border-red-400' : 'bg-blue-600 text-white border-white'
-                }`}
-              style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
-            >
-              {loading ? <span className="animate-spin text-xl">↻</span> :
-                permissionStatus === 'denied' ? <span className="text-xl font-bold">!</span> :
-                  <Bell className="w-7 h-7" />
-              }
-            </button>
-          </div>
-        )}
-
-        {/* Sound Toggle (Always Visible) */}
-        <button
-          onClick={() => setSoundEnabled(p => !p)}
-          className={`p-3.5 rounded-full shadow-xl border transition-all ${soundEnabled ? 'bg-white text-emerald-600 border-emerald-200' : 'bg-white text-gray-400 border-gray-200'
-            }`}
-          style={{ WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
-        >
-          {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-        </button>
-      </div>
+      {/* Floating Controls Removed for Cleaner UI */}
     </>
   );
 };

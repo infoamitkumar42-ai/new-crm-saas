@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
-  Check, Zap, Shield, Crown, Rocket, Flame, Clock, 
+import {
+  Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
   Phone, MessageCircle, RefreshCw, Sparkles, Users,
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
@@ -21,11 +21,24 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  React.useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
+      if (data) setUserProfile(data);
+    }
+  };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FINAL PLAN CONFIGURATION WITH REPLACEMENT LIMITS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
+
   const plans = {
     monthly: [
       {
@@ -210,17 +223,42 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PAYMENT HANDLER
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
+
   const handleSubscribe = async (plan: typeof plans.monthly[0]) => {
     setLoading(plan.id);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         alert("Please login first to subscribe.");
         setLoading(null);
         return;
+        setLoading(null);
+        return;
+      }
+
+      // 🛑 DOWNGRADE CHECK (Smart Protection) - Fetch latest profile first
+      // We fetch here to ensure we have the absolute latest data before allowing payment
+      const { data: latestProfile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (latestProfile && latestProfile.plan_weight && latestProfile.valid_until) {
+        const currentWeight = latestProfile.plan_weight || 0;
+        const newWeight = plan.weight || 0;
+        const isValid = new Date(latestProfile.valid_until) > new Date();
+
+        console.log(`🔍 Checking Downgrade: Current (${currentWeight}) vs New (${newWeight}) | Valid: ${isValid}`);
+
+        // Only block if plan is active AND it's a downgrade
+        if (isValid && newWeight < currentWeight) {
+          alert(`⚠️ Down-grade Not Allowed!\n\nYou are currently on the "${latestProfile.plan_name}" plan.\nYou cannot switch to a lower plan ("${plan.name}") until your current plan expires.\n\nPlease enjoy your premium benefits! 🚀`);
+          setLoading(null);
+          return;
+        }
       }
 
       const amount = plan.price * 100; // Production
@@ -249,26 +287,26 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         theme: {
           color: activeTab === 'monthly' ? "#2563EB" : "#EA580C"
         },
-        handler: async function(response: any) {
+        handler: async function (response: any) {
           console.log('✅ Payment Success:', response);
           alert("🎉 Payment Successful! Your plan is now active.");
           window.location.href = '/dashboard';
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setLoading(null);
           }
         }
       };
 
       const rzp = new window.Razorpay(options);
-      
-      rzp.on('payment.failed', function(response: any) {
+
+      rzp.on('payment.failed', function (response: any) {
         console.error('❌ Payment Failed:', response.error);
         alert(`Payment Failed: ${response.error.description}`);
         setLoading(null);
       });
-      
+
       rzp.open();
 
     } catch (error: any) {
@@ -299,7 +337,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">
       <div className="h-full w-full overflow-y-auto">
-        
+
         {/* ━━━ Floating Particles Background ━━━ */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -331,7 +369,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         </div>
 
         <div className="px-4 py-5 pb-32 relative z-10">
-          
+
           {/* ━━━ Welcome Offer Banner ━━━ */}
           <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-4 mb-6 shadow-2xl shadow-emerald-500/20">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvZz48L3N2Zz4=')] opacity-30"></div>
@@ -361,22 +399,20 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
             <div className="bg-white/10 backdrop-blur-xl p-1.5 rounded-2xl border border-white/20 inline-flex w-full max-w-sm">
               <button
                 onClick={() => setActiveTab('monthly')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                  activeTab === 'monthly'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 <Clock size={18} />
                 Monthly Plans
               </button>
               <button
                 onClick={() => setActiveTab('boost')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                  activeTab === 'boost'
-                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'boost'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 <Zap size={18} />
                 7-Day Boost
@@ -389,19 +425,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
             {currentPlans.map((plan) => {
               const PlanIcon = plan.icon;
               const isExpanded = expandedPlan === plan.id;
-              
+
               return (
                 <div
                   key={plan.id}
-                  className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${
-                    plan.highlight 
-                      ? 'ring-2 ring-offset-2 ring-offset-slate-900 ' + (activeTab === 'monthly' ? 'ring-blue-400' : 'ring-orange-400')
-                      : ''
-                  }`}
+                  className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${plan.highlight
+                    ? 'ring-2 ring-offset-2 ring-offset-slate-900 ' + (activeTab === 'monthly' ? 'ring-blue-400' : 'ring-orange-400')
+                    : ''
+                    }`}
                 >
                   {/* Card Background */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${plan.lightGradient} opacity-95`}></div>
-                  
+
                   {/* Highlight Glow */}
                   {plan.highlight && (
                     <div className={`absolute inset-0 bg-gradient-to-br ${plan.gradient} opacity-5`}></div>
@@ -428,7 +463,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                       <div className="flex-1">
                         <h3 className="text-xl font-black text-slate-900">{plan.name}</h3>
                         <p className="text-sm text-slate-500">{plan.subtitle}</p>
-                        
+
                         {/* Priority Badge */}
                         <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full ${plan.priorityColor} text-white text-xs font-bold`}>
                           <Zap size={12} />
@@ -590,31 +625,31 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
           </div>
 
           {/* ━━━ Testimonial ━━━ */}
-<div className="mt-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-xl rounded-2xl p-4 border border-blue-400/30">
-  <div className="flex items-center gap-4">
-    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-400 shadow-lg flex-shrink-0">
-      <img 
-        src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face"
-        alt="Rahul Kumar"
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          target.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-2xl">👨‍💼</div>';
-        }}
-      />
-    </div>
-    <div className="flex-1">
-      <div className="flex items-center gap-1 mb-1">
-        {[...Array(5)].map((_, i) => (
-          <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
-        ))}
-      </div>
-      <p className="text-sm text-white italic">"15 din mein 4 joining ki. LeadFlow is a game changer!"</p>
-      <p className="text-xs text-white/50 mt-1">— Rahul Kumar, Ludhiana</p>
-    </div>
-  </div>
-</div>
+          <div className="mt-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-xl rounded-2xl p-4 border border-blue-400/30">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-400 shadow-lg flex-shrink-0">
+                <img
+                  src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face"
+                  alt="Rahul Kumar"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-2xl">👨‍💼</div>';
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-1 mb-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-sm text-white italic">"15 din mein 4 joining ki. LeadFlow is a game changer!"</p>
+                <p className="text-xs text-white/50 mt-1">— Rahul Kumar, Ludhiana</p>
+              </div>
+            </div>
+          </div>
 
           {/* ━━━ Trust Stats ━━━ */}
           <div className="mt-6 grid grid-cols-3 gap-3">
@@ -639,17 +674,17 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         </div>
 
         {/* ━━━ Bottom Bar (Mobile) - WITH BACK TO DASHBOARD ━━━ */}
-<div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
-  <div className="flex items-center justify-center">
-    <button
-      onClick={handleClose}
-      className="w-full max-w-sm py-3.5 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-all border border-white/20 flex items-center justify-center gap-2"
-    >
-      <ChevronLeft size={18} />
-      Back to Dashboard
-    </button>
-  </div>
-</div>
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
+          <div className="flex items-center justify-center">
+            <button
+              onClick={handleClose}
+              className="w-full max-w-sm py-3.5 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-all border border-white/20 flex items-center justify-center gap-2"
+            >
+              <ChevronLeft size={18} />
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
 
       </div>
     </div>
