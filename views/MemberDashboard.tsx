@@ -211,6 +211,7 @@ export const MemberDashboard = () => {
 
   // Banners
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [expiredDismissed, setExpiredDismissed] = useState(false);
 
   // WhatsApp Link
   const getWhatsAppLink = (phone: string, leadName: string, userName: string): string => {
@@ -237,7 +238,7 @@ export const MemberDashboard = () => {
   };
 
   const daysLeft = getDaysUntilExpiry();
-  const isExpired = daysLeft !== null && daysLeft <= 0;
+  const isExpired = (daysLeft !== null && daysLeft <= 0) || profile?.payment_status === 'inactive';
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
@@ -247,18 +248,19 @@ export const MemberDashboard = () => {
     return leads.filter(l => new Date(l.created_at) >= today).length;
   }, [leads]);
 
-  const leadsToday = todayLeadsCount; // Use actual count from leads array
-  const dailyLimit = profile?.daily_limit || 5;
+  // 🔥 PERMANENT FIX: Exact live counts from database
+  const leadsToday = todayLeadsCount;
+  const totalReceived = leads.length;
+
+  const dailyLimit = profile?.daily_limit || 0;
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
   const isPaused = profile?.is_active === false;
 
   const daysExtended = profile?.days_extended || 0;
-  const totalPromised = profile?.total_leads_promised || 50;
+  const totalPromised = profile?.total_leads_promised || 0;
 
-  // 🔥 FIX: Use actual leads count, not profile.total_leads_received
-  const totalReceived = leads.length;
   const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
@@ -641,15 +643,24 @@ export const MemberDashboard = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-slate-50 font-sans ${isExpired ? 'overflow-hidden' : ''}`}>
+    <div className={`min-h-screen bg-slate-50 font-sans ${isExpired && !expiredDismissed ? 'overflow-hidden' : ''}`}>
 
       {/* Subscription Modal */}
       {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
 
-      {/* Expired Overlay */}
-      {isExpired && (
+      {/* Expired Overlay - Dismissible */}
+      {isExpired && !expiredDismissed && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in relative">
+            {/* Close Button */}
+            <button
+              onClick={() => setExpiredDismissed(true)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition-colors"
+              title="View leads (Close)"
+            >
+              <X size={18} />
+            </button>
+
             <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock size={32} />
@@ -657,12 +668,19 @@ export const MemberDashboard = () => {
               <h2 className="text-2xl font-bold">Plan Expired!</h2>
               <p className="text-red-100 mt-2">Your daily leads have stopped</p>
             </div>
-            <div className="p-6">
+            <div className="p-6 space-y-3">
               <button
                 onClick={() => setShowSubscription(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg"
               >
                 <RefreshCw size={20} className="inline mr-2" /> Renew Now
+              </button>
+              <button
+                onClick={() => setExpiredDismissed(true)}
+                className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-medium text-sm hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <ChevronDown size={16} />
+                Maybe Later (View Old Leads)
               </button>
             </div>
           </div>

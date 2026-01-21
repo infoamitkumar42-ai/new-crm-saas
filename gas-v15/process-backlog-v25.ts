@@ -12,16 +12,9 @@ const corsHeaders = {
 // ----------------------------------------------------------------------
 function inferStateFromPhone(phone: string): string {
     if (!phone) return 'Unknown';
-    // Normalized check
     const p = phone.replace('+91', '').trim();
 
-    // Quick Map (Same as Webhook - truncated for brevity but covering major regions)
-    // In a real deployed file, I would replicate the full map. 
-    // For now, I use a decent subset or the full logic if I have it.
-    // I Will use a simplified robust check for key northern states.
-
     const startingDigits = p.substring(0, 4);
-    const start2 = p.substring(0, 2); // some are 2 digits
 
     // Punjab
     if (['9814', '9815', '9872', '9876', '9878', '9914', '9915', '9988', '9417', '9463', '9464', '9465', '8146', '8194', '9501', '9855'].some(pre => p.startsWith(pre))) return 'Punjab';
@@ -32,8 +25,6 @@ function inferStateFromPhone(phone: string): string {
     // Haryana
     if (['9812', '9813', '9896', '9991', '9992', '9416', '9466', '9467'].some(pre => p.startsWith(pre))) return 'Haryana';
 
-    // ... (For Safety, if exact logic is needed, we should share code)
-    // Fallback: If unknown, user logic 'status_allow_all' generally handles it.
     return 'Unknown';
 }
 // ----------------------------------------------------------------------
@@ -50,13 +41,9 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        console.log('🧹 Backlog Sweeper Started...')
+        console.log('🧹 Backlog Sweeper Started (2-Lead Batch Mode)...')
 
         // 1. Fetch 'New' Leads (Oldest First)
-        // We look for anything 'New' that is older than 5 minutes (to give webhook a chance first?)
-        // Or just 'New'. 
-        // User wants immediate fix, so 'New' is fine.
-
         const { data: leads, error: leadsError } = await supabase
             .from('leads')
             .select('*')
@@ -86,7 +73,6 @@ serve(async (req) => {
 
         // Global Debug Vars
         let firstLeadRejections = { capacity: 0, manager: 0, state: 0, total_users: users.length };
-
         let distributedCount = 0;
 
         // 3. Process Each Lead
@@ -98,7 +84,6 @@ serve(async (req) => {
 
             // Map Source -> Manager
             if (lead.source?.includes("Himanshu")) {
-                // Correct Himanshu ID (Verified)
                 manager_id = "79c67296-b221-4ca9-a3a5-1611e690e68d";
             }
 
@@ -119,7 +104,6 @@ serve(async (req) => {
 
                 // 2. Manager (Hierarchy)
                 if (manager_id) {
-                    // Check if user is Himanshu OR Simran OR Reports to them
                     const isHimanshu = (u.id === manager_id);
                     const isHimanshuTeam = (u.manager_id === manager_id);
                     const isSimran = (u.id === 'ff0ead1f-212c-4e89-bc81-dec4185f8853'); // Simran
@@ -142,7 +126,6 @@ serve(async (req) => {
 
                     // Check Specific States
                     const allowedStates = userFilters.states || [];
-                    // Case-insensitive check
                     const hasState = allowedStates.some((s: string) => s.toLowerCase() === leadState.toLowerCase());
 
                     if (hasState) return true;
@@ -161,54 +144,62 @@ serve(async (req) => {
                 continue;
             }
 
-            // C. Sort (Equalizer Strategy: Round Robin 1->2, 2->3)
-            // Priority: LEAST LEADS TODAY First (0->1, then 1->2)
+            // C. STRICT 2-LEAD BATCH ROTATION SORT
+            // ==========================================
+            const getPlanWeight = (plan: string) => {
+                const p = (plan || '').toLowerCase();
+                if (p.includes('turbo')) return 100;
+                if (p.includes('manager')) return 90;
+                if (p.includes('supervisor')) return 80;
+                if (p.includes('weekly')) return 70;
+                if (p.includes('starter')) return 60;
+                return 0; // Unknown/None
+            };
+
             eligible.sort((a, b) => {
                 const leadsA = a.leads_today || 0;
                 const leadsB = b.leads_today || 0;
 
-                // Primary: Least Leads First
+                // Condition 1: COMPLETE THE PAIR (Odd Priority)
+                const aNeedsCompletion = leadsA % 2 !== 0;
+                const bNeedsCompletion = leadsB % 2 !== 0;
+                if (aNeedsCompletion && !bNeedsCompletion) return -1;
+                if (!aNeedsCompletion && bNeedsCompletion) return 1;
+
+                // Condition 2: ROUND BALANCING (Pairs Check)
                 if (leadsA !== leadsB) return leadsA - leadsB;
 
-                // Secondary: High Pending Capacity (Tie-breaker)
-                const pendingA = (a.daily_limit || 0) - leadsA;
-                const pendingB = (b.daily_limit || 0) - leadsB;
-                return pendingB - pendingA;
+                // Condition 3: HIERARCHY (Plan Weight)
+                const weightA = getPlanWeight(a.plan_name);
+                const weightB = getPlanWeight(b.plan_name);
+                if (weightA !== weightB) return weightB - weightA;
+
+                // Condition 4: Stable Tie-Breaker
+                return (a.id || '').localeCompare(b.id || '');
             });
 
-            // D. Assign (With Concurrency Check)
-            let selectedUser = null;
+            // D. Assign (Strictly Top 1)
+            let selectedUser = eligible[0]; // Top priority user
 
-            // Try top 3 users in case of race conditions
-            for (let candidate of eligible) {
-                // Re-fetch fresh count directly from DB
-                const { data: freshUser, error: freshErr } = await supabase
-                    .from('users')
-                    .select('leads_today, daily_limit')
-                    .eq('id', candidate.id)
-                    .single();
+            // Double Check DB Status (Race Condition Guard)
+            const { data: freshUser, error: freshErr } = await supabase
+                .from('users')
+                .select('leads_today, daily_limit')
+                .eq('id', selectedUser.id)
+                .single();
 
-                if (freshErr || !freshUser) continue;
+            if (freshErr || !freshUser) continue;
 
-                const freshCurrent = freshUser.leads_today || 0;
-                const freshLimit = freshUser.daily_limit || 0;
-
-                if (freshCurrent < freshLimit) {
-                    // Valid!
-                    candidate.leads_today = freshCurrent;
-                    selectedUser = candidate;
-                    break;
-                } else {
-                    console.log(`⚠️ Backlog Race condition: ${candidate.name} full. Skipping.`);
+            // Sync local state if DB changed (e.g. allocated by webhook parallelly)
+            if (freshUser.leads_today !== selectedUser.leads_today) {
+                selectedUser.leads_today = freshUser.leads_today;
+                // Re-validate limit
+                if (selectedUser.leads_today >= (selectedUser.daily_limit || 0)) {
+                    continue; // Skip if full
                 }
             }
 
-            if (!selectedUser) {
-                console.log('⚠️ All users filled up (Backlog race)');
-                continue;
-            }
-
-            // Critical Atomic Update: Check status is STILL 'New'
+            // Execute Assignment
             const { error: assignError, data: updateData } = await supabase
                 .from('leads')
                 .update({
@@ -223,9 +214,16 @@ serve(async (req) => {
 
             if (!assignError && updateData && updateData.length > 0) {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
-                await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
 
-                // Update local cache
+                // Critical: Direct Update to stop loop
+                const { error: cntErr } = await supabase
+                    .from('users')
+                    .update({ leads_today: (selectedUser.leads_today || 0) + 1, updated_at: new Date().toISOString() })
+                    .eq('id', selectedUser.id);
+
+                if (cntErr) console.error('❌ User Count Update Failed:', cntErr);
+
+                // Update local cache for NEXT iteration (CRITICAL for batching loops)
                 selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
                 distributedCount++;
             }

@@ -1,19 +1,17 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
- * LEADFLOW WEBHOOK v24.0 - COMPLETE OVERHAUL
- * ==========================================
+ * LEADFLOW WEBHOOK v25.0 - STRICT 2-LEAD BATCH ROTATION
+ * =====================================================
  * 
- * FIXES APPLIED:
- * ✓ All Indian cities (Punjab, Haryana, Delhi, HP, UK, MH, RJ, J&K)
- * ✓ Phone validation: 6/7/8/9 starting digits
- * ✓ Gender default: "any" (both Male/Female)
- * ✓ Duplicate check: 30 days only
- * ✓ Smart Round Robin distribution
- * ✓ Pause/Active status check
- * ✓ assigned_to field fix
- * ✓ 7-day activity check (not daily login)
+ * LOGIC:
+ * 1. Hierarchy: Turbo > Manager > Supervisor > Weekly > Starter
+ * 2. Strict Batch: Every user MUST get 2 consecutive leads.
+ * 3. Sequence: 
+ *    - If leads_today is ODD (1, 3, 5) -> PRIORITY to finish batch.
+ *    - If leads_today is EVEN (0, 2, 4) -> Sort by Hierarchy.
  */
 
 const VERIFY_TOKEN = Deno.env.get('META_VERIFY_TOKEN') || 'LeadFlow_Meta_2026_Premium';
@@ -217,36 +215,6 @@ function normalizeState(state: string): string {
 }
 
 /**
- * Check if user matches lead's state preference
- */
-function matchesStatePreference(userState: string, leadState: string): boolean {
-    const userStateNorm = normalizeState(userState || 'all india');
-    const leadStateNorm = normalizeState(leadState || 'unknown');
-
-    // All India accepts all leads
-    if (userStateNorm === 'all india') return true;
-
-    // Unknown lead state = only All India users
-    if (leadStateNorm === 'unknown') return false;
-
-    // Direct or partial match
-    return userStateNorm === leadStateNorm ||
-        userStateNorm.includes(leadStateNorm) ||
-        leadStateNorm.includes(userStateNorm);
-}
-
-/**
- * Check gender preference - "any" accepts all
- */
-function matchesGenderPreference(userGender: string, leadGender: string): boolean {
-    const userG = (userGender || 'any').toLowerCase().trim();
-    const leadG = (leadGender || 'any').toLowerCase().trim();
-
-    if (userG === 'any' || leadG === 'any' || leadG === 'unknown') return true;
-    return userG === leadG;
-}
-
-/**
  * Validate Indian phone number - starts with 6/7/8/9
  */
 function isValidIndianPhone(phone: string): boolean {
@@ -286,7 +254,7 @@ serve(async (req) => {
     if (method === 'POST') {
         try {
             const payload = await req.json();
-            console.log('📥 Webhook v24 - Smart Distribution');
+            console.log('📥 Webhook v25 - 2-Lead Batch Rotation');
 
             for (const entry of payload.entry || []) {
                 const pageId = entry.id;
@@ -343,7 +311,6 @@ serve(async (req) => {
 
                     const leadPhone = (rawPhone || '').replace(/\D/g, '').slice(-10);
                     const leadCity = (fields.city || 'India').toLowerCase().trim();
-                    const leadGender = (fields.gender || 'any').toLowerCase();  // ✅ Default: any
                     const rawState = (fields.state || fields.region || '').toLowerCase();
 
                     console.log(`👤 ${leadName} | ${leadPhone} | ${leadCity}`);
@@ -461,9 +428,6 @@ serve(async (req) => {
 
                     // 5. FILTER ELIGIBLE USERS
                     const now = new Date();
-                    const sevenDaysAgo = new Date();
-                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
                     const eligibleUsers = teamFilteredUsers.filter(user => {
                         const leadsToday = user.leads_today || 0;
                         const dailyLimit = user.daily_limit || 0;
@@ -472,54 +436,14 @@ serve(async (req) => {
                         if (leadsToday >= dailyLimit) return false;
 
                         // ❌ Skip if paused (daily_limit = 0)
-                        if (dailyLimit <= 0) {
-                            console.log(`⏸️ ${user.name} - Paused (limit=0)`);
-                            return false;
-                        }
+                        if (dailyLimit <= 0) return false;
 
-                        // ❌ Skip if is_active is false (user paused themselves)
-                        if (!user.is_active) {
-                            console.log(`⏸️ ${user.name} - is_active=false`);
-                            return false;
-                        }
-
-                        // ✅ NEW: 30-Minute Waiting Period for New Plans
-                        if (user.plan_activation_time) {
-                            const activationTime = new Date(user.plan_activation_time);
-                            const waitTime = new Date(activationTime.getTime() + 30 * 60000); // +30 Minutes
-                            if (now < waitTime) {
-                                const remainingMins = Math.ceil((waitTime.getTime() - now.getTime()) / 60000);
-                                console.log(`⏳ ${user.name} - Warming up (Wait ${remainingMins}m)`);
-                                return false;
-                            }
-                        }
+                        // ❌ Skip if is_active is false
+                        if (!user.is_active) return false;
 
                         // ✅ Check valid subscription
                         const validUntil = user.valid_until ? new Date(user.valid_until) : null;
-                        if (!validUntil || validUntil < now) {
-                            console.log(`⏳ ${user.name} - Subscription expired`);
-                            return false;
-                        }
-
-                        // ✅ Check activity within 7 days
-                        /* 
-                        // DISABLED: Many users have null last_activity, causing false positives.
-                        const lastActivity = user.last_activity ? new Date(user.last_activity) : null;
-                        if (!lastActivity || lastActivity < sevenDaysAgo) {
-                            console.log(`⏳ ${user.name} - Inactive 7+ days`);
-                            return false;
-                        }
-                        */
-
-                        // ✅ Check gender preference - DISABLED (Pan India distribution)
-                        // if (!matchesGenderPreference(user.target_gender, leadGender)) {
-                        //     return false;
-                        // }
-
-                        // ✅ Check state preference - DISABLED (All users are now All India)
-                        // if (!matchesStatePreference(user.target_state, leadState)) {
-                        //     return false;
-                        // }
+                        if (!validUntil || validUntil < now) return false;
 
                         return true;
                     });
@@ -535,8 +459,6 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // 6. SMART ROUND ROBIN SORT
-                    // Logic: Old Users First -> Then Round Balance
                     // 6. STRICT 2-LEAD BATCH ROTATION SORT
                     // Rule 1: Hierarchy First (Turbo > Manager > Supervisor > Weekly > Starter)
                     // Rule 2: Complete the Pair (If Odd leads, finish batch immediately)
@@ -564,10 +486,12 @@ serve(async (req) => {
                         if (!aNeedsCompletion && bNeedsCompletion) return 1;
 
                         // Condition 2: ROUND BALANCING (Who is behind in FULL BATCHES?)
+                        // We compare "Pairs Completed" (0, 2, 4 vs 0, 2, 4).
                         if (leadsA !== leadsB) return leadsA - leadsB;
 
                         // Condition 3: HIERARCHY (Plan Weight)
                         // Beacuse leads are EQUAL (e.g. both 0), Top Tier goes FIRST.
+                        // Order: Turbo > Manager > Supervisor > Weekly > Starter
                         const weightA = getPlanWeight(a.plan_name);
                         const weightB = getPlanWeight(b.plan_name);
                         if (weightA !== weightB) return weightB - weightA; // Higher weight first
@@ -580,15 +504,11 @@ serve(async (req) => {
                     const currentLeads = selectedUser.leads_today || 0;
                     const newCount = currentLeads + 1;
 
-                    console.log(`✅ ${leadName} → ${selectedUser.name} (Round ${getCurrentRound(currentLeads)})`);
+                    const roundNum = Math.floor(newCount / 2) + (newCount % 2);
+                    console.log(`✅ ${leadName} → ${selectedUser.name} (Batch ${roundNum}, Lead ${newCount}) [Plan: ${selectedUser.plan_name}]`);
 
-
-                    /* 
-                    // 🚨 DISTRIBUTION STOPPED BY USER REQUEST (Jan 19, 9:31 AM)
-                    // Changing to Equal Distribution Rule
-                    
-                    // 7. INSERT LEAD
-                    await supabase.from('leads').insert({
+                    // 7. INSERT LEAD (ASSIGNED)
+                    const { error: insertError } = await supabase.from('leads').insert({
                         name: leadName,
                         phone: leadPhone,
                         city: leadCity,
@@ -602,36 +522,25 @@ serve(async (req) => {
                         created_at: new Date().toISOString()
                     });
 
-                    // 8. UPDATE USER COUNT (ATOMIC RPC)
-                    const { error: rpcError } = await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
+                    if (insertError) throw insertError;
 
-                    if (rpcError) {
-                        console.error('⚠️ RPC Error, using manual update:', rpcError);
-                        await supabase.from('users').update({ leads_today: currentLeads + 1 }).eq('id', selectedUser.id);
+                    // 8. UPDATE USER COUNT (DIRECT SQL - NO RPC)
+                    // Critical: Must update immediately to stop infinite loop
+                    const { error: updateError } = await supabase
+                        .from('users')
+                        .update({
+                            leads_today: newCount,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', selectedUser.id);
+
+                    if (updateError) {
+                        console.error('❌ User Update Failed:', updateError);
+                    } else {
+                        console.log(`📈 Limit Updated: ${selectedUser.name} -> ${newCount}`);
                     }
-                    
+
                     return new Response("Success", { status: 200 });
-                    */
-
-                    // ✅ TEMPORARY: INSERT AS NEW (UNASSIGNED)
-                    console.log(`⏸️ DISTRIBUTION PAUSED: Saving ${leadName} as 'New'`);
-                    await supabase.from('leads').insert({
-                        name: leadName,
-                        phone: leadPhone,
-                        city: leadCity,
-                        state: leadState,
-                        source: `Meta - ${pageData.page_name}`,
-                        status: 'New', // Save as New, do not assign
-                        is_valid_phone: true,
-                        created_at: new Date().toISOString()
-                    });
-
-                    return new Response("Success: Saved to Backlog (Paused)", { status: 200 });
-
-
-
-
-
 
                 }
             }

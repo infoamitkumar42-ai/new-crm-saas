@@ -1,5 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// ✅ Stable Imports using ESM.SH (Deno Standard)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Use native Deno.serve (No import needed)
+
 
 /**
  * LEADFLOW WEBHOOK v24.0 - COMPLETE OVERHAUL
@@ -260,7 +263,7 @@ function isValidIndianPhone(phone: string): boolean {
 // MAIN WEBHOOK HANDLER
 // ============================================================================
 
-serve(async (req) => {
+Deno.serve(async (req) => {
     const { method } = req;
 
     const supabase = createClient(
@@ -447,14 +450,22 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // 4.5 TEAM FILTER (if page has manager)
+                    // 4.5 TEAM FILTER (Supports Multi-Manager Hierarchy)
                     let teamFilteredUsers = allUsers;
+
                     if (pageData.manager_id) {
+                        // Allow Page Manager + Specific Sub-Managers (e.g. Simran)
+                        const ALLOWED_MANAGERS = [
+                            pageData.manager_id,
+                            'ff0ead1f-212c-4e89-bc81-dec4185f8853' // Simran (Linked to Himanshu)
+                        ];
+
                         const teamUsers = allUsers.filter(u =>
-                            u.manager_id === pageData.manager_id || u.id === pageData.manager_id
+                            ALLOWED_MANAGERS.includes(u.manager_id) || ALLOWED_MANAGERS.includes(u.id)
                         );
+
                         if (teamUsers.length > 0) {
-                            console.log(`👥 Team: ${teamUsers.length} members`);
+                            console.log(`👥 Team: Restricting to ${teamUsers.length} members (Himanshu + Simran Teams)`);
                             teamFilteredUsers = teamUsers;
                         }
                     }
@@ -509,6 +520,24 @@ serve(async (req) => {
                             console.log(`⏳ ${user.name} - Inactive 7+ days`);
                             return false;
                         }
+                            // 4. CHECK IF USER IS HIMANSHU OR SIMRAN OR THEIR TEAM
+                            // Extended Logic: Allow Himanshu's team AND Simran's team
+                            // Simran's ID: ff0ead1f-212c-4e89-bc81-dec4185f8853
+                            // Himanshu's ID: 79c67296-b221-4ca9-a3a5-1611e690e68d
+                            // Simran Simmi's ID: 5cca04ae-3d29-4efe-a12a-0b01336cddee (Explicit Allow)
+                            
+                            const isHimanshu = (selectedUser.id === manager_id); // Page Owner
+                            const isHimanshuTeam = (selectedUser.manager_id === manager_id);
+                            
+                            const isSimran = (selectedUser.id === 'ff0ead1f-212c-4e89-bc81-dec4185f8853');
+                            const isSimranTeam = (selectedUser.manager_id === 'ff0ead1f-212c-4e89-bc81-dec4185f8853');
+                            
+                            const isSimranSimmi = (selectedUser.id === '5cca04ae-3d29-4efe-a12a-0b01336cddee');
+
+                            if (!isHimanshu && !isHimanshuTeam && !isSimran && !isSimranTeam && !isSimranSimmi) {
+                                // console.log(`Skipping ${selectedUser.name} (Not in Himanshu/Simran Team)`);
+                                continue;
+                            }
                         */
 
                         // ✅ Check gender preference - DISABLED (Pan India distribution)
@@ -535,58 +564,63 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // 6. SMART ROUND ROBIN SORT
-                    // Logic: Old Users First -> Then Round Balance
-                    // 6. STRICT 2-LEAD BATCH ROTATION SORT
-                    // Rule 1: Hierarchy First (Turbo > Manager > Supervisor > Weekly > Starter)
-                    // Rule 2: Complete the Pair (If Odd leads, finish batch immediately)
-                    // Rule 3: Sequential Rounds (User 1 gets 2, then User 2 gets 2...)
-
-                    const getPlanWeight = (plan: string) => {
-                        const p = (plan || '').toLowerCase();
-                        if (p.includes('turbo')) return 100;
-                        if (p.includes('manager')) return 90;
-                        if (p.includes('supervisor')) return 80;
-                        if (p.includes('weekly')) return 70;
-                        if (p.includes('starter')) return 60;
-                        return 0; // Unknown/None
-                    };
-
+                    // 7. SORT ELIGIBLE USERS (Equalizer Strategy: Round Robin 1->2, 2->3)
+                    // Logic: Least Leads First (Fill current level before moving up)
                     eligibleUsers.sort((a, b) => {
                         const leadsA = a.leads_today || 0;
                         const leadsB = b.leads_today || 0;
 
-                        // Condition 1: COMPLETE THE PAIR (Odd Priority)
-                        // If A has 1 (Odd) and B has 2 (Even), A MUST get the next lead to finish batch.
-                        const aNeedsCompletion = leadsA % 2 !== 0;
-                        const bNeedsCompletion = leadsB % 2 !== 0;
-                        if (aNeedsCompletion && !bNeedsCompletion) return -1;
-                        if (!aNeedsCompletion && bNeedsCompletion) return 1;
-
-                        // Condition 2: ROUND BALANCING (Who is behind in FULL BATCHES?)
+                        // Primary: Least Leads First (0 before 1, 1 before 2)
                         if (leadsA !== leadsB) return leadsA - leadsB;
 
-                        // Condition 3: HIERARCHY (Plan Weight)
-                        // Beacuse leads are EQUAL (e.g. both 0), Top Tier goes FIRST.
-                        const weightA = getPlanWeight(a.plan_name);
-                        const weightB = getPlanWeight(b.plan_name);
-                        if (weightA !== weightB) return weightB - weightA; // Higher weight first
-
-                        // Condition 4: Stable Tie-Breaker
-                        return (a.id || '').localeCompare(b.id || '');
+                        // Secondary: High Remaining Capacity (Tie-breaker)
+                        const pendingA = (a.daily_limit || 0) - leadsA;
+                        const pendingB = (b.daily_limit || 0) - leadsB;
+                        return pendingB - pendingA;
                     });
 
-                    const selectedUser = eligibleUsers[0];
+                    // 7. SELECT & RE-VERIFY USER (Concurrency Fix)
+                    let selectedUser = null;
+
+                    // Try top 3 users in case of race conditions
+                    // We re-check the top candidate's capacity from DB to minimize race window
+                    for (let candidate of eligibleUsers) {
+                        // Re-fetch fresh count directly from DB (Bypass stale cache)
+                        const { data: freshUser, error: freshErr } = await supabase
+                            .from('users')
+                            .select('leads_today, daily_limit')
+                            .eq('id', candidate.id)
+                            .single();
+
+                        if (freshErr || !freshUser) continue;
+
+                        const freshCurrent = freshUser.leads_today || 0;
+                        const freshLimit = freshUser.daily_limit || 0;
+
+                        if (freshCurrent < freshLimit) {
+                            // Valid candidate found! Update local object and select
+                            candidate.leads_today = freshCurrent;
+                            selectedUser = candidate;
+                            break;
+                        } else {
+                            console.log(`⚠️ Race condition caught: ${candidate.name} just filled up (${freshCurrent}/${freshLimit}). Skipping.`);
+                        }
+                    }
+
+                    if (!selectedUser) {
+                        console.log('⚠️ All eligible users filled up during processing');
+                        await supabase.from('leads').insert({
+                            name: leadName, phone: leadPhone, city: leadCity, state: leadState,
+                            source: `Meta - ${pageData.page_name}`,
+                            status: 'New', is_valid_phone: true,
+                            created_at: new Date().toISOString()
+                        });
+                        continue;
+                    }
+
                     const currentLeads = selectedUser.leads_today || 0;
-                    const newCount = currentLeads + 1;
+                    console.log(`✅ ${leadName} → ${selectedUser.name} (Pending: ${(selectedUser.daily_limit || 0) - currentLeads})`);
 
-                    console.log(`✅ ${leadName} → ${selectedUser.name} (Round ${getCurrentRound(currentLeads)})`);
-
-
-                    /* 
-                    // 🚨 DISTRIBUTION STOPPED BY USER REQUEST (Jan 19, 9:31 AM)
-                    // Changing to Equal Distribution Rule
-                    
                     // 7. INSERT LEAD
                     await supabase.from('leads').insert({
                         name: leadName,
@@ -603,46 +637,18 @@ serve(async (req) => {
                     });
 
                     // 8. UPDATE USER COUNT (ATOMIC RPC)
-                    const { error: rpcError } = await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
+                    // Uses RPC to prevent race conditions with Backlog Distributor
+                    await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
 
-                    if (rpcError) {
-                        console.error('⚠️ RPC Error, using manual update:', rpcError);
-                        await supabase.from('users').update({ leads_today: currentLeads + 1 }).eq('id', selectedUser.id);
-                    }
-                    
-                    return new Response("Success", { status: 200 });
-                    */
+                    return new Response('EVENT_RECEIVED', { status: 200 });
 
-                    // ✅ TEMPORARY: INSERT AS NEW (UNASSIGNED)
-                    console.log(`⏸️ DISTRIBUTION PAUSED: Saving ${leadName} as 'New'`);
-                    await supabase.from('leads').insert({
-                        name: leadName,
-                        phone: leadPhone,
-                        city: leadCity,
-                        state: leadState,
-                        source: `Meta - ${pageData.page_name}`,
-                        status: 'New', // Save as New, do not assign
-                        is_valid_phone: true,
-                        created_at: new Date().toISOString()
-                    });
-
-                    return new Response("Success: Saved to Backlog (Paused)", { status: 200 });
-
-
-
-
-
-
-                }
-            }
+                } // End Changes Loop
+            } // End Entry Loop
 
             return new Response('EVENT_RECEIVED', { status: 200 });
         } catch (error: any) {
             console.error('❌ Error:', error.message);
-            return new Response(JSON.stringify({ error: error.message }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            return new Response(JSON.stringify({ error: error.message }), { status: 500 });
         }
     }
 
