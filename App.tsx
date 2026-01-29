@@ -14,6 +14,7 @@ import { NotificationBanner } from './components/NotificationBanner';
 import { LeadAlert } from './components/LeadAlert';
 import { AuthProvider, useAuth } from './auth/useAuth';
 import { ResetPassword } from './views/ResetPassword';
+import ApplyForm from './views/ApplyForm';
 import { Loader2 } from 'lucide-react';
 
 // ✅ LEGAL PAGES
@@ -154,6 +155,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/signup" element={<PublicRoute><Auth /></PublicRoute>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/landing" element={<Landing />} />
+        <Route path="/apply" element={<ApplyForm />} />
 
         {/* Root Route - Shows Landing or Dashboard based on auth */}
         <Route path="/" element={<RootRoute />} />

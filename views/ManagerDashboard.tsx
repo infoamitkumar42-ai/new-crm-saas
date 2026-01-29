@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
-import { 
-  Users, UserPlus, Copy, Check, LogOut, 
+import {
+  Users, UserPlus, Copy, Check, LogOut,
   LayoutDashboard, RefreshCw, MessageSquare, Award,
   Target, UserCheck, Clock, Share2, TrendingUp
 } from 'lucide-react';
@@ -63,19 +63,19 @@ export const ManagerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Ref for setTimeout cleanup to prevent memory leaks
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   // ============================================================
   // Optimized Data Fetch (N+1 Fixed)
   // ============================================================
-  
+
   const fetchManagerData = useCallback(async () => {
     try {
       setRefreshing(true);
       setError(null); // Clear previous errors
-      
+
       const managerId = session?.user.id;
 
       if (!managerId) {
@@ -89,7 +89,7 @@ export const ManagerDashboard = () => {
         .select('team_code, name')
         .eq('id', managerId)
         .single();
-      
+
       if (managerData?.team_code) {
         setTeamCode(managerData.team_code);
       }
@@ -101,30 +101,29 @@ export const ManagerDashboard = () => {
         .eq('manager_id', managerId)
         .order('created_at', { ascending: false });
 
-      // 3. OPTIMIZATION: Fetch leads in ONE query (N+1 Fix)
-      const memberIds = (members || []).map(m => m.id);
-      
+      // 3. FAST & ACCURATE: Fetch leads counts in parallel
       let leadsMap: { [key: string]: { total: number; interested: number; closed: number } } = {};
-      
-      if (memberIds.length > 0) {
-        // Fetch all leads for the team at once
-        const { data: leads } = await supabase
-          .from('leads')
-          .select('user_id, status')
-          .in('user_id', memberIds);
 
-        // Aggregate counts in JS (Fast & Memory Efficient)
-        if (leads) {
-          leads.forEach((lead: Lead) => {
-            if (!leadsMap[lead.user_id]) {
-              leadsMap[lead.user_id] = { total: 0, interested: 0, closed: 0 };
-            }
-            leadsMap[lead.user_id].total++;
-            if (lead.status === 'Interested') leadsMap[lead.user_id].interested++;
-            if (lead.status === 'Closed') leadsMap[lead.user_id].closed++;
-          });
-        }
-      }
+      // Fetch counts for all members in parallel (fast!)
+      const countPromises = (members || []).map(async (member) => {
+        const [totalResult, interestedResult, closedResult] = await Promise.all([
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id).eq('status', 'Interested'),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id).eq('status', 'Closed')
+        ]);
+
+        return {
+          memberId: member.id,
+          total: totalResult.count || 0,
+          interested: interestedResult.count || 0,
+          closed: closedResult.count || 0
+        };
+      });
+
+      const results = await Promise.all(countPromises);
+      results.forEach(r => {
+        leadsMap[r.memberId] = { total: r.total, interested: r.interested, closed: r.closed };
+      });
 
       // 4. Merge stats back into member list
       const membersWithStats = (members || []).map((member) => {
@@ -166,15 +165,15 @@ export const ManagerDashboard = () => {
   // ============================================================
   // Helper Functions (With Fixes)
   // ============================================================
-  
+
   const copyCode = useCallback(() => {
     if (!teamCode) return;
     navigator.clipboard.writeText(teamCode).then(() => {
       setCopied(true);
-      
+
       // Cleanup previous timeout to prevent memory leak
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      
+
       timeoutRef.current = setTimeout(() => {
         setCopied(false);
       }, 2000);
@@ -193,13 +192,13 @@ export const ManagerDashboard = () => {
   }, [teamCode]);
 
   const getStatusColor = (status: string) => {
-    return status === 'active' 
-      ? 'bg-green-100 text-green-700 border-green-200' 
+    return status === 'active'
+      ? 'bg-green-100 text-green-700 border-green-200'
       : 'bg-slate-100 text-slate-600 border-slate-200';
   };
 
   const getPlanColor = (plan: string) => {
-    switch(plan) {
+    switch (plan) {
       case 'starter': return 'bg-blue-50 text-blue-700';
       case 'supervisor': return 'bg-purple-50 text-purple-700';
       case 'manager': return 'bg-orange-50 text-orange-700';
@@ -210,7 +209,7 @@ export const ManagerDashboard = () => {
   // ============================================================
   // Effects (With Cleanup)
   // ============================================================
-  
+
   useEffect(() => {
     if (session?.user.id) {
       fetchManagerData();
@@ -227,7 +226,7 @@ export const ManagerDashboard = () => {
   // ============================================================
   // Render
   // ============================================================
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -241,7 +240,7 @@ export const ManagerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -257,15 +256,15 @@ export const ManagerDashboard = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={fetchManagerData}
                 disabled={refreshing}
                 className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
               >
                 <RefreshCw size={18} className={`text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              
-              <button 
+
+              <button
                 onClick={signOut}
                 className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium text-sm"
               >
@@ -278,7 +277,7 @@ export const ManagerDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        
+
         {/* Error Alert (New Feature) */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
@@ -288,7 +287,7 @@ export const ManagerDashboard = () => {
               </div>
               <p className="text-red-700 font-medium text-sm">{error}</p>
             </div>
-            <button 
+            <button
               onClick={fetchManagerData}
               className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors"
             >
@@ -301,7 +300,7 @@ export const ManagerDashboard = () => {
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full -ml-16 -mb-16 blur-xl"></div>
-          
+
           <div className="relative z-10">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div>
@@ -312,22 +311,22 @@ export const ManagerDashboard = () => {
                   Share your unique code with sales agents. They'll automatically join your team on signup!
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                 <div className="bg-white/15 backdrop-blur-md p-3 rounded-xl flex items-center gap-3 border border-white/20">
                   <span className="text-2xl sm:text-3xl font-mono font-bold tracking-widest px-2">
                     {teamCode || 'NO CODE'}
                   </span>
-                  <button 
-                    onClick={copyCode} 
+                  <button
+                    onClick={copyCode}
                     className="bg-white text-blue-600 p-2.5 rounded-lg hover:bg-blue-50 transition-colors shadow-md"
                     title="Copy Code"
                   >
-                    {copied ? <Check size={20}/> : <Copy size={20}/>}
+                    {copied ? <Check size={20} /> : <Copy size={20} />}
                   </button>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={shareOnWhatsApp}
                   className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg"
                 >
@@ -341,40 +340,40 @@ export const ManagerDashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <StatCard 
-            icon={<Users size={20} />} 
-            label="Team Size" 
-            value={stats.teamSize} 
+          <StatCard
+            icon={<Users size={20} />}
+            label="Team Size"
+            value={stats.teamSize}
             color="blue"
           />
-          <StatCard 
-            icon={<UserCheck size={20} />} 
-            label="Active" 
-            value={stats.activeMembers} 
+          <StatCard
+            icon={<UserCheck size={20} />}
+            label="Active"
+            value={stats.activeMembers}
             color="green"
           />
-          <StatCard 
-            icon={<Target size={20} />} 
-            label="Total Leads" 
-            value={stats.totalLeads} 
+          <StatCard
+            icon={<Target size={20} />}
+            label="Total Leads"
+            value={stats.totalLeads}
             color="purple"
           />
-          <StatCard 
-            icon={<Clock size={20} />} 
-            label="Interested" 
-            value={stats.interestedLeads} 
+          <StatCard
+            icon={<Clock size={20} />}
+            label="Interested"
+            value={stats.interestedLeads}
             color="orange"
           />
-          <StatCard 
-            icon={<Award size={20} />} 
-            label="Closed" 
-            value={stats.closedLeads} 
+          <StatCard
+            icon={<Award size={20} />}
+            label="Closed"
+            value={stats.closedLeads}
             color="emerald"
           />
-          <StatCard 
-            icon={<TrendingUp size={20} />} 
-            label="Conversion" 
-            value={`${stats.conversionRate}%`} 
+          <StatCard
+            icon={<TrendingUp size={20} />}
+            label="Conversion"
+            value={`${stats.conversionRate}%`}
             color="pink"
           />
         </div>
@@ -396,7 +395,7 @@ export const ManagerDashboard = () => {
               <p className="text-slate-500 mb-4 max-w-sm mx-auto">
                 Share your team code <span className="font-mono font-bold text-blue-600">{teamCode}</span> with agents to grow your team!
               </p>
-              <button 
+              <button
                 onClick={shareOnWhatsApp}
                 className="inline-flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-600 transition-all"
               >
@@ -469,7 +468,7 @@ export const ManagerDashboard = () => {
                         {member.payment_status === 'active' ? 'Active' : 'Inactive'}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${getPlanColor(member.plan_name)}`}>
                         {member.plan_name || 'No Plan'}
@@ -478,7 +477,7 @@ export const ManagerDashboard = () => {
                         Today: {member.leads_today}/{member.daily_limit}
                       </span>
                     </div>
-                    
+
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-slate-50 p-2 rounded-lg text-center">
                         <div className="text-lg font-bold text-slate-900">{member.total_leads}</div>
@@ -508,7 +507,7 @@ export const ManagerDashboard = () => {
           <div>
             <h4 className="font-bold text-amber-800">Pro Tip: Boost Conversions</h4>
             <p className="text-sm text-amber-700">
-              Members who follow up within 5 minutes have 21x higher conversion rates! 
+              Members who follow up within 5 minutes have 21x higher conversion rates!
               Encourage your team to call leads immediately.
             </p>
           </div>
@@ -523,15 +522,15 @@ export const ManagerDashboard = () => {
 // Stat Card Component (Type-Safe)
 // ============================================================
 
-const StatCard = ({ 
-  icon, 
-  label, 
-  value, 
-  color 
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
-  value: string | number; 
+const StatCard = ({
+  icon,
+  label,
+  value,
+  color
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
   color: ColorType; // Strict type checking
 }) => {
   const colors: Record<ColorType, string> = {

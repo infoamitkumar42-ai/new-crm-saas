@@ -1,0 +1,68 @@
+NAME | PLAN | ACTUAL | PROMISED | STATUS
+-------------------------------------------------------------
+Swati                | N/A          | starter         | 34       | 50         | 🟢 16 PENDING
+Jasdeep Kaur         | N/A          | starter         | 28       | 50         | 🟢 22 PENDING
+Kulwant Singh        | N/A          | starter         | 27       | 50         | 🟢 23 PENDING
+Navjot Kaur          | N/A          | starter         | 26       | 50         | 🟢 24 PENDING
+Lalit kumar          | N/A          | starter         | 26       | 50         | 🟢 24 PENDING
+Loveleen             | N/A          | starter         | 26       | 50         | 🟢 24 PENDING
+Sandeep Rehaan       | N/A          | starter         | 25       | 50         | 🟢 25 PENDING
+Gurpreet Kaur        | N/A          | starter         | 25       | 50         | 🟢 25 PENDING
+Baljeet kaur         | N/A          | starter         | 25       | 50         | 🟢 25 PENDING
+Akshmala             | N/A          | starter         | 25       | 50         | 🟢 25 PENDING
+Divya Malik          | N/A          | starter         | 24       | 50         | 🟢 26 PENDING
+Jaspreet Kaur        | N/A          | starter         | 23       | 50         | 🟢 27 PENDING
+Gurvinder Matharu    | N/A          | starter         | 23       | 50         | 🟢 27 PENDING
+Drishti Rani         | N/A          | starter         | 22       | 50         | 🟢 28 PENDING
+Saloni Rajput        | N/A          | starter         | 20       | 50         | 🟢 30 PENDING
+Harwinder kaur       | N/A          | starter         | 20       | 50         | 🟢 30 PENDING
+Arshdeep kaur        | N/A          | starter         | 19       | 50         | 🟢 31 PENDING
+Harpreet Kaur        | N/A          | starter         | 16       | 50         | 🟢 34 PENDING
+Kirandeep kaur       | N/A          | starter         | 13       | 50         | 🟢 37 PENDING
+Ruchi                | N/A          | starter         | 13       | 50         | 🟢 37 PENDING
+Bhawna               | N/A          | starter         | 11       | 50         | 🟢 39 PENDING
+PRIYA GOYAL          | N/A          | starter         | 5        | 50         | 🟢 45 PENDING
+Jashandeep kaur      | N/A          | turbo_boost     | 38       | 84         | 🟢 46 PENDING
+Manager Simran       | N/A          | none            | 0        | 50         | 🟢 50 PENDING
+Himanshu Sharma      | N/A          | none            | 0        | 50         | 🟢 50 PENDING
+RAJWINDER            | N/A          | none            | 0        | 50         | 🟢 50 PENDING
+Vinita punjabi       | N/A          | weekly_boost    | 33       | 84         | 🟢 51 PENDING
+Ajay kumar           | N/A          | weekly_boost    | 32       | 84         | 🟢 52 PENDING
+Rajinder             | N/A          | supervisor      | 43       | 105        | 🟢 62 PENDING
+Loveleen kaur        | N/A          | supervisor      | 36       | 105        | 🟢 69 PENDING
+Prabhjot kaur        | N/A          | supervisor      | 35       | 105        | 🟢 70 PENDING
+Sunaina Rani         | N/A          | supervisor      | 33       | 105        | 🟢 72 PENDING
+Mandeep kaur         | N/A          | supervisor      | 33       | 105        | 🟢 72 PENDING
+Payal                | N/A          | supervisor      | 32       | 105        | 🟢 73 PENDING
+Neha                 | N/A          | supervisor      | 29       | 105        | 🟢 76 PENDING
+Balraj singh         | N/A          | supervisor      | 28       | 105        | 🟢 77 PENDING
+Ramandeep Kaur       | N/A          | supervisor      | 27       | 105        | 🟢 78 PENDING
+Kamal kaur           | N/A          | supervisor      | 27       | 105        | 🟢 78 PENDING
+Dinesh Monga         | N/A          | supervisor      | 25       | 105        | 🟢 80 PENDING
+Navjot Kaur          | N/A          | supervisor      | 34       | 115        | 🟢 81 PENDING
+Raveena              | N/A          | supervisor      | 33       | 115        | 🟢 82 PENDING
+Tanisha              | N/A          | supervisor      | 33       | 115        | 🟢 82 PENDING
+Princy               | N/A          | supervisor      | 31       | 115        | 🟢 84 PENDING
+VEERPAL KAUR         | N/A          | supervisor      | 31       | 115        | 🟢 84 PENDING
+Manbir Singh         | N/A          | supervisor      | 30       | 115        | 🟢 85 PENDING
+Rahul kumar          | N/A          | supervisor      | 30       | 115        | 🟢 85 PENDING
+Anita                | N/A          | supervisor      | 28       | 115        | 🟢 87 PENDING
+Nazia Begam          | N/A          | supervisor      | 27       | 115        | 🟢 88 PENDING
+Himanshu Sharma      | N/A          | turbo_boost     | 52       | 150        | 🟢 98 PENDING
+Seerat               | N/A          | starter         | 29       | 150        | 🟢 121 PENDING
+MUSKAN               | N/A          | starter         | 26       | 150        | 🟢 124 PENDING
+ranjodh singh        | N/A          | starter         | 25       | 150        | 🟢 125 PENDING
+Naina Nawani         | N/A          | starter         | 24       | 150        | 🟢 126 PENDING
+Navjot kaur          | N/A          | starter         | 24       | 150        | 🟢 126 PENDING
+Tushte               | N/A          | starter         | 24       | 150        | 🟢 126 PENDING
+PARAMJIT KAUR        | N/A          | starter         | 23       | 150        | 🟢 127 PENDING
+Gurdeep Singh        | N/A          | starter         | 22       | 150        | 🟢 128 PENDING
+Preeti               | N/A          | starter         | 22       | 150        | 🟢 128 PENDING
+Priya Arora          | N/A          | starter         | 22       | 150        | 🟢 128 PENDING
+Saloni               | N/A          | starter         | 20       | 150        | 🟢 130 PENDING
+Suman                | N/A          | starter         | 17       | 150        | 🟢 133 PENDING
+Tanu Dhawan          | N/A          | manager         | 32       | 240        | 🟢 208 PENDING
+Harmandeep kaur      | N/A          | manager         | 31       | 240        | 🟢 209 PENDING
+
+-------------------------------------------------------------
+Total Active Users Checked: 63

@@ -100,6 +100,15 @@ export const LeadAlert: React.FC = () => {
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('p256dh')!))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('auth')!))));
 
+      // 🔥 FIX: Delete any OTHER user's subscriptions with same endpoint (prevents duplicate notifications)
+      // This handles the case when user logs into another account on same device
+      await supabase.from('push_subscriptions')
+        .delete()
+        .eq('endpoint', sub.endpoint)
+        .neq('user_id', session.user.id);
+
+      console.log("🧹 Cleaned duplicate subscriptions for this device");
+
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: session.user.id,
         endpoint: sub.endpoint,
@@ -152,6 +161,12 @@ export const LeadAlert: React.FC = () => {
 
               const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
               const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+              // 🔥 FIX: Clean up OTHER users' subscriptions with same endpoint
+              await supabase.from('push_subscriptions')
+                .delete()
+                .eq('endpoint', sub.endpoint)
+                .neq('user_id', session.user.id);
 
               await supabase.from('push_subscriptions').upsert({
                 user_id: session.user.id,

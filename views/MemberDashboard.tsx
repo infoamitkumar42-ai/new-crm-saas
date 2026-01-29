@@ -23,6 +23,7 @@ import {
   CheckCircle2, AlertTriangle, Flag, Gift, User, Lightbulb
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
+import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
 
@@ -798,6 +799,18 @@ export const MemberDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
+
+        {/* 🎯 SMART RENEWAL BANNER (Psychology Triggers) */}
+        <SmartRenewalBanner
+          daysLeft={daysLeft}
+          totalLeadsReceived={totalReceived}
+          interestedLeads={stats.interested}
+          closedDeals={stats.closed}
+          userName={profile?.name || 'User'}
+          planName={profile?.plan_name || 'Your'}
+          onRenew={() => setShowSubscription(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
 
         {/* 🔥 MOBILE-OPTIMIZED STATUS CARD (Vertical & Boxy) */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-3xl p-5 mb-6 shadow-2xl">
