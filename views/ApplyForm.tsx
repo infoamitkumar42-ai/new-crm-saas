@@ -76,28 +76,44 @@ export default function ApplyForm() {
     // --------------------------------------------------
     // 🔥 PIXEL INJECTION (ISOLATED TO THIS COMPONENT)
     // --------------------------------------------------
+    // --------------------------------------------------
+    // 🔥 PIXEL INJECTION (STRICT COMPONENT LEVEL)
+    // --------------------------------------------------
     useEffect(() => {
-        if (PIXEL_ID) {
-            console.log("Initializing Isolated Pixel:", PIXEL_ID);
+        // Only run if we are on client side
+        if (typeof window === 'undefined') return;
 
-            // Standard Meta Pixel Code
-            !function (f, b, e, v, n, t, s) {
-                if (f.fbq) return; n = f.fbq = function () {
-                    n.callMethod ?
-                        n.callMethod.apply(n, arguments) : n.queue.push(arguments)
-                };
-                if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
-                n.queue = []; t = b.createElement(e); t.async = !0;
-                t.src = v; s = b.getElementsByTagName(e)[0];
-                s.parentNode.insertBefore(t, s)
-            }(window, document, 'script',
+        console.log("Initializing Component-Level Pixel:", PIXEL_ID);
+
+        // 1. Manually Inject Script if not present
+        if (!document.getElementById('meta-pixel-script')) {
+            const script = document.createElement('script');
+            script.id = 'meta-pixel-script';
+            script.text = `
+                !function(f,b,e,v,n,t,s)
+                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                n.queue=[];t=b.createElement(e);t.async=!0;
+                t.src=v;s=b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t,s)}(window, document,'script',
                 'https://connect.facebook.net/en_US/fbevents.js');
-
-            // @ts-ignore
-            window.fbq('init', PIXEL_ID);
-            // @ts-ignore
-            window.fbq('track', 'PageView');
+            `;
+            document.head.appendChild(script);
         }
+
+        // 2. Initialize & Track
+        // Small timeout to ensure script is parsed
+        const initTimer = setTimeout(() => {
+            if ((window as any).fbq) {
+                (window as any).fbq('init', PIXEL_ID);
+                (window as any).fbq('track', 'PageView');
+                console.log("✅ Pixel Fired: PageView for", PIXEL_ID);
+            }
+        }, 500);
+
+        return () => clearTimeout(initTimer);
+
     }, [PIXEL_ID]);
 
     // Timer Logic
