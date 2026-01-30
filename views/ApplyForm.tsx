@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { CheckCircle, ArrowRight, Loader, Lock, Users, Clock, AlertCircle, Shield, Briefcase, Star, MapPin, PhoneCall } from 'lucide-react';
+import { CheckCircle, ArrowRight, Loader, Lock, Users, Clock, AlertCircle, Shield, Briefcase, Star, MapPin, PhoneCall, TrendingUp } from 'lucide-react';
 
 // ----------------------------------------------------------------------
 // 🔔 LIVE NOTIFICATION COMPONENT
@@ -72,6 +72,7 @@ export default function ApplyForm() {
     const [errorMsg, setErrorMsg] = useState('');
     const [assignedAgent, setAssignedAgent] = useState('');
     const [timeLeft, setTimeLeft] = useState({ minutes: 14, seconds: 22 });
+    const [progress, setProgress] = useState(15); // Initial progress
 
     // --------------------------------------------------
     // 🔥 PIXEL INJECTION (ISOLATED TO THIS COMPONENT)
@@ -128,10 +129,26 @@ export default function ApplyForm() {
         return () => clearInterval(timer);
     }, []);
 
+    // 🧠 DYNAMIC PROGRESS BAR LOGIC (Zeigarnik Effect)
+    useEffect(() => {
+        let newProgress = 15; // Base progress
+        if (formData.name.length > 2) newProgress += 20;
+        if (formData.phone.length > 5) newProgress += 20;
+        if (formData.city.length > 2) newProgress += 15;
+        if (formData.age) newProgress += 15;
+        if (formData.profession) newProgress += 15;
+
+        // Cap at 95% until submit
+        if (newProgress > 95) newProgress = 95;
+
+        setProgress(newProgress);
+    }, [formData]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('loading');
         setErrorMsg('');
+        setProgress(98); // Almost done visual
 
         try {
             const { data, error } = await supabase.functions.invoke('process-direct-lead', {
@@ -141,6 +158,7 @@ export default function ApplyForm() {
             if (error) throw error;
 
             setAssignedAgent(data.assigned_to || 'Senior Mentor');
+            setProgress(100); // Complete
 
             // 🔥 FIRE LEAD EVENT
             if (PIXEL_ID && (window as any).fbq) {
@@ -207,14 +225,14 @@ export default function ApplyForm() {
 
             <LiveNotification />
 
-            {/* Official Header */}
+            {/* Official Header - UPDATED */}
             <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
                 <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                            LF
-                        </div>
-                        <span className="font-bold text-slate-800 tracking-tight">LeadFlow</span>
+                        {/* <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                            H
+                        </div> */}
+                        <span className="font-bold text-slate-800 tracking-tight text-base sm:text-lg">Work With <span className="text-blue-600">Himanshu Sharma</span></span>
                     </div>
                     <div className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-full border border-red-100 flex items-center gap-1 animate-pulse">
                         <Clock size={10} /> Ends in {timeLeft.minutes}:{timeLeft.seconds < 10 ? `0${timeLeft.seconds}` : timeLeft.seconds}
@@ -225,14 +243,14 @@ export default function ApplyForm() {
             {/* Main Content Area */}
             <div className="max-w-[480px] mx-auto px-4 pt-6">
 
-                {/* Headline */}
+                {/* Headline - UPDATED */}
                 <div className="text-center mb-6">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-3">
                         <Star size={10} className="fill-blue-700" /> Official Application
                     </div>
                     <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-2">
-                        Work From Home <br />
-                        <span className="text-blue-600">Business Opportunity</span>
+                        Build Your <br />
+                        <span className="text-blue-600">Online Income Source</span>
                     </h1>
                     <p className="text-slate-500 text-sm px-4">
                         Join 5,000+ people earning daily. Free mentorship & support.
@@ -242,15 +260,18 @@ export default function ApplyForm() {
                 {/* Main Card */}
                 <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden relative">
 
-                    {/* Progress Bar */}
+                    {/* DYNAMIC Progress Bar */}
                     <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-2 w-24 bg-slate-200 rounded-full overflow-hidden">
-                                <div className="w-[85%] bg-green-500 h-full rounded-full"></div>
+                        <div className="flex items-center gap-2 w-full">
+                            <span className="text-xs font-bold text-slate-600 whitespace-nowrap">Progress</span>
+                            <div className="flex h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                                <div
+                                    className="bg-green-500 h-full rounded-full transition-all duration-500 ease-out"
+                                    style={{ width: `${progress}%` }}
+                                ></div>
                             </div>
-                            <span className="text-xs font-bold text-green-600">85% Complete</span>
+                            <span className="text-xs font-bold text-green-600 whitespace-nowrap">{progress}%</span>
                         </div>
-                        <Shield size={14} className="text-slate-400" />
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -289,7 +310,7 @@ export default function ApplyForm() {
                                         }}
                                     />
                                     {formData.phone.length === 10 && (
-                                        <div className="absolute right-3 top-3 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <div className="absolute right-3 top-3 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-in fade-in zoom-in">
                                             <CheckCircle size={10} /> Valid
                                         </div>
                                     )}
@@ -369,11 +390,13 @@ export default function ApplyForm() {
                             )}
                         </button>
 
-                        <div className="flex items-center justify-center gap-4 pt-2 opacity-60 grayscale hover:grayscale-0 transition-all">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/2560px-Stripe_Logo%2C_revised_2016.svg.png" className="h-4 object-contain" alt="Stripe" />
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png" className="h-3 object-contain" alt="Visa" />
-                            <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">
-                                <Lock size={8} /> SSL SECURE
+                        {/* REPLACEMENT FOR VISA/STRIPE: Trust Badges */}
+                        <div className="flex items-center justify-center gap-4 pt-2 opacity-80">
+                            <div className="flex items-center gap-1.5 text-[10px] bg-green-50 px-2 py-1 rounded text-green-700 font-bold border border-green-100">
+                                <Shield size={10} /> Verified Opportunity
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] bg-blue-50 px-2 py-1 rounded text-blue-700 font-bold border border-blue-100">
+                                <Lock size={10} /> 100% Secure
                             </div>
                         </div>
                     </form>
@@ -386,15 +409,15 @@ export default function ApplyForm() {
                         <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-start gap-2">
                             <CheckCircle size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="text-xs font-bold text-slate-800">Verified Income</p>
-                                <p className="text-[10px] text-slate-500">Proven system</p>
+                                <p className="text-xs font-bold text-slate-800">Verified System</p>
+                                <p className="text-[10px] text-slate-500">Legal & Proven</p>
                             </div>
                         </div>
                         <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-start gap-2">
-                            <Users size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                            <TrendingUp size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
                             <div>
-                                <p className="text-xs font-bold text-slate-800">Mentorship</p>
-                                <p className="text-[10px] text-slate-500">Personal guidance</p>
+                                <p className="text-xs font-bold text-slate-800">Growth</p>
+                                <p className="text-[10px] text-slate-500">Unlimited potential</p>
                             </div>
                         </div>
                     </div>
