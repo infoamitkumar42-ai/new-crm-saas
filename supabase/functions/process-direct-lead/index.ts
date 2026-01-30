@@ -58,112 +58,61 @@ serve(async (req) => {
             });
         }
 
-        // 3. FIND ELIGIBLE USERS
-        let query = supabase.from('users').select('*').eq('is_active', true).eq('payment_status', 'active').gt('daily_limit', 0);
+        // ============================================================
+        // 🚨 PAUSE MODE FIX: ASSIGN TO DUMMY/ADMIN TO SATISFY DB
+        // ============================================================
 
-        // Manager Routing Logic
-        if (manager_ref) {
-            // Find manager ID by name (case insensitive)
-            const { data: manager } = await supabase.from('users')
-                .select('id')
-                .ilike('name', `%${manager_ref}%`)
-                .limit(1)
-                .single();
+        // 1. Fetch ANY active user (just to get a valid user_id)
+        const { data: placeholderUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('is_active', true)
+            .limit(1)
+            .single();
 
-            if (manager) {
-                // Filter users who report to this manager
-                query = query.eq('manager_id', manager.id);
-            }
+        // Fallback ID if no user found (should rarely happen in prod)
+        // If DB strictly needs user_id, we MUST provide one.
+        const targetUserId = placeholderUser?.id;
+
+        if (!targetUserId) {
+            throw new Error("No active users found to park this lead.");
         }
 
-        const { data: users } = await query;
-        let eligibleUsers = [];
+        const notes = `Age: ${age || 'N/A'} | Profession: ${profession || 'N/A'} | Source: Landing Page (Pause Mode)`;
 
-        // 4. CHECK QUOTA (Real-time)
-        // Helper to get real count
-        const getRealTodayCount = async (uid) => {
-            const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-            const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-            const { count } = await supabase.from('leads').select('*', { count: 'exact', head: true })
-                .eq('user_id', uid).gte('created_at', todayStart).lt('created_at', tomorrowStart);
-            return count || 0;
-        };
-
-        for (const u of users || []) {
-            const count = await getRealTodayCount(u.id);
-            if (count < (u.daily_limit || 0)) {
-                eligibleUsers.push({ ...u, real_leads_today: count });
-            }
-        }
-
-        const notes = `Age: ${age || 'N/A'} | Profession: ${profession || 'N/A'}`;
-
-        if (eligibleUsers.length === 0) {
-            // Fallback: If manager team is full, try Global? Or just fail?
-            // Let's Insert as 'New' (Unassigned)
-            await supabase.from('leads').insert({
-                name,
-                phone: cleanPhone,
-                city,
-                source: 'Web Landing Page',
-                status: 'New', // Waiting
-                notes: notes,
-                created_at: new Date().toISOString()
-            });
-
-            return new Response(JSON.stringify({ message: 'Success (Queue)' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200
-            });
-        }
-
-        // 5. SORT & PICK (Round Robin)
-        // Sort by plan weight (higher first), then least leads today
-        const getPlanWeight = (p) => {
-            const plan = (p || '').toLowerCase();
-            if (plan.includes('turbo')) return 100;
-            if (plan.includes('weekly')) return 90;
-            if (plan.includes('manager')) return 80;
-            if (plan.includes('supervisor')) return 70;
-            return 10;
-        };
-
-        eligibleUsers.sort((a, b) => {
-            const wDiff = getPlanWeight(b.plan_name) - getPlanWeight(a.plan_name);
-            if (wDiff !== 0) return wDiff;
-            return a.real_leads_today - b.real_leads_today;
-        });
-
-        const selectedUser = eligibleUsers[0];
-        const newCount = selectedUser.real_leads_today + 1;
-
-        // 6. ASSIGN
-        await supabase.from('leads').insert({
+        // 2. Insert with Valid user_id but Status 'New'
+        // We do NOT increment their leads_today count.
+        const { error: insertError } = await supabase.from('leads').insert({
             name,
             phone: cleanPhone,
             city,
             source: 'Web Landing Page',
-            status: 'Assigned',
-            user_id: selectedUser.id,
-            assigned_to: selectedUser.id,
+            status: 'New', // Parked status
+            user_id: targetUserId, // Legal Requirement
+            assigned_to: targetUserId,
             notes: notes,
             created_at: new Date().toISOString()
         });
 
-        // Update counter
-        await supabase.from('users').update({ leads_today: newCount }).eq('id', selectedUser.id);
+        if (insertError) {
+            console.error('Insert Error:', insertError);
+            return new Response(JSON.stringify({ error: 'Database Constraint Error: ' + insertError.message }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 500
+            });
+        }
 
         return new Response(JSON.stringify({
-            message: 'Assigned',
-            assigned_to: selectedUser.name.split(' ')[0]
+            message: 'Application Parked Successfully',
+            assigned_to: 'Review Queue'
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200
         });
 
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: any) {
+        console.error('Function Error:', error);
+        return new Response(JSON.stringify({ error: error.message || 'Something went wrong' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500
         });

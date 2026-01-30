@@ -151,14 +151,42 @@ export default function ApplyForm() {
         setProgress(98); // Almost done visual
 
         try {
-            const { data, error } = await supabase.functions.invoke('process-direct-lead', {
-                body: formData
-            });
+            // ---------------------------------------------------------
+            // 🚨 DIRECT INSERT MODE (BYPASSING EDGE FUNCTION)
+            // Reason: Solving persistent "Failed to send request" error
+            // ---------------------------------------------------------
+
+            // 1. Get a Placeholder User ID (Required by DB)
+            const { data: adminUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('is_active', true)
+                .limit(1)
+                .single();
+
+            // Fallback (if no user found, try insert null, though likely to fail if constrained)
+            const fallbackId = adminUser?.id;
+
+            const notes = `Age: ${formData.age} | Profession: ${formData.profession} | Source: Direct Apply Form`;
+
+            // 2. Direct Insert
+            const { data, error } = await supabase.from('leads').insert({
+                name: formData.name,
+                phone: formData.phone.replace(/\D/g, '').slice(-10),
+                city: formData.city,
+                source: 'Web Landing Page',
+                status: 'New', // Parked Status
+                user_id: fallbackId, // Dummy Assignment for Constraint
+                assigned_to: fallbackId,
+                notes: notes,
+                created_at: new Date().toISOString()
+            }).select().single();
 
             if (error) throw error;
 
-            setAssignedAgent(data.assigned_to || 'Senior Mentor');
-            setProgress(100); // Complete
+            // Success Updates
+            setAssignedAgent('Review Team');
+            setProgress(100);
 
             // 🔥 FIRE LEAD EVENT
             if (PIXEL_ID && (window as any).fbq) {
@@ -168,9 +196,14 @@ export default function ApplyForm() {
 
             setStatus('success');
         } catch (err: any) {
-            console.error(err);
+            console.error('Submission Error:', err);
+            // Enhanced Error Reporting for User/Debug
+            let debugMsg = err.message || 'Connection failed';
+            if (err.name) debugMsg += ` (${err.name})`;
+            if (err.status) debugMsg += ` [Status: ${err.status}]`;
+
             setStatus('error');
-            setErrorMsg(err.message || 'Connection failed. Try again.');
+            setErrorMsg(debugMsg);
         }
     };
 
