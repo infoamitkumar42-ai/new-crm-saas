@@ -418,7 +418,7 @@ export default function ApplyForm() {
                                 </>
                             ) : (
                                 <>
-                                    Submit Application <ArrowRight size={20} />
+                                    Submit Your Application Now 🚀 <ArrowRight size={20} />
                                 </>
                             )}
                         </button>
