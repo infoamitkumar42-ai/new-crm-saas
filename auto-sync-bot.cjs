@@ -79,17 +79,103 @@ async function checkMidnightReset() {
     }
 }
 
+// PLAN LIMITS (Per Payment)
+const PLAN_LIMITS = {
+    'starter': 55,
+    'supervisor': 115,
+    'manager': 176,
+    'weekly_boost': 92,
+    'turbo_boost': 108
+};
+
+/**
+ * SMART QUOTA ENFORCEMENT
+ * Stops user ONLY if Total Leads >= Quota
+ * Reactivates user if Quota Remaining
+ */
+async function enforceSmartQuota() {
+    console.log(`\n[${new Date().toLocaleTimeString()}] 🛡️ Checking Quotas...`);
+
+    try {
+        // Fetch users
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('id, name, email, plan_name, is_active, daily_limit, valid_until, total_leads_promised')
+            .neq('plan_name', 'none')
+            .not('plan_name', 'is', null);
+
+        if (error) throw error;
+
+        for (const user of users) {
+            // A. Calculate Total Quota
+            let totalQuota = user.total_leads_promised || 0;
+            if (!totalQuota || totalQuota === 0) {
+                const { data: payments } = await supabase.from('payments').select('id').eq('user_id', user.id).eq('status', 'captured');
+                const payCount = payments ? payments.length : 1;
+                const limit = PLAN_LIMITS[user.plan_name.toLowerCase()] || 0;
+                totalQuota = limit * payCount;
+            }
+
+            // B. Calculate Used Leads
+            const { count: used } = await supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+            const leadsUsed = used || 0;
+            const leadsRemaining = totalQuota - leadsUsed;
+
+            // C. Enforcement
+            if (leadsRemaining <= 0) {
+                // STOP
+                if (user.is_active || user.daily_limit > 0) {
+                    console.log(` 🛑 STOPPING: ${user.name} (Quota Full: ${leadsUsed}/${totalQuota})`);
+                    await supabase.from('users').update({ is_active: false, daily_limit: 0, payment_status: 'inactive' }).eq('id', user.id);
+                }
+            } else {
+                // ACTIVATE / EXTEND
+                const now = new Date();
+                const validUntil = new Date(user.valid_until);
+                const isDateExpired = validUntil < now;
+
+                let updates = {};
+                if (isDateExpired || !user.valid_until) {
+                    const future = new Date();
+                    future.setDate(future.getDate() + 30);
+                    updates.valid_until = future.toISOString();
+                    console.log(` 🔄 Extended Date: ${user.name}`);
+                }
+
+                if (user.is_active && user.daily_limit === 0) {
+                    let defaultLimit = 5;
+                    if (user.plan_name.includes('weekly') || user.plan_name.includes('manager')) defaultLimit = 8;
+                    if (user.plan_name.includes('supervisor')) defaultLimit = 7;
+                    if (user.plan_name.includes('turbo')) defaultLimit = 12;
+                    updates.daily_limit = defaultLimit;
+                    updates.payment_status = 'active';
+                    console.log(` ✅ Reactivated Limit: ${user.name}`);
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    await supabase.from('users').update(updates).eq('id', user.id);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('❌ Quota Check Error:', err.message);
+    }
+}
+
 // MAIN LOOP
 console.log('🤖 Auto-Sync Bot Started...');
-console.log(`   - Syncing every ${SYNC_INTERVAL_MINUTES} mins`);
+console.log(`   - Syncing counters every ${SYNC_INTERVAL_MINUTES} mins`);
+console.log(`   - Enforcing Smart Quota every ${SYNC_INTERVAL_MINUTES} mins`);
 console.log('   - Waiting for Midnight IST reset');
 
 // Run immediately
 syncCounters();
+enforceSmartQuota();
 
 // Loop
 setInterval(async () => {
     await syncCounters();
+    await enforceSmartQuota();
     await checkMidnightReset();
 }, SYNC_INTERVAL_MINUTES * 60 * 1000);
 

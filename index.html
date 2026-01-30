@@ -22,6 +22,30 @@
     <meta name="theme-color" content="#6366f1">
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <!-- Meta Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      
+      // 🔥 Conditional Init logic
+      const urlParams = new URLSearchParams(window.location.search);
+      const pixelId = urlParams.get('pixel') || urlParams.get('pixel_id') || '1583951632944842';
+      
+      // Only fire if user is on the Apply page
+      if (window.location.pathname.includes('/apply')) {
+          fbq('init', pixelId);
+          fbq('track', 'PageView');
+          console.log("✅ Meta Pixel Initialized Globally for Apply Page:", pixelId);
+      }
+    </script>
+    <!-- End Meta Pixel Code -->
   </head>
   
   <body class="bg-slate-50 text-slate-900 antialiased">
