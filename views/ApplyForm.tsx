@@ -184,16 +184,15 @@ export default function ApplyForm() {
 
             if (error) throw error;
 
+            // ✅ FIRE PIXEL IMMEDIATELY
+            if (PIXEL_ID && (window as any).fbq) {
+                (window as any).fbq('track', 'Lead');
+                console.log("🔥 PIXEL LEAD FIRED!");
+            }
+
             // Success Updates
             setAssignedAgent('Review Team');
             setProgress(100);
-
-            // 🔥 FIRE LEAD EVENT
-            if (PIXEL_ID && (window as any).fbq) {
-                (window as any).fbq('track', 'Lead');
-                console.log("Pixel Fired: Lead");
-            }
-
             setStatus('success');
         } catch (err: any) {
             console.error('Submission Error:', err);
