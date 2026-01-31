@@ -339,8 +339,12 @@ export default function ApplyForm() {
                                         autoComplete="tel"
                                         value={formData.phone}
                                         onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                            setFormData({ ...formData, phone: val });
+                                            let val = e.target.value.replace(/\D/g, '');
+                                            // Smart Fix: Remove 91 or 0 prefix from auto-fill
+                                            if (val.length > 10 && val.startsWith('91')) val = val.slice(2);
+                                            if (val.length > 10 && val.startsWith('0')) val = val.slice(1);
+
+                                            setFormData({ ...formData, phone: val.slice(0, 10) });
                                         }}
                                     />
                                     {formData.phone.length === 10 && (
