@@ -318,6 +318,7 @@ export default function ApplyForm() {
                                         required
                                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium text-sm outline-none"
                                         placeholder="Enter your name"
+                                        autoComplete="name"
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                                     />
@@ -335,6 +336,7 @@ export default function ApplyForm() {
                                         pattern="[0-9]*"
                                         className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-bold text-sm outline-none tracking-widest placeholder:font-normal placeholder:tracking-normal"
                                         placeholder="98765 XXXXX"
+                                        autoComplete="tel"
                                         value={formData.phone}
                                         onChange={e => {
                                             const val = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -355,6 +357,7 @@ export default function ApplyForm() {
                                     <input
                                         type="text"
                                         required
+                                        autoComplete="address-level2"
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium text-sm outline-none"
                                         placeholder="Your City"
                                         value={formData.city}
