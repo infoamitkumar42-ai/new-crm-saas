@@ -276,6 +276,22 @@ export default function ApplyForm() {
             <div className="max-w-[480px] mx-auto px-4 pt-6">
 
                 {/* Trust Image - ADDED */}
+                {/* Headline - UPDATED */}
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-3">
+                        <Star size={10} className="fill-blue-700" /> Official Application
+                    </div>
+                    <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-2">
+                        Build Your <br />
+                        <span className="text-blue-600">Online Income Source</span>
+                    </h1>
+                    <p className="text-slate-500 text-sm px-4">
+                        Join 5,000+ people earning daily. Free mentorship & support.
+                    </p>
+                </div>
+
+                {/* Headline - UPDATED */}
+                {/* Trust Image - MOVED */}
                 <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 mb-6 relative group">
                     <img
                         src="/images/himanshu-stage.jpg"
@@ -291,20 +307,6 @@ export default function ApplyForm() {
                             <p className="text-[10px] text-slate-300 font-medium mt-0.5">Mentored 5,000+ Students</p>
                         </div>
                     </div>
-                </div>
-
-                {/* Headline - UPDATED */}
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-3">
-                        <Star size={10} className="fill-blue-700" /> Official Application
-                    </div>
-                    <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-2">
-                        Build Your <br />
-                        <span className="text-blue-600">Online Income Source</span>
-                    </h1>
-                    <p className="text-slate-500 text-sm px-4">
-                        Join 5,000+ people earning daily. Free mentorship & support.
-                    </p>
                 </div>
 
                 {/* Main Card */}
