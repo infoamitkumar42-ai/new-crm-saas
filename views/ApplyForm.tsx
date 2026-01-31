@@ -275,6 +275,24 @@ export default function ApplyForm() {
             {/* Main Content Area */}
             <div className="max-w-[480px] mx-auto px-4 pt-6">
 
+                {/* Trust Image - ADDED */}
+                <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 mb-6 relative group">
+                    <img
+                        src="/images/himanshu-stage.jpg"
+                        alt="Himanshu on Stage"
+                        className="w-full h-48 object-cover object-top transform group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex items-end justify-between">
+                        <div>
+                            <p className="text-white text-xs font-bold flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                                Live Mentorship
+                            </p>
+                            <p className="text-[10px] text-slate-300 font-medium mt-0.5">Mentored 5,000+ Students</p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Headline - UPDATED */}
                 <div className="text-center mb-6">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-3">
