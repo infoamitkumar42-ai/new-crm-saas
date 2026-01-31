@@ -326,7 +326,7 @@ export default function ApplyForm() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">WhatsApp Number</label>
+                                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Calling / WhatsApp Number</label>
                                 <div className="relative">
                                     <div className="absolute left-3.5 top-3.5 text-slate-500 font-bold text-sm">+91</div>
                                     <input
