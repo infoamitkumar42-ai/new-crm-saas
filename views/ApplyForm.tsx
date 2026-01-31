@@ -266,7 +266,7 @@ export default function ApplyForm() {
                         {/* <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
                             H
                         </div> */}
-                        <span className="font-bold text-slate-800 tracking-tight text-base sm:text-lg">Work With <span className="text-blue-600">Himanshu Sharma</span></span>
+                        <span className="font-bold text-slate-800 tracking-tight text-sm sm:text-base">Work With <span className="text-blue-600">Himanshu Sharma</span></span>
                     </div>
                     <div className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-full border border-red-100 flex items-center gap-1 animate-pulse">
                         <Clock size={10} /> Ends in {timeLeft.minutes}:{timeLeft.seconds < 10 ? `0${timeLeft.seconds}` : timeLeft.seconds}
@@ -275,30 +275,30 @@ export default function ApplyForm() {
             </header>
 
             {/* Main Content Area */}
-            <div className="max-w-[480px] mx-auto px-4 pt-6">
+            <div className="max-w-[480px] mx-auto px-4 pt-4">
 
                 {/* Trust Image - ADDED */}
                 {/* Headline - UPDATED */}
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-3">
+                <div className="text-center mb-4">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-2">
                         <Star size={10} className="fill-blue-700" /> Official Application
                     </div>
-                    <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-2">
+                    <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-1">
                         Build Your <br />
                         <span className="text-blue-600">Online Income Source</span>
                     </h1>
-                    <p className="text-slate-500 text-sm px-4">
+                    <p className="text-slate-500 text-xs px-4">
                         Join 5,000+ people earning daily. Free mentorship & support.
                     </p>
                 </div>
 
                 {/* Headline - UPDATED */}
                 {/* Trust Image - MOVED */}
-                <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 mb-6 relative group">
+                <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 mb-4 h-40 w-full relative group">
                     <img
                         src="/images/himanshu-stage.jpg"
                         alt="Himanshu on Stage"
-                        className="w-full h-48 object-cover object-top transform group-hover:scale-105 transition-transform duration-700"
+                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex items-end justify-between">
                         <div>
