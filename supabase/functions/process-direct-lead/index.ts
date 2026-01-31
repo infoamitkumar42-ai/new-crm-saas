@@ -30,7 +30,39 @@ serve(async (req) => {
     );
 
     try {
-        const { name, phone, city, profession, age, manager_ref } = await req.json();
+        const body = await req.json();
+
+        // 🚨 SPECIAL ADMIN ACTION: DELETE LAST TEST LEAD
+        if (body.action === 'delete_last_test') {
+            // Find valid test lead
+            const { data: lastLead } = await supabase
+                .from('leads')
+                .select('id, name, phone, created_at')
+                .eq('source', 'Web Landing Page')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (!lastLead) {
+                return new Response(JSON.stringify({ message: 'No test leads found to delete.' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200
+                });
+            }
+
+            // Delete it
+            await supabase.from('leads').delete().eq('id', lastLead.id);
+
+            return new Response(JSON.stringify({
+                message: `Deleted Lead: ${lastLead.name} (${lastLead.phone})`,
+                deleted_id: lastLead.id
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200
+            });
+        }
+
+        const { name, phone, city, profession, age, manager_ref } = body;
 
         // 1. VALIDATION
         if (!name || !phone) {

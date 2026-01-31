@@ -417,7 +417,9 @@ export default function ApplyForm() {
                                 </>
                             ) : (
                                 <>
-                                    Submit Your Application Now 🚀 <ArrowRight size={20} />
+                                    <span className="md:hidden">Submit Application 🚀</span>
+                                    <span className="hidden md:inline">Submit Your Application Now 🚀</span>
+                                    <ArrowRight size={20} />
                                 </>
                             )}
                         </button>
