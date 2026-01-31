@@ -202,26 +202,21 @@ serve(async (req) => {
                         if (p.includes('starter')) return 10;
                         return 0;
                     };
-
                     eligibleUsers.sort((a, b) => {
                         // Use REAL counts (not stored which may be stale)
                         const leadsA = a.real_leads_today || 0;
                         const leadsB = b.real_leads_today || 0;
 
-                        // Priority 1: Odd Batches
-                        const inOddBatchA = leadsA < a.daily_limit && leadsA % 2 === 0;
-                        const inOddBatchB = leadsB < b.daily_limit && leadsB % 2 === 0;
-                        if (inOddBatchA && !inOddBatchB) return -1;
-                        if (!inOddBatchA && inOddBatchB) return 1;
+                        // Priority 1: Who has FEWEST leads? (Strict Equal Rotation)
+                        const diff = leadsA - leadsB;
+                        if (diff !== 0) return diff;
 
-                        // Priority 2: Plan Weight
+                        // Priority 2: If leads equal, then Higher Plan First
                         const weightDiff = getPlanWeight(b.plan_name) - getPlanWeight(a.plan_name);
                         if (weightDiff !== 0) return weightDiff;
 
-                        // Priority 3: Fewer leads today
-                        return leadsA - leadsB;
+                        return 0;
                     });
-
                     const selectedUser = eligibleUsers[0];
                     const newCount = (selectedUser.real_leads_today || 0) + 1;
                     console.log(`✅ Assigning ${phone.slice(-4)} -> ${selectedUser.name} (#${newCount})`);
