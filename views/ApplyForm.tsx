@@ -232,7 +232,9 @@ export default function ApplyForm() {
                             <PhoneCall size={18} />
                         </div>
                         <div className="text-left">
-                            <p className="font-bold text-slate-900 text-sm">Call from {assignedAgent}'s Team</p>
+                            <p className="font-bold text-slate-800 text-sm">
+                                Call from {assignedAgent && assignedAgent !== 'Review Team' ? `${assignedAgent}'s Team` : "Review Team"}
+                            </p>
                             <p className="text-xs text-slate-500">Expect a call shortly for selection.</p>
                         </div>
                     </div>
