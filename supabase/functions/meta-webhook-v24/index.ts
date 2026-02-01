@@ -431,11 +431,12 @@ Deno.serve(async (req) => {
                     }
                     console.log(`📍 ${leadCity} → ${leadState}`);
 
-                    // 4. GET ELIGIBLE USERS
+                    // 4. GET ELIGIBLE USERS (MUST BE ONLINE)
                     const { data: allUsers, error: usersError } = await supabase
                         .from('users')
                         .select('*')
                         .eq('is_active', true)
+                        .eq('is_online', true)
                         .neq('plan_name', 'none')
                         .or('is_plan_pending.is.null,is_plan_pending.eq.false');
 
