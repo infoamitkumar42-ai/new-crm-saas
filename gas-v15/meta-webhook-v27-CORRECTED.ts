@@ -204,8 +204,10 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // 2. GET ELIGIBLE USERS
-                    const { data: allUsers } = await supabase.from('users').select('*').eq('is_active', true);
+                    // 2. GET ELIGIBLE USERS (MUST BE ONLINE)
+                    const { data: allUsers } = await supabase.from('users').select('*')
+                        .eq('is_active', true)
+                        .eq('is_online', true);
                     if (!allUsers || allUsers.length === 0) {
                         await supabase.from('leads').insert({ name, phone, city, state, source: `Meta - ${pageData.page_name}`, status: 'New' });
                         continue;
