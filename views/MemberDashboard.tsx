@@ -508,10 +508,13 @@ export const MemberDashboard = () => {
     setProfile(prev => prev ? { ...prev, is_active: newActiveStatus } : null);
 
     try {
+      // 🔥 FIX: Update BOTH is_active AND is_online
+      // Webhook checks is_online to assign leads!
       const { error } = await supabase
         .from('users')
         .update({
           is_active: newActiveStatus,
+          is_online: newActiveStatus, // <-- THIS WAS MISSING! Webhook needs this!
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);

@@ -1,0 +1,101 @@
+| #  | Name                 | Plan         | Leads (Rec/Tot) | Today's Leads | Total Paid | Pay Count | Last Pay Date          |
+|----|----------------------|--------------|-----------------|---------------|------------|-----------|------------------------|
+| 1  | Ajay kumar           | weekly_boost | 6/92            | 2/12          | Rs 3998     | 2         | 25/1/2026              |
+| 2  | Akash                | starter      | 13/55           | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 3  | Akshay Sharma        | supervisor   | 3/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 4  | Akshmala             | starter      | 6/55            | 0/0           | Rs 999      | 1         | 8/1/2026               |
+| 5  | Anita                | supervisor   | 9/115           | 2/7           | Rs 1999     | 1         | 12/1/2026              |
+| 6  | Arshdeep kaur        | starter      | 8/55            | 0/0           | Rs 999      | 1         | 10/1/2026              |
+| 7  | Arshpreet kaur       | starter      | 0/55            | 1/5           | Rs 999      | 1         | 24/1/2026              |
+| 8  | Babita               | starter      | 2/56            | 2/5           | Rs 1998     | 2         | 27/1/2026              |
+| 9  | Baljeet kaur         | starter      | 3/55            | 0/0           | Rs 999      | 1         | 9/1/2026               |
+| 10 | Baljinder kaur       | starter      | 0/50            | 1/5           | Rs 999      | 1         | 1/2/2026               |
+| 11 | Balraj singh         | supervisor   | 9/115           | 2/7           | Rs 0        | 0         | Manual                 |
+| 12 | Bhawna               | starter      | 0/55            | 1/5           | Rs 0        | 0         | Manual                 |
+| 13 | Charanjeet Kaur      | starter      | 0/55            | 0/5           | Rs 999      | 1         | 28/1/2026              |
+| 14 | Dinesh Monga         | supervisor   | 4/115           | 2/7           | Rs 1999     | 1         | 6/1/2026               |
+| 15 | Divya Malik          | starter      | 0/55            | 1/5           | Rs 999      | 1         | 16/1/2026              |
+| 16 | Drishti Rani         | starter      | 0/55            | 0/0           | Rs 999      | 1         | 14/1/2026              |
+| 17 | Gurdeep Singh        | starter      | 2/55            | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 18 | Gurpreet kaur        | weekly_boost | 10/92           | 2/12          | Rs 1999     | 1         | 7/1/2026               |
+| 19 | Gurpreet Kaur        | starter      | 0/55            | 0/0           | Rs 0        | 0         | Manual                 |
+| 20 | Gurvinder Matharu    | starter      | 0/55            | 0/0           | Rs 999      | 1         | 15/1/2026              |
+| 21 | Harmandeep kaur      | manager      | 5/176           | 2/8           | Rs 2999     | 1         | 7/1/2026               |
+| 22 | Harpreet Kaur        | starter      | 0/55            | 1/5           | Rs 999      | 1         | 19/1/2026              |
+| 23 | Harwinder kaur       | starter      | 0/55            | 1/5           | Rs 999      | 1         | 16/1/2026              |
+| 24 | Himanshu Sharma      | none         | 0/108           | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 25 | Jasdeep Kaur         | starter      | 8/55            | 0/0           | Rs 999      | 1         | 8/1/2026               |
+| 26 | Jashandeep kaur      | turbo_boost  | 8/108           | 0/0           | Rs 2499     | 1         | 6/1/2026               |
+| 27 | Jashandeep Kaur      | starter      | 4/55            | 0/0           | Rs 999      | 1         | 8/1/2026               |
+| 28 | Jaspreet Kaur        | starter      | 7/55            | 0/0           | Rs 999      | 1         | 11/1/2026              |
+| 29 | Kamal kaur           | supervisor   | 7/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 30 | Kiran Brar           | weekly_boost | 4/92            | 2/12          | Rs 1999     | 1         | 6/1/2026               |
+| 31 | Kirandeep kaur       | starter      | 0/55            | 0/5           | Rs 999      | 1         | 18/1/2026              |
+| 32 | Komal bishnoi        | starter      | 0/55            | 0/0           | Rs 999      | 1         | 22/1/2026              |
+| 33 | Kulwant Singh        | starter      | 9/55            | 0/0           | Rs 999      | 1         | 9/1/2026               |
+| 34 | Lakhveer kaur        | starter      | 0/105           | 1/5           | Rs 999      | 1         | 27/1/2026              |
+| 35 | Lalit kumar          | starter      | 7/55            | 0/0           | Rs 999      | 1         | 9/1/2026               |
+| 36 | Loveleen             | starter      | 10/55           | 0/0           | Rs 999      | 1         | 14/1/2026              |
+| 37 | Loveleen kaur        | supervisor   | 2/115           | 2/7           | Rs 1999     | 1         | 6/1/2026               |
+| 38 | Mamta                | starter      | 0/55            | 1/5           | Rs 999      | 1         | 22/1/2026              |
+| 39 | Manbir Singh         | supervisor   | 2/115           | 0/0           | Rs 1999     | 1         | 8/1/2026               |
+| 40 | Mandeep kaur         | starter      | 4/115           | 1/5           | Rs 2998     | 2         | 1/2/2026               |
+| 41 | Mandeep kaur         | starter      | 0/55            | 1/5           | Rs 999      | 1         | 28/1/2026              |
+| 42 | Mandeep kaur         | supervisor   | 9/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 43 | Mani kaur            | starter      | 0/50            | 1/5           | Rs 999      | 1         | 1/2/2026               |
+| 44 | MUSKAN               | starter      | 9/55            | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 45 | Naina Nawani         | starter      | 0/55            | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 46 | Navjot kaur          | starter      | 5/55            | 0/5           | Rs 999      | 1         | 6/1/2026               |
+| 47 | Navjot Kaur          | starter      | 0/55            | 1/5           | Rs 999      | 1         | 16/1/2026              |
+| 48 | Navjot Kaur          | supervisor   | 3/115           | 0/0           | Rs 1999     | 1         | 9/1/2026               |
+| 49 | Navpreet kaur        | weekly_boost | 5/92            | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 50 | Nazia Begam          | supervisor   | 6/115           | 2/7           | Rs 1999     | 1         | 12/1/2026              |
+| 51 | Neha                 | supervisor   | 2/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 52 | Palak                | weekly_boost | 7/92            | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 53 | Paramjeet kaur       | starter      | 0/55            | 1/5           | Rs 999      | 1         | 30/1/2026              |
+| 54 | PARAMJIT KAUR        | starter      | 8/55            | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 55 | Payal                | supervisor   | 0/115           | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 56 | Prabhjeet kaur       | weekly_boost | 8/92            | 0/0           | Rs 1999     | 1         | 7/1/2026               |
+| 57 | Prabhjot kaur        | supervisor   | 6/115           | 2/7           | Rs 1999     | 1         | 6/1/2026               |
+| 58 | Pradeep kur          | starter      | 0/55            | 1/5           | Rs 999      | 1         | 27/1/2026              |
+| 59 | Preeti               | starter      | 8/55            | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 60 | Prince               | starter      | 1/55            | 1/5           | Rs 999      | 1         | 6/1/2026               |
+| 61 | Princy               | supervisor   | 8/115           | 1/7           | Rs 0        | 0         | Manual                 |
+| 62 | Priya Arora          | starter      | 2/55            | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 63 | PRIYA GOYAL          | starter      | 0/55            | 0/5           | Rs 999      | 1         | 21/1/2026              |
+| 64 | Rahul                | starter      | 0/50            | 1/5           | Rs 999      | 1         | 1/2/2026               |
+| 65 | Rahul kumar          | supervisor   | 2/115           | 0/0           | Rs 1999     | 1         | 8/1/2026               |
+| 66 | Rahul Rai            | weekly_boost | 4/92            | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 67 | Rajbinder            | supervisor   | 2/115           | 2/7           | Rs 1999     | 1         | 6/1/2026               |
+| 68 | Rajinder             | supervisor   | 1/115           | 0/0           | Rs 1999     | 1         | 7/1/2026               |
+| 69 | Rajni                | weekly_boost | 7/92            | 0/12          | Rs 2998     | 2         | 30/1/2026              |
+| 70 | Ramandeep Kaur       | supervisor   | 8/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 71 | ranjodh singh        | starter      | 10/55           | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 72 | Raveena              | supervisor   | 8/115           | 1/7           | Rs 1999     | 1         | 9/1/2026               |
+| 73 | Ravenjeet Kaur       | weekly_boost | 8/92            | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 74 | Rimpy Singh          | starter      | 20/55           | 0/0           | Rs 0        | 0         | Manual                 |
+| 75 | Rohit Kumar          | starter      | 10/55           | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 76 | Ruchi                | starter      | 0/55            | 0/5           | Rs 999      | 1         | 18/1/2026              |
+| 77 | Saloni               | supervisor   | 7/55            | 2/7           | Rs 3997     | 3         | 1/2/2026               |
+| 78 | Saloni Rajput        | starter      | 0/55            | 0/5           | Rs 999      | 1         | 17/1/2026              |
+| 79 | SAMAN                | weekly_boost | 11/92           | 2/12          | Rs 3998     | 2         | 26/1/2026              |
+| 80 | Sameer               | starter      | 6/55            | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 81 | Sandeep Rehaan       | starter      | 10/55           | 0/0           | Rs 999      | 1         | 8/1/2026               |
+| 82 | Seerat               | starter      | 10/55           | 0/0           | Rs 999      | 1         | 6/1/2026               |
+| 83 | Shivani              | supervisor   | 5/115           | 2/7           | Rs 1999     | 1         | 8/1/2026               |
+| 84 | Simran               | supervisor   | 4/115           | 2/7           | Rs 1999     | 1         | 8/1/2026               |
+| 85 | Simran               | supervisor   | 0/115           | 2/7           | Rs 0        | 0         | Manual                 |
+| 86 | Simran               | starter      | 2/55            | 0/0           | Rs 999      | 1         | 7/1/2026               |
+| 87 | Sneha                | weekly_boost | 8/92            | 0/0           | Rs 1999     | 1         | 6/1/2026               |
+| 88 | Sonia                | starter      | 6/55            | 0/5           | Rs 999      | 1         | 9/1/2026               |
+| 89 | Sonia Chauhan        | supervisor   | 5/115           | 0/0           | Rs 1999     | 1         | 7/1/2026               |
+| 90 | Suman                | starter      | 3/55            | 2/5           | Rs 1998     | 2         | 22/1/2026              |
+| 91 | Sunaina Rani         | supervisor   | 4/115           | 2/7           | Rs 1999     | 1         | 7/1/2026               |
+| 92 | Swati                | starter      | 0/55            | 0/0           | Rs 999      | 1         | 16/1/2026              |
+| 93 | Tanisha              | supervisor   | 9/115           | 0/0           | Rs 1999     | 1         | 9/1/2026               |
+| 94 | Tanu Dhawan          | manager      | 11/176          | 2/8           | Rs 2999     | 1         | 6/1/2026               |
+| 95 | Tushte               | starter      | 10/55           | 2/5           | Rs 1998     | 2         | 29/1/2026              |
+| 96 | VEERPAL KAUR         | supervisor   | 10/115          | 0/0           | Rs 1999     | 1         | 8/1/2026               |
+| 97 | Vinita punjabi       | weekly_boost | 2/92            | 0/0           | Rs 1999     | 1         | 7/1/2026               |
+
+Total Users: 97

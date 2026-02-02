@@ -1,66 +1,104 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables check
+/**
+ * CHECK RENEWALS v2 - QUOTA-BASED ONLY
+ * 
+ * IMPORTANT: Date expiry is NOW DISABLED
+ * Plan expires ONLY when total leads quota is complete
+ * 
+ * This endpoint now:
+ * 1. Checks users who have EXHAUSTED their lead quota
+ * 2. IGNORES date (valid_until) completely
+ * 3. Allows early renewals to add more quota
+ */
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || "";
 
-// Admin Client (Service Role needed for updates)
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// Plan limits per payment
+const PLAN_LIMITS: { [key: string]: number } = {
+  'starter': 55,
+  'supervisor': 115,
+  'manager': 176,
+  'weekly_boost': 92,
+  'turbo_boost': 108
+};
+
 export default async function handler(req: any, res: any) {
-  // Cron jobs often use GET, but POST is safer. Allowing both for testing.
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const today = new Date();
-    
-    // 1. Find expiring users (valid_until <= today)
-    const { data: expiringUsers, error: fetchError } = await supabaseAdmin
+    // 1. Get all users with active plans
+    const { data: activeUsers, error: fetchError } = await supabaseAdmin
       .from('users')
-      .select('*')
+      .select('id, name, email, plan_name, payment_status, daily_limit')
       .eq('payment_status', 'active')
-      .lte('valid_until', today.toISOString());
+      .neq('plan_name', 'none');
 
     if (fetchError) throw fetchError;
 
-    if (!expiringUsers || expiringUsers.length === 0) {
-      return res.status(200).json({ message: 'No expiring users found', count: 0 });
+    if (!activeUsers || activeUsers.length === 0) {
+      return res.status(200).json({ message: 'No active users found', count: 0 });
     }
 
-    // 2. Deactivate expired users
-    const updates = expiringUsers.map(async (user: any) => {
-      // Update User Status
-      await supabaseAdmin
-        .from('users')
-        .update({ 
-          payment_status: 'inactive', 
-          daily_limit: 0,
-          leads_today: 0
-        })
-        .eq('id', user.id);
+    const quotaExhausted: any[] = [];
 
-      // Log the event
-      await supabaseAdmin.from('logs').insert({
-        user_id: user.id,
-        action: 'plan_expired',
-        details: { expired_on: today.toISOString(), last_plan: user.daily_limit }
-      });
-    });
+    // 2. Check each user's quota (NOT DATE)
+    for (const user of activeUsers) {
+      // Count total leads assigned to this user
+      const { count: totalLeads } = await supabaseAdmin
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
-    await Promise.all(updates);
+      // Count their payments to calculate total quota
+      const { data: payments } = await supabaseAdmin
+        .from('payments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'captured');
 
-    return res.status(200).json({ 
-      message: 'Renewals processed successfully', 
-      expired_count: expiringUsers.length,
-      users: expiringUsers.map((u: any) => u.email)
+      const paymentCount = payments?.length || 1;
+      const baseLimit = PLAN_LIMITS[user.plan_name] || 0;
+      const totalQuota = baseLimit * paymentCount;
+
+      // If quota exhausted, deactivate
+      if (totalLeads !== null && totalLeads >= totalQuota && totalQuota > 0) {
+        await supabaseAdmin
+          .from('users')
+          .update({
+            payment_status: 'inactive',
+            daily_limit: 0,
+            is_active: false,
+            is_online: false
+          })
+          .eq('id', user.id);
+
+        quotaExhausted.push({
+          name: user.name,
+          email: user.email,
+          leadsReceived: totalLeads,
+          totalQuota: totalQuota
+        });
+
+        console.log(`🛑 Quota exhausted: ${user.name} (${totalLeads}/${totalQuota})`);
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Quota check complete (DATE IGNORED)',
+      quotaExhaustedCount: quotaExhausted.length,
+      users: quotaExhausted
     });
 
   } catch (error: any) {
-    console.error('Renewal Check Error:', error);
+    console.error('Quota Check Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }

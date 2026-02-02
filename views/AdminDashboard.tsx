@@ -260,6 +260,20 @@ export const AdminDashboard: React.FC = () => {
       // ✅ SINGLE RPC CALL - All data in ONE query!
       const { data, error: rpcError } = await supabase.rpc('get_admin_dashboard_data');
 
+      // 🔥 FIX: Also fetch REAL payments and online count (RPC may be outdated)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [paymentsResult, onlineResult, orphanResult] = await Promise.all([
+        supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', today.toISOString()),
+        supabase.from('users').select('id', { count: 'exact', head: true }).eq('is_online', true).eq('is_active', true),
+        supabase.from('leads').select('id', { count: 'exact', head: true }).or('status.eq.New,status.eq.Fresh').is('user_id', null)
+      ]);
+
+      const realDailyRevenue = (paymentsResult.data || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+      const realOnlineCount = onlineResult.count || 0;
+      const realOrphanCount = orphanResult.count || 0;
+
       if (rpcError) {
         // Check if it's an access denied error
         if (rpcError.message.includes('Access denied')) {
@@ -339,7 +353,7 @@ export const AdminDashboard: React.FC = () => {
         totalUsers: userStats?.total_users || 0,
         dailyActiveUsers: userStats?.daily_active_users || 0,
         monthlyActiveUsers: userStats?.monthly_active_users || 0,
-        onlineNow: userStats?.online_now || 0,
+        onlineNow: realOnlineCount, // 🔥 FIX: Use real is_online count
         loginsToday: userStats?.logins_today || 0,
         leadsDistributedToday: leadsStats?.leads_today || 0,
         leadsDistributedWeek: leadsStats?.leads_this_week || 0,
@@ -349,13 +363,13 @@ export const AdminDashboard: React.FC = () => {
         supervisorUsers: userStats?.supervisor_users || 0,
         managerUsers: userStats?.manager_users || 0,
         boosterUsers: userStats?.booster_users || 0,
-        dailyRevenue: userStats?.daily_revenue || 0,
+        dailyRevenue: realDailyRevenue, // 🔥 FIX: Use real payments sum
         monthlyRevenue: userStats?.mrr || 0,
         mrr: userStats?.mrr || 0,
         churnRate: 4.2,
         queuedLeads: queueStats?.queued_leads || 0,
         failedDistributions: queueStats?.failed_distributions || 0,
-        orphanLeads: queueStats?.orphan_leads || 0,
+        orphanLeads: realOrphanCount, // 🔥 FIX: Use real unassigned leads count
         systemUptime: 99.9
       });
 
