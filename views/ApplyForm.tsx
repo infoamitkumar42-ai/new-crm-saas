@@ -283,9 +283,8 @@ export default function ApplyForm() {
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-2">
                         <Star size={10} className="fill-blue-700" /> Official Application
                     </div>
-                    <h1 className="text-3xl font-black text-slate-900 leading-tight tracking-tight mb-1">
-                        Build Your <br />
-                        <span className="text-blue-600">Online Income Source</span>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight tracking-tight mb-1">
+                        Build Your <span className="text-blue-600">Online Income</span>
                     </h1>
                     <p className="text-slate-500 text-xs px-4">
                         Join 5,000+ people earning daily. Free mentorship & support.
@@ -448,7 +447,7 @@ export default function ApplyForm() {
                                 </>
                             ) : (
                                 <>
-                                    <ArrowRight size={20} />
+                                    Apply Now <ArrowRight size={20} />
                                 </>
                             )}
                         </button>
