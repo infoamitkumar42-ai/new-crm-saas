@@ -251,7 +251,36 @@ export const LeadAlert: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Controls Removed for Cleaner UI */}
+      {/* 🔔 Floating Controls (Minimal) */}
+      <div className="fixed bottom-24 right-4 z-[990] flex flex-col items-end gap-3 pointer-events-none">
+
+        {/* Enable Push Button (Only if not subscribed) */}
+        {!isSubscribed && permissionStatus !== 'denied' && (
+          <button
+            onClick={subscribeToPush}
+            disabled={loading}
+            className="pointer-events-auto flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-5 py-3 rounded-full shadow-lg hover:shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all animate-bounce-slow"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Bell size={20} className="fill-indigo-100" />
+            )}
+            <span className="font-bold text-sm">Enable Alerts</span>
+          </button>
+        )}
+
+        {/* Sound Toggle (Small Pill) */}
+        <button
+          onClick={() => setSoundEnabled(!soundEnabled)}
+          className={`pointer-events-auto p-3 rounded-full shadow-md transition-all active:scale-90 ${soundEnabled
+              ? 'bg-white text-slate-700 hover:bg-slate-50'
+              : 'bg-slate-100 text-slate-400'
+            }`}
+        >
+          {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+        </button>
+      </div>
     </>
   );
 };
