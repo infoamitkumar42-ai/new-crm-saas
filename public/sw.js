@@ -1,6 +1,6 @@
 
-// Minimal Service Worker for PWA Criteria
-const CACHE_NAME = 'leadflow-v2';
+// LeadFlow Service Worker v3 (Network First for HTML)
+const CACHE_NAME = 'leadflow-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -10,14 +10,13 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
-  // Perform install steps
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         return cache.addAll(urlsToCache);
       })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // Force update immediately
 });
 
 self.addEventListener('activate', (event) => {
@@ -26,27 +25,49 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
-  self.clients.claim();
+  self.clients.claim(); // Take control immediately
 });
 
 self.addEventListener('fetch', (event) => {
-  // Simple cache-first strategy for static assets, network-first for API
-  if (event.request.method !== 'GET') return;
+  // Strategy: Network First for HTML, Cache First for Assets
 
+  // 1. Check if it's a navigation request (HTML page)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+        .catch(() => {
+          // If offline, return cached version
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // 2. For other assets (images, js, css) -> Cache First
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
-        return fetch(event.request);
+        return fetch(event.request).then((response) => {
+          // Don't cache API calls or external resources automatically if not needed
+          // But for now, we keep it simple
+          return response;
+        });
       })
   );
 });
