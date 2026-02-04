@@ -27,8 +27,6 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
-  // 🔥 FIX: Hide Alert Button if not logged in (Prevents overlap on Login screen)
-  if (!session?.user) return null;
 
   const [banner, setBanner] = useState<{ show: boolean; lead: any | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -38,7 +36,11 @@ export const LeadAlert: React.FC = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
-  const playedLeadsRef = useRef<Set<string>>(new Set()); // Track leads that already played sound
+  const playedLeadsRef = useRef<Set<string>>(new Set());
+
+  // 🔥 FIX: Hide Alert Button if not logged in (But keep hooks above!)
+  // If we return early, hooks count mismatch occurs -> React Crash
+  const shouldRender = !!session?.user; // Track leads that already played sound
 
   // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
@@ -234,6 +236,9 @@ export const LeadAlert: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [session?.user?.id, soundEnabled]);
+
+  // 🛑 STOP RENDERING IF NOT LOGGED IN
+  if (!shouldRender) return null;
 
   return (
     <>
