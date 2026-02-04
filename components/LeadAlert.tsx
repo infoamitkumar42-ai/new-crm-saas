@@ -27,6 +27,9 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
+  // 🔥 FIX: Hide Alert Button if not logged in (Prevents overlap on Login screen)
+  if (!session?.user) return null;
+
   const [banner, setBanner] = useState<{ show: boolean; lead: any | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -274,8 +277,8 @@ export const LeadAlert: React.FC = () => {
         <button
           onClick={() => setSoundEnabled(!soundEnabled)}
           className={`pointer-events-auto p-3 rounded-full shadow-md transition-all active:scale-90 ${soundEnabled
-              ? 'bg-white text-slate-700 hover:bg-slate-50'
-              : 'bg-slate-100 text-slate-400'
+            ? 'bg-white text-slate-700 hover:bg-slate-50'
+            : 'bg-slate-100 text-slate-400'
             }`}
         >
           {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
