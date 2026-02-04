@@ -1,6 +1,6 @@
 
 // Minimal Service Worker for PWA Criteria
-const CACHE_NAME = 'leadflow-v1';
+const CACHE_NAME = 'leadflow-v2';
 const urlsToCache = [
   '/',
   '/index.html',
