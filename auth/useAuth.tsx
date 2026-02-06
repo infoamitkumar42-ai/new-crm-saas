@@ -58,40 +58,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ✅ FIXED: Removed '&t=' from URL to prevent 400 Bad Request
+  // ✅ FIXED: Use Supabase Client (Handles Auth Headers Correctly)
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      const response = await fetch(
-        `${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`, // Clean URL
-        {
-          method: 'GET',
-          headers: {
-            'apikey': ENV.SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Prefer': 'return=representation',
-            'Cache-Control': 'no-cache, no-store, must-revalidate', // Headers prevent caching
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        }
-      );
+      // Use the authenticated client
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-      if (!response.ok) {
-        console.error('Fetch failed:', response.status);
+      if (error) {
+        console.warn('Profile fetch error:', error.message);
         return null;
       }
 
-      const data = await response.json();
-
-      if (!data || data.length === 0) {
-        console.warn('No user found');
-        return null;
-      }
-
-      console.log('✅ Profile fetched:', data[0].name);
-      return data[0] as User;
+      console.log('✅ Profile fetched:', data?.name, data?.role);
+      return data as User;
 
     } catch (err) {
       console.error('Fetch exception:', err);
@@ -99,23 +82,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const createTempProfile = useCallback((user: SupabaseUser): User => ({
-    id: user.id,
-    email: user.email || "",
-    name: user.user_metadata?.name || "User",
-    role: user.user_metadata?.role || "member",
-    sheet_url: "",
-    payment_status: "inactive",
-    valid_until: null,
-    filters: {},
-    daily_limit: 0,
-    leads_today: 0,
-    total_leads_received: 0,
-    is_active: true,
-    days_extended: 0,
-    total_leads_promised: 50,
-    created_at: new Date().toISOString(),
-  }), []);
+  const createTempProfile = useCallback((user: SupabaseUser): User => {
+    const userEmailRaw = user.email || '';
+    const userEmailLower = userEmailRaw.toLowerCase().trim();
+
+    // 🛡️ FALLBACK: Force Admin for specific emails (Case Insensitive)
+    const isAdminEmail = [
+      'info.amitkumar42@gmail.com',
+      'amitdemo1@gmail.com'
+    ].includes(userEmailLower);
+
+    console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
+
+    return {
+      id: user.id,
+      email: userEmailRaw,
+      name: user.user_metadata?.name || "User",
+      role: isAdminEmail ? 'admin' : (user.user_metadata?.role || "member"), // 🔥 Force match
+      sheet_url: "",
+      payment_status: "inactive",
+      valid_until: null,
+      filters: {},
+      daily_limit: 0,
+      leads_today: 0,
+      total_leads_received: 0,
+      is_active: true,
+      days_extended: 0,
+      total_leads_promised: 50,
+      created_at: new Date().toISOString(),
+    };
+  }, []);
 
   const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
     if (!mountedRef.current) return;
