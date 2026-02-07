@@ -9,14 +9,22 @@ const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error("Root not found");
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  // 🛑 GLOBAL ERROR SUPPRESSION (Permanent Fix)
-  window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason?.name === 'AbortError' || event.reason?.message?.includes('aborted')) {
-      event.preventDefault(); // Prevent "Uncaught (in promise)" error
-      return;
-    }
-  });
+
+// 🛑 GLOBAL ERROR SUPPRESSION (Permanent Fix)
+window.addEventListener('unhandledrejection', (event) => {
+  // Silence specific AbortError noise from Supabase/Vite
+  const reason = event.reason;
+  const msg = reason?.message || reason?.toString() || '';
+
+  if (
+    reason?.name === 'AbortError' ||
+    msg.includes('aborted') ||
+    msg.includes('AbortError')
+  ) {
+    event.preventDefault();
+    return;
+  }
+});
 
 root.render(
   // <React.StrictMode>  <-- REMOVED TO PREVENT DOUBLE-FETCH / ABORT LOOPS
