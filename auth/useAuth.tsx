@@ -76,6 +76,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return data as User;
 
     } catch (err: any) {
+      // 🛑 Ignore AbortErrors specifically
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return null;
+      }
+
       // 🛑 CRITICAL: Detect network failures (DNS, connection, etc.)
       if (err?.message?.includes('fetch') || err?.message?.includes('network') || err?.message?.includes('Failed to fetch')) {
         console.error('🚫 NETWORK ERROR - Cannot reach Supabase:', err.message);
@@ -164,11 +169,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn('⚠️ Using temp profile after failed retries');
         setProfile(createTempProfile(user));
       }
-    } catch (err) {
+    } catch (err: any) {
+      // 🛑 IGNORE ABORT ERRORS (Don't fail, don't retry, just exit)
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        console.warn('⚠️ Request aborted (ignoring)');
+        return;
+      }
+
       console.error('❌ Load error:', err);
+
       if (mountedRef.current) {
         if (retryCount < MAX_RETRIES) {
-          // Retry on error
+          // Retry on legitimate error
           const backoffMs = 1500 * (retryCount + 1);
           console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
@@ -177,7 +189,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await loadUserProfile(user, retryCount + 1);
         } else {
           // Max retries reached
+          console.warn('⚠️ Max retries reached, using temp profile');
           setProfile(createTempProfile(user));
+          setLoading(false); // Ensure we stop loading
         }
       }
     }
