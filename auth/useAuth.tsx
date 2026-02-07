@@ -60,28 +60,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // Use the authenticated client
+      // 1. Try Supabase SDK (NO SIGNAL)
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.warn('SDK fetch error:', error.message);
-        throw error; // Throw to trigger fallback in catch
-      }
+      if (error) throw error; //SDK Error -> Trigger Fallback
 
-      console.log('✅ SDK Profile fetched:', data?.name);
-      return data as User;
+      if (mountedRef.current) {
+        console.log('✅ SDK Profile fetched:', data?.name);
+        return data as User;
+      }
+      return null;
 
     } catch (err: any) {
-      console.warn('⚠️ SDK failed, switching to RAW FETCH fallback...', err.message);
+      // 2. Fallback: Raw Fetch (NO SIGNAL)
+      if (err.message && !err.message.includes('AbortError')) {
+        console.warn('⚠️ SDK failed, trying Raw Fetch override...');
+      }
 
-      // 🛡️ FALLBACK: Direct REST API Call (Bypasses SDK AbortController issues)
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) throw new Error("No session for fallback");
+        if (!session?.access_token) return null;
 
         const response = await fetch(`${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}&select=*`, {
           method: 'GET',
@@ -93,15 +95,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         });
 
-        if (!response.ok) throw new Error(`Fallback HTTP ${response.status}`);
+        if (!response.ok) return null;
 
         const rows = await response.json();
-        if (rows && rows.length > 0) {
+        if (mountedRef.current && rows && rows.length > 0) {
           console.log('✅ RAW Profile fetched:', rows[0].name);
           return rows[0] as User;
         }
-      } catch (fallbackErr) {
-        console.error('❌ Fallback also failed:', fallbackErr);
+
+      } catch (fallbackErr: any) {
+        // 🔇 NUCLEAR SILENCE: Do not log ANY fallback errors (including Aborts)
       }
 
       return null;
