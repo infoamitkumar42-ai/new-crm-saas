@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <!-- AUTO CACHE CLEAR v1 - Feb 7, 2026 -->
+  <!-- CACHE VERSION CHECK - Feb 7, 2026 (No reload) -->
   <script>
     (function () {
       var CACHE_VERSION = 'v20260207';
@@ -23,43 +23,35 @@
       try {
         var savedVersion = localStorage.getItem(storageKey);
 
-        // If version mismatch or first time - clear everything
+        // If version mismatch - just clear SW caches (not reload)
         if (savedVersion !== CACHE_VERSION) {
-          console.log('🔄 Cache version mismatch. Clearing all caches...');
+          console.log('🔄 New version detected. Clearing SW caches...');
 
-          // Clear all caches
+          // Clear service worker caches only
           if ('caches' in window) {
             caches.keys().then(function (names) {
               names.forEach(function (name) {
-                console.log('Deleting cache:', name);
+                console.log('Clearing:', name);
                 caches.delete(name);
               });
             });
           }
 
-          // Unregister service workers
+          // Unregister old service workers
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function (regs) {
               regs.forEach(function (reg) {
-                console.log('Unregistering SW');
                 reg.unregister();
               });
             });
           }
 
-          // Save new version
+          // Save version - NO RELOAD (preserve auth)
           localStorage.setItem(storageKey, CACHE_VERSION);
-
-          // Reload page after short delay to apply clean state
-          if (savedVersion !== null) {
-            console.log('🔄 Reloading with fresh cache...');
-            setTimeout(function () {
-              window.location.reload(true);
-            }, 500);
-          }
+          console.log('✅ Cache cleared. Auth preserved.');
         }
       } catch (e) {
-        console.log('Cache clear error:', e);
+        console.log('Cache error:', e);
       }
     })();
   </script>
