@@ -76,6 +76,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
 
     } catch (err: any) {
+      console.error("🛑 AUTH FAILURE DETAILS:", {
+        message: err instanceof Error ? err.message : String(err),
+        details: err,
+        hint: "Check Network Tab for 400/404/500 errors"
+      });
+
       // 2. Fallback: Raw Fetch (NO SIGNAL)
       if (err.message && !err.message.includes('AbortError')) {
         console.warn('⚠️ SDK failed, trying Raw Fetch override...');
