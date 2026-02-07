@@ -60,12 +60,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // 1. Try Supabase SDK (NO SIGNAL)
-      const { data, error } = await supabase
+      // 1. Define Timeout Promise (4 seconds)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), 4000)
+      );
+
+      // 2. Define Fetch Promise (NO ABORT SIGNALS)
+      const fetchPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
+
+      // 3. Race!
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) throw error; //SDK Error -> Trigger Fallback
 
@@ -76,6 +84,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
 
     } catch (err: any) {
+      // 🛑 HANDLE TIMEOUT (Force Load)
+      if (err.message === 'TIMEOUT') {
+        console.warn("⚠️ Auth Timed Out (4s) - Forcing Dashboard Load (Offline Mode)");
+        return {
+          id: userId,
+          email: 'offline@timeout.com',
+          name: 'Offline User (Timeout)',
+          role: 'member',
+          sheet_url: '',
+          payment_status: 'inactive',
+          valid_until: null,
+          filters: {},
+          daily_limit: 0,
+          leads_today: 0,
+          total_leads_received: 0,
+          is_active: true,
+          days_extended: 0,
+          total_leads_promised: 0,
+          created_at: new Date().toISOString(),
+        } as User;
+      }
+
       console.error("🛑 AUTH FAILURE DETAILS:", {
         message: err instanceof Error ? err.message : String(err),
         details: JSON.stringify(err, Object.getOwnPropertyNames(err), 2),
