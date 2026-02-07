@@ -629,17 +629,18 @@ export const MemberDashboard = () => {
   }
 
   if (!profile) {
-    // Auto-retry profile fetch after 2 seconds
-    setTimeout(() => {
-      window.location.reload();
-    }, 2000);
-
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center p-8">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Loading Profile...</h2>
-          <p className="text-slate-500 mb-4">Please wait, retrying automatically...</p>
+          <p className="text-slate-500 mb-4">Please wait...</p>
+          <button
+            onClick={() => refreshProfile()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium mt-4"
+          >
+            Retry Loading
+          </button>
         </div>
       </div>
     );
