@@ -235,7 +235,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
           await loadUserProfile(currentSession.user);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
         console.error("Init error:", err);
       } finally {
         if (mountedRef.current) {

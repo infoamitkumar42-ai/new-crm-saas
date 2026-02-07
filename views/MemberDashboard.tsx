@@ -433,7 +433,11 @@ export const MemberDashboard = () => {
         .order('created_at', { ascending: false });
 
       setLeads(leadsData || []);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        console.warn('⚠️ Dashboard fetch aborted (ignoring)');
+        return;
+      }
       console.error('Dashboard Error:', error);
     } finally {
       setLoading(false);
