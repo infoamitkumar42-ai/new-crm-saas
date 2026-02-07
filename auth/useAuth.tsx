@@ -58,7 +58,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
-  // ✅ FIXED: Use Supabase Client (Handles Auth Headers Correctly)
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
       // Use the authenticated client
@@ -76,7 +75,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('✅ Profile fetched:', data?.name, data?.role);
       return data as User;
 
-    } catch (err) {
+    } catch (err: any) {
+      // 🛑 CRITICAL: Detect network failures (DNS, connection, etc.)
+      if (err?.message?.includes('fetch') || err?.message?.includes('network') || err?.message?.includes('Failed to fetch')) {
+        console.error('🚫 NETWORK ERROR - Cannot reach Supabase:', err.message);
+        throw new Error('NETWORK_UNREACHABLE'); // Signal to stop retrying
+      }
       console.error('Fetch exception:', err);
       return null;
     }
@@ -113,14 +117,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const loadUserProfile = useCallback(async (user: SupabaseUser): Promise<void> => {
+  const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
     if (!mountedRef.current) return;
 
-    try {
-      console.log('🔍 Loading profile for:', user.email);
+    // 🛑 CIRCUIT BREAKER: Stop after 2 failed retries
+    const MAX_RETRIES = 2;
+    if (retryCount > MAX_RETRIES) {
+      console.error('⛔ Profile loading failed after', MAX_RETRIES, 'retries. Stopping.');
+      if (mountedRef.current) {
+        // Use temp profile as last resort to allow UI to render
+        setProfile(createTempProfile(user));
+        setLoading(false);
+      }
+      return;
+    }
 
-      // 🔥 AUTO-FIX: Force redirection to versioned URL to bypass cache
-      if (!window.location.search.includes('v=final')) {
+    try {
+      console.log(`🔍 Loading profile for: ${user.email} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+
+      // 🔥 AUTO-FIX: Force redirection to versioned URL to bypass cache (only on first attempt)
+      if (retryCount === 0 && !window.location.search.includes('v=final')) {
         console.log('🚀 Force updating URL to bypass cache...');
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.set('v', 'final');
@@ -128,33 +144,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Wait for trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       let userProfile = await fetchProfile(user.id);
 
       if (!mountedRef.current) return;
 
-      // Retry once if not found
-      if (!userProfile) {
-        console.warn('Retrying profile fetch...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        userProfile = await fetchProfile(user.id);
-      }
+      if (userProfile) {
+        console.log('✅ Profile loaded:', userProfile.name);
+        setProfile(userProfile);
+      } else if (retryCount < MAX_RETRIES) {
+        // Retry with exponential backoff
+        const backoffMs = 1000 * (retryCount + 1);
+        console.warn(`⚠️ Retry ${retryCount + 1} in ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
 
-      if (mountedRef.current) {
-        if (userProfile) {
-          console.log('✅ Profile loaded:', userProfile.name);
-          setProfile(userProfile);
-        } else {
-          console.warn('⚠️ Using temp profile');
-          setProfile(createTempProfile(user));
-        }
+        if (!mountedRef.current) return;
+        await loadUserProfile(user, retryCount + 1);
+      } else {
+        // Max retries reached, use temp profile
+        console.warn('⚠️ Using temp profile after failed retries');
+        setProfile(createTempProfile(user));
       }
     } catch (err) {
-      console.error('Load error:', err);
+      console.error('❌ Load error:', err);
       if (mountedRef.current) {
-        setProfile(createTempProfile(user));
+        if (retryCount < MAX_RETRIES) {
+          // Retry on error
+          const backoffMs = 1500 * (retryCount + 1);
+          console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+
+          if (!mountedRef.current) return;
+          await loadUserProfile(user, retryCount + 1);
+        } else {
+          // Max retries reached
+          setProfile(createTempProfile(user));
+        }
       }
     }
   }, [fetchProfile, createTempProfile]);
