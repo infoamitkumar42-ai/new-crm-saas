@@ -30,17 +30,9 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// NETWORK FIRST FOR EVERYTHING - no caching issues
-self.addEventListener('fetch', (event) => {
-  // Always go to network first
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        return response;
-      })
-      .catch(() => {
-        // Only use cache as absolute fallback for offline
-        return caches.match(event.request);
-      })
-  );
-});
+
+// -----------------------------------------------------------------------
+// PASSIVE MODE: No fetch listener.
+// This allows the browser to handle all requests natively (Network Only).
+// This prevents "AbortError" and other SW-related fetch failures.
+// -----------------------------------------------------------------------
