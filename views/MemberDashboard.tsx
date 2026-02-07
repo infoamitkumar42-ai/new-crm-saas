@@ -196,8 +196,15 @@ export const MemberDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
 
-  // Use auth profile as the source of truth
-  const profile = authProfile;
+  // Use auth profile as the source of truth, but allow local updates (optimistic UI)
+  const [profile, setProfile] = useState<any>(authProfile);
+
+  // Sync global auth profile to local state when it changes
+  useEffect(() => {
+    if (authProfile) {
+      setProfile(authProfile);
+    }
+  }, [authProfile]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
