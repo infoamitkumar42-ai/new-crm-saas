@@ -68,6 +68,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
+        // 🛑 SILENTLY IGNORE ABORT ERROR
+        if (error.message?.includes('AbortError') || error.message?.includes('aborted')) {
+          return null;
+        }
+
         console.warn('Profile fetch error:', error.message);
         return null;
       }

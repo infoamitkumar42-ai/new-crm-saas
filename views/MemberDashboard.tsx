@@ -435,7 +435,7 @@ export const MemberDashboard = () => {
       setLeads(leadsData || []);
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        console.warn('⚠️ Dashboard fetch aborted (ignoring)');
+        // Silently exit
         return;
       }
       console.error('Dashboard Error:', error);
