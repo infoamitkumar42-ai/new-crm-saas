@@ -187,12 +187,17 @@ const StatCard = ({
 // ============================================================
 
 export const MemberDashboard = () => {
-  const { refreshProfile } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  // 🔥 USE GLOBAL PROFILE (Robust & Reliable)
+  const { profile: authProfile, refreshProfile } = useAuth();
+
+  // Local state for leads and UI only
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
+
+  // Use auth profile as the source of truth
+  const profile = authProfile;
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -617,34 +622,31 @@ export const MemberDashboard = () => {
   // ============================================================
   // RENDER
   // ============================================================
-  if (loading) {
+  // EMERGENCY BYPASS: If session exists, SHOW DASHBOARD immediately
+  // Don't block on profile loading
+  if (loading && !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading your workspace...</p>
+          <p className="text-slate-500">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center p-8">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Loading Profile...</h2>
-          <p className="text-slate-500 mb-4">Please wait...</p>
-          <button
-            onClick={() => refreshProfile()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium mt-4"
-          >
-            Retry Loading
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // If we have session but no profile yet, use temp profile or just render
+  const displayProfile = profile || {
+    id: session?.user?.id || 'temp',
+    email: session?.user?.email || '',
+    name: 'Loading...',
+    role: 'member',
+    is_active: true,
+    leads_today: 0,
+    daily_limit: 0,
+    total_leads_received: 0,
+    payment_status: 'active'
+  };
 
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired && !expiredDismissed ? 'overflow-hidden' : ''}`}>
