@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from './auth/useAuth';
 import { ResetPassword } from './views/ResetPassword';
 import ApplyForm from './views/ApplyForm';
 import { Loader2 } from 'lucide-react';
+import { ENV } from './config/env';
 
 // ✅ LEGAL PAGES
 import { TermsOfService } from './views/legal/TermsOfService';
@@ -211,6 +212,25 @@ const AppRoutes: React.FC = () => {
 // 🚀 MAIN APP COMPONENT
 // ============================================================
 function App() {
+  if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === '' || !ENV.SUPABASE_URL.includes('http')) {
+    return (
+      <div style={{ padding: 40, backgroundColor: '#FEF2F2', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <h1 style={{ color: '#DC2626', fontSize: 32, marginBottom: 16 }}>⚠️ CRITICAL CONFIG ERROR</h1>
+        <p style={{ fontSize: 18, color: '#374151' }}>The App cannot connect to the Database.</p>
+        <div style={{ backgroundColor: '#F3F4F6', padding: 20, borderRadius: 8, marginTop: 20, fontFamily: 'monospace' }}>
+          <p><strong>Missing Variable:</strong> <span style={{ color: '#DC2626' }}>VITE_SUPABASE_URL</span></p>
+          <p><strong>Current Value:</strong> {JSON.stringify(ENV.SUPABASE_URL)}</p>
+        </div>
+        <p style={{ marginTop: 30, maxWidth: 600, textAlign: 'center' }}>
+          <strong>FIX FOR VERCEL:</strong><br />
+          Go to Vercel Settings -&gt; Environment Variables.<br />
+          Rename <code>SUPABASE_URL</code> to <code>VITE_SUPABASE_URL</code>.<br />
+          Then <strong>Redeploy</strong>.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>
