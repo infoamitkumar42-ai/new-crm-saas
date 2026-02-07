@@ -119,6 +119,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('🔍 Loading profile for:', user.email);
 
+      // 🔥 AUTO-FIX: Force redirection to versioned URL to bypass cache
+      if (!window.location.search.includes('v=final')) {
+        console.log('🚀 Force updating URL to bypass cache...');
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('v', 'final');
+        window.location.replace(newUrl.toString());
+        return;
+      }
+
       // Wait for trigger to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
 
