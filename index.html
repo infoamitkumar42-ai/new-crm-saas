@@ -13,6 +13,56 @@
   <link rel="apple-touch-icon" href="/icon-192x192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <!-- AUTO CACHE CLEAR v1 - Feb 7, 2026 -->
+  <script>
+    (function () {
+      var CACHE_VERSION = 'v20260207';
+      var storageKey = 'leadflow_cache_version';
+
+      try {
+        var savedVersion = localStorage.getItem(storageKey);
+
+        // If version mismatch or first time - clear everything
+        if (savedVersion !== CACHE_VERSION) {
+          console.log('🔄 Cache version mismatch. Clearing all caches...');
+
+          // Clear all caches
+          if ('caches' in window) {
+            caches.keys().then(function (names) {
+              names.forEach(function (name) {
+                console.log('Deleting cache:', name);
+                caches.delete(name);
+              });
+            });
+          }
+
+          // Unregister service workers
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              regs.forEach(function (reg) {
+                console.log('Unregistering SW');
+                reg.unregister();
+              });
+            });
+          }
+
+          // Save new version
+          localStorage.setItem(storageKey, CACHE_VERSION);
+
+          // Reload page after short delay to apply clean state
+          if (savedVersion !== null) {
+            console.log('🔄 Reloading with fresh cache...');
+            setTimeout(function () {
+              window.location.reload(true);
+            }, 500);
+          }
+        }
+      } catch (e) {
+        console.log('Cache clear error:', e);
+      }
+    })();
+  </script>
 </head>
 
 <body class="bg-slate-50 text-slate-900 antialiased">
@@ -22,13 +72,13 @@
   <!-- Register Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js')
-          .then(registration => {
-            console.log('SW registered: ', registration);
+          .then(function (registration) {
+            console.log('SW registered');
           })
-          .catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
+          .catch(function (err) {
+            console.log('SW registration failed');
           });
       });
     }
