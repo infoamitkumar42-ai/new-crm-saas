@@ -59,378 +59,382 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = !!session && !!profile;
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
-    try {
-      // Use the authenticated client
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        // 🛑 SILENTLY IGNORE ABORT ERROR
-        if (error.message?.includes('AbortError') || error.message?.includes('aborted')) {
-          return null;
-        }
-
-        console.warn('Profile fetch error:', error.message);
-        return null;
-      }
-
-      console.log('✅ Profile fetched:', data?.name, data?.role);
-      return data as User;
-
-    } catch (err: any) {
-      // 🛑 Ignore AbortErrors specifically
-      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        return null;
-      }
-
-      // 🛑 CRITICAL: Detect network failures (DNS, connection, etc.)
-      if (err?.message?.includes('fetch') || err?.message?.includes('network') || err?.message?.includes('Failed to fetch')) {
-        console.error('🚫 NETWORK ERROR - Cannot reach Supabase:', err.message);
-        throw new Error('NETWORK_UNREACHABLE'); // Signal to stop retrying
-      }
-      console.error('Fetch exception:', err);
-      return null;
+    if (error) {
+      console.warn('SDK fetch error:', error.message);
+      throw error; // Throw to trigger fallback in catch
     }
-  }, []);
 
-  const createTempProfile = useCallback((user: SupabaseUser): User => {
-    const userEmailRaw = user.email || '';
-    const userEmailLower = userEmailRaw.toLowerCase().trim();
+    console.log('✅ SDK Profile fetched:', data?.name);
+    return data as User;
 
-    // 🛡️ FALLBACK: Force Admin for specific emails (Case Insensitive)
-    const isAdminEmail = [
-      'info.amitkumar42@gmail.com',
-      'amitdemo1@gmail.com'
-    ].includes(userEmailLower);
+  } catch (err: any) {
+    console.warn('⚠️ SDK failed, switching to RAW FETCH fallback...', err.message);
 
-    console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
+    // 🛡️ FALLBACK: Direct REST API Call (Bypasses SDK AbortController issues)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("No session for fallback");
 
-    return {
-      id: user.id,
-      email: userEmailRaw,
-      name: user.user_metadata?.name || "User",
-      role: isAdminEmail ? 'admin' : (user.user_metadata?.role || "member"), // 🔥 Force match
-      sheet_url: "",
-      payment_status: "inactive",
-      valid_until: null,
-      filters: {},
-      daily_limit: 0,
-      leads_today: 0,
-      total_leads_received: 0,
-      is_active: true,
-      days_extended: 0,
-      total_leads_promised: 50,
-      created_at: new Date().toISOString(),
-    };
-  }, []);
+      const response = await fetch(`${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}&select=*`, {
+        method: 'GET',
+        headers: {
+          'apikey': ENV.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }
+      });
 
-  const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
+      if (!response.ok) throw new Error(`Fallback HTTP ${response.status}`);
+
+      const rows = await response.json();
+      if (rows && rows.length > 0) {
+        console.log('✅ RAW Profile fetched:', rows[0].name);
+        return rows[0] as User;
+      }
+    } catch (fallbackErr) {
+      console.error('❌ Fallback also failed:', fallbackErr);
+    }
+
+    return null;
+  }
+}, []);
+
+const createTempProfile = useCallback((user: SupabaseUser): User => {
+  const userEmailRaw = user.email || '';
+  const userEmailLower = userEmailRaw.toLowerCase().trim();
+
+  // 🛡️ FALLBACK: Force Admin for specific emails (Case Insensitive)
+  const isAdminEmail = [
+    'info.amitkumar42@gmail.com',
+    'amitdemo1@gmail.com'
+  ].includes(userEmailLower);
+
+  console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
+
+  return {
+    id: user.id,
+    email: userEmailRaw,
+    name: user.user_metadata?.name || "User",
+    role: isAdminEmail ? 'admin' : (user.user_metadata?.role || "member"), // 🔥 Force match
+    sheet_url: "",
+    payment_status: "inactive",
+    valid_until: null,
+    filters: {},
+    daily_limit: 0,
+    leads_today: 0,
+    total_leads_received: 0,
+    is_active: true,
+    days_extended: 0,
+    total_leads_promised: 50,
+    created_at: new Date().toISOString(),
+  };
+}, []);
+
+const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
+  if (!mountedRef.current) return;
+
+  // 🛑 CIRCUIT BREAKER: Stop after 2 failed retries
+  const MAX_RETRIES = 2;
+  if (retryCount > MAX_RETRIES) {
+    console.error('⛔ Profile loading failed after', MAX_RETRIES, 'retries. Stopping.');
+    if (mountedRef.current) {
+      // Use temp profile as last resort to allow UI to render
+      setProfile(createTempProfile(user));
+      setLoading(false);
+    }
+    return;
+  }
+
+  try {
+    console.log(`🔍 Loading profile for: ${user.email} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+
+    // 🛑 AUTO-REDIRECT REMOVED: Vercel headers now handle cache busting.
+    // usage of window.location.replace was causing AbortErrors on some devices.
+
+    let userProfile = await fetchProfile(user.id);
+
     if (!mountedRef.current) return;
 
-    // 🛑 CIRCUIT BREAKER: Stop after 2 failed retries
-    const MAX_RETRIES = 2;
-    if (retryCount > MAX_RETRIES) {
-      console.error('⛔ Profile loading failed after', MAX_RETRIES, 'retries. Stopping.');
-      if (mountedRef.current) {
-        // Use temp profile as last resort to allow UI to render
-        setProfile(createTempProfile(user));
-        setLoading(false);
-      }
+    if (userProfile) {
+      console.log('✅ Profile loaded:', userProfile.name);
+      setProfile(userProfile);
+    } else if (retryCount < MAX_RETRIES) {
+      // Retry with exponential backoff
+      const backoffMs = 1000 * (retryCount + 1);
+      console.warn(`⚠️ Retry ${retryCount + 1} in ${backoffMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+
+      if (!mountedRef.current) return;
+      await loadUserProfile(user, retryCount + 1);
+    } else {
+      // Max retries reached, use temp profile
+      console.warn('⚠️ Using temp profile after failed retries');
+      setProfile(createTempProfile(user));
+    }
+  } catch (err: any) {
+    // 🛑 IGNORE ABORT ERRORS (Don't fail, don't retry, just exit)
+    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+      console.warn('⚠️ Request aborted (ignoring)');
       return;
     }
 
-    try {
-      console.log(`🔍 Loading profile for: ${user.email} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    console.error('❌ Load error:', err);
 
-      // 🛑 AUTO-REDIRECT REMOVED: Vercel headers now handle cache busting.
-      // usage of window.location.replace was causing AbortErrors on some devices.
-
-      let userProfile = await fetchProfile(user.id);
-
-      if (!mountedRef.current) return;
-
-      if (userProfile) {
-        console.log('✅ Profile loaded:', userProfile.name);
-        setProfile(userProfile);
-      } else if (retryCount < MAX_RETRIES) {
-        // Retry with exponential backoff
-        const backoffMs = 1000 * (retryCount + 1);
-        console.warn(`⚠️ Retry ${retryCount + 1} in ${backoffMs}ms...`);
+    if (mountedRef.current) {
+      if (retryCount < MAX_RETRIES) {
+        // Retry on legitimate error
+        const backoffMs = 1500 * (retryCount + 1);
+        console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
 
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // Max retries reached, use temp profile
-        console.warn('⚠️ Using temp profile after failed retries');
+        // Max retries reached
+        console.warn('⚠️ Max retries reached, using temp profile');
         setProfile(createTempProfile(user));
+        setLoading(false); // Ensure we stop loading
+      }
+    }
+  }
+}, [fetchProfile, createTempProfile]);
+
+const refreshProfile = useCallback(async () => {
+  if (session?.user) {
+    console.log('🔄 Force refreshing profile...');
+    const updated = await fetchProfile(session.user.id);
+    if (updated && mountedRef.current) {
+      setProfile(updated);
+    }
+  }
+}, [session, fetchProfile]);
+
+const createUserSheetBackground = useCallback(async (
+  userId: string,
+  email: string,
+  name: string
+): Promise<void> => {
+  try {
+    fetch(SHEET_CREATOR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'createSheet', userId, email, name })
+    }).catch(() => { });
+  } catch { }
+}, []);
+
+useEffect(() => {
+  mountedRef.current = true;
+  let authSubscription: { unsubscribe: () => void } | null = null;
+
+  const initializeAuth = async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (!mountedRef.current) return;
+
+      if (currentSession?.user) {
+        setSession(currentSession);
+        await loadUserProfile(currentSession.user);
       }
     } catch (err: any) {
-      // 🛑 IGNORE ABORT ERRORS (Don't fail, don't retry, just exit)
-      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        console.warn('⚠️ Request aborted (ignoring)');
-        return;
-      }
-
-      console.error('❌ Load error:', err);
-
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
+      console.error("Init error:", err);
+    } finally {
       if (mountedRef.current) {
-        if (retryCount < MAX_RETRIES) {
-          // Retry on legitimate error
-          const backoffMs = 1500 * (retryCount + 1);
-          console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-
-          if (!mountedRef.current) return;
-          await loadUserProfile(user, retryCount + 1);
-        } else {
-          // Max retries reached
-          console.warn('⚠️ Max retries reached, using temp profile');
-          setProfile(createTempProfile(user));
-          setLoading(false); // Ensure we stop loading
-        }
+        setLoading(false);
       }
     }
-  }, [fetchProfile, createTempProfile]);
+  };
 
-  const refreshProfile = useCallback(async () => {
-    if (session?.user) {
-      console.log('🔄 Force refreshing profile...');
-      const updated = await fetchProfile(session.user.id);
-      if (updated && mountedRef.current) {
-        setProfile(updated);
-      }
-    }
-  }, [session, fetchProfile]);
+  const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    if (!mountedRef.current) return;
 
-  const createUserSheetBackground = useCallback(async (
-    userId: string,
-    email: string,
-    name: string
-  ): Promise<void> => {
-    try {
-      fetch(SHEET_CREATOR_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'createSheet', userId, email, name })
-      }).catch(() => { });
-    } catch { }
-  }, []);
+    if (event === 'SIGNED_IN') {
+      if (processingSignIn.current) return;
 
-  useEffect(() => {
-    mountedRef.current = true;
-    let authSubscription: { unsubscribe: () => void } | null = null;
+      processingSignIn.current = true;
 
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-
-        if (!mountedRef.current) return;
-
-        if (currentSession?.user) {
-          setSession(currentSession);
-          await loadUserProfile(currentSession.user);
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
-        console.error("Init error:", err);
-      } finally {
+      if (newSession?.user) {
+        setSession(newSession);
+        setLoading(true);
+        await loadUserProfile(newSession.user);
         if (mountedRef.current) {
           setLoading(false);
         }
       }
-    };
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!mountedRef.current) return;
-
-      if (event === 'SIGNED_IN') {
-        if (processingSignIn.current) return;
-
-        processingSignIn.current = true;
-
-        if (newSession?.user) {
-          setSession(newSession);
-          setLoading(true);
-          await loadUserProfile(newSession.user);
-          if (mountedRef.current) {
-            setLoading(false);
-          }
-        }
-
-        setTimeout(() => {
-          processingSignIn.current = false;
-        }, 2000);
-      }
-
-      if (event === 'SIGNED_OUT') {
+      setTimeout(() => {
         processingSignIn.current = false;
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-      }
+      }, 2000);
+    }
 
-      if (event === 'TOKEN_REFRESHED' && newSession) {
-        setSession(newSession);
+    if (event === 'SIGNED_OUT') {
+      processingSignIn.current = false;
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+    }
+
+    if (event === 'TOKEN_REFRESHED' && newSession) {
+      setSession(newSession);
+    }
+  });
+
+  authSubscription = data.subscription;
+  initializeAuth();
+
+  return () => {
+    mountedRef.current = false;
+    processingSignIn.current = false;
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+    }
+  };
+}, [loadUserProfile]);
+
+useEffect(() => {
+  if (!session?.user) return;
+
+  const interval = setInterval(() => {
+    if (mountedRef.current) {
+      refreshProfile();
+    }
+  }, 5 * 60 * 1000);
+
+  return () => clearInterval(interval);
+}, [session, refreshProfile]);
+
+const signUp = useCallback(async ({
+  email,
+  password,
+  name,
+  role = 'member',
+  teamCode,
+  managerId
+}: {
+  email: string;
+  password: string;
+  name: string;
+  role?: string;
+  teamCode?: string;
+  managerId?: string;
+}) => {
+  setLoading(true);
+
+  try {
+    let resolvedManagerId: string | null = managerId || null;
+    let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
+
+    if (role === 'member' && resolvedTeamCode && !resolvedManagerId) {
+      const { data: managerData } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('team_code', resolvedTeamCode)
+        .eq('role', 'manager')
+        .maybeSingle();
+
+      if (!managerData) {
+        setLoading(false);
+        throw new Error("Invalid team code");
+      }
+      resolvedManagerId = managerData.id;
+    }
+
+    if (role === 'manager' && resolvedTeamCode) {
+      const { data: existingCode } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_code', resolvedTeamCode)
+        .maybeSingle();
+
+      if (existingCode) {
+        setLoading(false);
+        throw new Error("Team code already taken");
+      }
+      resolvedManagerId = null;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+          role,
+          team_code: resolvedTeamCode,
+          manager_id: resolvedManagerId
+        }
       }
     });
 
-    authSubscription = data.subscription;
-    initializeAuth();
-
-    return () => {
-      mountedRef.current = false;
-      processingSignIn.current = false;
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
-    };
-  }, [loadUserProfile]);
-
-  useEffect(() => {
-    if (!session?.user) return;
-
-    const interval = setInterval(() => {
-      if (mountedRef.current) {
-        refreshProfile();
-      }
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [session, refreshProfile]);
-
-  const signUp = useCallback(async ({
-    email,
-    password,
-    name,
-    role = 'member',
-    teamCode,
-    managerId
-  }: {
-    email: string;
-    password: string;
-    name: string;
-    role?: string;
-    teamCode?: string;
-    managerId?: string;
-  }) => {
-    setLoading(true);
-
-    try {
-      let resolvedManagerId: string | null = managerId || null;
-      let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
-
-      if (role === 'member' && resolvedTeamCode && !resolvedManagerId) {
-        const { data: managerData } = await supabase
-          .from('users')
-          .select('id, name')
-          .eq('team_code', resolvedTeamCode)
-          .eq('role', 'manager')
-          .maybeSingle();
-
-        if (!managerData) {
-          setLoading(false);
-          throw new Error("Invalid team code");
-        }
-        resolvedManagerId = managerData.id;
-      }
-
-      if (role === 'manager' && resolvedTeamCode) {
-        const { data: existingCode } = await supabase
-          .from('users')
-          .select('id')
-          .eq('team_code', resolvedTeamCode)
-          .maybeSingle();
-
-        if (existingCode) {
-          setLoading(false);
-          throw new Error("Team code already taken");
-        }
-        resolvedManagerId = null;
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: {
-            name: name.trim(),
-            role,
-            team_code: resolvedTeamCode,
-            manager_id: resolvedManagerId
-          }
-        }
-      });
-
-      if (error) {
-        setLoading(false);
-        throw error;
-      }
-
-      if (!data.user) {
-        setLoading(false);
-        throw new Error("Signup failed");
-      }
-
-      if (role === 'member') {
-        createUserSheetBackground(data.user.id, email, name);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-    } catch (err) {
+    if (error) {
       setLoading(false);
-      throw err;
+      throw error;
     }
-  }, [createUserSheetBackground]);
 
-  const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
-      });
-
-      if (error) {
-        setLoading(false);
-        throw error;
-      }
-
-    } catch (err) {
+    if (!data.user) {
       setLoading(false);
-      throw err;
+      throw new Error("Signup failed");
     }
-  }, []);
 
-  const signOut = useCallback(async () => {
-    setSession(null);
-    setProfile(null);
+    if (role === 'member') {
+      createUserSheetBackground(data.user.id, email, name);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+  } catch (err) {
     setLoading(false);
+    throw err;
+  }
+}, [createUserSheetBackground]);
 
-    try {
-      await supabase.auth.signOut();
-    } catch { }
-  }, []);
+const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
+  setLoading(true);
 
-  return (
-    <AuthContext.Provider value={{
-      session,
-      profile,
-      loading,
-      isAuthenticated,
-      signUp,
-      signIn,
-      signOut,
-      refreshProfile
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password
+    });
+
+    if (error) {
+      setLoading(false);
+      throw error;
+    }
+
+  } catch (err) {
+    setLoading(false);
+    throw err;
+  }
+}, []);
+
+const signOut = useCallback(async () => {
+  setSession(null);
+  setProfile(null);
+  setLoading(false);
+
+  try {
+    await supabase.auth.signOut();
+  } catch { }
+}, []);
+
+return (
+  <AuthContext.Provider value={{
+    session,
+    profile,
+    loading,
+    isAuthenticated,
+    signUp,
+    signIn,
+    signOut,
+    refreshProfile
+  }}>
+    {children}
+  </AuthContext.Provider>
+);
 };
 
 export const useAuth = () => {
