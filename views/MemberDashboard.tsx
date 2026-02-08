@@ -463,6 +463,17 @@ export const MemberDashboard = () => {
     }
   };
 
+  // 🚨 IOS SAFETY VALVE: Force remove loading screen after 4s
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      if (loading) {
+        console.warn("⚠️ Force releasing loading screen for iOS safety");
+        setLoading(false);
+      }
+    }, 4000);
+    return () => clearTimeout(safetyTimer);
+  }, [loading]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true') {
