@@ -80,6 +80,15 @@ export function usePushNotification(): UsePushNotificationReturn {
     init();
   }, []);
 
+  // Auto-Sync: If permission granted, update UI and sync DB
+  useEffect(() => {
+    if (Notification.permission === 'granted') {
+      setIsSubscribed(true);
+      // Silent sync
+      subscribe(true);
+    }
+  }, []);
+
   // Keep service worker alive (prevent sleep)
   useEffect(() => {
     const keepAlive = async () => {
@@ -101,9 +110,9 @@ export function usePushNotification(): UsePushNotificationReturn {
   }, []);
 
   // Subscribe to push notifications
-  const subscribe = useCallback(async (): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
+  const subscribe = useCallback(async (isSilent = false): Promise<boolean> => {
+    if (!isSilent) setIsLoading(true);
+    if (!isSilent) setError(null);
 
     // Timeout Promise (10 Seconds)
     const timeoutPromise = new Promise((_, reject) =>
@@ -143,7 +152,8 @@ export function usePushNotification(): UsePushNotificationReturn {
 
       const subscription = await swRegistrationRef.current.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
       });
 
       const subJson = subscription.toJSON();
@@ -191,13 +201,15 @@ export function usePushNotification(): UsePushNotificationReturn {
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       log('❌ Subscribe error:', errorMessage);
-      setError(errorMessage);
 
-      alert(`❌ Notification setup failed:\n\n${errorMessage}`);
+      if (!isSilent) {
+        setError(errorMessage);
+        alert(`❌ Notification setup failed:\n\n${errorMessage}`);
+      }
 
       return false;
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   }, [VAPID_KEY]);
 
@@ -284,14 +296,17 @@ export function usePushNotification(): UsePushNotificationReturn {
         return;
       }
 
-      await swRegistrationRef.current.showNotification('🧪 Test Notification', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const options: any = {
         body: 'Push notifications are working correctly!',
         icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
         badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
         vibrate: [300, 100, 300],
         tag: 'test-notification',
         requireInteraction: true
-      });
+      };
+
+      await swRegistrationRef.current.showNotification('🧪 Test Notification', options);
 
       log('Test notification sent');
     } catch (err) {
