@@ -1,0 +1,23 @@
+
+const { createClient } = require('@supabase/supabase-js');
+const SUPABASE_URL = 'https://vewqzsqddgmkslnuctvb.supabase.co';
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3F6c3FkZGdta3NsbnVjdHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MzA0NjIsImV4cCI6MjA4MDEwNjQ2Mn0.g-e8YNzEy0Z5ul1RGAhBMDj41TtWGuNPEzZz4XEGPg4";
+const supabase = createClient(SUPABASE_URL, ANON_KEY);
+
+async function checkRajwinderTeam() {
+    console.log("🔍 Checking members of Rajwinder's team (TEAMRAJ)...");
+    const { data: members, error } = await supabase
+        .from('users')
+        .select('id, name, email, plan_name, is_active, team_code')
+        .eq('team_code', 'TEAMRAJ');
+
+    if (error) {
+        console.error("❌ Error:", error);
+        return;
+    }
+
+    console.log(`Total members found: ${members.length}`);
+    console.table(members);
+}
+
+checkRajwinderTeam();

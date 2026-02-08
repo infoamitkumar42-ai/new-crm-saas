@@ -17,12 +17,20 @@ export const NotificationBanner: React.FC = () => {
         unsubscribe,
         testNotification,
     } = usePushNotification();
-    
-    const [dismissed, setDismissed] = useState(false);
+
+    const [dismissed, setDismissed] = useState(() => {
+        return localStorage.getItem('hide_push_prompt') === 'true';
+    });
+
     const [showSuccess, setShowSuccess] = useState(false);
 
     // Auto-hide success message after 3 seconds
     useEffect(() => {
+        // If permission is already granted, don't show prompt
+        if (Notification.permission === 'granted' && !isSubscribed) {
+            setDismissed(true);
+        }
+
         if (isSubscribed && !dismissed) {
             setShowSuccess(true);
             const timer = setTimeout(() => {
@@ -30,7 +38,12 @@ export const NotificationBanner: React.FC = () => {
             }, 4000);
             return () => clearTimeout(timer);
         }
-    }, [isSubscribed]);
+    }, [isSubscribed, dismissed]);
+
+    const handleDismiss = () => {
+        setDismissed(true);
+        localStorage.setItem('hide_push_prompt', 'true');
+    };
 
     // Don't show anything if:
     // - User dismissed it
@@ -62,14 +75,14 @@ export const NotificationBanner: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>🔕</span>
                     <span style={{ color: '#991b1b' }}>
-                        Notifications blocked. 
+                        Notifications blocked.
                         <a href="#" style={{ marginLeft: 4, color: '#dc2626', textDecoration: 'underline' }}>
                             Enable in settings
                         </a>
                     </span>
                 </div>
-                <button 
-                    onClick={() => setDismissed(true)}
+                <button
+                    onClick={handleDismiss}
                     style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#991b1b' }}
                 >×</button>
             </div>
@@ -102,11 +115,11 @@ export const NotificationBanner: React.FC = () => {
                     <span>Push notifications enabled! You'll receive lead alerts.</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button 
+                    <button
                         onClick={testNotification}
-                        style={{ 
-                            background: 'rgba(255,255,255,0.2)', 
-                            border: 'none', 
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            border: 'none',
                             borderRadius: 6,
                             padding: '6px 12px',
                             color: 'white',
@@ -117,7 +130,7 @@ export const NotificationBanner: React.FC = () => {
                     >
                         Test 🔔
                     </button>
-                    <button 
+                    <button
                         onClick={() => setShowSuccess(false)}
                         style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'white' }}
                     >×</button>
@@ -151,12 +164,12 @@ export const NotificationBanner: React.FC = () => {
                 </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button 
+                <button
                     onClick={subscribe}
                     disabled={isLoading}
-                    style={{ 
-                        background: 'white', 
-                        border: 'none', 
+                    style={{
+                        background: 'white',
+                        border: 'none',
                         borderRadius: 6,
                         padding: '8px 16px',
                         color: '#4f46e5',
@@ -168,8 +181,8 @@ export const NotificationBanner: React.FC = () => {
                 >
                     {isLoading ? '...' : 'Enable'}
                 </button>
-                <button 
-                    onClick={() => setDismissed(true)}
+                <button
+                    onClick={handleDismiss}
                     style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'white' }}
                 >×</button>
             </div>

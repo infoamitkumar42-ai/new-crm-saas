@@ -251,7 +251,7 @@ export const MemberDashboard = () => {
   };
 
   const daysLeft = getDaysUntilExpiry();
-  const isExpired = (daysLeft !== null && daysLeft <= 0) || profile?.payment_status === 'inactive';
+  const isExpired = !loading && profile && ((daysLeft !== null && daysLeft <= 0) || profile.payment_status === 'inactive');
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
@@ -297,7 +297,7 @@ export const MemberDashboard = () => {
       };
     }
 
-    if (profile.payment_status !== 'active' || isExpired) {
+    if (!loading && profile && (profile.payment_status !== 'active' || isExpired)) {
       return {
         title: 'Plan Inactive',
         subtitle: 'Renew to receive leads',
