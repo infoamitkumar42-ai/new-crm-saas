@@ -222,10 +222,22 @@ function App() {
         });
       });
 
-      // Reload if new SW takes control
+      // Reload if new SW takes control (with iOS Loop Protection)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('🔄 New SW detected, reloading...');
-        window.location.reload();
+        console.log('🔄 New SW detected');
+
+        // Safety Valve: Check if we just reloaded
+        const hasReloaded = sessionStorage.getItem('sw_force_reloaded');
+
+        if (!hasReloaded) {
+          console.log('🚀 Forcing reload to activate new SW');
+          sessionStorage.setItem('sw_force_reloaded', 'true');
+          window.location.reload();
+        } else {
+          console.log('🛑 Infinite loop prevented. User is on new version (hopefully).');
+          // Optional: Clear flag after 5 seconds so next legit update works
+          setTimeout(() => sessionStorage.removeItem('sw_force_reloaded'), 5000);
+        }
       });
     }
   }, []);
