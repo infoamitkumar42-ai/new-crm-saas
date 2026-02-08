@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Auth } from './views/Auth';
@@ -212,6 +212,23 @@ const AppRoutes: React.FC = () => {
 // 🚀 MAIN APP COMPONENT
 // ============================================================
 function App() {
+  // 🚨 EMERGENCY SERVICE WORKER CLEANER
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          console.log('🧹 Cleaning old service worker:', registration);
+          registration.unregister();
+        });
+      });
+
+      // Reload if new SW takes control
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('🔄 New SW detected, reloading...');
+        window.location.reload();
+      });
+    }
+  }, []);
   if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === '' || !ENV.SUPABASE_URL.includes('http')) {
     return (
       <div style={{ padding: 40, backgroundColor: '#FEF2F2', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
