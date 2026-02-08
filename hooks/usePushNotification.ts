@@ -59,11 +59,11 @@ export function usePushNotification(): UsePushNotificationReturn {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/'
         });
-        
+
         // Wait for service worker to be ready
         await navigator.serviceWorker.ready;
         log('SW ready');
-        
+
         swRegistrationRef.current = registration;
 
         // Check existing subscription
@@ -105,27 +105,33 @@ export function usePushNotification(): UsePushNotificationReturn {
     setIsLoading(true);
     setError(null);
 
-    try {
+    // Timeout Promise (10 Seconds)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out (server stuck)')), 10000)
+    );
+
+    const subscribeLogic = async () => {
       // Step 1: Check VAPID key
       if (!VAPID_KEY) {
-        throw new Error('VAPID key not configured');
+        throw new Error('System Error: VAPID Key missing');
       }
 
       // Step 2: Request notification permission
       const permission = await Notification.requestPermission();
-
       if (permission !== 'granted') {
         throw new Error('Notification permission denied');
       }
 
       // Step 3: Check service worker
       if (!swRegistrationRef.current) {
-        await navigator.serviceWorker.ready;
-        swRegistrationRef.current = await navigator.serviceWorker.getRegistration();
+        // Try updating reg ref
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) swRegistrationRef.current = reg;
+        else throw new Error('Service Worker not registered');
       }
 
-      if (!swRegistrationRef.current) {
-        throw new Error('Service Worker not ready');
+      if (!swRegistrationRef.current.active) {
+        await navigator.serviceWorker.ready;
       }
 
       // Step 4: Create push subscription
@@ -139,22 +145,23 @@ export function usePushNotification(): UsePushNotificationReturn {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
       });
-      
+
       const subJson = subscription.toJSON();
 
       // Validate subscription data
       if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-        throw new Error('Invalid subscription data');
+        throw new Error('Invalid subscription data received from browser');
       }
 
       // Step 5: Check authentication
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
-        throw new Error('Not logged in');
+        throw new Error('User not logged in');
       }
 
       // Step 6: Save to database using RPC function
+      // Retry logic for DB? No, just fail fast if timeout.
       const { data: rpcResult, error: rpcError } = await supabase.rpc('upsert_push_subscription', {
         p_endpoint: subJson.endpoint,
         p_p256dh: subJson.keys.p256dh,
@@ -166,23 +173,28 @@ export function usePushNotification(): UsePushNotificationReturn {
         throw new Error(`Database error: ${rpcError.message}`);
       }
 
-      // Check if the function returned success
+      // Check if the function returned success (if it returns json)
       if (rpcResult && typeof rpcResult === 'object' && !rpcResult.success) {
         throw new Error(rpcResult.error || 'Database save failed');
       }
 
       setIsSubscribed(true);
       log('✅ Subscribed successfully');
-      
+      return true;
+    };
+
+    try {
+      // RACE: Logic vs Timeout
+      await Promise.race([subscribeLogic(), timeoutPromise]);
       return true;
 
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       log('❌ Subscribe error:', errorMessage);
       setError(errorMessage);
-      
+
       alert(`❌ Notification setup failed:\n\n${errorMessage}`);
-      
+
       return false;
     } finally {
       setIsLoading(false);
@@ -197,7 +209,7 @@ export function usePushNotification(): UsePushNotificationReturn {
     try {
       if (swRegistrationRef.current) {
         const subscription = await swRegistrationRef.current.pushManager.getSubscription();
-        
+
         if (subscription) {
           // Remove from database first
           await supabase.rpc('remove_push_subscription', {
@@ -226,9 +238,9 @@ export function usePushNotification(): UsePushNotificationReturn {
   const refreshSubscription = useCallback(async () => {
     try {
       if (!swRegistrationRef.current) return;
-      
+
       const existingSub = await swRegistrationRef.current.pushManager.getSubscription();
-      
+
       if (existingSub) {
         // Check if subscription is stale (> 7 days old)
         const { data: dbSub } = await supabase
@@ -236,11 +248,11 @@ export function usePushNotification(): UsePushNotificationReturn {
           .select('created_at')
           .eq('endpoint', existingSub.endpoint)
           .single();
-        
+
         if (dbSub) {
           const age = Date.now() - new Date(dbSub.created_at).getTime();
           const sevenDays = 7 * 24 * 60 * 60 * 1000;
-          
+
           if (age > sevenDays) {
             log('Subscription stale, refreshing...');
             await existingSub.unsubscribe();
@@ -257,10 +269,10 @@ export function usePushNotification(): UsePushNotificationReturn {
   useEffect(() => {
     // Initial refresh check
     refreshSubscription();
-    
+
     // Daily refresh
     const interval = setInterval(refreshSubscription, 24 * 60 * 60 * 1000);
-    
+
     return () => clearInterval(interval);
   }, [refreshSubscription]);
 
