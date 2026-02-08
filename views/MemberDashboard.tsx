@@ -436,8 +436,7 @@ export const MemberDashboard = () => {
       const { data: leadsData } = await supabase
         .from('leads')
         .select('*')
-        // 🔥 FIX: Fetch based on user_id OR assigned_to (Handles migrated leads)
-        .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       setLeads(leadsData || []);
