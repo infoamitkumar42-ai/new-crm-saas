@@ -131,6 +131,12 @@ const isWithinWorkingHours = (): boolean => {
   return hour >= 8 && hour < 22;
 };
 
+// 🔥 IOS DETECTION
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
 const getTimeUntilOpen = (): string => {
   const hour = new Date().getHours();
   if (hour >= 22) {
@@ -192,7 +198,8 @@ export const MemberDashboard = () => {
 
   // Local state for leads and UI only
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 🚨 IOS BYPASS: Don't show loading screen initially for iPhone users
+  const [loading, setLoading] = useState(!isIOS());
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
 
@@ -463,14 +470,14 @@ export const MemberDashboard = () => {
     }
   };
 
-  // 🚨 IOS SAFETY VALVE: Force remove loading screen after 4s
+  // 🚨 IOS SAFETY VALVE: Force remove loading screen after 4s (2s for iOS)
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("⚠️ Force releasing loading screen for iOS safety");
         setLoading(false);
       }
-    }, 4000);
+    }, isIOS() ? 1000 : 4000);
     return () => clearTimeout(safetyTimer);
   }, [loading]);
 
@@ -507,9 +514,9 @@ export const MemberDashboard = () => {
         // 1. Play Sound
         playNotificationSound();
 
-        // 2. Show System Notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('🔥 New Lead Received!', {
+        // 2. Show System Notification (Safe Check)
+        if (typeof window !== 'undefined' && 'Notification' in window && (window.Notification as any).permission === 'granted') {
+          new window.Notification('🔥 New Lead Received!', {
             body: `${newLead.name} from ${newLead.city}`,
             icon: '/logo.png',
             tag: 'new-lead-' + Date.now()
@@ -660,9 +667,9 @@ export const MemberDashboard = () => {
 
   // If we have session but no profile yet, use temp profile or just render
   const displayProfile = profile || {
-    id: session?.user?.id || 'temp',
-    email: session?.user?.email || '',
-    name: 'Loading...',
+    id: 'temp',
+    email: '',
+    name: 'User',
     role: 'member',
     is_active: true,
     leads_today: 0,
@@ -670,6 +677,16 @@ export const MemberDashboard = () => {
     total_leads_received: 0,
     payment_status: 'active'
   };
+
+  // 🛡️ CRASH PROTECTION: If leads is null or undefined, ensure at least an empty array
+  if (!leads) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-slate-500">Wait a moment...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired && !expiredDismissed ? 'overflow-hidden' : ''}`}>

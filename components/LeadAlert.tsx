@@ -38,9 +38,13 @@ export const LeadAlert: React.FC = () => {
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
   const playedLeadsRef = useRef<Set<string>>(new Set());
 
-  // 🔥 FIX: Hide Alert Button if not logged in (But keep hooks above!)
+  // 🔥 Hard Stop for iOS in rendering
+  const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+  // 🔥 FIX: Hide Alert Button if not logged in or if on iOS
   // If we return early, hooks count mismatch occurs -> React Crash
-  const shouldRender = !!session?.user; // Track leads that already played sound
+  const shouldRender = !!session?.user && !isIOS;
 
   // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
@@ -95,49 +99,55 @@ export const LeadAlert: React.FC = () => {
         throw new Error("Service Worker not supported");
       }
 
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        throw new Error("Notifications not supported");
+      }
+
       const reg = await navigator.serviceWorker.ready;
 
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-      });
+      // Wrap subscription in a timeout to prevent infinite hang
+      const sub = await Promise.race([
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Subscription Timeout")), 8000))
+      ]) as PushSubscription;
 
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('p256dh')!))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(sub.getKey('auth')!))));
 
-      // 🔥 FIX: Delete any OTHER user's subscriptions with same endpoint (prevents duplicate notifications)
-      // This handles the case when user logs into another account on same device
+      // 🔥 FIX: Delete any OTHER user's subscriptions with same endpoint
       await supabase.from('push_subscriptions')
         .delete()
         .eq('endpoint', sub.endpoint)
         .neq('user_id', session.user.id);
 
-      console.log("🧹 Cleaned duplicate subscriptions for this device");
-
-      const { error } = await supabase.from('push_subscriptions').upsert({
+      await supabase.from('push_subscriptions').upsert({
         user_id: session.user.id,
         endpoint: sub.endpoint,
         p256dh: p256dh,
         auth: auth
       }, { onConflict: 'user_id, endpoint' });
 
-      if (error) throw error;
-
       setIsSubscribed(true);
-      console.log("✅ Device Subscribed for Push!");
 
-      new Notification("Notifications Enabled", {
-        body: "You will now receive leads even when screen is off.",
-        icon: "/icon-192x192.png"
-      });
+      if (window.Notification.permission === 'granted') {
+        new window.Notification("Notifications Enabled", {
+          body: "You will now receive leads even when screen is off.",
+          icon: "/icon-192x192.png"
+        });
+      }
 
     } catch (err: any) {
       console.error("Subscription failed:", err);
-
-      // 🔥 BETTER INSTRUCTION MESSAGE FOR USERS
-      window.alert(
-        "⚠️ Notifications are Blocked!\n\nTo fix this:\n1. Tap the Lock icon 🔒 in address bar.\n2. Tap 'Permissions'.\n3. Turn ON 'Notifications'.\n\nThen refresh the page."
-      );
+      // Soft Fail: Just show a message, don't block the UI
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        alert("⚠️ iOS Connection: Please ensure you are using 'Add to Home Screen' and have enabled notifications in Settings > Safari.");
+      } else {
+        alert(`⚠️ Notification Error: ${err.message || 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }

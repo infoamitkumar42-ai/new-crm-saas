@@ -10,6 +10,21 @@ interface NotificationState {
 }
 
 export const useNotification = () => {
+  // 1. Detect iOS immediately (Hard Stop)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    return {
+      permission: 'denied' as NotificationPermission,
+      isSupported: false,
+      swRegistration: null,
+      isReady: false,
+      requestPermission: async () => false,
+      showNotification: async () => false
+    };
+  }
+
   const [state, setState] = useState<NotificationState>({
     permission: 'default',
     isSupported: false,
@@ -21,9 +36,9 @@ export const useNotification = () => {
   useEffect(() => {
     const init = async () => {
       // Check if notifications are supported
-      const isSupported = 'Notification' in window && 
-                          'serviceWorker' in navigator &&
-                          'PushManager' in window;
+      const isSupported = 'Notification' in window &&
+        'serviceWorker' in navigator &&
+        'PushManager' in window;
 
       if (!isSupported) {
         console.warn('❌ Notifications not supported');
@@ -61,7 +76,7 @@ export const useNotification = () => {
         });
 
         setState({
-          permission: Notification.permission,
+          permission: (typeof window !== 'undefined' && 'Notification' in window) ? window.Notification.permission : 'default',
           isSupported: true,
           swRegistration: readyRegistration,
           isReady: true,
@@ -84,11 +99,14 @@ export const useNotification = () => {
     }
 
     try {
-      const permission = await Notification.requestPermission();
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        throw new Error('Notifications not supported');
+      }
+      const permission = await window.Notification.requestPermission();
       console.log('📋 Permission result:', permission);
-      
+
       setState(prev => ({ ...prev, permission }));
-      
+
       return permission === 'granted';
     } catch (error) {
       console.error('Permission request failed:', error);
@@ -128,7 +146,7 @@ export const useNotification = () => {
         body: options.body || '',
         icon: options.icon || '/icon-192.png',
         badge: '/icon-192.png',
-        vibrate: [200, 100, 200],
+        vibrate: [200, 100, 200] as any,
         tag: options.tag || `lead-${Date.now()}`,
         renotify: true,
         requireInteraction: false,
@@ -145,7 +163,7 @@ export const useNotification = () => {
 
     } catch (error) {
       console.error('❌ showNotification failed:', error);
-      
+
       // Method 2: Fallback - Send message to SW
       try {
         if (navigator.serviceWorker.controller) {
@@ -160,7 +178,7 @@ export const useNotification = () => {
       } catch (e) {
         console.error('❌ Fallback also failed:', e);
       }
-      
+
       return false;
     }
   }, [state.permission, state.swRegistration, state.isReady]);

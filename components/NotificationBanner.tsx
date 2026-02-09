@@ -27,7 +27,7 @@ export const NotificationBanner: React.FC = () => {
     // Auto-hide success message after 3 seconds
     useEffect(() => {
         // If permission is already granted, don't show prompt
-        if (Notification.permission === 'granted' && !isSubscribed) {
+        if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted' && !isSubscribed) {
             setDismissed(true);
         }
 
@@ -165,7 +165,7 @@ export const NotificationBanner: React.FC = () => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
-                    onClick={subscribe}
+                    onClick={() => subscribe()}
                     disabled={isLoading}
                     style={{
                         background: 'white',

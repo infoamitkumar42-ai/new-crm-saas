@@ -19,16 +19,39 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 interface UsePushNotificationReturn {
   isSubscribed: boolean;
   isLoading: boolean;
+  isSupported: boolean;
+  permission: NotificationPermission;
   error: string | null;
-  subscribe: () => Promise<boolean>;
+  subscribe: (isSilent?: boolean) => Promise<boolean>;
   unsubscribe: () => Promise<boolean>;
   testNotification: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
 }
 
 export function usePushNotification(): UsePushNotificationReturn {
+  // 1. Detect iOS immediately (Hard Stop)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    return {
+      isSubscribed: false,
+      isLoading: false,
+      isSupported: false,
+      permission: 'denied',
+      error: null,
+      subscribe: async () => { alert("Please use 'Add to Home Screen' for notifications on iOS."); return false; },
+      unsubscribe: async () => false,
+      testNotification: async () => { },
+      refreshSubscription: async () => { }
+    };
+  }
+
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission>('default');
   const [error, setError] = useState<string | null>(null);
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
@@ -36,7 +59,7 @@ export function usePushNotification(): UsePushNotificationReturn {
 
   // Debug logger (reduced logging for performance)
   const log = (message: string, data?: any) => {
-    if (import.meta.env.DEV) {
+    if ((import.meta.env as any).DEV) {
       console.log(`[Push] ${message}`, data || '');
     }
   };
@@ -50,10 +73,14 @@ export function usePushNotification(): UsePushNotificationReturn {
           return;
         }
 
-        if (!('PushManager' in window)) {
+        if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
           log('Push notifications not supported');
+          setIsSupported(false);
           return;
         }
+
+        setIsSupported(true);
+        setPermission(window.Notification.permission);
 
         // Register service worker
         const registration = await navigator.serviceWorker.register('/sw.js', {
@@ -82,7 +109,7 @@ export function usePushNotification(): UsePushNotificationReturn {
 
   // Auto-Sync: If permission granted, update UI and sync DB
   useEffect(() => {
-    if (Notification.permission === 'granted') {
+    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
       setIsSubscribed(true);
       // Silent sync
       subscribe(true);
@@ -114,88 +141,70 @@ export function usePushNotification(): UsePushNotificationReturn {
     if (!isSilent) setIsLoading(true);
     if (!isSilent) setError(null);
 
-    // Timeout Promise (10 Seconds)
+    // Timeout Promise (5 Seconds)
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out (server stuck)')), 10000)
+      setTimeout(() => reject(new Error('Timeout: Subscription took too long')), 5000)
     );
 
-    const subscribeLogic = async () => {
-      // Step 1: Check VAPID key
+    try {
+      // Step 0: Check VAPID key
       if (!VAPID_KEY) {
         throw new Error('System Error: VAPID Key missing');
       }
 
-      // Step 2: Request notification permission
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        throw new Error('Notification permission denied');
+      // Step 1: Check service worker support
+      if (!('serviceWorker' in navigator)) {
+        throw new Error('Service Worker not supported');
       }
 
-      // Step 3: Check service worker
-      if (!swRegistrationRef.current) {
-        // Try updating reg ref
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) swRegistrationRef.current = reg;
-        else throw new Error('Service Worker not registered');
-      }
+      // Step 2: Race against logic
+      await Promise.race([
+        (async () => {
+          // Request notification permission
+          if (typeof window === 'undefined' || !('Notification' in window)) {
+            throw new Error('Notifications not supported');
+          }
 
-      if (!swRegistrationRef.current.active) {
-        await navigator.serviceWorker.ready;
-      }
+          const permissionResult = await window.Notification.requestPermission();
+          setPermission(permissionResult);
+          if (permissionResult !== 'granted') {
+            throw new Error('Notification permission denied');
+          }
 
-      // Step 4: Create push subscription
-      // Unsubscribe from any existing subscription first
-      const existingSub = await swRegistrationRef.current.pushManager.getSubscription();
-      if (existingSub) {
-        await existingSub.unsubscribe();
-      }
+          // Service worker ready
+          const reg = await navigator.serviceWorker.ready;
+          swRegistrationRef.current = reg;
 
-      const subscription = await swRegistrationRef.current.pushManager.subscribe({
-        userVisibleOnly: true,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
-      });
+          // Subscribe
+          const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
+          });
 
-      const subJson = subscription.toJSON();
+          const subJson = subscription.toJSON();
+          if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+            throw new Error('Invalid subscription data received');
+          }
 
-      // Validate subscription data
-      if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-        throw new Error('Invalid subscription data received from browser');
-      }
+          // Save to DB
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not logged in');
 
-      // Step 5: Check authentication
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+          const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
+            p_endpoint: subJson.endpoint,
+            p_p256dh: subJson.keys.p256dh,
+            p_auth: subJson.keys.auth,
+            p_user_agent: navigator.userAgent
+          });
 
-      if (authError || !user) {
-        throw new Error('User not logged in');
-      }
+          if (rpcError) throw new Error(`Database error: ${rpcError.message}`);
 
-      // Step 6: Save to database using RPC function
-      // Retry logic for DB? No, just fail fast if timeout.
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('upsert_push_subscription', {
-        p_endpoint: subJson.endpoint,
-        p_p256dh: subJson.keys.p256dh,
-        p_auth: subJson.keys.auth,
-        p_user_agent: navigator.userAgent
-      });
+          setIsSubscribed(true);
+          return true;
+        })(),
+        timeoutPromise
+      ]);
 
-      if (rpcError) {
-        throw new Error(`Database error: ${rpcError.message}`);
-      }
-
-      // Check if the function returned success (if it returns json)
-      if (rpcResult && typeof rpcResult === 'object' && !rpcResult.success) {
-        throw new Error(rpcResult.error || 'Database save failed');
-      }
-
-      setIsSubscribed(true);
-      log('✅ Subscribed successfully');
-      return true;
-    };
-
-    try {
-      // RACE: Logic vs Timeout
-      await Promise.race([subscribeLogic(), timeoutPromise]);
       return true;
 
     } catch (err: any) {
@@ -204,7 +213,8 @@ export function usePushNotification(): UsePushNotificationReturn {
 
       if (!isSilent) {
         setError(errorMessage);
-        alert(`❌ Notification setup failed:\n\n${errorMessage}`);
+        // Soft alert only
+        console.error("Subscription Error:", errorMessage);
       }
 
       return false;
@@ -318,6 +328,8 @@ export function usePushNotification(): UsePushNotificationReturn {
   return {
     isSubscribed,
     isLoading,
+    isSupported,
+    permission,
     error,
     subscribe,
     unsubscribe,

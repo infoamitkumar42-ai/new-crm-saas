@@ -160,12 +160,12 @@ serve(async (req) => {
                     if (manager) {
                         // Option A: Get users via manager_id relationship (Best if relational)
                         // But if using string codes:
-                        teamUsersQuery = teamUsersQuery.eq('team_code', manager.team_code);
+                        teamUsersQuery = teamUsersQuery.eq('team_code', manager.team_code).neq('role', 'manager');
                         // NOTE: If team members have different codes (e.g. sub-codes), this needs adjustment.
                         // Assuming all members of a team share the SAME team_code for now as per system design.
                     } else {
                         // Fallback: direct match on string
-                        teamUsersQuery = teamUsersQuery.eq('team_code', requiredTeamCode);
+                        teamUsersQuery = teamUsersQuery.eq('team_code', requiredTeamCode).neq('role', 'manager');
                     }
 
                     const { data: teamUsers } = await teamUsersQuery;
