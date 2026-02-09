@@ -175,11 +175,29 @@ export function usePushNotification(): UsePushNotificationReturn {
           const reg = await navigator.serviceWorker.ready;
           swRegistrationRef.current = reg;
 
-          // Subscribe
-          const subscription = await reg.pushManager.subscribe({
+          // Subscribe (with Auto-Fix for Key Mismatch)
+          let subscription;
+          const subscribeOptions = {
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
-          });
+          };
+
+          try {
+            subscription = await reg.pushManager.subscribe(subscribeOptions);
+          } catch (subErr: any) {
+            // 🔥 AUTO-FIX: If key mismatch, unsubscribe and retry
+            if (subErr.message?.includes('applicationServerKey') || subErr.name === 'InvalidStateError') {
+              log('⚠️ VAPID Key Mismatch detected. Unsubscribing old keys and retrying...');
+              const existingSub = await reg.pushManager.getSubscription();
+              if (existingSub) {
+                await existingSub.unsubscribe();
+              }
+              // Retry with new key
+              subscription = await reg.pushManager.subscribe(subscribeOptions);
+            } else {
+              throw subErr;
+            }
+          }
 
           const subJson = subscription.toJSON();
           if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
