@@ -258,7 +258,7 @@ export const MemberDashboard = () => {
   };
 
   const daysLeft = getDaysUntilExpiry();
-  const isExpired = !loading && profile && ((daysLeft !== null && daysLeft <= 0) || profile.payment_status === 'inactive');
+  const isExpired = !loading && profile && ((daysLeft !== null && daysLeft <= 0) || (profile.payment_status && profile.payment_status !== 'active'));
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
@@ -781,7 +781,7 @@ export const MemberDashboard = () => {
               <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
                 <Clock size={18} className="animate-pulse" />
                 <span className="text-sm font-medium">
-                  ⏰ Aapka plan <span className="font-bold">{profile.plan_name}</span>
+                  ⏰ Aapka plan <span className="font-bold">{profile?.plan_name || 'Processing...'}</span>
                   {minutesLeft > 0 ? (
                     <> {minutesLeft} minute mein active hoga. Thoda wait karein!</>
                   ) : (

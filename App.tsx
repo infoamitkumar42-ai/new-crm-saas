@@ -74,11 +74,12 @@ const DashboardRouter: React.FC = () => {
     return <LoadingScreen />;
   }
 
-  if (!profile) {
+  if (!profile || !profile.role) {
+    console.warn("⚠️ DashboardRouter: Missing profile or role. Redirecting...");
     return <Navigate to="/login" replace />;
   }
 
-  const role = profile.role?.toLowerCase().trim();
+  const role = profile.role.toLowerCase().trim();
 
   switch (role) {
     case 'admin':

@@ -84,63 +84,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
 
     } catch (err: any) {
-      // 🛑 HANDLE TIMEOUT (Force Load)
-      if (err.message === 'TIMEOUT') {
-        console.warn("⚠️ Auth Timed Out (4s) - Forcing Dashboard Load (Offline Mode)");
-        return {
-          id: userId,
-          email: 'offline@timeout.com',
-          name: 'Offline User (Timeout)',
-          role: 'member',
-          sheet_url: '',
-          payment_status: 'inactive',
-          valid_until: null,
-          filters: {},
-          daily_limit: 0,
-          leads_today: 0,
-          total_leads_received: 0,
-          is_active: true,
-          days_extended: 0,
-          total_leads_promised: 0,
-          created_at: new Date().toISOString(),
-        } as User;
-      }
-
-      console.error("🛑 AUTH FAILURE DETAILS:", {
-        message: err instanceof Error ? err.message : String(err),
-        details: JSON.stringify(err, Object.getOwnPropertyNames(err), 2),
-        hint: "Check Network Tab for 400/404/500 errors"
-      });
-
-      // 2. Fallback: Raw Fetch (NO SIGNAL)
-      if (err.message && !err.message.includes('AbortError')) {
-        console.warn('⚠️ SDK failed, trying Raw Fetch override...');
-      }
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return null;
-
-        const response = await fetch(`${ENV.SUPABASE_URL}/rest/v1/users?id=eq.${userId}&select=*`, {
-          method: 'GET',
-          headers: {
-            'apikey': ENV.SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          }
+      // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
+      const status = typeof err === 'object' ? (err.status || err.code) : '';
+      if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
+        console.error("⛔ Supabase Access Forbidden (403/401). Clearing session...");
+        supabase.auth.signOut().then(() => {
+          localStorage.removeItem('leadflow-auth-session');
+          if (mountedRef.current) window.location.href = '/login';
         });
+        return null; // Stop here
+      }
 
-        if (!response.ok) return null;
-
-        const rows = await response.json();
-        if (mountedRef.current && rows && rows.length > 0) {
-          console.log('✅ RAW Profile fetched:', rows[0].name);
-          return rows[0] as User;
-        }
-
-      } catch (fallbackErr: any) {
-        // 🔇 NUCLEAR SILENCE: Do not log ANY fallback errors (including Aborts)
+      // 🛑 HANDLE TIMEOUT (Safe Null)
+      if (err.message === 'TIMEOUT') {
+        console.warn("⚠️ Auth Timed Out (4s). Redirecting safely...");
+        return null; // Do not return a fake object, return null to force loading/login redirect
       }
 
       return null;
@@ -206,6 +164,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (userProfile) {
         console.log('✅ Profile loaded:', userProfile.name);
         setProfile(userProfile);
+        setLoading(false); // ✅ Fix: Close loading screen immediately
       } else if (retryCount < MAX_RETRIES) {
         // Retry with exponential backoff
         const backoffMs = 1000 * (retryCount + 1);
