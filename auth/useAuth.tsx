@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // 1. Define Timeout Promise (4 seconds)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 4000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 10000)
       );
 
       // 2. Define Fetch Promise (NO ABORT SIGNALS)
@@ -97,8 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 🛑 HANDLE TIMEOUT (Safe Null)
       if (err.message === 'TIMEOUT') {
-        console.warn("⚠️ Auth Timed Out (4s). Redirecting safely...");
-        return null; // Do not return a fake object, return null to force loading/login redirect
+        console.warn("⏳ Auth profile fetch taking longer than usual... retrying.");
+        return null;
       }
 
       return null;

@@ -477,7 +477,7 @@ export const MemberDashboard = () => {
         console.warn("⚠️ Force releasing loading screen for iOS safety");
         setLoading(false);
       }
-    }, isIOS() ? 1000 : 4000);
+    }, isIOS() ? 5000 : 15000);
     return () => clearTimeout(safetyTimer);
   }, [loading]);
 
