@@ -157,7 +157,7 @@ export function usePushNotification(): UsePushNotificationReturn {
 
       // 1. Ensure Service Worker is ready
       if (!navigator.serviceWorker.controller) {
-        console.warn("⚠️ No active Service Worker found. Registering...");
+        console.info("ℹ️ No active Service Worker found. Registering...");
         await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       }
 
@@ -214,7 +214,7 @@ export function usePushNotification(): UsePushNotificationReturn {
     } catch (err: any) {
       // 🛑 HANDLE 403/Login issues quietly if silent sync
       const isLoginError = err.message?.includes('User not logged in') || err.status === 403;
-      
+
       if (isLoginError) {
         if (!isSilent) console.warn("Push sync skipped: User not logged in.");
         return false;
