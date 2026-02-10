@@ -160,6 +160,18 @@ export function usePushNotification(): UsePushNotificationReturn {
         throw new Error('Service Worker not supported');
       }
 
+      // Step 1.5: SELF-HEALING: If no SW is controlling the page, install it NOW.
+      if (!navigator.serviceWorker.controller) {
+        console.warn("⚠️ No active Service Worker found. Installing...");
+        try {
+          await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          // Wait for it to activate
+          await navigator.serviceWorker.ready;
+        } catch (regError) {
+          console.error("SW Install Failed:", regError);
+        }
+      }
+
       // Step 2: Race against logic
       await Promise.race([
         (async () => {
@@ -243,6 +255,14 @@ export function usePushNotification(): UsePushNotificationReturn {
           await registration.unregister();
         }
         window.location.reload(); // Reload to get a fresh start
+        return false;
+      }
+
+      // CATCH & FIX MISSING SW
+      if (errorMessage.includes('no active Service Worker') || err.name === 'AbortError') {
+        console.warn("Critical: SW missing during subscribe. Re-registering and reloading...");
+        await navigator.serviceWorker.register('/sw.js');
+        setTimeout(() => window.location.reload(), 500);
         return false;
       }
 
