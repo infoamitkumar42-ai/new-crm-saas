@@ -145,30 +145,18 @@ serve(async (req) => {
                     }
 
                     // 2. FETCH TEAM MEMBERS ONLY (Isolation)
-                    // We check if user's team_code STARTS WITH or MATCHES the Page's Team ID
-                    // This allows variations like 'TEAMFIRE_GUJ' to match 'TEAMFIRE' (if desired) OR strict match.
-                    // Let's do STRICT match or Manager Check via user relation.
-
-                    // Improved: Find Manager first
-                    const { data: manager } = await supabase.from('users').select('id, team_code').eq('team_code', requiredTeamCode).eq('role', 'manager').single();
-
-                    let teamUsersQuery = supabase.from('users')
-                        .select('id, name, email, plan_name, daily_limit, team_code')
-                        .eq('is_active', true)
-                        .eq('is_online', true);
-
-                    if (manager) {
-                        // Option A: Get users via manager_id relationship (Best if relational)
-                        // But if using string codes:
-                        teamUsersQuery = teamUsersQuery.eq('team_code', manager.team_code).neq('role', 'manager');
-                        // NOTE: If team members have different codes (e.g. sub-codes), this needs adjustment.
-                        // Assuming all members of a team share the SAME team_code for now as per system design.
-                    } else {
-                        // Fallback: direct match on string
-                        teamUsersQuery = teamUsersQuery.eq('team_code', requiredTeamCode).neq('role', 'manager');
+                    // ALLOW MULTI-TEAM SHARING (Himanshu + Simran)
+                    const allowedTeams = [requiredTeamCode];
+                    if (requiredTeamCode === 'TEAMFIRE') {
+                        allowedTeams.push('TEAMSIMRAN');
                     }
 
-                    const { data: teamUsers } = await teamUsersQuery;
+                    const { data: teamUsers } = await supabase.from('users')
+                        .select('id, name, email, plan_name, daily_limit, team_code')
+                        .eq('is_active', true)
+                        .eq('is_online', true)
+                        .in('team_code', allowedTeams)
+                        .neq('role', 'manager');
 
                     if (!teamUsers || teamUsers.length === 0) {
                         console.log(`⚠️ No Online Users found for Team ${requiredTeamCode}`);
