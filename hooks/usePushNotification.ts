@@ -100,7 +100,9 @@ export function usePushNotification(): UsePushNotificationReturn {
         const existingSubscription = await registration.pushManager.getSubscription();
         if (existingSubscription) {
           log('Existing subscription found');
+          console.log("🔄 [LeadAlert] Auto-Synced Subscription to DB");
           setIsSubscribed(true);
+          setIsLoading(false);
         }
       } catch (err) {
         log('Init error', err);
@@ -235,6 +237,7 @@ export function usePushNotification(): UsePushNotificationReturn {
 
           if (rpcError) throw new Error(`Database error: ${rpcError.message}`);
 
+          console.log("🔄 [LeadAlert] Auto-Synced Subscription to DB");
           setIsSubscribed(true);
           return true;
         })(),
