@@ -246,27 +246,34 @@ export function usePushNotification(): UsePushNotificationReturn {
         return false;
       }
 
-      // SILENT RECOVERY: Check for the specific mismatch error
+      // PERMANENT FIX: Handle VAPID Mismatch with DELAY
       if (errorMessage.includes('different applicationServerKey') || errorMessage.includes('gcm_sender_id')) {
-        console.warn("VAPID Key Mismatch detected. Silently fixing...");
+        console.warn("Key Mismatch. Initiating Deep Clean...");
 
-        // 1. Get the zombie subscription
         try {
+          // 1. Kill Subscription
           const reg = await navigator.serviceWorker.ready;
           const sub = await reg.pushManager.getSubscription();
+          if (sub) await sub.unsubscribe();
 
-          // 2. Kill it
-          if (sub) {
-            await sub.unsubscribe();
-            console.log("Old subscription removed.");
+          // 2. Kill Service Worker
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
           }
-        } catch (unsubErr) {
-          console.error("Failed to unsubscribe old SW:", unsubErr);
-        }
 
-        // 3. Force Reload to clear state (User will click button again and it will work)
-        window.location.reload();
-        return false; // <--- CRITICAL: Return here so NO alert is shown
+          // 3. Kill Local Storage
+          localStorage.removeItem('leadflow_push_subscribed');
+
+        } catch (e) { console.error("Cleanup error", e); }
+
+        // 4. THE MAGIC FIX: Wait 1 second before reload
+        console.log("Reloading in 1 second...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+
+        return false;
       }
 
       if (!isSilent) {
