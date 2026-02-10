@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
+  const loadingProfileFor = useRef<string | null>(null); // 🔥 Prevents parallel loads
 
   const isAuthenticated = !!session && !!profile;
 
@@ -97,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 🛑 HANDLE TIMEOUT (Safe Null)
       if (err.message === 'TIMEOUT') {
-        console.warn("⏳ Auth profile fetch taking longer than usual... retrying.");
+        // Silent timeout
         return null;
       }
 
@@ -115,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'amitdemo1@gmail.com'
     ].includes(userEmailLower);
 
-    console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
+    // console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
 
     return {
       id: user.id,
@@ -141,8 +142,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // 🛑 CIRCUIT BREAKER: Stop after 2 failed retries
     const MAX_RETRIES = 2;
+
+    // Prevent parallel loads for same user
+    if (loadingProfileFor.current === user.id && retryCount === 0) {
+      return;
+    }
+
     if (retryCount > MAX_RETRIES) {
-      console.error('⛔ Profile loading failed after', MAX_RETRIES, 'retries. Stopping.');
       if (mountedRef.current) {
         // Use temp profile as last resort to allow UI to render
         setProfile(createTempProfile(user));
@@ -152,31 +158,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      console.log(`🔍 Loading profile for: ${user.email} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-
-      // 🛑 AUTO-REDIRECT REMOVED: Vercel headers now handle cache busting.
-      // usage of window.location.replace was causing AbortErrors on some devices.
+      if (retryCount === 0) loadingProfileFor.current = user.id;
 
       let userProfile = await fetchProfile(user.id);
 
       if (!mountedRef.current) return;
 
       if (userProfile) {
-        console.log('✅ Profile loaded:', userProfile.name);
         setProfile(userProfile);
-        setLoading(false); // ✅ Fix: Close loading screen immediately
+        setLoading(false);
+        loadingProfileFor.current = null;
       } else if (retryCount < MAX_RETRIES) {
         // Retry with exponential backoff
         const backoffMs = 1000 * (retryCount + 1);
-        console.warn(`⚠️ Retry ${retryCount + 1} in ${backoffMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
 
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
         // Max retries reached, use temp profile
-        console.warn('⚠️ Using temp profile after failed retries');
         setProfile(createTempProfile(user));
+        loadingProfileFor.current = null;
       }
     } catch (err: any) {
       // 🛑 IGNORE ABORT ERRORS (Don't fail, don't retry, just exit)
@@ -191,16 +193,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (retryCount < MAX_RETRIES) {
           // Retry on legitimate error
           const backoffMs = 1500 * (retryCount + 1);
-          console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
+          // console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
 
           if (!mountedRef.current) return;
           await loadUserProfile(user, retryCount + 1);
         } else {
           // Max retries reached
-          console.warn('⚠️ Max retries reached, using temp profile');
+          // console.warn('⚠️ Max retries reached, using temp profile');
           setProfile(createTempProfile(user));
           setLoading(false); // Ensure we stop loading
+          loadingProfileFor.current = null;
         }
       }
     }

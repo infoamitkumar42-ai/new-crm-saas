@@ -474,7 +474,7 @@ export const MemberDashboard = () => {
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
-        console.warn("⚠️ Force releasing loading screen for iOS safety");
+        // console.warn("⚠️ Force releasing loading screen for iOS safety");
         setLoading(false);
       }
     }, isIOS() ? 5000 : 15000);
