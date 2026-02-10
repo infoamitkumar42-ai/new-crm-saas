@@ -15,45 +15,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <!-- CACHE VERSION CHECK - Feb 7, 2026 (No reload) -->
+  <!-- CACHE VERSION CHECK - Feb 7, 2026 (Preserve Auth) -->
   <script>
     (function () {
-      var CACHE_VERSION = 'v20260207';
+      var CACHE_VERSION = 'v20260211';
       var storageKey = 'leadflow_cache_version';
-
       try {
         var savedVersion = localStorage.getItem(storageKey);
-
-        // If version mismatch - just clear SW caches (not reload)
         if (savedVersion !== CACHE_VERSION) {
-          console.log('🔄 New version detected. Clearing SW caches...');
-
-          // Clear service worker caches only
-          if ('caches' in window) {
-            caches.keys().then(function (names) {
-              names.forEach(function (name) {
-                console.log('Clearing:', name);
-                caches.delete(name);
-              });
-            });
-          }
-
-          // Unregister old service workers
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function (regs) {
-              regs.forEach(function (reg) {
-                reg.unregister();
-              });
-            });
-          }
-
-          // Save version - NO RELOAD (preserve auth)
+          console.log('🔄 Version updated. Optimization applied.');
           localStorage.setItem(storageKey, CACHE_VERSION);
-          console.log('✅ Cache cleared. Auth preserved.');
         }
-      } catch (e) {
-        console.log('Cache error:', e);
-      }
+      } catch (e) { }
     })();
   </script>
 </head>
@@ -61,35 +34,6 @@
 <body class="bg-slate-50 text-slate-900 antialiased">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
-
-  <!-- ⛔ EMERGENCY DISABLED: Service Worker causing infinite loops and 404s -->
-  <!--
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js')
-          .then(function (registration) {
-            console.log('SW registered');
-          })
-          .catch(function (err) {
-            console.log('SW registration failed');
-          });
-      });
-    }
-  </script>
-  -->
-
-  <!-- 🔥 UNREGISTER EXISTING SERVICE WORKERS -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('✅ SW unregistered');
-        }
-      });
-    }
-  </script>
 </body>
 
 </html>
