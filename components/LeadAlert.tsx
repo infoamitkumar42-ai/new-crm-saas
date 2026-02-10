@@ -37,9 +37,9 @@ export const LeadAlert: React.FC = () => {
     audioRef.current = new Audio(SOUND_URL);
     audioRef.current.volume = 0.7;
 
-    // Check Initial Permission
+    // Check Initial Permission (Status is handled by hook now)
     if ('Notification' in window) {
-      setPermissionStatus(Notification.permission);
+      console.log("🔔 [LeadAlert] Permission:", Notification.permission);
     }
 
     // 🔥 FIX: Just unlock audio context without playing

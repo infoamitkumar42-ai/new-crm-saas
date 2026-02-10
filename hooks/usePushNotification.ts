@@ -85,8 +85,9 @@ export function usePushNotification(): UsePushNotificationReturn {
               console.log("✅ [LeadAlert] Subscription found. Syncing state.");
               setIsSubscribed(true);
               setIsLoading(false);
-              // Silent sync to DB
-              subscribe(true);
+              // Silent sync to DB (Only if user is logged in)
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) subscribe(true);
             } else {
               console.log("ℹ️ [LeadAlert] No subscription yet. UI will show 'Enable Button'.");
               setIsSubscribed(false);
