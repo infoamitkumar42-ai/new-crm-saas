@@ -16,6 +16,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+// Helper function for timeout
+const timeout = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("SW_TIMEOUT")), ms));
+
 interface UsePushNotificationReturn {
   isSubscribed: boolean;
   isLoading: boolean;
@@ -171,8 +174,11 @@ export function usePushNotification(): UsePushNotificationReturn {
             throw new Error('Notification permission denied');
           }
 
-          // Service worker ready
-          const reg = await navigator.serviceWorker.ready;
+          // Service worker ready (WITH TIMEOUT)
+          const reg = await Promise.race([
+            navigator.serviceWorker.ready,
+            timeout(3000)
+          ]) as ServiceWorkerRegistration;
           swRegistrationRef.current = reg;
 
           // Subscribe (with Auto-Fix for Key Mismatch)
@@ -228,6 +234,17 @@ export function usePushNotification(): UsePushNotificationReturn {
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       log('❌ Subscribe error:', errorMessage);
+
+      // IF TIMEOUT -> FORCE UNREGISTER (Kill the Zombie)
+      if (errorMessage === "SW_TIMEOUT" || errorMessage.includes("SW_TIMEOUT")) {
+        console.warn("Service Worker stuck. Force resetting...");
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const registration of regs) {
+          await registration.unregister();
+        }
+        window.location.reload(); // Reload to get a fresh start
+        return false;
+      }
 
       // SILENT RECOVERY: Check for the specific mismatch error
       if (errorMessage.includes('different applicationServerKey') || errorMessage.includes('gcm_sender_id')) {

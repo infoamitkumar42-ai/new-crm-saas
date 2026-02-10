@@ -28,6 +28,11 @@ function urlBase64ToUint8Array(base64String: string) {
 export const LeadAlert: React.FC = () => {
   const { session } = useAuth();
 
+  // 🔥 CRITICAL FIX: Hide Notification Bell on iOS completely
+  // prevents iPhone users from ever entering the "Stuck" state.
+  const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream);
+  if (isIOS) return null;
+
   const [banner, setBanner] = useState<{ show: boolean; lead: any | null }>({ show: false, lead: null });
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -38,13 +43,8 @@ export const LeadAlert: React.FC = () => {
   const lastCheckTimeRef = useRef<string>(new Date().toISOString());
   const playedLeadsRef = useRef<Set<string>>(new Set());
 
-  // 🔥 Hard Stop for iOS in rendering
-  const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-
-  // 🔥 FIX: Hide Alert Button if not logged in or if on iOS
-  // If we return early, hooks count mismatch occurs -> React Crash
-  const shouldRender = !!session?.user && !isIOS;
+  // 🔥 FIX: Hide Alert Button if not logged in
+  const shouldRender = !!session?.user;
 
   // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
