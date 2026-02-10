@@ -212,11 +212,19 @@ export function usePushNotification(): UsePushNotificationReturn {
       return true;
 
     } catch (err: any) {
-      console.error("Subscribe Error:", err.message);
+      // 🛑 HANDLE 403/Login issues quietly if silent sync
+      const isLoginError = err.message?.includes('User not logged in') || err.status === 403;
+      
+      if (isLoginError) {
+        if (!isSilent) console.warn("Push sync skipped: User not logged in.");
+        return false;
+      }
+
+      console.warn("Subscribe Info:", err.message);
 
       // Only reload for critical key mismatch after 1s delay (manual action)
       if (err.message?.includes('different applicationServerKey')) {
-        console.error("Critical Mismatch. Resetting in 1s...");
+        console.error("Critical VAPID Mismatch. Resetting in 1s...");
         setTimeout(() => window.location.reload(), 1000);
       } else if (!isSilent) {
         setError(err.message);
