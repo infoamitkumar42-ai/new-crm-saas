@@ -50,8 +50,14 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<User | null>(() => {
+    // 🔥 INSTANT CACHE: Load from storage immediately for zero-wait UI
+    try {
+      const cached = sessionStorage.getItem('leadflow-profile-cache');
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
+  const [loading, setLoading] = useState(!profile); // Only show loader if NO cache
 
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
@@ -168,6 +174,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(userProfile);
         setLoading(false);
         loadingProfileFor.current = null;
+        // 🔥 SAVE TO CACHE
+        try {
+          sessionStorage.setItem('leadflow-profile-cache', JSON.stringify(userProfile));
+        } catch { }
       } else if (retryCount < MAX_RETRIES) {
         // Retry with exponential backoff
         const backoffMs = 1000 * (retryCount + 1);
@@ -245,7 +255,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentSession?.user) {
           setSession(currentSession);
-          await loadUserProfile(currentSession.user);
+          // Only fetch if profile is missing OR we are in a fresh session
+          if (!profile || profile.id !== currentSession.user.id) {
+            await loadUserProfile(currentSession.user);
+          } else {
+            // Background refresh even if cached
+            loadUserProfile(currentSession.user, 0);
+          }
         }
       } catch (err: any) {
         if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
@@ -284,6 +300,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(null);
         setProfile(null);
         setLoading(false);
+        sessionStorage.removeItem('leadflow-profile-cache');
       }
 
       if (event === 'TOKEN_REFRESHED' && newSession) {
