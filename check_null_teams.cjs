@@ -12,11 +12,12 @@ envConfig.split('\n').forEach(line => {
 
 const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY);
 
-async function checkRecentLeads() {
-    const { data: leads, error } = await supabase
-        .from('leads')
-        .select('name, created_at, assigned_to')
-        .order('created_at', { ascending: false })
+async function checkNullTeams() {
+    const { data: users, error } = await supabase
+        .from('users')
+        .select('name, email, team_code, role')
+        .is('team_code', null)
+        .eq('role', 'member')
         .limit(20);
 
     if (error) {
@@ -24,11 +25,8 @@ async function checkRecentLeads() {
         return;
     }
 
-    console.log('--- LATEST 20 LEADS ---');
-    leads.forEach(l => {
-        const istDate = new Date(l.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        console.log(`- ${l.name} | IST: ${istDate} | Assigned: ${l.assigned_to}`);
-    });
+    console.log('--- USERS WITH NULL TEAM_CODE ---');
+    users.forEach(u => console.log(`- ${u.name} | ${u.email}`));
 }
 
-checkRecentLeads();
+checkNullTeams();

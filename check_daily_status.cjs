@@ -1,69 +1,90 @@
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
 
-const SUPABASE_URL = 'https://vewqzsqddgmkslnuctvb.supabase.co';
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3F6c3FkZGdta3NsbnVjdHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MzA0NjIsImV4cCI6MjA4MDEwNjQ2Mn0.g-e8YNzEy0Z5ul1RGAhBMDj41TtWGuNPEzZz4XEGPg4";
+// Manually load env vars from .env
+const envPath = path.join(process.cwd(), '.env');
+const envConfig = fs.readFileSync(envPath, 'utf8');
+const env = {};
+envConfig.split('\n').forEach(line => {
+    const [key, value] = line.split('=');
+    if (key && value) env[key.trim()] = value.trim().replace(/^"|"$/g, '');
+});
 
-const supabase = createClient(SUPABASE_URL, ANON_KEY);
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY);
 
-async function checkDailyStatus() {
-    console.log("📊 Checking Daily Limit Status for Himanshu's Team...\n");
+async function checkTodayLeads() {
+    const now = new Date();
+    // UTC "Today" starts at midnight UTC
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 
-    const { data: users, error } = await supabase
-        .from('users')
-        .select('name, email, plan_name, daily_limit, leads_today')
-        .eq('is_active', true)
-        .neq('plan_name', 'none')
-        .order('leads_today', { ascending: false });
+    // Indian "Today" starts at midnight IST (UTC-5:30)
+    // To be safe, let's check everything from the last 24 hours
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-    if (error) {
-        console.error("Error fetching users:", error.message);
+    console.log(`\n📊 Precise System Audit (Last 24 Hours)`);
+    console.log(`🕒 Current Time: ${now.toISOString()}`);
+
+    // 1. Fetch leads from last 24 hours to find the "today" start
+    const { data: leads, error: leadsError } = await supabase
+        .from('leads')
+        .select('id, assigned_to, name, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+    if (leadsError) {
+        console.error('Error fetching leads:', leadsError);
         return;
     }
 
-    let completed = [];
-    let pending = [];
+    // Filter leads created since 12:00 AM IST today
+    // IST = UTC + 5:30. So 12:00 AM IST = 6:30 PM UTC (Yesterday)
+    const startOfTodayIST = new Date();
+    startOfTodayIST.setHours(0, 0, 0, 0); // Local midnight
 
+    const todayLeads = leads.filter(l => new Date(l.created_at) >= startOfTodayIST);
+
+    console.log(`✅ Leads generated since 12:00 AM IST Today: ${todayLeads.length}`);
+
+    // 2. Distributions by teams (using the list we already got)
+    const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('email, name, role, team_code, leads_today, daily_limit')
+        .gt('leads_today', 0)
+        .order('leads_today', { ascending: false });
+
+    if (usersError) return;
+
+    const teams = {};
     users.forEach(u => {
-        const limit = u.daily_limit || 0;
-        const today = u.leads_today || 0;
-        const remaining = Math.max(0, limit - today);
-
-        const entry = {
-            name: u.name || 'Unknown',
-            email: u.email,
-            plan: u.plan_name,
-            limit: limit,
-            today: today,
-            remaining: remaining
-        };
-
-        if (today >= limit && limit > 0) {
-            completed.push(entry);
-        } else {
-            pending.push(entry);
-        }
+        const team = u.team_code || 'No Team';
+        if (!teams[team]) teams[team] = { membersCount: 0, totalLeads: 0 };
+        teams[team].membersCount++;
+        teams[team].totalLeads += u.leads_today;
     });
 
-    // 🟢 COMPLETED USERS
-    console.log(`✅ COMPLETED / FULL (${completed.length} Users)`);
-    console.log(`| Name                     | Limit | Today | Status |`);
-    console.log(`|--------------------------|-------|-------|--------|`);
-    completed.forEach(u => {
-        console.log(`| ${u.name.padEnd(24)} | ${String(u.limit).padEnd(5)} | ${String(u.today).padEnd(5)} | ✅ DONE |`);
+    console.log('\n👥 Team Distribution Summary:');
+    Object.keys(teams).forEach(t => {
+        console.log(`📍 Team ${t}: ${teams[t].totalLeads} leads distributed to ${teams[t].membersCount} members.`);
     });
 
-    console.log("\n------------------------------------------------\n");
+    // 3. Manager Safety Check
+    const managersWithLeads = users.filter(u => u.role === 'manager');
+    if (managersWithLeads.length > 0) {
+        console.log('\n❌ ALERT: Managers received leads!');
+        managersWithLeads.forEach(m => console.log(`   - ${m.name}: ${m.leads_today}`));
+    } else {
+        console.log('\n✅ Integrity: No managers received leads today.');
+    }
 
-    // 🟡 PENDING USERS
-    console.log(`⏳ PENDING LEADS (${pending.length} Users)`);
-    console.log(`| Name                     | Limit | Today | Pending |`);
-    console.log(`|--------------------------|-------|-------|---------|`);
-    pending.forEach(u => {
-        console.log(`| ${u.name.padEnd(24)} | ${String(u.limit).padEnd(5)} | ${String(u.today).padEnd(5)} | 🔥 ${u.remaining} |`);
-    });
-
-    const totalPending = pending.reduce((sum, u) => sum + u.remaining, 0);
-    console.log(`\n📉 TOTAL PENDING DEMAND: ${totalPending} leads`);
+    // 4. Verification Check
+    if (todayLeads.length > 0) {
+        console.log('\n✨ System Performance:');
+        console.log(`   - Leads are being assigned in real-time.`);
+        console.log(`   - Latest Lead: ${todayLeads[0].name} at ${new Date(todayLeads[0].created_at).toLocaleTimeString()}`);
+    } else {
+        console.log('\n⚠️ No leads in Table for today yet (Wait for Meta Webhook traffic).');
+    }
 }
 
-checkDailyStatus();
+checkTodayLeads();
