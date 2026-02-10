@@ -96,14 +96,34 @@ export function usePushNotification(): UsePushNotificationReturn {
 
         swRegistrationRef.current = registration;
 
-        // Check existing subscription
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (existingSubscription) {
-          log('Existing subscription found');
-          console.log("🔄 [LeadAlert] Auto-Synced Subscription to DB");
-          setIsSubscribed(true);
-          setIsLoading(false);
-        }
+        // NEW RETRY LOGIC
+        const checkSubscriptionWithRetry = async (attemptsLeft: number) => {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const subscription = await reg.pushManager.getSubscription();
+
+            if (subscription) {
+              console.log("✅ [LeadAlert] Found subscription on attempt:", 4 - attemptsLeft);
+              setIsSubscribed(true);
+              setIsLoading(false);
+              // Silent sync
+              subscribe(true);
+            } else {
+              if (attemptsLeft > 0) {
+                console.log(`⏳ [LeadAlert] Subscription not ready yet. Retrying... (${attemptsLeft})`);
+                setTimeout(() => checkSubscriptionWithRetry(attemptsLeft - 1), 1000);
+              } else {
+                console.log("ℹ️ [LeadAlert] No subscription found after retries.");
+                setIsSubscribed(false);
+                setIsLoading(false);
+              }
+            }
+          } catch (error) {
+            console.error("Init Error:", error);
+          }
+        };
+
+        checkSubscriptionWithRetry(3);
       } catch (err) {
         log('Init error', err);
       }
