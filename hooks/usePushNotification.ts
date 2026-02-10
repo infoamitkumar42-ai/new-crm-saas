@@ -67,70 +67,55 @@ export function usePushNotification(): UsePushNotificationReturn {
     }
   };
 
-  // Initialize service worker and check existing subscription
+  // 1. REFACTOR: initialize() - The "Silent Observer"
   useEffect(() => {
-    const init = async () => {
+    const initialize = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
       try {
-        if (!('serviceWorker' in navigator)) {
-          log('Service Worker not supported');
-          return;
-        }
-
-        if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-          log('Push notifications not supported');
-          setIsSupported(false);
-          return;
-        }
-
-        setIsSupported(true);
-        setPermission(window.Notification.permission);
-
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/'
-        });
-
-        // Wait for service worker to be ready
-        await navigator.serviceWorker.ready;
-        log('SW ready');
-
+        // Step A: Wait for the SW to be ready (This prevents InvalidStateError)
+        const registration = await navigator.serviceWorker.ready;
         swRegistrationRef.current = registration;
 
-        // NEW RETRY LOGIC
-        const checkSubscriptionWithRetry = async (attemptsLeft: number) => {
+        // Step B: Check Subscription (Silent Polling)
+        const checkSub = async () => {
           try {
-            const reg = await navigator.serviceWorker.ready;
-            const subscription = await reg.pushManager.getSubscription();
-
-            if (subscription) {
-              console.log("✅ [LeadAlert] Found subscription on attempt:", 4 - attemptsLeft);
+            const sub = await registration.pushManager.getSubscription();
+            if (sub) {
+              console.log("✅ [LeadAlert] Subscription found. Syncing state.");
               setIsSubscribed(true);
               setIsLoading(false);
-              // Silent sync
+              // Silent sync to DB
               subscribe(true);
             } else {
-              if (attemptsLeft > 0) {
-                console.log(`⏳ [LeadAlert] Subscription not ready yet. Retrying... (${attemptsLeft})`);
-                setTimeout(() => checkSubscriptionWithRetry(attemptsLeft - 1), 1000);
-              } else {
-                console.log("ℹ️ [LeadAlert] No subscription found after retries.");
-                setIsSubscribed(false);
-                setIsLoading(false);
-              }
+              console.log("ℹ️ [LeadAlert] No subscription yet. UI will show 'Enable Button'.");
+              setIsSubscribed(false);
+              setIsLoading(false);
             }
-          } catch (error) {
-            console.error("Init Error:", error);
+          } catch (e) {
+            console.warn("CheckSub Error:", e);
           }
         };
 
-        checkSubscriptionWithRetry(3);
-      } catch (err) {
-        log('Init error', err);
+        await checkSub();
+        // Retry once after 2 seconds just in case (Silent)
+        setTimeout(checkSub, 2000);
+
+        // Listen for Controller Change (But DO NOT RELOAD)
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          console.log("🔄 New SW took control. Updating state...");
+          checkSub();
+        });
+
+      } catch (error) {
+        console.warn("SW Init Warning (Non-Fatal):", error);
+        setIsLoading(false);
       }
     };
 
-    init();
-  }, []);
+    setIsLoading(true);
+    initialize();
+  }, [VAPID_KEY]);
 
   // Auto-Sync: If permission granted, update UI and sync DB
   useEffect(() => {
@@ -166,169 +151,79 @@ export function usePushNotification(): UsePushNotificationReturn {
     if (!isSilent) setIsLoading(true);
     if (!isSilent) setError(null);
 
-    // Timeout Promise (5 Seconds)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout: Subscription took too long')), 5000)
-    );
-
     try {
-      // Step 0: Check VAPID key
-      if (!VAPID_KEY) {
-        throw new Error('System Error: VAPID Key missing');
-      }
+      if (!VAPID_KEY) throw new Error('VAPID Key missing');
 
-      // Step 1: Check service worker support
-      if (!('serviceWorker' in navigator)) {
-        throw new Error('Service Worker not supported');
-      }
-
-      // Step 1.5: SELF-HEALING: If no SW is controlling the page, install it NOW.
+      // 1. Ensure Service Worker is ready
       if (!navigator.serviceWorker.controller) {
-        console.warn("⚠️ No active Service Worker found. Installing...");
-        try {
-          await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-          // Wait for it to activate
-          await navigator.serviceWorker.ready;
-        } catch (regError) {
-          console.error("SW Install Failed:", regError);
+        console.warn("⚠️ No active Service Worker found. Registering...");
+        await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      swRegistrationRef.current = reg;
+
+      // 2. Request Permission
+      const permissionResult = await window.Notification.requestPermission();
+      setPermission(permissionResult);
+      if (permissionResult !== 'granted') {
+        throw new Error('Notification permission denied');
+      }
+
+      // 3. Subscribe
+      let subscription;
+      try {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
+        });
+      } catch (subErr: any) {
+        // Auto-fix for InvalidStateError or Key Mismatch
+        if (subErr.name === 'InvalidStateError' || subErr.message?.includes('applicationServerKey')) {
+          console.warn("State/Key error. Resetting subscription...");
+          const existing = await reg.pushManager.getSubscription();
+          if (existing) await existing.unsubscribe();
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
+          });
+        } else {
+          throw subErr;
         }
       }
 
-      // Step 2: Race against logic
-      await Promise.race([
-        (async () => {
-          // Request notification permission
-          if (typeof window === 'undefined' || !('Notification' in window)) {
-            throw new Error('Notifications not supported');
-          }
+      // 4. Save to DB
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not logged in');
 
-          const permissionResult = await window.Notification.requestPermission();
-          setPermission(permissionResult);
-          if (permissionResult !== 'granted') {
-            throw new Error('Notification permission denied');
-          }
+      const subJson = subscription.toJSON();
+      const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
+        p_endpoint: subJson.endpoint,
+        p_p256dh: subJson.keys?.p256dh,
+        p_auth: subJson.keys?.auth,
+        p_user_agent: navigator.userAgent
+      });
 
-          // Service worker ready (WITH TIMEOUT)
-          const reg = await Promise.race([
-            navigator.serviceWorker.ready,
-            timeout(3000)
-          ]) as ServiceWorkerRegistration;
-          swRegistrationRef.current = reg;
+      if (rpcError) throw rpcError;
 
-          // Subscribe (with Auto-Fix for Key Mismatch)
-          let subscription;
-          const subscribeOptions = {
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
-          };
-
-          try {
-            subscription = await reg.pushManager.subscribe(subscribeOptions);
-          } catch (subErr: any) {
-            // 🔥 AUTO-FIX: If key mismatch, unsubscribe and retry
-            if (subErr.message?.includes('applicationServerKey') || subErr.name === 'InvalidStateError') {
-              log('⚠️ VAPID Key Mismatch detected. Unsubscribing old keys and retrying...');
-              const existingSub = await reg.pushManager.getSubscription();
-              if (existingSub) {
-                await existingSub.unsubscribe();
-              }
-              // Retry with new key
-              subscription = await reg.pushManager.subscribe(subscribeOptions);
-            } else {
-              throw subErr;
-            }
-          }
-
-          const subJson = subscription.toJSON();
-          if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-            throw new Error('Invalid subscription data received');
-          }
-
-          // Save to DB
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) throw new Error('User not logged in');
-
-          const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
-            p_endpoint: subJson.endpoint,
-            p_p256dh: subJson.keys.p256dh,
-            p_auth: subJson.keys.auth,
-            p_user_agent: navigator.userAgent
-          });
-
-          if (rpcError) throw new Error(`Database error: ${rpcError.message}`);
-
-          console.log("🔄 [LeadAlert] Auto-Synced Subscription to DB");
-          setIsSubscribed(true);
-          return true;
-        })(),
-        timeoutPromise
-      ]);
-
+      setIsSubscribed(true);
+      console.log("✅ [LeadAlert] Subscription synchronized.");
       return true;
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Unknown error';
-      log('❌ Subscribe error:', errorMessage);
+      console.error("Subscribe Error:", err.message);
 
-      // IF TIMEOUT -> FORCE UNREGISTER (Kill the Zombie)
-      if (errorMessage === "SW_TIMEOUT" || errorMessage.includes("SW_TIMEOUT")) {
-        console.warn("Service Worker stuck. Force resetting...");
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for (const registration of regs) {
-          await registration.unregister();
-        }
-        window.location.reload(); // Reload to get a fresh start
-        return false;
+      // Only reload for critical key mismatch after 1s delay (manual action)
+      if (err.message?.includes('different applicationServerKey')) {
+        console.error("Critical Mismatch. Resetting in 1s...");
+        setTimeout(() => window.location.reload(), 1000);
+      } else if (!isSilent) {
+        setError(err.message);
+        alert("Notification Error: " + err.message);
       }
-
-      // CATCH & FIX MISSING SW
-      if (errorMessage.includes('no active Service Worker') || err.name === 'AbortError') {
-        console.warn("Critical: SW missing during subscribe. Re-registering and reloading...");
-        await navigator.serviceWorker.register('/sw.js');
-        setTimeout(() => window.location.reload(), 500);
-        return false;
-      }
-
-      // PERMANENT FIX: Handle VAPID Mismatch with DELAY
-      if (errorMessage.includes('different applicationServerKey') || errorMessage.includes('gcm_sender_id')) {
-        console.warn("Key Mismatch. Initiating Deep Clean...");
-
-        try {
-          // 1. Kill Subscription
-          const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.getSubscription();
-          if (sub) await sub.unsubscribe();
-
-          // 2. Kill Service Worker
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-          }
-
-          // 3. Kill Local Storage
-          localStorage.removeItem('leadflow_push_subscribed');
-
-        } catch (e) { console.error("Cleanup error", e); }
-
-        // 4. THE MAGIC FIX: Wait 1 second before reload
-        console.log("Reloading in 1 second...");
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-
-        return false;
-      }
-
-      if (!isSilent) {
-        setError(errorMessage);
-        // Only show alert for OTHER real errors
-        alert("Notification Error: " + errorMessage);
-        console.error("Subscription Error:", errorMessage);
-      }
-
       return false;
     } finally {
-      if (!isSilent) setIsLoading(false);
+      setIsLoading(false);
     }
   }, [VAPID_KEY]);
 

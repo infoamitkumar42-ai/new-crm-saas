@@ -212,32 +212,16 @@ const AppRoutes: React.FC = () => {
 // 🚀 MAIN APP COMPONENT
 // ============================================================
 function App() {
-  // 🚨 EMERGENCY SERVICE WORKER CLEANER
+  // 🚀 SERVICE WORKER REGISTRATION (Safe & Silent)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => {
-          console.log('🧹 Cleaning old service worker:', registration);
-          registration.unregister();
-        });
-      });
+      // We don't force unregister here anymore to prevent reload loops.
+      // Registration is handled natively or in usePushNotification.
 
-      // Reload if new SW takes control (with iOS Loop Protection)
+      // Silent Listener for Updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('🔄 New SW detected');
-
-        // Safety Valve: Check if we just reloaded
-        const hasReloaded = sessionStorage.getItem('sw_force_reloaded');
-
-        if (!hasReloaded) {
-          console.log('🚀 Forcing reload to activate new SW');
-          sessionStorage.setItem('sw_force_reloaded', 'true');
-          window.location.reload();
-        } else {
-          console.log('🛑 Infinite loop prevented. User is on new version (hopefully).');
-          // Optional: Clear flag after 5 seconds so next legit update works
-          setTimeout(() => sessionStorage.removeItem('sw_force_reloaded'), 5000);
-        }
+        console.log('🔄 Service Worker Updated (Silent)');
+        // No reload here! Let the next natural refresh or manual reload handle it.
       });
     }
   }, []);
