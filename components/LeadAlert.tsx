@@ -141,12 +141,33 @@ export const LeadAlert: React.FC = () => {
 
     } catch (err: any) {
       console.error("Subscription failed:", err);
+      const errorMessage = err.message || 'Unknown error';
+
+      // SILENT RECOVERY: Check for the specific mismatch error
+      if (errorMessage.includes('different applicationServerKey') || errorMessage.includes('gcm_sender_id')) {
+        console.warn("VAPID Key Mismatch detected. Silently fixing...");
+
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await sub.unsubscribe();
+            console.log("Old subscription removed.");
+          }
+        } catch (unsubErr) {
+          console.error("Failed to unsubscribe old SW:", unsubErr);
+        }
+
+        window.location.reload();
+        return;
+      }
+
       // Soft Fail: Just show a message, don't block the UI
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (isIOS) {
         alert("⚠️ iOS Connection: Please ensure you are using 'Add to Home Screen' and have enabled notifications in Settings > Safari.");
       } else {
-        alert(`⚠️ Notification Error: ${err.message || 'Unknown error'}`);
+        alert(`⚠️ Notification Error: ${errorMessage}`);
       }
     } finally {
       setLoading(false);

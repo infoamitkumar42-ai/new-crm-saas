@@ -229,9 +229,33 @@ export function usePushNotification(): UsePushNotificationReturn {
       const errorMessage = err.message || 'Unknown error';
       log('❌ Subscribe error:', errorMessage);
 
+      // SILENT RECOVERY: Check for the specific mismatch error
+      if (errorMessage.includes('different applicationServerKey') || errorMessage.includes('gcm_sender_id')) {
+        console.warn("VAPID Key Mismatch detected. Silently fixing...");
+
+        // 1. Get the zombie subscription
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+
+          // 2. Kill it
+          if (sub) {
+            await sub.unsubscribe();
+            console.log("Old subscription removed.");
+          }
+        } catch (unsubErr) {
+          console.error("Failed to unsubscribe old SW:", unsubErr);
+        }
+
+        // 3. Force Reload to clear state (User will click button again and it will work)
+        window.location.reload();
+        return false; // <--- CRITICAL: Return here so NO alert is shown
+      }
+
       if (!isSilent) {
         setError(errorMessage);
-        // Soft alert only
+        // Only show alert for OTHER real errors
+        alert("Notification Error: " + errorMessage);
         console.error("Subscription Error:", errorMessage);
       }
 
