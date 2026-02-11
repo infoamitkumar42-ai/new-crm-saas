@@ -248,6 +248,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
+      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 15s no matter what
+      const timeout = setTimeout(() => {
+        if (mountedRef.current && loading) {
+          console.warn("🕒 Auth Init Timeout: Forcing release...");
+          setLoading(false);
+        }
+      }, 15000);
+
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
 
@@ -270,6 +278,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
         console.error("Init error:", err);
       } finally {
+        clearTimeout(timeout);
         if (mountedRef.current) {
           setLoading(false);
         }

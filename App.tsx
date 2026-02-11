@@ -28,12 +28,55 @@ import { ContactUs } from './views/legal/ContactUs';
 // ============================================================
 // 🔄 LOADING SCREEN COMPONENT
 // ============================================================
-const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading workspace..." }) => (
-  <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-    <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-    <p className="text-slate-500 text-sm">{message}</p>
-  </div>
-);
+// 🔄 LOADING SCREEN COMPONENT
+const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading workspace..." }) => {
+  const [showRetry, setShowRetry] = React.useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowRetry(true), 7000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleForceRefresh = async () => {
+    try {
+      // 1. Unregister all service workers (Force bypass SW cache)
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      // 2. Clear Session Caches
+      sessionStorage.clear();
+      // 3. Hard Reload bypassing disk cache
+      window.location.reload();
+    } catch (e) {
+      window.location.reload();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+      <p className="text-slate-600 font-medium mb-1">{message}</p>
+      <p className="text-slate-400 text-xs mb-6">Connecting to secure server...</p>
+
+      {showRetry && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <button
+            onClick={handleForceRefresh}
+            className="px-6 py-3 bg-white border border-slate-200 text-blue-600 rounded-xl shadow-sm font-semibold text-sm hover:bg-slate-50 transition-colors"
+          >
+            Force Refresh App
+          </button>
+          <p className="mt-3 text-[10px] text-slate-400 max-w-[200px] leading-relaxed">
+            Click this if loading takes too long. It will clear cache and fix the hang.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ============================================================
 // 🛡️ PROTECTED ROUTE (FIXED)
