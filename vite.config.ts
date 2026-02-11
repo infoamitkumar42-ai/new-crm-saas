@@ -8,11 +8,29 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
-        workbox: {
-          cleanupOutdatedCaches: true,
-          skipWaiting: true,
-          clientsClaim: true
+        injectManifest: {
+          swDest: 'dist/sw.js',
+        },
+        manifest: {
+          name: 'LeadFlow CRM',
+          short_name: 'LeadFlow',
+          theme_color: '#4f46e5',
+          icons: [
+            {
+              src: 'icon-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            }
+          ]
         }
       })
     ],

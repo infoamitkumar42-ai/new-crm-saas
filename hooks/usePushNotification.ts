@@ -164,8 +164,11 @@ export function usePushNotification(): UsePushNotificationReturn {
     try {
       if (!VAPID_KEY) throw new Error('VAPID Key missing');
 
-      // 1. Ensure Service Worker is ready
+      // 1. Ensure Service Worker is fully initialized and active
       const reg = await navigator.serviceWorker.ready;
+      if (!reg.active) {
+        throw new Error('Service Worker not active yet. Please refresh.');
+      }
       swRegistrationRef.current = reg;
 
       // 2. Request Permission

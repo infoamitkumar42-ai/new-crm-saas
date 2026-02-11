@@ -209,6 +209,7 @@ export const MemberDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
   const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
@@ -265,7 +266,8 @@ export const MemberDashboard = () => {
   };
 
   const daysLeft = getDaysUntilExpiry();
-  const isExpired = !loading && profile && ((daysLeft !== null && daysLeft <= 0) || (profile.payment_status && profile.payment_status !== 'active'));
+  // 🔥 Guard: Plan Expired overlay only shows AFTER initial fresh sync to avoid false positives from stale cache
+  const isExpired = !loading && !isInitialLoad && profile && ((daysLeft !== null && daysLeft <= 0) || (profile.payment_status && profile.payment_status !== 'active'));
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
@@ -484,6 +486,7 @@ export const MemberDashboard = () => {
       setLoading(false);
       setRefreshing(false);
       isFetchingRef.current = false;
+      setIsInitialLoad(false); // 🔥 Initial fresh sync complete!
     }
   };
 
