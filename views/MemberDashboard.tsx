@@ -409,10 +409,15 @@ export const MemberDashboard = () => {
     const startTime = Date.now();
     try {
       setRefreshing(true);
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      const user = currentSession?.user;
 
-      if (!user) {
+      // 🚀 SPEED OPTIMIZATION: Use authProfile directly if available to skip getSession()
+      let userId = authProfile?.id;
+      if (!userId) {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        userId = currentSession?.user?.id;
+      }
+
+      if (!userId) {
         setLoading(false);
         setRefreshing(false);
         return;
@@ -420,20 +425,20 @@ export const MemberDashboard = () => {
 
       console.time('📊 [Dashboard] Overall Fetch');
 
-      // 🚀 PARALLEL FETCHING: Fetch everything at once with SHARP columns
+      // 🚀 PARALLEL FETCHING: Fetch everything at once
       const [managerResult, leadsResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads with LIMIT 100 for instant UI (Fixed 400 Error by using *)
+        // 2. Fetch Leads with LIMIT 1000 (Enough for full history for most)
         supabase
           .from('leads')
           .select('*')
-          .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
+          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .order('created_at', { ascending: false })
-          .limit(100)
+          .limit(1000)
       ]);
 
       console.timeEnd('📊 [Dashboard] Overall Fetch');
@@ -503,6 +508,18 @@ export const MemberDashboard = () => {
     } else {
       fetchData();
     }
+  }, [authProfile?.id]);
+
+  // 🔄 BACKGROUND POLLING: Refresh data every 20s to keep it fresh (User Request)
+  useEffect(() => {
+    if (!authProfile?.id) return;
+
+    const interval = setInterval(() => {
+      // console.log("🔄 Background polling for fresh leads...");
+      fetchData();
+    }, 20000); // 20 Seconds
+
+    return () => clearInterval(interval);
   }, [authProfile?.id]);
 
   useEffect(() => {
