@@ -402,58 +402,48 @@ export const MemberDashboard = () => {
   const fetchData = async () => {
     try {
       setRefreshing(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const user = currentSession?.user;
+
       if (!user) {
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // 🚀 PARALLEL FETCHING: Fetch everything at once
+      const [managerResult, leadsResult] = await Promise.all([
+        // 1. Fetch Manager Name (if exists)
+        profile?.manager_id
+          ? supabase.from('users').select('name').eq('id', profile.manager_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
 
-      if (userError) {
-        console.error('User fetch error:', userError);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
+        // 2. Fetch Leads with LIMIT 100 for instant UI
+        supabase
+          .from('leads')
+          .select('*')
+          .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      ]);
 
-      setProfile(userData);
-
-      // Update last activity
-      await supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id);
-
-      // Fetch manager name
-      if (userData?.manager_id) {
-        const { data: managerData } = await supabase
-          .from('users')
-          .select('name')
-          .eq('id', userData.manager_id)
-          .maybeSingle();
-        setManagerName(managerData?.name || 'Unknown');
-      } else {
+      // Update UI with results
+      if (managerResult.data) {
+        setManagerName(managerResult.data.name || 'Unknown');
+      } else if (!profile?.manager_id) {
         setManagerName('Direct (No Manager)');
       }
 
-      // Fetch leads
-      const { data: leadsData } = await supabase
-        .from('leads')
-        .select('*')
-        // 🔥 FIX: Check BOTH user_id AND assigned_to to catch all leads
-        .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-      setLeads(leadsData || []);
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        // Silently exit
-        return;
+      if (leadsResult.data) {
+        setLeads(leadsResult.data as Lead[]);
       }
-      console.error('Dashboard Error:', error);
+
+      // 🔥 BACKGROUND TASK: Update last activity without blocking UI
+      supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id).then(() => { });
+
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
+      console.error('Dashboard Data Error:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
