@@ -12,7 +12,7 @@
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
@@ -406,7 +406,7 @@ export const MemberDashboard = () => {
   // DATA FETCHING
   // ============================================================
 
-  const fetchData = async () => {
+  const fetchData = async (fetchLimit: number = 100) => {
     if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
@@ -429,19 +429,25 @@ export const MemberDashboard = () => {
       // console.time('📊 [Dashboard] Overall Fetch');
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
-      const [managerResult, leadsResult] = await Promise.all([
+      const [managerResult, leadsResult, countResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads with LIMIT 1000 (Enough for full history for most)
+        // 2. Fetch Leads with Dynamic Limit (100 for speed, 1000 for background sync)
         supabase
           .from('leads')
           .select('*')
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .order('created_at', { ascending: false })
-          .limit(1000)
+          .limit(fetchLimit),
+
+        // 3. Exact Counter: Get the total count for the UI status bar (User's "Smart Move")
+        supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
       ]);
 
       // console.timeEnd('📊 [Dashboard] Overall Fetch');
@@ -451,6 +457,11 @@ export const MemberDashboard = () => {
         setManagerName(managerResult.data.name || 'Unknown');
       } else if (!authProfile?.manager_id) {
         setManagerName('Direct (No Manager)');
+      }
+
+      // Update Total Counter in UI if we have it
+      if (countResult.count !== null && profile) {
+        setProfile((prev: any) => ({ ...prev, total_leads_received: countResult.count }));
       }
 
       if (leadsResult.data) {
@@ -469,7 +480,7 @@ export const MemberDashboard = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
       console.error('Dashboard Data Error:', error);
     } finally {
-      console.log(`⏱️ Dashboard Sync: ${Date.now() - startTime}ms`);
+      // console.log(`⏱️ Dashboard Sync: ${Date.now() - startTime}ms`);
       setLoading(false);
       setRefreshing(false);
       isFetchingRef.current = false;
@@ -520,7 +531,7 @@ export const MemberDashboard = () => {
 
     const interval = setInterval(() => {
       // console.log("🔄 Background polling for fresh leads...");
-      fetchData();
+      fetchData(1000);
     }, 20000); // 20 Seconds
 
     return () => clearInterval(interval);
@@ -855,7 +866,7 @@ export const MemberDashboard = () => {
               </a>
             )}
             <button
-              onClick={fetchData}
+              onClick={() => fetchData()}
               disabled={refreshing}
               className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg"
             >
