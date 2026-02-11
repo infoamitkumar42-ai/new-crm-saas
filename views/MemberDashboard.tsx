@@ -69,12 +69,10 @@ interface Lead {
   assigned_at: string;
 }
 
-type LucideIcon = React.ComponentType<{ size?: number; className?: string }>;
-
 interface DeliveryStatusInfo {
   title: string;
   subtitle: string;
-  icon: LucideIcon;
+  icon: any; // 🔥 Fix: Use 'any' to avoid Lucide version mismatch errors
   iconBgColor: string;
   iconColor: string;
   statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired';
@@ -266,8 +264,13 @@ export const MemberDashboard = () => {
   };
 
   const daysLeft = getDaysUntilExpiry();
-  // 🔥 Guard: Plan Expired overlay only shows AFTER initial fresh sync to avoid false positives from stale cache
-  const isExpired = !loading && !isInitialLoad && profile && ((daysLeft !== null && daysLeft <= 0) || (profile.payment_status && profile.payment_status !== 'active'));
+  // 🔥 Guard: Plan Expired overlay only shows AFTER initial fresh sync.
+  // We only expire if explicit payment_status is 'expired' or if date is definitely in the past.
+  // If daily_limit > 0, we treat as active even if payment_status is null (manual override).
+  const isExpired = !loading && !isInitialLoad && profile && (
+    (daysLeft !== null && daysLeft <= 0) ||
+    (profile.payment_status === 'expired')
+  );
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
@@ -313,7 +316,11 @@ export const MemberDashboard = () => {
       };
     }
 
-    if (!loading && profile && (profile.payment_status !== 'active' || isExpired)) {
+    // 🔥 Plan Status: Only mark as Inactive if specifically set so, or if truly expired.
+    // If daily_limit > 0, we assume active (supports manual overrides).
+    const isPlanInactive = (profile.payment_status === 'inactive' || isExpired) && !profile.daily_limit;
+
+    if (!loading && profile && isPlanInactive) {
       return {
         title: 'Plan Inactive',
         subtitle: 'Renew to receive leads',
@@ -431,7 +438,7 @@ export const MemberDashboard = () => {
       // console.time('📊 [Dashboard] Overall Fetch');
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
-      const [managerResult, leadsResult, countResult] = await Promise.all([
+      const [managerResult, leadsResult, countResult, profileResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
@@ -449,7 +456,14 @@ export const MemberDashboard = () => {
         supabase
           .from('leads')
           .select('*', { count: 'exact', head: true })
-          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
+
+        // 4. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single()
       ]);
 
       // console.timeEnd('📊 [Dashboard] Overall Fetch');
@@ -462,8 +476,14 @@ export const MemberDashboard = () => {
       }
 
       // Update Total Counter in UI if we have it
-      if (countResult.count !== null && profile) {
-        setProfile((prev: any) => ({ ...prev, total_leads_received: countResult.count }));
+      if (countResult?.count !== null) {
+        setProfile((prev: any) => ({
+          ...prev,
+          ...(profileResult?.data || {}), // 🔥 Merge fresh profile data (limits, plan_name, etc.)
+          total_leads_received: countResult?.count || 0
+        }));
+      } else if (profileResult?.data) {
+        setProfile((prev: any) => ({ ...prev, ...profileResult.data }));
       }
 
       if (leadsResult.data) {
