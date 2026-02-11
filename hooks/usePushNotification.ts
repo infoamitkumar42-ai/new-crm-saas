@@ -99,12 +99,10 @@ export function usePushNotification(): UsePushNotificationReturn {
         };
 
         await checkSub();
-        // Retry once after 2 seconds just in case (Silent)
-        setTimeout(checkSub, 2000);
+        // REMOVED: redundant setTimeout(checkSub, 2000)
 
-        // Listen for Controller Change (But DO NOT RELOAD)
+        // Listen for Controller Change (Quietly update state)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log("🔄 New SW took control. Updating state...");
           checkSub();
         });
 
@@ -156,11 +154,6 @@ export function usePushNotification(): UsePushNotificationReturn {
       if (!VAPID_KEY) throw new Error('VAPID Key missing');
 
       // 1. Ensure Service Worker is ready
-      if (!navigator.serviceWorker.controller) {
-        console.info("ℹ️ No active Service Worker found. Registering...");
-        await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      }
-
       const reg = await navigator.serviceWorker.ready;
       swRegistrationRef.current = reg;
 
@@ -208,7 +201,7 @@ export function usePushNotification(): UsePushNotificationReturn {
       if (rpcError) throw rpcError;
 
       setIsSubscribed(true);
-      console.log("✅ [LeadAlert] Subscription synchronized.");
+      // console.log("✅ [LeadAlert] Subscription synchronized.");
       return true;
 
     } catch (err: any) {

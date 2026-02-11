@@ -283,7 +283,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (newSession?.user) {
           setSession(newSession);
-          setLoading(true);
+          // 🚀 AGGRESSIVE RELEASE: Don't set loading(true) if we already have a profile
+          // This prevents the 1-minute hang during background refreshes.
+          if (!profile) setLoading(true);
           await loadUserProfile(newSession.user);
           if (mountedRef.current) {
             setLoading(false);
