@@ -57,6 +57,7 @@ export function usePushNotification(): UsePushNotificationReturn {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [error, setError] = useState<string | null>(null);
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const isSyncingRef = useRef(false); // 🔥 Prevent parallel sync loops
 
   const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
@@ -93,8 +94,11 @@ export function usePushNotification(): UsePushNotificationReturn {
               setIsSubscribed(false);
               setIsLoading(false);
             }
-          } catch (e) {
-            console.warn("CheckSub Error:", e);
+          } catch (e: any) {
+            // Silence noise
+            if (e.name !== 'AbortError' && !e.message?.includes('aborted')) {
+              console.warn("CheckSub Error:", e);
+            }
           }
         };
 
@@ -147,6 +151,10 @@ export function usePushNotification(): UsePushNotificationReturn {
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (isSilent = false): Promise<boolean> => {
+    // Deduplication
+    if (isSyncingRef.current) return false;
+    isSyncingRef.current = true;
+
     if (!isSilent) setIsLoading(true);
     if (!isSilent) setError(null);
 
@@ -205,6 +213,11 @@ export function usePushNotification(): UsePushNotificationReturn {
       return true;
 
     } catch (err: any) {
+      // 🛑 IGNORE ABORT ERRORS (Harmless background noise)
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return false;
+      }
+
       // 🛑 HANDLE 403/Login issues quietly if silent sync
       const isLoginError = err.message?.includes('User not logged in') || err.status === 403;
 
@@ -213,7 +226,7 @@ export function usePushNotification(): UsePushNotificationReturn {
         return false;
       }
 
-      console.warn("Subscribe Info:", err.message);
+      if (!isSilent) console.warn("Subscribe Info:", err.message);
 
       // Only reload for critical key mismatch after 1s delay (manual action)
       if (err.message?.includes('different applicationServerKey')) {
@@ -225,7 +238,8 @@ export function usePushNotification(): UsePushNotificationReturn {
       }
       return false;
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
+      isSyncingRef.current = false;
     }
   }, [VAPID_KEY]);
 

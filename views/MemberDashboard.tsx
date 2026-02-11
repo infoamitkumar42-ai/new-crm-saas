@@ -472,20 +472,21 @@ export const MemberDashboard = () => {
   }, [loading]);
 
   useEffect(() => {
+    // 🚀 STABLE TRIGGER: Only fetch when we have a valid user ID
+    if (!authProfile?.id) return;
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true') {
       setLoading(true);
-      if (refreshProfile) {
-        refreshProfile().then(() => {
-          fetchData().then(() => {
-            window.history.replaceState({}, '', '/');
-          });
+      refreshProfile().then(() => {
+        fetchData().then(() => {
+          window.history.replaceState({}, '', '/');
         });
-      }
+      });
     } else {
       fetchData();
     }
-  }, [refreshProfile]);
+  }, [authProfile?.id]);
 
   useEffect(() => {
     if (!profile?.id || isPaused) return;
