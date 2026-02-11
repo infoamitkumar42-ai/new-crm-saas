@@ -201,8 +201,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (mountedRef.current) {
         if (retryCount < MAX_RETRIES) {
-          // Retry on legitimate error
-          const backoffMs = 1500 * (retryCount + 1);
+          // Retry on legitimate error (Reduced backoff for speed)
+          const backoffMs = 500 * (retryCount + 1);
           // console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
 

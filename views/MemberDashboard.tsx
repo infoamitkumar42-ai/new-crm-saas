@@ -415,7 +415,7 @@ export const MemberDashboard = () => {
   // DATA FETCHING
   // ============================================================
 
-  const fetchData = async (fetchLimit: number = 100) => {
+  const fetchData = async (fetchLimit: number = 300) => {
     if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
