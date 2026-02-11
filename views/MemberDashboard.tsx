@@ -427,10 +427,10 @@ export const MemberDashboard = () => {
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads with LIMIT 100 AND COLUMN PROJECTION (Crucial for Speed)
+        // 2. Fetch Leads with LIMIT 100 for instant UI (Fixed 400 Error by using *)
         supabase
           .from('leads')
-          .select('id, name, city, state, course, status, created_at, phone, notes, source, quality_score, distribution_score, assigned_at')
+          .select('*')
           .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
           .order('created_at', { ascending: false })
           .limit(100)
