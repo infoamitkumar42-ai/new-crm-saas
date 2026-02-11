@@ -33,7 +33,7 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
   const [showRetry, setShowRetry] = React.useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowRetry(true), 7000);
+    const timer = setTimeout(() => setShowRetry(true), 15000);
     return () => clearTimeout(timer);
   }, []);
 

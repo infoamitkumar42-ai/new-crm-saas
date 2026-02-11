@@ -67,9 +67,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // 1. Define Timeout Promise (4 seconds)
+      // 1. Define Timeout Promise (15 seconds)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
       );
 
       // 2. Define Fetch Promise (NO ABORT SIGNALS)
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error; //SDK Error -> Trigger Fallback
 
       if (mountedRef.current) {
-        console.log('✅ SDK Profile fetched:', data?.name);
+        // console.log('✅ SDK Profile fetched:', data?.name);
         return data as User;
       }
       return null;
@@ -104,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 🛑 HANDLE TIMEOUT (Safe Null)
       if (err.message === 'TIMEOUT') {
-        // Silent timeout
+        console.warn('🕒 Auth Profile Timeout (15s). Falling back to temp profile.');
         return null;
       }
 
