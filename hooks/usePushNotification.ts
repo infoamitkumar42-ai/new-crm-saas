@@ -83,20 +83,21 @@ export function usePushNotification(): UsePushNotificationReturn {
           try {
             const sub = await registration.pushManager.getSubscription();
             if (sub) {
-              console.log("✅ [LeadAlert] Subscription found. Syncing state.");
+              // console.log("✅ [LeadAlert] Subscription found. Syncing state.");
               setIsSubscribed(true);
               setIsLoading(false);
               // Silent sync to DB (Only if user is logged in)
               const { data: { user } } = await supabase.auth.getUser();
               if (user) subscribe(true);
             } else {
-              console.log("ℹ️ [LeadAlert] No subscription yet. UI will show 'Enable Button'.");
+              // console.log("ℹ️ [LeadAlert] No subscription yet. UI will show 'Enable Button'.");
               setIsSubscribed(false);
               setIsLoading(false);
             }
           } catch (e: any) {
-            // Silence noise
-            if (e.name !== 'AbortError' && !e.message?.includes('aborted')) {
+            // Silence noise (Harmless background aborts)
+            const isAbort = e.name === 'AbortError' || e.message?.toLowerCase().includes('abort');
+            if (!isAbort) {
               console.warn("CheckSub Error:", e);
             }
           }
@@ -110,8 +111,10 @@ export function usePushNotification(): UsePushNotificationReturn {
           checkSub();
         });
 
-      } catch (error) {
-        console.warn("SW Init Warning (Non-Fatal):", error);
+      } catch (error: any) {
+        if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
+          console.warn("SW Init Warning (Non-Fatal):", error);
+        }
         setIsLoading(false);
       }
     };
@@ -226,7 +229,9 @@ export function usePushNotification(): UsePushNotificationReturn {
         return false;
       }
 
-      if (!isSilent) console.warn("Subscribe Info:", err.message);
+      if (!isSilent && !err.message?.toLowerCase().includes('abort')) {
+        console.warn("Subscribe Info:", err.message);
+      }
 
       // Only reload for critical key mismatch after 1s delay (manual action)
       if (err.message?.includes('different applicationServerKey')) {

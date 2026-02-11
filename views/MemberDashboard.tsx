@@ -197,9 +197,15 @@ export const MemberDashboard = () => {
   const { profile: authProfile, refreshProfile } = useAuth();
 
   // Local state for leads and UI only
-  const [leads, setLeads] = useState<Lead[]>([]);
-  // 🚨 IOS BYPASS: Don't show loading screen initially for iPhone users
-  const [loading, setLoading] = useState(!isIOS());
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    // 🔥 INSTANT LEADS: Load from cache for zero-wait UI
+    try {
+      const cached = sessionStorage.getItem('leadflow-leads-cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  // 🚨 IOS BYPASS: Don't show loading screen initially if iPhone users
+  const [loading, setLoading] = useState(!isIOS() && leads.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
 
@@ -400,6 +406,7 @@ export const MemberDashboard = () => {
   // ============================================================
 
   const fetchData = async () => {
+    const startTime = Date.now();
     try {
       setRefreshing(true);
       const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -411,31 +418,40 @@ export const MemberDashboard = () => {
         return;
       }
 
-      // 🚀 PARALLEL FETCHING: Fetch everything at once
+      console.time('📊 [Dashboard] Overall Fetch');
+
+      // 🚀 PARALLEL FETCHING: Fetch everything at once with SHARP columns
       const [managerResult, leadsResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
-        profile?.manager_id
-          ? supabase.from('users').select('name').eq('id', profile.manager_id).maybeSingle()
+        authProfile?.manager_id
+          ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads with LIMIT 100 for instant UI
+        // 2. Fetch Leads with LIMIT 100 AND COLUMN PROJECTION (Crucial for Speed)
         supabase
           .from('leads')
-          .select('*')
+          .select('id, name, city, state, course, status, created_at, phone, notes, source, quality_score, distribution_score, assigned_at')
           .or(`user_id.eq.${user.id},assigned_to.eq.${user.id}`)
           .order('created_at', { ascending: false })
           .limit(100)
       ]);
 
+      console.timeEnd('📊 [Dashboard] Overall Fetch');
+
       // Update UI with results
       if (managerResult.data) {
         setManagerName(managerResult.data.name || 'Unknown');
-      } else if (!profile?.manager_id) {
+      } else if (!authProfile?.manager_id) {
         setManagerName('Direct (No Manager)');
       }
 
       if (leadsResult.data) {
-        setLeads(leadsResult.data as Lead[]);
+        const fetchedLeads = leadsResult.data as unknown as Lead[];
+        setLeads(fetchedLeads);
+        // 🔥 CACHE FOR INSTANT NEXT LOAD
+        try {
+          sessionStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads));
+        } catch { }
       }
 
       // 🔥 BACKGROUND TASK: Update last activity without blocking UI
@@ -445,6 +461,7 @@ export const MemberDashboard = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
       console.error('Dashboard Data Error:', error);
     } finally {
+      console.log(`⏱️ Dashboard Sync: ${Date.now() - startTime}ms`);
       setLoading(false);
       setRefreshing(false);
     }
