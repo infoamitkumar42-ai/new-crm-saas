@@ -255,12 +255,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentSession?.user) {
           setSession(currentSession);
-          // Only fetch if profile is missing OR we are in a fresh session
-          if (!profile || profile.id !== currentSession.user.id) {
-            await loadUserProfile(currentSession.user);
-          } else {
-            // Background refresh even if cached
+
+          // 🚀 AGGRESSIVE RELEASE: If we have a cached profile, release UI immediately
+          if (profile && profile.id === currentSession.user.id) {
+            setLoading(false);
+            // Refresh logic in background
             loadUserProfile(currentSession.user, 0);
+          } else {
+            // No cache? We must wait
+            await loadUserProfile(currentSession.user);
           }
         }
       } catch (err: any) {

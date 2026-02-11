@@ -18,13 +18,20 @@
   <!-- CACHE VERSION CHECK - Feb 7, 2026 (Preserve Auth) -->
   <script>
     (function () {
-      var CACHE_VERSION = 'v20260211';
+      var CACHE_VERSION = 'v20260211_v3';
       var storageKey = 'leadflow_cache_version';
       try {
         var savedVersion = localStorage.getItem(storageKey);
         if (savedVersion !== CACHE_VERSION) {
           console.log('🔄 Version updated. Optimization applied.');
           localStorage.setItem(storageKey, CACHE_VERSION);
+          // Force clear any old service worker caches if possible
+          if ('serviceWorker' in navigator) {
+            caches.keys().then(function (names) {
+              for (var name of names) caches.delete(name);
+            });
+          }
+          window.location.reload();
         }
       } catch (e) { }
     })();
