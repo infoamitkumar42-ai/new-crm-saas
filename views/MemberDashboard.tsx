@@ -208,6 +208,7 @@ export const MemberDashboard = () => {
   const [loading, setLoading] = useState(!isIOS() && leads.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
+  const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
@@ -406,8 +407,10 @@ export const MemberDashboard = () => {
   // ============================================================
 
   const fetchData = async () => {
+    if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
+      isFetchingRef.current = true;
       setRefreshing(true);
 
       // 🚀 SPEED OPTIMIZATION: Use authProfile directly if available to skip getSession()
@@ -423,7 +426,7 @@ export const MemberDashboard = () => {
         return;
       }
 
-      console.time('📊 [Dashboard] Overall Fetch');
+      // console.time('📊 [Dashboard] Overall Fetch');
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
       const [managerResult, leadsResult] = await Promise.all([
@@ -441,7 +444,7 @@ export const MemberDashboard = () => {
           .limit(1000)
       ]);
 
-      console.timeEnd('📊 [Dashboard] Overall Fetch');
+      // console.timeEnd('📊 [Dashboard] Overall Fetch');
 
       // Update UI with results
       if (managerResult.data) {
@@ -460,7 +463,7 @@ export const MemberDashboard = () => {
       }
 
       // 🔥 BACKGROUND TASK: Update last activity without blocking UI
-      supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', user.id).then(() => { });
+      supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', userId).then(() => { });
 
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
@@ -469,6 +472,7 @@ export const MemberDashboard = () => {
       console.log(`⏱️ Dashboard Sync: ${Date.now() - startTime}ms`);
       setLoading(false);
       setRefreshing(false);
+      isFetchingRef.current = false;
     }
   };
 
