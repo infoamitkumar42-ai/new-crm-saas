@@ -51,9 +51,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(() => {
-    // 🔥 INSTANT CACHE: Load from storage immediately for zero-wait UI
+    // 🔥 INSTANT CACHE: Load from LocalStorage (Permanent) for zero-wait UI
     try {
-      const cached = sessionStorage.getItem('leadflow-profile-cache');
+      const cached = localStorage.getItem('leadflow-profile-cache');
       return cached ? JSON.parse(cached) : null;
     } catch { return null; }
   });
@@ -67,12 +67,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // 1. Define Timeout Promise (15 seconds)
+      // 🚀 SMART TIMEOUT: 5 Seconds
+      // If internet is slow, don't make user wait. Load temp profile immediately.
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 5000)
       );
 
-      // 2. Define Fetch Promise (NO ABORT SIGNALS)
+      // 2. Define Fetch Promise
       const fetchPromise = supabase
         .from('users')
         .select('*')
@@ -82,32 +83,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // 3. Race!
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
-      if (error) throw error; //SDK Error -> Trigger Fallback
+      if (error) throw error;
 
       if (mountedRef.current) {
-        // console.log('✅ SDK Profile fetched:', data?.name);
         return data as User;
       }
       return null;
 
     } catch (err: any) {
-      // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
       const status = typeof err === 'object' ? (err.status || err.code) : '';
+
+      // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
       if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
-        console.error("⛔ Supabase Access Forbidden (403/401). Clearing session...");
+        console.error("⛔ Supabase Access Forbidden. Clearing session...");
         supabase.auth.signOut().then(() => {
-          localStorage.removeItem('leadflow-auth-session');
+          localStorage.removeItem('leadflow-profile-cache'); // Clear LocalStorage too
           if (mountedRef.current) window.location.href = '/login';
         });
-        return null; // Stop here
-      }
-
-      // 🛑 HANDLE TIMEOUT (Safe Null)
-      if (err.message === 'TIMEOUT') {
-        console.warn('🕒 Auth Profile Timeout (15s). Falling back to temp profile.');
         return null;
       }
 
+      // 🛑 HANDLE TIMEOUT (Safe Null -> Temp Profile)
+      if (err.message === 'TIMEOUT') {
+        console.warn('⚡ Quick Timeout (5s) triggered. Using Temp Profile for speed.');
+        return null; // This triggers createTempProfile in loadUserProfile
+      }
+
+      console.error("Auth Load Error:", err.message);
       return null;
     }
   }, []);
@@ -121,8 +123,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'info.amitkumar42@gmail.com',
       'amitdemo1@gmail.com'
     ].includes(userEmailLower);
-
-    // console.log(`👤 Auth Check: ${userEmailLower} -> Admin? ${isAdminEmail}`);
 
     return {
       id: user.id,
@@ -174,9 +174,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(userProfile);
         setLoading(false);
         loadingProfileFor.current = null;
-        // 🔥 SAVE TO CACHE
+        // 🔥 SAVE TO CACHE (LocalStorage now)
         try {
-          sessionStorage.setItem('leadflow-profile-cache', JSON.stringify(userProfile));
+          localStorage.setItem('leadflow-profile-cache', JSON.stringify(userProfile));
         } catch { }
       } else if (retryCount < MAX_RETRIES) {
         // Retry with exponential backoff
@@ -191,7 +191,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loadingProfileFor.current = null;
       }
     } catch (err: any) {
-      // 🛑 IGNORE ABORT ERRORS (Don't fail, don't retry, just exit)
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         console.warn('⚠️ Request aborted (ignoring)');
         return;
@@ -201,18 +200,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (mountedRef.current) {
         if (retryCount < MAX_RETRIES) {
-          // Retry on legitimate error (Reduced backoff for speed)
           const backoffMs = 500 * (retryCount + 1);
-          // console.warn(`↻ Retrying after error in ${backoffMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
 
           if (!mountedRef.current) return;
           await loadUserProfile(user, retryCount + 1);
         } else {
-          // Max retries reached
-          // console.warn('⚠️ Max retries reached, using temp profile');
           setProfile(createTempProfile(user));
-          setLoading(false); // Ensure we stop loading
+          setLoading(false);
           loadingProfileFor.current = null;
         }
       }
@@ -225,6 +220,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
+        try {
+          localStorage.setItem('leadflow-profile-cache', JSON.stringify(updated));
+        } catch { }
       }
     }
   }, [session, fetchProfile]);
@@ -265,14 +263,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
 
           // 🚀 AGGRESSIVE RELEASE: If we have a cached profile, release UI immediately
+          // Check if cached profile matches current user
           if (profile && profile.id === currentSession.user.id) {
             setLoading(false);
-            // Refresh logic in background
+            // Refresh logic in background (Silent Update)
+            console.log("⚡ Optimistic Load: Showing cached profile while validating...");
             loadUserProfile(currentSession.user, 0);
           } else {
-            // No cache? We must wait
+            // No cache or wrong user? We must wait
             await loadUserProfile(currentSession.user);
           }
+        } else {
+          // No session
+          setLoading(false);
         }
       } catch (err: any) {
         if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
@@ -280,7 +283,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } finally {
         clearTimeout(timeout);
         if (mountedRef.current) {
-          setLoading(false);
+          // ensure loading is off if we are done
+          if (!session && !profile) setLoading(false);
         }
       }
     };
@@ -298,7 +302,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // 🚀 AGGRESSIVE RELEASE: Don't set loading(true) if we already have a profile
           // This prevents the 1-minute hang during background refreshes.
           if (!profile) setLoading(true);
+
           await loadUserProfile(newSession.user);
+
           if (mountedRef.current) {
             setLoading(false);
           }
@@ -314,7 +320,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(null);
         setProfile(null);
         setLoading(false);
-        sessionStorage.removeItem('leadflow-profile-cache');
+        localStorage.removeItem('leadflow-profile-cache');
       }
 
       if (event === 'TOKEN_REFRESHED' && newSession) {

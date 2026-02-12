@@ -217,10 +217,50 @@ serve(async (req) => {
                     }
 
                     // ════════════════════════════════════════════════════════
-                    // G. 🚀 OPTIMIZED ASSIGNMENT (Single RPC Call)
+                    // G. 🚀 OPTIMIZED ASSIGNMENT (Multi-Team Support)
                     // ════════════════════════════════════════════════════════
-                    const { data: bestUser, error: rpcError } = await supabase
-                        .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
+                    let bestUser: any[] | null = null;
+                    let rpcError: any = null;
+
+                    if (requiredTeamCode.includes(',')) {
+                        // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
+                        const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
+                        console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
+
+                        const results = await Promise.all(teamCodes.map((code: string) =>
+                            supabase.rpc('get_best_assignee_for_team', { p_team_code: code })
+                        ));
+
+                        let allCandidates: any[] = [];
+                        results.forEach((res: any) => {
+                            if (res.data && res.data.length > 0) {
+                                allCandidates.push(...res.data);
+                            }
+                            if (res.error) console.error(`⚠️ RPC Warning:`, res.error);
+                        });
+
+                        if (allCandidates.length > 0) {
+                            // Sort by: 1. Leads Today (ASC), 2. Total Received (ASC)
+                            allCandidates.sort((a, b) => {
+                                const aToday = a.leads_today ?? a.out_leads_today ?? 0;
+                                const bToday = b.leads_today ?? b.out_leads_today ?? 0;
+                                if (aToday !== bToday) return aToday - bToday;
+
+                                const aTotal = a.total_received ?? a.out_total_received ?? 0;
+                                const bTotal = b.total_received ?? b.out_total_received ?? 0;
+                                return aTotal - bTotal;
+                            });
+                            bestUser = [allCandidates[0]]; // Pick the winner
+                        } else {
+                            bestUser = [];
+                        }
+                    } else {
+                        // 🔵 SINGLE TEAM LOGIC
+                        const result = await supabase
+                            .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
+                        bestUser = result.data;
+                        rpcError = result.error;
+                    }
 
                     if (rpcError) {
                         console.error(`❌ RPC Error:`, rpcError);
@@ -247,6 +287,10 @@ serve(async (req) => {
 
                     const targetUser = bestUser[0];
 
+                    // ✅ FIX RPC SCHEMA MISMATCH (Handle out_ prefix)
+                    const finalUserId = targetUser.user_id || targetUser.out_user_id;
+                    const finalLimit = targetUser.daily_limit || targetUser.out_daily_limit || 100;
+
                     // ────────────────────────────────────────────────────────
                     // H. ATOMIC ASSIGNMENT (Race-Condition Safe)
                     // ────────────────────────────────────────────────────────
@@ -257,8 +301,8 @@ serve(async (req) => {
                             p_city: city,
                             p_source: `Meta - ${pageName}`,
                             p_status: 'Assigned',
-                            p_user_id: targetUser.user_id,
-                            p_planned_limit: targetUser.daily_limit || 100
+                            p_user_id: finalUserId,
+                            p_planned_limit: finalLimit
                         });
 
                     if (assignError || !assignResult?.[0]?.success) {

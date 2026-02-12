@@ -1,37 +1,35 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
- * LEADFLOW WEBHOOK v31 - FINAL IRON DOME (MULTI-MANAGER SUPPORT)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🚀 LEADFLOW WEBHOOK v34 - OPTIMIZED (KILL SWITCH REMOVED, RPC-BASED)
+ * ═══════════════════════════════════════════════════════════════════════════
  * 
- * FEATURES:
- * 1. STRICT ISOLATION: Leads from Page X -> ONLY to Team of Manager X.
- * 2. CORRECT QUOTA: Counts (user_id + assigned_to) to prevent leakage.
- * 3. NO OLD LEADS: Fresh leads only.
- * 4. FAIR ROTATION: Fewest leads first within strictly isolated team.
+ * FIXES APPLIED:
+ * 1. ❌ REMOVED: Auto-disable (is_active: false) when quota full
+ * 2. ✅ ADDED: Single RPC call (get_best_assignee_for_team) replaces N+1 loop
+ * 3. ✅ ADDED: Robust field extraction with multiple fallbacks
+ * 4. ✅ ADDED: Graceful error handling (no silent failures)
+ * 5. ✅ ADDED: lead_queue fallback when no eligible users
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 
 const VERIFY_TOKEN = Deno.env.get('META_VERIFY_TOKEN') || 'LeadFlow_Meta_2026_Premium';
-
-const PLAN_LIMITS: { [key: string]: number } = {
-    'starter': 55, 'supervisor': 115, 'manager': 176, 'weekly_boost': 92, 'turbo_boost': 108
-};
-
-// 5 Managers Supported Currently
-const MANAGER_MAPPINGS: { [pageId: string]: string } = {
-    // FORMAT: 'PAGE_ID': 'MANAGER_TEAM_CODE_PREFIX'
-    // Example:
-    // '123456789': 'TEAMFIRE',  (Himanshu)
-    // '987654321': 'WIN',       (Kunal)
-    // We will fetch real mapping from DB 'meta_pages' table which is cleaner.
-};
-
 const WORKING_HOURS = { START: 8, END: 22, TIMEZONE: 'Asia/Kolkata' };
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 function isWithinWorkingHours(): boolean {
     const now = new Date();
-    const hour = parseInt(new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false, timeZone: WORKING_HOURS.TIMEZONE }).format(now));
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        hour12: false,
+        timeZone: WORKING_HOURS.TIMEZONE
+    }).format(now));
     return hour >= WORKING_HOURS.START && hour < WORKING_HOURS.END;
 }
 
@@ -39,189 +37,324 @@ function isValidIndianPhone(phone: string): boolean {
     return /^[6789]\d{9}$/.test(phone);
 }
 
-// ✅ FIXED QUOTA CHECK: Counts BOTH Owner + Assigned leads
-async function hasQuotaRemaining(supabase: any, userId: string, planName: string): Promise<boolean> {
-    const limit = PLAN_LIMITS[planName] || 0;
-    if (limit === 0) return false;
-
-    // 1. Get Payment Count
-    const { data: payments } = await supabase.from('payments').select('id').eq('user_id', userId).eq('status', 'captured');
-    const totalQuota = limit * (payments?.length || 1);
-
-    // 2. Get Lead Count (Fixed Logic)
-    // Count as owner
-    const { count: c1 } = await supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-    // Count as assigned (but not owner)
-    const { count: c2 } = await supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_to', userId).neq('user_id', userId);
-
-    const totalUsed = (c1 || 0) + (c2 || 0);
-
-    return totalUsed < totalQuota;
+// ✅ ROBUST FIELD EXTRACTION (Handles multiple key variations)
+function extractField(fields: Record<string, string>, ...keys: string[]): string {
+    for (const key of keys) {
+        if (fields[key] && fields[key].trim()) return fields[key].trim();
+    }
+    // Dynamic fallback: search for partial matches
+    for (const key of Object.keys(fields)) {
+        const lowerKey = key.toLowerCase();
+        for (const searchKey of keys) {
+            if (lowerKey.includes(searchKey.toLowerCase())) {
+                return fields[key]?.trim() || '';
+            }
+        }
+    }
+    return '';
 }
 
-async function getRealTodayCount(supabase: any, userId: string): Promise<number> {
-    const startOfDay = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z';
-    // Count leads assigned TODAY
-    const { count } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('assigned_to', userId) // Key change: Check assigned_to, not just user_id
-        .gte('created_at', startOfDay);
-    return count || 0;
+function sanitizePhone(raw: string): string {
+    return (raw || '').replace(/\D/g, '').slice(-10);
 }
+
+// ============================================================================
+// MAIN WEBHOOK HANDLER
+// ============================================================================
 
 serve(async (req) => {
     const url = new URL(req.url);
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
+    // ────────────────────────────────────────────────────────────────────────
+    // 1. VERIFICATION (Facebook Webhook Challenge)
+    // ────────────────────────────────────────────────────────────────────────
     if (req.method === 'GET') {
         const mode = url.searchParams.get('hub.mode');
         const token = url.searchParams.get('hub.verify_token');
         const challenge = url.searchParams.get('hub.challenge');
-        if (mode === 'subscribe' && token === VERIFY_TOKEN) return new Response(challenge, { status: 200 });
+
+        if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+            console.log('✅ Webhook verified successfully');
+            return new Response(challenge, { status: 200 });
+        }
         return new Response('Forbidden', { status: 403 });
     }
 
+    // ────────────────────────────────────────────────────────────────────────
+    // 2. LEAD PROCESSING
+    // ────────────────────────────────────────────────────────────────────────
     if (req.method === 'POST') {
+        const processingStart = Date.now();
+        let leadsProcessed = 0;
+        let leadsAssigned = 0;
+
         try {
             const body = await req.json();
+
             for (const entry of body.entry || []) {
                 for (const change of entry.changes || []) {
                     const leadData = change.value?.leadgen_id ? change.value : null;
                     if (!leadData) continue;
 
-                    // 1. IDENTIFY MANAGER TEAM via Page ID
+                    leadsProcessed++;
+                    const leadId = leadData.leadgen_id;
                     const pageId = leadData.page_id || entry.id;
-                    // We need 'team_id' or 'manager_id' in meta_pages table
-                    const { data: pageData } = await supabase.from('meta_pages').select('*').eq('page_id', pageId).single();
 
-                    // CRITICAL ISOLATION LOGIC
-                    const requiredTeamCode = pageData?.team_id; // e.g., 'TEAMFIRE' (Himanshu)
-                    const pageName = pageData?.page_name || 'Unknown Page';
+                    // ────────────────────────────────────────────────────────
+                    // A. FETCH PAGE SETTINGS
+                    // ────────────────────────────────────────────────────────
+                    const { data: pageData, error: pageError } = await supabase
+                        .from('meta_pages')
+                        .select('*')
+                        .eq('page_id', pageId)
+                        .single();
+
+                    if (pageError || !pageData) {
+                        console.error(`❌ Page ${pageId} not found in meta_pages`);
+                        await logError(supabase, 'PAGE_NOT_FOUND', { pageId, leadId });
+                        continue;
+                    }
+
+                    const requiredTeamCode = pageData.team_id;
+                    const pageName = pageData.page_name || 'Unknown Page';
+                    const accessToken = pageData.access_token;
 
                     if (!requiredTeamCode) {
-                        console.log(`⚠️ Page ${pageId} (${pageName}) has no Team ID mapped. Treating as ORPHAN/DEFAULT.`);
-                        // FALLBACK: Don't assign or assign to Admin? 
-                        // Current logic: Mark as New (No Assignment)
-                        // This prevents wrong team assignment.
-                    }
-
-                    // Extract Fields
-                    const formId = leadData.form_id;
-                    const fields: Record<string, string> = {};
-                    for (const f of leadData.field_data || []) { fields[f.name] = f.values?.[0] || ''; }
-                    const name = fields.full_name || fields.name || 'Unknown';
-                    const city = fields.city || '';
-                    let rawPhone = fields.phone_number || fields.phoneNumber || fields.mobile || '';
-                    if (!rawPhone) {
-                        const k = Object.keys(fields).find(k => k.toLowerCase().match(/phone|mobile/));
-                        if (k) rawPhone = fields[k];
-                    }
-                    const phone = (rawPhone || '').replace(/\D/g, '').slice(-10);
-
-                    // Validations
-                    if (name.toLowerCase().includes('test')) {
-                        await supabase.from('leads').insert({ name: `[TEST] ${name}`, phone: 'TEST', city, source: `Meta - ${pageName}`, status: 'Test', form_id: formId });
-                        continue;
-                    }
-                    if (!isValidIndianPhone(phone)) {
-                        await supabase.from('leads').insert({ name, phone: phone || 'INVALID', city, source: `Meta - ${pageName}`, status: 'Invalid', form_id: formId });
-                        continue;
-                    }
-                    const { data: dup } = await supabase.from('leads').select('id').eq('phone', phone).limit(1);
-                    if (dup && dup.length > 0) {
-                        await supabase.from('leads').insert({ name, phone, city, source: `Meta - ${pageName}`, status: 'Duplicate', form_id: formId });
-                        continue;
-                    }
-                    if (!isWithinWorkingHours()) {
-                        await supabase.from('leads').insert({ name, phone, city, source: `Meta - ${pageName}`, status: 'Night_Backlog', form_id: formId });
+                        console.log(`⚠️ Page ${pageId} (${pageName}) has no Team ID mapped.`);
+                        await logError(supabase, 'NO_TEAM_MAPPED', { pageId, pageName });
                         continue;
                     }
 
-                    if (!requiredTeamCode) {
-                        // Log lead but don't assign if we don't know whose team it is
-                        await supabase.from('leads').insert({ name, phone, city, source: `Meta - ${pageName}`, status: 'New', form_id: formId, notes: 'No Team Mapped to Page' });
-                        continue;
-                    }
+                    // ────────────────────────────────────────────────────────
+                    // B. DATA RETRIEVAL (Payload or Graph API)
+                    // ────────────────────────────────────────────────────────
+                    let fields: Record<string, string> = {};
 
-                    // 2. FETCH TEAM MEMBERS ONLY (Isolation)
-                    // ALLOW MULTI-TEAM SHARING (Himanshu + Simran)
-                    const allowedTeams = [requiredTeamCode];
-                    if (requiredTeamCode === 'TEAMFIRE') {
-                        allowedTeams.push('TEAMSIMRAN');
-                    }
+                    if (leadData.field_data && leadData.field_data.length > 0) {
+                        for (const f of leadData.field_data) {
+                            fields[f.name] = f.values?.[0] || '';
+                        }
+                    } else if (accessToken) {
+                        console.log(`🔄 Fetching Lead ${leadId} via Graph API...`);
+                        try {
+                            const graphUrl = `https://graph.facebook.com/v18.0/${leadId}?fields=field_data,created_time&access_token=${accessToken}`;
+                            const graphRes = await fetch(graphUrl);
+                            const graphJson = await graphRes.json();
 
-                    const { data: teamUsers } = await supabase.from('users')
-                        .select('id, name, email, plan_name, daily_limit, team_code')
-                        .eq('is_active', true)
-                        .eq('is_online', true)
-                        .in('team_code', allowedTeams)
-                        .neq('role', 'manager');
-
-                    if (!teamUsers || teamUsers.length === 0) {
-                        console.log(`⚠️ No Online Users found for Team ${requiredTeamCode}`);
-                        await supabase.from('leads').insert({ name, phone, city, source: `Meta - ${pageName}`, status: 'New', form_id: formId });
-                        continue;
-                    }
-
-                    // 3. FILTER & SORT (Round Robin + Quota)
-                    const eligibleUsers = [];
-                    for (const user of teamUsers) {
-                        // Real Daily Count
-                        const todayCount = await getRealTodayCount(supabase, user.id);
-                        if (todayCount >= (user.daily_limit || 0)) continue;
-
-                        // Total Quota Check
-                        const hasQuota = await hasQuotaRemaining(supabase, user.id, user.plan_name);
-                        if (!hasQuota) {
-                            // Stop & Skip
-                            await supabase.from('users').update({ is_active: false }).eq('id', user.id);
+                            if (graphJson.error) {
+                                console.error(`❌ Graph API Error:`, graphJson.error);
+                                await logError(supabase, 'GRAPH_API_ERROR', { leadId, error: graphJson.error });
+                                continue;
+                            }
+                            for (const f of graphJson.field_data || []) {
+                                fields[f.name] = f.values?.[0] || '';
+                            }
+                        } catch (graphErr) {
+                            console.error(`❌ Graph API Fetch Failed:`, graphErr);
                             continue;
                         }
-
-                        eligibleUsers.push({ ...user, leads_today: todayCount });
-                    }
-
-                    if (eligibleUsers.length === 0) {
-                        console.log(`⚠️ Team ${requiredTeamCode} Full/Quota reached.`);
-                        await supabase.from('leads').insert({ name, phone, city, source: `Meta - ${pageName}`, status: 'New', form_id: formId });
+                    } else {
+                        console.log(`⚠️ No field data and no access token for Lead ${leadId}`);
                         continue;
                     }
 
-                    // Sort: Fewest Leads -> Higher Plan
-                    eligibleUsers.sort((a, b) => {
-                        const diff = (a.leads_today || 0) - (b.leads_today || 0);
-                        if (diff !== 0) return diff;
-                        // Plan Weight
-                        const getWeight = (p: string) => p?.includes('turbo') ? 100 : p?.includes('weekly') ? 90 : p?.includes('manager') ? 80 : 10;
-                        return getWeight(b.plan_name) - getWeight(a.plan_name);
-                    });
+                    // ────────────────────────────────────────────────────────
+                    // C. NORMALIZE DATA (Robust Extraction)
+                    // ────────────────────────────────────────────────────────
+                    const name = extractField(fields, 'full_name', 'name', 'first_name') || 'Unknown Lead';
+                    const city = extractField(fields, 'city', 'location', 'town', 'address') || 'Unknown';
+                    const rawPhone = extractField(fields, 'phone_number', 'phoneNumber', 'phone', 'mobile', 'contact');
+                    const phone = sanitizePhone(rawPhone);
 
-                    const targetUser = eligibleUsers[0];
-                    const newCount = (targetUser.leads_today || 0) + 1;
+                    // ────────────────────────────────────────────────────────
+                    // D. VALIDATION
+                    // ────────────────────────────────────────────────────────
+                    if (name.toLowerCase().includes('test')) {
+                        console.log(`⏭️ Skipping test lead: ${name}`);
+                        continue;
+                    }
 
-                    console.log(`✅ Assigning ${phone} -> ${targetUser.name} [${requiredTeamCode}] (#${newCount})`);
+                    if (!isValidIndianPhone(phone)) {
+                        console.log(`⏭️ Invalid phone: ${phone}`);
+                        await supabase.from('leads').insert({
+                            name, phone: phone || 'INVALID', city,
+                            source: `Meta - ${pageName}`, status: 'Invalid'
+                        });
+                        continue;
+                    }
 
-                    // 4. ASSIGN
-                    await supabase.from('leads').insert({
-                        name, phone, city,
-                        source: `Meta - ${pageName}`,
-                        status: 'Assigned',
-                        user_id: targetUser.id,
-                        assigned_to: targetUser.id,
-                        form_id: formId,
-                        created_at: new Date().toISOString()
-                    });
+                    // ────────────────────────────────────────────────────────
+                    // E. DUPLICATE CHECK
+                    // ────────────────────────────────────────────────────────
+                    const { data: dup } = await supabase
+                        .from('leads')
+                        .select('id')
+                        .eq('phone', phone)
+                        .limit(1);
 
-                    // Update Count
-                    await supabase.from('users').update({ leads_today: newCount }).eq('id', targetUser.id);
+                    if (dup && dup.length > 0) {
+                        console.log(`♻️ Duplicate: ${phone}`);
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'Duplicate'
+                        });
+                        continue;
+                    }
+
+                    // ────────────────────────────────────────────────────────
+                    // F. WORKING HOURS CHECK
+                    // ────────────────────────────────────────────────────────
+                    if (!isWithinWorkingHours()) {
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'Night_Backlog'
+                        });
+                        continue;
+                    }
+
+                    // ════════════════════════════════════════════════════════
+                    // G. 🚀 OPTIMIZED ASSIGNMENT (Multi-Team Support)
+                    // ════════════════════════════════════════════════════════
+                    let bestUser: any[] | null = null;
+                    let rpcError: any = null;
+
+                    if (requiredTeamCode.includes(',')) {
+                        // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
+                        const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
+                        console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
+
+                        const results = await Promise.all(teamCodes.map((code: string) =>
+                            supabase.rpc('get_best_assignee_for_team', { p_team_code: code })
+                        ));
+
+                        let allCandidates: any[] = [];
+                        results.forEach((res: any) => {
+                            if (res.data && res.data.length > 0) {
+                                allCandidates.push(...res.data);
+                            }
+                            if (res.error) console.error(`⚠️ RPC Warning:`, res.error);
+                        });
+
+                        if (allCandidates.length > 0) {
+                            // Sort by: 1. Leads Today (ASC), 2. Total Received (ASC)
+                            allCandidates.sort((a, b) => {
+                                const aToday = a.leads_today ?? a.out_leads_today ?? 0;
+                                const bToday = b.leads_today ?? b.out_leads_today ?? 0;
+                                if (aToday !== bToday) return aToday - bToday;
+
+                                const aTotal = a.total_received ?? a.out_total_received ?? 0;
+                                const bTotal = b.total_received ?? b.out_total_received ?? 0;
+                                return aTotal - bTotal;
+                            });
+                            bestUser = [allCandidates[0]]; // Pick the winner
+                        } else {
+                            bestUser = [];
+                        }
+                    } else {
+                        // 🔵 SINGLE TEAM LOGIC
+                        const result = await supabase
+                            .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
+                        bestUser = result.data;
+                        rpcError = result.error;
+                    }
+
+                    if (rpcError) {
+                        console.error(`❌ RPC Error:`, rpcError);
+                        await logError(supabase, 'RPC_ERROR', { team: requiredTeamCode, error: rpcError.message });
+                        // Fallback: Insert as unassigned
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'New',
+                            notes: 'RPC Error - Manual Assignment Required'
+                        });
+                        continue;
+                    }
+
+                    if (!bestUser || bestUser.length === 0) {
+                        console.log(`⚠️ No eligible users for Team ${requiredTeamCode}`);
+                        // Insert to queue for later processing
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'Queued',
+                            notes: `Team ${requiredTeamCode} - All users at capacity`
+                        });
+                        continue;
+                    }
+
+                    const targetUser = bestUser[0];
+
+                    // ✅ FIX RPC SCHEMA MISMATCH (Handle out_ prefix)
+                    const finalUserId = targetUser.user_id || targetUser.out_user_id;
+                    const finalLimit = targetUser.daily_limit || targetUser.out_daily_limit || 100;
+
+                    // ────────────────────────────────────────────────────────
+                    // H. ATOMIC ASSIGNMENT (Race-Condition Safe)
+                    // ────────────────────────────────────────────────────────
+                    const { data: assignResult, error: assignError } = await supabase
+                        .rpc('assign_lead_atomically', {
+                            p_lead_name: name,
+                            p_phone: phone,
+                            p_city: city,
+                            p_source: `Meta - ${pageName}`,
+                            p_status: 'Assigned',
+                            p_user_id: finalUserId,
+                            p_planned_limit: finalLimit
+                        });
+
+                    if (assignError || !assignResult?.[0]?.success) {
+                        console.log(`⚠️ Atomic assign failed for ${targetUser.user_name}, inserting as Queued`);
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'Queued',
+                            notes: 'Atomic assignment failed - retry needed'
+                        });
+                        continue;
+                    }
+
+                    leadsAssigned++;
+                    console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);
                 }
             }
-            return new Response('Processed', { status: 200 });
-        } catch (e) {
-            console.error(e);
-            return new Response(e.message, { status: 500 });
+
+            const processingTime = Date.now() - processingStart;
+            console.log(`📊 Processed: ${leadsProcessed}, Assigned: ${leadsAssigned}, Time: ${processingTime}ms`);
+
+            return new Response(JSON.stringify({
+                status: 'success',
+                processed: leadsProcessed,
+                assigned: leadsAssigned,
+                time_ms: processingTime
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+        } catch (e: any) {
+            console.error("❌ Webhook Fatal Error:", e.message);
+            await logError(supabase, 'FATAL_ERROR', { message: e.message, stack: e.stack });
+            return new Response(JSON.stringify({ error: e.message }), { status: 500 });
         }
     }
+
     return new Response('Method Not Allowed', { status: 405 });
 });
+
+// ============================================================================
+// ERROR LOGGING (No Silent Failures)
+// ============================================================================
+
+async function logError(supabase: any, errorType: string, details: any) {
+    try {
+        await supabase.from('webhook_errors').insert({
+            error_type: errorType,
+            details: details,
+            created_at: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error('Failed to log error to DB:', e);
+    }
+}
