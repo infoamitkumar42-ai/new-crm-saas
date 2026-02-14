@@ -51,7 +51,18 @@ serve(async (req) => {
 
     if (payload.type === "INSERT" && payload.record) {
       const record = payload.record;
-      userId = record.user_id;
+      // 🔧 FIX: leads table uses 'assigned_to', not 'user_id'
+      userId = record.assigned_to || record.user_id;
+
+      // Skip if no user assigned (duplicate/queued leads)
+      if (!userId) {
+        console.log("⏭️ Lead has no assigned user, skipping push.");
+        return new Response(JSON.stringify({ message: "No assigned user" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+
       title = "🔥 New Lead Alert!";
       body = `👤 ${record.name || "Unknown"} | 📍 ${record.city || "Online"}\nTap to check details.`;
       data = { url: "/leads", leadId: record.id };
@@ -106,7 +117,7 @@ serve(async (req) => {
         } catch (err: any) {
           // Auto-Cleaning: Agar device kharab hai (410 Gone), toh delete karo
           if (err.statusCode === 410 || err.statusCode === 404) {
-             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+            await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
           return { success: false };
         }

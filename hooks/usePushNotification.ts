@@ -32,19 +32,24 @@ interface UsePushNotificationReturn {
 }
 
 export function usePushNotification(): UsePushNotificationReturn {
-  // 1. Detect iOS immediately (Hard Stop)
+  // 1. Detect iOS + PWA mode
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  if (isIOS) {
+  // 🔧 FIX: Check if running as PWA (Add to Home Screen)
+  const isStandalone = (window.matchMedia?.('(display-mode: standalone)').matches) ||
+    (navigator as any).standalone === true;
+
+  // Only block iOS if NOT in PWA mode (regular Safari doesn't support push)
+  if (isIOS && !isStandalone) {
     return {
       isSubscribed: false,
       isLoading: false,
       isSupported: false,
       permission: 'denied',
       error: null,
-      subscribe: async () => { alert("Please use 'Add to Home Screen' for notifications on iOS."); return false; },
+      subscribe: async () => { alert("📱 iPhone pe notifications ke liye 'Add to Home Screen' karein!\n\nSafari → Share button → 'Add to Home Screen'"); return false; },
       unsubscribe: async () => false,
       testNotification: async () => { },
       refreshSubscription: async () => { }
