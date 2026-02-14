@@ -284,7 +284,7 @@ export const MemberDashboard = () => {
   const leadsToday = todayLeadsCount;
   const totalReceived = leads.length;
 
-  const dailyLimit = profile?.daily_limit || 0;
+  const dailyLimit = profile?.daily_limit_override || profile?.daily_limit || 0;
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
@@ -415,7 +415,10 @@ export const MemberDashboard = () => {
   // DATA FETCHING
   // ============================================================
 
-  const fetchData = async (fetchLimit: number = 300) => {
+  // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
+  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,distribution_score,notes,created_at,assigned_at';
+
+  const fetchData = async (fetchLimit: number = 50) => {
     if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
@@ -435,38 +438,28 @@ export const MemberDashboard = () => {
         return;
       }
 
-      // console.time('📊 [Dashboard] Overall Fetch');
-
-      // 🚀 PARALLEL FETCHING: Fetch everything at once
-      const [managerResult, leadsResult, countResult, profileResult] = await Promise.all([
+      // 🚀 PARALLEL FETCHING: Fetch everything at once (3 queries instead of 4)
+      const [managerResult, leadsResult, profileResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads with Dynamic Limit (100 for speed, 1000 for background sync)
+        // 2. Fetch Leads — selective columns only
         supabase
           .from('leads')
-          .select('*')
+          .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .order('created_at', { ascending: false })
           .limit(fetchLimit),
 
-        // 3. Exact Counter: Get the total count for the UI status bar (User's "Smart Move")
-        supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
-
-        // 4. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
+        // 3. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
         supabase
           .from('users')
-          .select('*')
+          .select('id,name,email,role,plan_name,plan_weight,daily_limit,daily_limit_override,leads_today,valid_until,payment_status,manager_id,preferred_city,total_leads_received,sheet_url,filters,last_activity,is_active,days_extended,total_leads_promised,is_plan_pending,plan_activation_time')
           .eq('id', userId)
           .single()
       ]);
-
-      // console.timeEnd('📊 [Dashboard] Overall Fetch');
 
       // Update UI with results
       if (managerResult.data) {
@@ -475,14 +468,8 @@ export const MemberDashboard = () => {
         setManagerName('Direct (No Manager)');
       }
 
-      // Update Total Counter in UI if we have it
-      if (countResult?.count !== null) {
-        setProfile((prev: any) => ({
-          ...prev,
-          ...(profileResult?.data || {}), // 🔥 Merge fresh profile data (limits, plan_name, etc.)
-          total_leads_received: countResult?.count || 0
-        }));
-      } else if (profileResult?.data) {
+      // Update profile with fresh data (total_leads_received comes from profile itself)
+      if (profileResult?.data) {
         setProfile((prev: any) => ({ ...prev, ...profileResult.data }));
       }
 
@@ -495,14 +482,18 @@ export const MemberDashboard = () => {
         } catch { }
       }
 
-      // 🔥 BACKGROUND TASK: Update last activity without blocking UI
-      supabase.from('users').update({ last_activity: new Date().toISOString() }).eq('id', userId).then(() => { });
+      console.log(`⚡ Dashboard loaded in ${Date.now() - startTime}ms (${fetchLimit} leads)`);
+
+      // 🔥 BACKGROUND TASK: Update last activity AND online status without blocking UI
+      supabase.from('users').update({
+        last_activity: new Date().toISOString(),
+        is_online: true // 🚀 FORCE ONLINE: If user is on dashboard, they ARE online!
+      }).eq('id', userId).then(() => { });
 
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
       console.error('Dashboard Data Error:', error);
     } finally {
-      // console.log(`⏱️ Dashboard Sync: ${Date.now() - startTime}ms`);
       setLoading(false);
       setRefreshing(false);
       isFetchingRef.current = false;
@@ -520,14 +511,14 @@ export const MemberDashboard = () => {
     }
   };
 
-  // 🚨 IOS SAFETY VALVE: Force remove loading screen after 4s (2s for iOS)
+  // 🚨 SAFETY VALVE: Force remove loading screen (6s max, 3s for iOS)
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
       if (loading) {
-        // console.warn("⚠️ Force releasing loading screen for iOS safety");
+        console.warn("⚠️ Force releasing loading screen");
         setLoading(false);
       }
-    }, isIOS() ? 5000 : 15000);
+    }, isIOS() ? 3000 : 6000);
     return () => clearTimeout(safetyTimer);
   }, [loading]);
 
@@ -553,8 +544,7 @@ export const MemberDashboard = () => {
     if (!authProfile?.id) return;
 
     const interval = setInterval(() => {
-      // console.log("🔄 Background polling for fresh leads...");
-      fetchData(1000);
+      fetchData(300); // Background: fetch more leads for full history
     }, 20000); // 20 Seconds
 
     return () => clearInterval(interval);
@@ -566,24 +556,35 @@ export const MemberDashboard = () => {
     const channel = supabase
       .channel(`member-leads-${profile.id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*', // 🚀 Listen for BOTH Insert and Update
         schema: 'public',
         table: 'leads',
-        filter: `user_id=eq.${profile.id}`,
+        filter: `assigned_to=eq.${profile.id}`,
       }, (payload) => {
         const newLead = payload.new as Lead;
-        setLeads(prev => [newLead, ...prev]);
 
-        // 1. Play Sound
-        playNotificationSound();
+        // 🔥 Robust Update: Only add if not already in list (for Manual Reassignments)
+        setLeads(prev => {
+          const exists = prev.find(l => l.id === newLead.id);
+          if (exists && payload.eventType === 'UPDATE') {
+            return prev.map(l => l.id === newLead.id ? newLead : l);
+          }
+          if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && !exists)) {
+            playNotificationSound();
+            return [newLead, ...prev];
+          }
+          return prev;
+        });
 
-        // 2. Show System Notification (Safe Check)
-        if (typeof window !== 'undefined' && 'Notification' in window && (window.Notification as any).permission === 'granted') {
-          new window.Notification('🔥 New Lead Received!', {
-            body: `${newLead.name} from ${newLead.city}`,
-            icon: '/logo.png',
-            tag: 'new-lead-' + Date.now()
-          });
+        // Show System Notification for new assignments
+        if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && payload.old && (payload.old as any).assigned_to !== profile.id)) {
+          if (typeof window !== 'undefined' && 'Notification' in window && (window.Notification as any).permission === 'granted') {
+            new window.Notification('🔥 New Lead Received!', {
+              body: `${newLead.name} from ${newLead.city}`,
+              icon: '/logo.png',
+              tag: 'new-lead-' + newLead.id
+            });
+          }
         }
       })
       .subscribe();
