@@ -29,6 +29,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // 🛑 MAINTENANCE MODE (Until March)
+  const MAINTENANCE_MODE = true;
+  if (MAINTENANCE_MODE) {
+    return res.status(503).json({
+      error: "Payments are currently paused for system upgrades. Please try again in March."
+    });
+  }
+
   try {
     const { planId, price, userId } = req.body;
 
@@ -55,17 +63,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. Call Razorpay API
     const order = await razorpay.orders.create(options);
-    
+
     console.log("✅ Order Created Successfully:", order.id);
-    
+
     // 6. Send Response
     res.status(200).json(order);
 
   } catch (error: any) {
     console.error("🔥 Razorpay API Error:", error);
-    
+
     // Send detailed error for debugging
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message || "Something went wrong creating the order",
       details: error
     });

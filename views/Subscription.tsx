@@ -232,6 +232,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   const handleSubscribe = async (plan: typeof plans.monthly[0]) => {
+    // 🛑 MAINTENANCE MODE (Until March)
+    const MAINTENANCE_MODE = true;
+    if (MAINTENANCE_MODE) {
+      alert("🚧 Payments are temporarily paused for system upgrades.\n\nWe will resume accepting new subscriptions in March.\nPlease check back later!");
+      // setLoading(null); // Not needed as we return early
+      return;
+    }
+
     setLoading(plan.id);
 
     try {
