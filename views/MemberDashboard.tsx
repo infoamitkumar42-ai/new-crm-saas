@@ -198,7 +198,7 @@ export const MemberDashboard = () => {
   const [leads, setLeads] = useState<Lead[]>(() => {
     // 🔥 INSTANT LEADS: Load from cache for zero-wait UI
     try {
-      const cached = sessionStorage.getItem('leadflow-leads-cache');
+      const cached = localStorage.getItem('leadflow-leads-cache');
       return cached ? JSON.parse(cached) : [];
     } catch { return []; }
   });
@@ -479,7 +479,7 @@ export const MemberDashboard = () => {
         setLeads(fetchedLeads);
         // 🔥 CACHE FOR INSTANT NEXT LOAD
         try {
-          sessionStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads));
+          localStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads));
         } catch { }
       }
 
