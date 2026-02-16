@@ -126,11 +126,32 @@ export default async function handler(req: any, res: any) {
 
       // Check if user was already active (renewal vs new purchase)
       const existingUser = await fetch(
-        `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=plan_name,payment_status`,
+        `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=plan_name,payment_status,total_leads_promised`,
         { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
       );
       const existingData = await existingUser.json();
-      const isRenewal = existingData?.[0]?.payment_status === 'active' && existingData?.[0]?.plan_name !== 'none';
+      const userData = existingData?.[0];
+      const isRenewal = userData?.payment_status === 'active' && userData?.plan_name !== 'none';
+
+      // 🚀 ROBUST ALL-TIME SYNC LOGIC (Infinite Validity)
+
+      // 1. Get REAL leads count from DB to prevent sync issues
+      const { count: realLeadsCount } = await fetch(
+        `${supabaseUrl}/rest/v1/leads?user_id=eq.${userId}&select=*&head=true`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+      ).then(r => ({ count: parseInt(r.headers.get('content-range')?.split('/')[1] || '0') }));
+
+      const currentPromised = userData?.total_leads_promised || 0;
+
+      // 2. Base Quota Calculation (Forgive overage, carry forward unused)
+      // If user received MORE than promised (glitch), we start fresh from that count.
+      // If user received LESS (pending), we keep the higher promised number.
+      const baseQuota = Math.max(currentPromised, realLeadsCount || 0);
+
+      const newTotalLeadsPromised = baseQuota + config.totalLeads;
+
+      // 3. Infinite Validity (2099)
+      const infiniteValidity = '2099-01-01T00:00:00.000Z'; // Never expire by date
 
       await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
         method: 'PATCH',
@@ -138,14 +159,16 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           plan_name: normalizedPlan,
           payment_status: 'active',
-          daily_limit: isRenewal ? config.dailyLeads : 0, // No leads until activation for new users
+          daily_limit: isRenewal ? config.dailyLeads : 0,
+          total_leads_promised: newTotalLeadsPromised,   // ✅ SYNCED & ADDED
+          total_leads_received: realLeadsCount,          // ✅ CORRECTS DB IF WRONG
           plan_weight: config.weight,
           max_replacements: config.maxReplacements,
-          valid_until: validUntil.toISOString(),
+          valid_until: infiniteValidity,                 // ✅ INFINITE VALIDITY
           leads_today: 0,
           plan_start_date: now.toISOString(),
-          plan_activation_time: isRenewal ? null : activationTime.toISOString(), // Only for new users
-          is_plan_pending: isRenewal ? false : true, // Only for new users
+          plan_activation_time: isRenewal ? null : activationTime.toISOString(),
+          is_plan_pending: isRenewal ? false : true,
           updated_at: now.toISOString()
         })
       });

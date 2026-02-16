@@ -19,7 +19,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-// Plan limits per payment
+// Plan limits per payment (Reference only)
 const PLAN_LIMITS: { [key: string]: number } = {
   'starter': 55,
   'supervisor': 115,
@@ -51,43 +51,46 @@ export default async function handler(req: any, res: any) {
 
     // 2. Check each user's quota (NOT DATE)
     for (const user of activeUsers) {
-      // Count total leads assigned to this user
-      const { count: totalLeads } = await supabaseAdmin
+      // Get REAL leads count
+      const { count: realLeadsCount } = await supabaseAdmin
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Count their payments to calculate total quota
-      const { data: payments } = await supabaseAdmin
-        .from('payments')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'captured');
+      const totalReceived = realLeadsCount || 0;
 
-      const paymentCount = payments?.length || 1;
-      const baseLimit = PLAN_LIMITS[user.plan_name] || 0;
-      const totalQuota = baseLimit * paymentCount;
+      // Fetch current promised quota from DB (Single Source of Truth)
+      const { data: userData } = await supabaseAdmin
+        .from('users')
+        .select('total_leads_promised')
+        .eq('id', user.id)
+        .single();
+
+      const totalPromised = userData?.total_leads_promised || 0;
 
       // If quota exhausted, deactivate
-      if (totalLeads !== null && totalLeads >= totalQuota && totalQuota > 0) {
+      // Strict check: Received >= Promised
+      if (totalReceived >= totalPromised && totalPromised > 0) {
         await supabaseAdmin
           .from('users')
           .update({
             payment_status: 'inactive',
             daily_limit: 0,
             is_active: false,
-            is_online: false
+            is_online: false,
+            // valid_until: '2099...' // No need to change, already infinite
+            plan_name: 'none' // Optionally reset plan name to avoid confusion
           })
           .eq('id', user.id);
 
         quotaExhausted.push({
           name: user.name,
           email: user.email,
-          leadsReceived: totalLeads,
-          totalQuota: totalQuota
+          leadsReceived: totalReceived,
+          totalQuota: totalPromised
         });
 
-        console.log(`🛑 Quota exhausted: ${user.name} (${totalLeads}/${totalQuota})`);
+        console.log(`🛑 Quota exhausted: ${user.name} (${totalReceived}/${totalPromised})`);
       }
     }
 
