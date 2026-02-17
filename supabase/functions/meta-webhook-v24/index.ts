@@ -206,8 +206,9 @@ serve(async (req) => {
                     }
 
                     // ────────────────────────────────────────────────────────
-                    // F. WORKING HOURS CHECK
+                    // F. WORKING HOURS CHECK (DISABLED for 3-day recovery)
                     // ────────────────────────────────────────────────────────
+                    /*
                     if (!isWithinWorkingHours()) {
                         await supabase.from('leads').insert({
                             name, phone, city,
@@ -215,6 +216,7 @@ serve(async (req) => {
                         });
                         continue;
                     }
+                    */
 
                     // ════════════════════════════════════════════════════════
                     // G. 🚀 OPTIMIZED ASSIGNMENT (Multi-Team Support)
@@ -223,43 +225,77 @@ serve(async (req) => {
                     let rpcError: any = null;
 
                     if (requiredTeamCode.includes(',')) {
-                        // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
+                        // 🟢 MULTI-TEAM LOGIC (With Override Support)
                         const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
                         console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
 
-                        const results = await Promise.all(teamCodes.map((code: string) =>
-                            supabase.rpc('get_best_assignee_for_team', { p_team_code: code })
-                        ));
+                        const { data: teamUsers, error: userError } = await supabase
+                            .from('users')
+                            .select('id, name, email, plan_name, daily_limit, daily_limit_override, leads_today, total_leads_received, total_leads_promised')
+                            .in('team_code', teamCodes)
+                            .eq('is_active', true)
+                            .eq('is_online', true)
+                            .in('role', ['member', 'manager']);
 
-                        let allCandidates: any[] = [];
-                        results.forEach((res: any) => {
-                            if (res.data && res.data.length > 0) {
-                                allCandidates.push(...res.data);
-                            }
-                            if (res.error) console.error(`⚠️ RPC Warning:`, res.error);
-                        });
+                        if (userError) {
+                            rpcError = userError;
+                        } else if (teamUsers) {
+                            const eligible = teamUsers.filter(u => {
+                                const limit = u.daily_limit_override || u.daily_limit || 0;
+                                const quotaFull = (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised);
+                                return u.leads_today < limit && !quotaFull;
+                            });
 
-                        if (allCandidates.length > 0) {
-                            // Sort by: 1. Leads Today (ASC), 2. Total Received (ASC)
-                            allCandidates.sort((a, b) => {
-                                const aToday = a.leads_today ?? a.out_leads_today ?? 0;
-                                const bToday = b.leads_today ?? b.out_leads_today ?? 0;
+                            eligible.sort((a, b) => {
+                                const aToday = a.leads_today ?? 0;
+                                const bToday = b.leads_today ?? 0;
                                 if (aToday !== bToday) return aToday - bToday;
 
-                                const aTotal = a.total_received ?? a.out_total_received ?? 0;
-                                const bTotal = b.total_received ?? b.out_total_received ?? 0;
+                                const aTotal = a.total_leads_received ?? 0;
+                                const bTotal = b.total_leads_received ?? 0;
                                 return aTotal - bTotal;
                             });
-                            bestUser = [allCandidates[0]]; // Pick the winner
+
+                            bestUser = eligible.length > 0 ? [{
+                                user_id: eligible[0].id,
+                                user_name: eligible[0].name,
+                                daily_limit: eligible[0].daily_limit_override || eligible[0].daily_limit
+                            }] : [];
                         } else {
                             bestUser = [];
                         }
                     } else {
-                        // 🔵 SINGLE TEAM LOGIC
-                        const result = await supabase
-                            .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
-                        bestUser = result.data;
-                        rpcError = result.error;
+                        // 🔵 SINGLE TEAM LOGIC (With Override Support)
+                        const { data: teamUsers, error: userError } = await supabase
+                            .from('users')
+                            .select('id, name, email, plan_name, daily_limit, daily_limit_override, leads_today, total_leads_received, total_leads_promised')
+                            .eq('team_code', requiredTeamCode)
+                            .eq('is_active', true)
+                            .eq('is_online', true)
+                            .in('role', ['member', 'manager']);
+
+                        if (userError) {
+                            rpcError = userError;
+                        } else if (teamUsers) {
+                            const eligible = teamUsers.filter(u => {
+                                const limit = u.daily_limit_override || u.daily_limit || 0;
+                                const quotaFull = (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised);
+                                return u.leads_today < limit && !quotaFull;
+                            });
+
+                            eligible.sort((a, b) => {
+                                if (a.leads_today !== b.leads_today) return a.leads_today - b.leads_today;
+                                return (a.id < b.id ? -1 : 1);
+                            });
+
+                            bestUser = eligible.length > 0 ? [{
+                                user_id: eligible[0].id,
+                                user_name: eligible[0].name,
+                                daily_limit: eligible[0].daily_limit_override || eligible[0].daily_limit
+                            }] : [];
+                        } else {
+                            bestUser = [];
+                        }
                     }
 
                     if (rpcError) {

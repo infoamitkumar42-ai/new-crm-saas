@@ -206,8 +206,9 @@ serve(async (req) => {
                     }
 
                     // ────────────────────────────────────────────────────────
-                    // F. WORKING HOURS CHECK
+                    // F. WORKING HOURS CHECK (DISABLED for 3-day recovery)
                     // ────────────────────────────────────────────────────────
+                    /*
                     if (!isWithinWorkingHours()) {
                         await supabase.from('leads').insert({
                             name, phone, city,
@@ -215,6 +216,7 @@ serve(async (req) => {
                         });
                         continue;
                     }
+                    */
 
                     // ════════════════════════════════════════════════════════
                     // G. 🚀 OPTIMIZED ASSIGNMENT (Multi-Team Support)
@@ -227,39 +229,73 @@ serve(async (req) => {
                         const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
                         console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
 
-                        const results = await Promise.all(teamCodes.map((code: string) =>
-                            supabase.rpc('get_best_assignee_for_team', { p_team_code: code })
-                        ));
+                        const { data: teamUsers, error: userError } = await supabase
+                            .from('users')
+                            .select('id, name, email, plan_name, daily_limit, daily_limit_override, leads_today, total_leads_received, total_leads_promised')
+                            .in('team_code', teamCodes)
+                            .eq('is_active', true)
+                            .eq('is_online', true)
+                            .in('role', ['member', 'manager']);
 
-                        let allCandidates: any[] = [];
-                        results.forEach((res: any) => {
-                            if (res.data && res.data.length > 0) {
-                                allCandidates.push(...res.data);
-                            }
-                            if (res.error) console.error(`⚠️ RPC Warning:`, res.error);
-                        });
+                        if (userError) {
+                            rpcError = userError;
+                        } else if (teamUsers) {
+                            const eligible = teamUsers.filter(u => {
+                                const limit = u.daily_limit_override || u.daily_limit || 0;
+                                const quotaFull = (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised);
+                                return u.leads_today < limit && !quotaFull;
+                            });
 
-                        if (allCandidates.length > 0) {
-                            // Sort by: 1. Leads Today (ASC), 2. Total Received (ASC)
-                            allCandidates.sort((a, b) => {
-                                const aToday = a.leads_today ?? a.out_leads_today ?? 0;
-                                const bToday = b.leads_today ?? b.out_leads_today ?? 0;
+                            eligible.sort((a, b) => {
+                                const aToday = a.leads_today ?? 0;
+                                const bToday = b.leads_today ?? 0;
                                 if (aToday !== bToday) return aToday - bToday;
 
-                                const aTotal = a.total_received ?? a.out_total_received ?? 0;
-                                const bTotal = b.total_received ?? b.out_total_received ?? 0;
+                                const aTotal = a.total_leads_received ?? 0;
+                                const bTotal = b.total_leads_received ?? 0;
                                 return aTotal - bTotal;
                             });
-                            bestUser = [allCandidates[0]]; // Pick the winner
+
+                            bestUser = eligible.length > 0 ? [{
+                                user_id: eligible[0].id,
+                                user_name: eligible[0].name,
+                                daily_limit: eligible[0].daily_limit_override || eligible[0].daily_limit
+                            }] : [];
                         } else {
                             bestUser = [];
                         }
                     } else {
-                        // 🔵 SINGLE TEAM LOGIC
-                        const result = await supabase
-                            .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
-                        bestUser = result.data;
-                        rpcError = result.error;
+                        // 🔵 SINGLE TEAM LOGIC (With Override Support)
+                        const { data: teamUsers, error: userError } = await supabase
+                            .from('users')
+                            .select('id, name, email, plan_name, daily_limit, daily_limit_override, leads_today, total_leads_received, total_leads_promised')
+                            .eq('team_code', requiredTeamCode)
+                            .eq('is_active', true)
+                            .eq('is_online', true)
+                            .in('role', ['member', 'manager']);
+
+                        if (userError) {
+                            rpcError = userError;
+                        } else if (teamUsers) {
+                            const eligible = teamUsers.filter(u => {
+                                const limit = u.daily_limit_override || u.daily_limit || 0;
+                                const quotaFull = (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised);
+                                return u.leads_today < limit && !quotaFull;
+                            });
+
+                            eligible.sort((a, b) => {
+                                if (a.leads_today !== b.leads_today) return a.leads_today - b.leads_today;
+                                return (a.id < b.id ? -1 : 1);
+                            });
+
+                            bestUser = eligible.length > 0 ? [{
+                                user_id: eligible[0].id,
+                                user_name: eligible[0].name,
+                                daily_limit: eligible[0].daily_limit_override || eligible[0].daily_limit
+                            }] : [];
+                        } else {
+                            bestUser = [];
+                        }
                     }
 
                     if (rpcError) {
@@ -292,28 +328,39 @@ serve(async (req) => {
                     const finalLimit = targetUser.daily_limit || targetUser.out_daily_limit || 100;
 
                     // ────────────────────────────────────────────────────────
-                    // H. ATOMIC ASSIGNMENT (Race-Condition Safe)
+                    // H. ATOMIC ASSIGNMENT (Bypassing buggy RPC)
                     // ────────────────────────────────────────────────────────
-                    const { data: assignResult, error: assignError } = await supabase
-                        .rpc('assign_lead_atomically', {
-                            p_lead_name: name,
-                            p_phone: phone,
-                            p_city: city,
-                            p_source: `Meta - ${pageName}`,
-                            p_status: 'Assigned',
-                            p_user_id: finalUserId,
-                            p_planned_limit: finalLimit
+                    console.log(`🚀 Assigning to ${targetUser.user_name} (${finalUserId})`);
+
+                    const { error: assignError } = await supabase
+                        .from('leads')
+                        .insert({
+                            name,
+                            phone,
+                            city,
+                            source: `Meta - ${pageName}`,
+                            status: 'Assigned',
+                            assigned_to: finalUserId,
+                            user_id: finalUserId,
+                            assigned_at: new Date().toISOString()
                         });
 
-                    if (assignError || !assignResult?.[0]?.success) {
-                        console.log(`⚠️ Atomic assign failed for ${targetUser.user_name}, inserting as Queued`);
+                    if (assignError) {
+                        console.log(`⚠️ Direct assign failed for ${targetUser.user_name}, inserting as Queued:`, assignError.message);
                         await supabase.from('leads').insert({
                             name, phone, city,
                             source: `Meta - ${pageName}`, status: 'Queued',
-                            notes: 'Atomic assignment failed - retry needed'
+                            notes: `Assignment failed: ${assignError.message}`
                         });
                         continue;
                     }
+
+                    // Increment user's leads_today for dashboard
+                    // We use rpc call to increment to avoid race conditions as much as possible 
+                    // without the complex buggy assign_lead_atomically
+                    await supabase.rpc('exec_sql', {
+                        sql_query: `UPDATE users SET leads_today = leads_today + 1 WHERE id = '${finalUserId}'`
+                    }).catch(() => { });
 
                     leadsAssigned++;
                     console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);

@@ -124,9 +124,8 @@ const getStatusColor = (status: string): string => {
 };
 
 const isWithinWorkingHours = (): boolean => {
-  const hour = new Date().getHours();
-  // 8:00 AM to 10:00 PM
-  return hour >= 8 && hour < 22;
+  // 🔓 24/7 Mode enabled for recovery
+  return true;
 };
 
 // 🔥 IOS DETECTION
@@ -136,12 +135,7 @@ const isIOS = () => {
 };
 
 const getTimeUntilOpen = (): string => {
-  const hour = new Date().getHours();
-  if (hour >= 22) {
-    return `Opens in ${24 - hour + 8} hours`;
-  } else if (hour < 8) {
-    return `Opens in ${8 - hour} hours`;
-  }
+  // 🔓 24/7 Mode: No wait time
   return '';
 };
 
