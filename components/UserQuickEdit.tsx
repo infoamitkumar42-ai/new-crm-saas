@@ -12,6 +12,7 @@ interface UserData {
     name: string;
     email: string;
     daily_limit: number | null;
+    daily_limit_override: number | null;
     leads_today: number | null;
     plan_name: string | null;
     is_active: boolean;
@@ -36,7 +37,7 @@ const UserQuickEdit: React.FC<UserQuickEditProps> = ({ user, onClose, onSave }) 
 
     useEffect(() => {
         if (user) {
-            setDailyLimit(user.daily_limit || 0);
+            setDailyLimit(user.daily_limit_override || user.daily_limit || 0);
             setLeadsToday(user.leads_today || 0);
             setTargetGender(user.target_gender || 'Any');
             setTargetState(user.target_state || 'All India');
@@ -55,6 +56,7 @@ const UserQuickEdit: React.FC<UserQuickEditProps> = ({ user, onClose, onSave }) 
                 .from('users')
                 .update({
                     daily_limit: dailyLimit,
+                    daily_limit_override: dailyLimit,
                     leads_today: leadsToday,
                     target_gender: targetGender,
                     target_state: targetState,

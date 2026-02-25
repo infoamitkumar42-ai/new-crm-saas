@@ -29,7 +29,7 @@ const env = loadEnv();
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL || env.VITE_SUPABASE_URL;
 const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 const projectRef = 'vewqzsqddgmkslnuctvb'; // Verified Project ID
-const notifyUrl = `https://${projectRef}.supabase.co/functions/v1/send-push-notification-`;
+const notifyUrl = `https://${projectRef}.supabase.co/functions/v1/send-push-notification`;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

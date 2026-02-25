@@ -33,7 +33,7 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
   const [showRetry, setShowRetry] = React.useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowRetry(true), 15000);
+    const timer = setTimeout(() => setShowRetry(true), 8000); // Reduced from 15s→8s
     return () => clearTimeout(timer);
   }, []);
 
@@ -256,18 +256,48 @@ const AppRoutes: React.FC = () => {
 // 🚀 MAIN APP COMPONENT
 // ============================================================
 function App() {
-  // 🚀 SERVICE WORKER REGISTRATION (Safe & Silent)
+  // 🚀 AGGRESSIVE SERVICE WORKER CLEANUP (Fixes PWA stuck loading)
+  // Many users have installed the web app → stale SWs cause "Checking session" hang
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      // We don't force unregister here anymore to prevent reload loops.
-      // Registration is handled natively or in usePushNotification.
+    const cleanupServiceWorkers = async () => {
+      if (!('serviceWorker' in navigator)) return;
 
-      // Silent Listener for Updates
+      try {
+        // 1. Get all registered service workers
+        const registrations = await navigator.serviceWorker.getRegistrations();
+
+        // 2. Unregister any stale/old SWs silently
+        for (const registration of registrations) {
+          // Check if the SW is stuck (not controlling any pages or is redundant)
+          if (registration.installing || registration.waiting) {
+            console.log('🧹 Found stale Service Worker, cleaning up...');
+            await registration.unregister();
+          }
+        }
+
+        // 3. Clear old caches that might serve stale HTML/JS
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          for (const cacheName of cacheNames) {
+            // Delete any cache that looks like an old build cache
+            if (cacheName.includes('workbox') || cacheName.includes('precache') || cacheName.includes('runtime')) {
+              console.log('🧹 Deleting stale cache:', cacheName);
+              await caches.delete(cacheName);
+            }
+          }
+        }
+      } catch (e) {
+        // Silent fail — don't break app if cleanup fails
+        console.warn('SW cleanup error (non-critical):', e);
+      }
+
+      // 4. Listen for future SW updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         console.log('🔄 Service Worker Updated (Silent)');
-        // No reload here! Let the next natural refresh or manual reload handle it.
       });
-    }
+    };
+
+    cleanupServiceWorkers();
   }, []);
   if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === '' || !ENV.SUPABASE_URL.includes('http')) {
     return (

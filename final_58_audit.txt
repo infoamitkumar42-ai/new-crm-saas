@@ -1,0 +1,244 @@
+STRICT AUDIT REPORT - 2026-02-24T11:43:54.399Z
+
+1. Ajay kumar (ajayk783382@gmail.com)
+   Payments: ₹1999(weekly) on 2026-01-08 | ₹1999(weekly) on 2026-01-25 | ₹1999(weekly) on 2026-02-07
+   Promised: 276 | Delivered: 286 | PENDING: 0
+
+2. Akash (dbrar8826@gmail.com)
+   Payments: ₹999(starter) on 2026-01-07 | ₹999(starter) on 2026-02-05
+   Promised: 110 | Delivered: 108 | PENDING: 2
+
+3. Amritpal Kaur (amritpalkaursohi358@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-03
+   Promised: 92 | Delivered: 102 | PENDING: 0
+
+4. Ansh (aansh8588@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-08
+   Promised: 92 | Delivered: 74 | PENDING: 18
+
+5. Arshdeep kaur (arshkaur6395@gmail.com)
+   Payments: ₹999(starter) on 2026-01-10 | ₹999(starter) on 2026-02-12
+   Promised: 110 | Delivered: 102 | PENDING: 8
+
+6. Arshdeep singh (arshdeepjnvkauni1606@gmail.com)
+   Payments: ₹999(starter) on 2026-02-08
+   Promised: 55 | Delivered: 50 | PENDING: 5
+
+7. Davinderpal kaur (hansmanraj88@gmail.com)
+   Payments: ₹999(starter) on 2026-02-10
+   Promised: 55 | Delivered: 38 | PENDING: 17
+
+8. Gurdeep Singh (gurdeepgill613@gmail.com)
+   Payments: ₹999(starter) on 2026-01-07 | ₹999(starter) on 2026-02-14
+   Promised: 110 | Delivered: 98 | PENDING: 12
+
+9. Gurteshwar Singh (gurteshwargill098@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-02-05
+   Promised: 115 | Delivered: 68 | PENDING: 47
+
+10. Harmandeep kaur (harmandeepkaurmanes790@gmail.com)
+   Payments: ₹2999(manager) on 2026-01-07 | ₹2999(manager) on 2026-02-13
+   Promised: 352 | Delivered: 246 | PENDING: 106
+
+11. Harpreet kaur (harpreetk61988@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-02-04
+   Promised: 115 | Delivered: 72 | PENDING: 43
+
+12. Husanpreet kaur (husanpreetkaur9899@gmail.com)
+   Payments: ₹999(starter) on 2026-02-14
+   Promised: 55 | Delivered: 60 | PENDING: 0
+
+13. Jasdeep Kaur (jasdeepsra68@gmail.com)
+   Payments: ₹999(starter) on 2026-01-08 | ₹999(starter) on 2026-02-03
+   Promised: 110 | Delivered: 117 | PENDING: 0
+
+14. Jashandeep Kaur (jashandeepkaur6444@gmail.com)
+   Payments: ₹999(starter) on 2026-01-08 | ₹999(starter) on 2026-02-04
+   Promised: 110 | Delivered: 119 | PENDING: 0
+
+15. Jashandeep singh (jashanpreet0479@gmail.com)
+   Payments: ₹999(starter) on 2026-02-06
+   Promised: 55 | Delivered: 54 | PENDING: 1
+
+16. Jasmeen singh (jasmeensingh188@gmail.com)
+   Payments: ₹999(starter) on 2026-02-03
+   Promised: 55 | Delivered: 60 | PENDING: 0
+
+17. Jasnoor Kaur (sranjasnoor11@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-02-02
+   Promised: 115 | Delivered: 102 | PENDING: 13
+
+18. Jyoti (rimpy7978@gmail.com)
+   Payments: ₹999(starter) on 2026-02-04
+   Promised: 55 | Delivered: 43 | PENDING: 12
+
+19. Kanchan sharma (sharmaanjali93962@gmail.com)
+   Payments: ₹999(starter) on 2026-02-05
+   Promised: 55 | Delivered: 50 | PENDING: 5
+
+20. Komal (goldymahi27@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-05
+   Promised: 92 | Delivered: 88 | PENDING: 4
+
+21. Kulwant Singh (kulwantsinghdhaliwalsaab668@gmail.com)
+   Payments: ₹999(starter) on 2026-01-09 | ₹999(starter) on 2026-02-12
+   Promised: 110 | Delivered: 125 | PENDING: 0
+
+22. Lakhveer kaur (lakhveerkaur219@gmail.com)
+   Payments: ₹999(starter) on 2026-01-27
+   Promised: 55 | Delivered: 85 | PENDING: 0
+
+23. Loveleen kaur (loveleenkaur8285@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-06 | ₹1999(weekly) on 2026-02-12
+   Promised: 207 | Delivered: 183 | PENDING: 24
+
+24. Manbir Singh (singhmanbir938@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-08 | ₹1999(supervisor) on 2026-02-12
+   Promised: 230 | Delivered: 182 | PENDING: 48
+
+25. Mandeep kaur (gurnoor1311singh@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-07 | ₹1999(supervisor) on 2026-02-04
+   Promised: 230 | Delivered: 185 | PENDING: 45
+
+26. Mandeep kaur (mandeep.k21@icloud.com)
+   Payments: ₹1999(supervisor) on 2026-02-09
+   Promised: 115 | Delivered: 73 | PENDING: 42
+
+27. Mandeep kaur (mandeepkau340@gmail.com)
+   Payments: ₹2999(manager) on 2026-02-07
+   Promised: 176 | Delivered: 79 | PENDING: 97
+
+28. Mandeep kaur (mandeepbrar1325@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-06 | ₹999(starter) on 2026-02-01 | ₹1999(weekly) on 2026-02-02
+   Promised: 262 | Delivered: 258 | PENDING: 4
+
+29. Manish (my440243@gmail.com)
+   Payments: ₹999(starter) on 2026-02-12
+   Promised: 55 | Delivered: 36 | PENDING: 19
+
+30. MOHIT LUDHRANI (ludhranimohit91@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-03
+   Promised: 92 | Delivered: 101 | PENDING: 0
+
+31. MUSKAN (muskanchopra376@gmail.com)
+   Payments: ₹999(starter) on 2026-01-07 | ₹999(starter) on 2026-02-13
+   Promised: 110 | Delivered: 103 | PENDING: 7
+
+32. Navjot Kaur (knavjotkaur113@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-09 | ₹999(starter) on 2026-02-09
+   Promised: 170 | Delivered: 159 | PENDING: 11
+
+33. Neha (neharajoria1543@gmail.com)
+   Payments: ₹999(starter) on 2026-02-15
+   Promised: 55 | Delivered: 34 | PENDING: 21
+
+34. Nitinluthra (nitinanku628@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-10
+   Promised: 92 | Delivered: 96 | PENDING: 0
+
+35. PARAMJIT KAUR (paramjitkaur20890@gmail.com)
+   Payments: ₹999(starter) on 2026-01-07 | ₹999(starter) on 2026-02-04
+   Promised: 110 | Delivered: 114 | PENDING: 0
+
+36. Pooja jolly (jollypooja5@gmail.com)
+   Payments: ₹999(starter) on 2026-02-12
+   Promised: 55 | Delivered: 36 | PENDING: 19
+
+37. Prabhjeet kaur (kaurdeep06164@gmail.com)
+   Payments: ₹1999(weekly) on 2026-01-07 | ₹1999(supervisor) on 2026-02-06
+   Promised: 207 | Delivered: 197 | PENDING: 10
+
+38. Prince (prince@gmail.com)
+   Payments: ₹999(starter) on 2026-01-06 | ₹1999(weekly) on 2026-02-09
+   Promised: 147 | Delivered: 109 | PENDING: 38
+
+39. Priya Arora (priyaarora50505@gmail.com)
+   Payments: ₹999(starter) on 2026-01-06 | ₹999(starter) on 2026-02-13
+   Promised: 110 | Delivered: 99 | PENDING: 11
+
+40. Priyanka (harjinderkumarkumar56@gmail.com)
+   Payments: ₹999(starter) on 2026-02-09
+   Promised: 55 | Delivered: 37 | PENDING: 18
+
+41. Rajveer kaur (rajveerkhattra9999@gmail.com)
+   Payments: ₹999(starter) on 2026-02-03
+   Promised: 55 | Delivered: 57 | PENDING: 0
+
+42. ranjodh singh (ranjodhmomi@gmail.com)
+   Payments: ₹999(starter) on 2026-01-06 | ₹1999(supervisor) on 2026-02-04
+   Promised: 170 | Delivered: 139 | PENDING: 31
+
+43. Resham kaur (reshamkaur6@gmail.com)
+   Payments: ₹999(starter) on 2026-02-06
+   Promised: 55 | Delivered: 45 | PENDING: 10
+
+44. Saijel Goel (saijelgoel4@gmail.com)
+   Payments: ₹1999(weekly) on 2026-02-03
+   Promised: 92 | Delivered: 101 | PENDING: 0
+
+45. Sakshi (sakshidigra24@gmail.com)
+   Payments: ₹999(starter) on 2026-02-05
+   Promised: 55 | Delivered: 56 | PENDING: 0
+
+46. Saloni (ananyakakkar53b@gmail.com)
+   Payments: ₹999(starter) on 2026-01-06 | ₹999(starter) on 2026-01-18 | ₹1999(supervisor) on 2026-02-01
+   Promised: 225 | Delivered: 208 | PENDING: 17
+
+47. SAMAN (samandeepkaur1216@gmail.com)
+   Payments: ₹1999(weekly) on 2026-01-08 | ₹1999(weekly) on 2026-01-26 | ₹1999(weekly) on 2026-02-14
+   Promised: 276 | Delivered: 278 | PENDING: 0
+
+48. Sameer (rupanasameer551@gmail.com)
+   Payments: ₹999(starter) on 2026-01-06 | ₹1999(weekly) on 2026-02-08
+   Promised: 147 | Delivered: 151 | PENDING: 0
+
+49. Sandeep Rehaan (sipreet73@gmail.com)
+   Payments: ₹999(starter) on 2026-01-08 | ₹999(starter) on 2026-02-09
+   Promised: 110 | Delivered: 111 | PENDING: 0
+
+50. SEEMA RANI (ssatnam41912@gmail.com)
+   Payments: ₹999(starter) on 2026-02-09
+   Promised: 55 | Delivered: 28 | PENDING: 27
+
+51. Sejal (sejalrani72@gmail.com)
+   Payments: ₹999(starter) on 2026-02-04
+   Promised: 55 | Delivered: 51 | PENDING: 4
+
+52. Simran (ashok376652@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-02-05
+   Promised: 115 | Delivered: 77 | PENDING: 38
+
+53. Sonali (chaurasiyasonali56@gmail.com)
+   Payments: ₹999(starter) on 2026-02-03
+   Promised: 55 | Delivered: 53 | PENDING: 2
+
+54. Sonia Chauhan (s73481109@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-01-07 | ₹999(starter) on 2026-02-04
+   Promised: 170 | Delivered: 176 | PENDING: 0
+
+55. Sujal Sankhla (sujalsankhla11@gmail.com)
+   Payments: ₹1999(supervisor) on 2026-02-04
+   Promised: 115 | Delivered: 64 | PENDING: 51
+
+56. Suman (sumansumankaur09@gmail.com)
+   Payments: ₹999(starter) on 2026-01-07 | ₹999(starter) on 2026-01-22 | ₹999(starter) on 2026-02-09 | ₹999(starter) on 2026-02-12
+   Promised: 220 | Delivered: 184 | PENDING: 36
+
+57. Swati (sainsachin737@gmail.com)
+   Payments: ₹999(starter) on 2026-01-16 | ₹1999(supervisor) on 2026-02-11
+   Promised: 170 | Delivered: 115 | PENDING: 55
+
+58. Tanu Dhawan (dhawantanu536@gmail.com)
+   Payments: ₹2999(manager) on 2026-01-06 | ₹2999(manager) on 2026-02-13
+   Promised: 352 | Delivered: 239 | PENDING: 113
+
+59. Yuail arian (aryansandhu652@gmail.com)
+   Payments: ₹999(starter) on 2026-02-13
+   Promised: 55 | Delivered: 29 | PENDING: 26
+
+
+=== FINAL SUMMARY ===
+Total Active Paid Users: 59
+Total Promised Leads: 7374
+Total Delivered Leads: 6390
+TOTAL PENDING LEADS: 1117

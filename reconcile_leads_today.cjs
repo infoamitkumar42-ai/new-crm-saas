@@ -1,0 +1,62 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL = "https://vewqzsqddgmkslnuctvb.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld3F6c3FkZGdta3NsbnVjdHZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDUzMDQ2MiwiZXhwIjoyMDgwMTA2NDYyfQ.pAgMGN6MtKm1A3fsKr1GIt8-qmKYhwFjSt92L_6_7us";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+async function reconcileLeads() {
+    console.log("🔄 Starting Leads Reconciliation...");
+
+    // Get current date string (YYYY-MM-DD)
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`📅 Target Date: ${today}`);
+
+    // 1. Fetch all active users
+    const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email, leads_today')
+        .eq('payment_status', 'active');
+
+    if (userError) {
+        console.error("❌ Error fetching users:", userError);
+        return;
+    }
+
+    console.log(`👤 Found ${users.length} active users.`);
+
+    for (const user of users) {
+        // 2. Count leads in the leads table for today
+        const { count, error: countError } = await supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('created_at', today);
+
+        if (countError) {
+            console.error(`❌ Error counting leads for ${user.name}:`, countError);
+            continue;
+        }
+
+        const actualCount = count || 0;
+
+        if (actualCount !== user.leads_today) {
+            console.log(`⚠️ Mismatch for ${user.name} (${user.email}): Dashboard says ${user.leads_today}, DB says ${actualCount}. Fixing...`);
+
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ leads_today: actualCount })
+                .eq('id', user.id);
+
+            if (updateError) {
+                console.error(`❌ Failed to update ${user.name}:`, updateError);
+            } else {
+                console.log(`✅ Fixed ${user.name} -> ${actualCount} leads.`);
+            }
+        }
+    }
+
+    console.log("🏁 Reconciliation Complete.");
+}
+
+reconcileLeads();

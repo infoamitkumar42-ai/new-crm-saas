@@ -217,10 +217,23 @@ serve(async (req) => {
                     }
 
                     // ════════════════════════════════════════════════════════
-                    // G. 🚀 OPTIMIZED ASSIGNMENT (Multi-Team Support)
+                    // G. 🚀 OPTIMIZED ASSIGNMENT (DISABLED - ORPHAN MODE)
                     // ════════════════════════════════════════════════════════
                     let bestUser: any[] | null = null;
                     let rpcError: any = null;
+
+                    // FORCE MANUAL DISTRIBUTION (User Request 2026-02-19)
+                    const MANUALLY_DISTRIBUTE = true;
+
+                    if (MANUALLY_DISTRIBUTE) {
+                        console.log(`🛑 DISTRIBUTION HALTED: Saving Lead ${name} as ORPHAN.`);
+                        await supabase.from('leads').insert({
+                            name, phone, city,
+                            source: `Meta - ${pageName}`, status: 'Orphan',
+                            notes: 'Manual Distribution Mode Enabled'
+                        });
+                        continue;
+                    }
 
                     if (requiredTeamCode.includes(',')) {
                         // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
@@ -292,28 +305,39 @@ serve(async (req) => {
                     const finalLimit = targetUser.daily_limit || targetUser.out_daily_limit || 100;
 
                     // ────────────────────────────────────────────────────────
-                    // H. ATOMIC ASSIGNMENT (Race-Condition Safe)
+                    // H. ATOMIC ASSIGNMENT (Bypassing buggy RPC)
                     // ────────────────────────────────────────────────────────
-                    const { data: assignResult, error: assignError } = await supabase
-                        .rpc('assign_lead_atomically', {
-                            p_lead_name: name,
-                            p_phone: phone,
-                            p_city: city,
-                            p_source: `Meta - ${pageName}`,
-                            p_status: 'Assigned',
-                            p_user_id: finalUserId,
-                            p_planned_limit: finalLimit
-                        });
+                    console.log(`🚀 Assigning to ${targetUser.user_name} (${finalUserId})`);
 
-                    if (assignError || !assignResult?.[0]?.success) {
-                        console.log(`⚠️ Atomic assign failed for ${targetUser.user_name}, inserting as Queued`);
+                    const { data: newLead, error: assignError } = await supabase
+                        .from('leads')
+                        .insert({
+                            name,
+                            phone,
+                            city,
+                            source: `Meta - ${pageName}`,
+                            status: 'Assigned',
+                            assigned_to: finalUserId,
+                            user_id: finalUserId,
+                            assigned_at: new Date().toISOString()
+                        })
+                        .select('id')
+                        .single();
+
+                    if (assignError) {
+                        console.log(`⚠️ Direct assign failed for ${targetUser.user_name}, inserting as Queued:`, assignError.message);
                         await supabase.from('leads').insert({
                             name, phone, city,
                             source: `Meta - ${pageName}`, status: 'Queued',
-                            notes: 'Atomic assignment failed - retry needed'
+                            notes: `Assignment failed: ${assignError.message}`
                         });
                         continue;
                     }
+
+                    // Increment user's leads_today for dashboard
+                    await supabase.rpc('exec_sql', {
+                        sql_query: `UPDATE users SET leads_today = leads_today + 1 WHERE id = '${finalUserId}'`
+                    }).catch(() => { });
 
                     leadsAssigned++;
                     console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);

@@ -73,6 +73,8 @@ interface UserActivity {
   isOnline: boolean;
   loginCount: number;
   leadsReceived: number;
+  dailyLimit: number;
+  dailyLimitOverride: number | null;
   conversionRate: number;
   sessionTime: number;
 }
@@ -88,6 +90,7 @@ interface AdminUserRow {
   payment_status: 'active' | 'inactive' | 'pending';
   plan_name: string | null;
   daily_limit: number | null;
+  daily_limit_override: number | null;
   leads_today: number | null;
   valid_until: string | null;
   manager_id: string | null;
@@ -154,6 +157,8 @@ interface DashboardAPIResponse {
     is_online: boolean;
     login_count: number;
     leads_received: number;
+    daily_limit?: number;
+    daily_limit_override?: number | null;
     conversion_rate: number;
     session_time: number;
   }>;
@@ -326,19 +331,39 @@ export const AdminDashboard: React.FC = () => {
         satisfaction: p.satisfaction || 0
       }));
 
+      // 🟢 FIX: Fetch limits and leads_today separately because RPC might be outdated
+      const { data: userLimits } = await supabase
+        .from('users')
+        .select('id, daily_limit, daily_limit_override, leads_today')
+        .in('id', (response.user_activities || []).map((u: any) => u.user_id));
+
+      const limitMap = new Map();
+      (userLimits || []).forEach(u => {
+        limitMap.set(u.id, {
+          limit: u.daily_limit,
+          override: u.daily_limit_override,
+          leadsToday: u.leads_today
+        });
+      });
+
       // Transform user activities
-      const activities: UserActivity[] = (response.user_activities || []).map(u => ({
-        userId: u.user_id,
-        name: u.name || 'Unknown',
-        email: u.email || '',
-        plan: u.plan || 'none',
-        lastActive: u.last_active || '',
-        isOnline: u.is_online || false,
-        loginCount: u.login_count || 0,
-        leadsReceived: u.leads_received || 0,
-        conversionRate: u.conversion_rate || 0,
-        sessionTime: u.session_time || 0
-      }));
+      const activities: UserActivity[] = (response.user_activities || []).map(u => {
+        const userData = limitMap.get(u.user_id);
+        return {
+          userId: u.user_id,
+          name: u.name || 'Unknown',
+          email: u.email || '',
+          plan: u.plan || 'none',
+          lastActive: u.last_active || '',
+          isOnline: u.is_online || false,
+          loginCount: u.login_count || 0,
+          leadsReceived: userData?.leadsToday ?? u.leads_today ?? 0, // 🔥 Use reconciled today's leads
+          dailyLimit: userData?.limit || u.daily_limit || 0,
+          dailyLimitOverride: userData?.override || u.daily_limit_override || null,
+          conversionRate: u.conversion_rate || 0,
+          sessionTime: u.session_time || 0
+        };
+      });
 
       // Calculate average session duration
       const totalSessionTime = activities.reduce((sum, a) => sum + a.sessionTime, 0);
@@ -457,6 +482,7 @@ export const AdminDashboard: React.FC = () => {
         plan_name: plan.id,
         payment_status: plan.id === 'none' ? 'inactive' : 'active',
         daily_limit: plan.daily_limit,
+        daily_limit_override: plan.id === 'none' ? null : plan.daily_limit,
         valid_until: plan.id === 'none' ? null : validUntil.toISOString(),
         leads_today: 0,
         plan_weight: plan.plan_weight,
@@ -656,7 +682,8 @@ export const AdminDashboard: React.FC = () => {
           // Update DB Counter
           await supabase.from('users').update({ leads_today: selectedUser.leads_today }).eq('id', selectedUser.id);
 
-          logs.push(`✅ Assigned ${name} -> ${selectedUser.name} (${selectedUser.leads_today}/${selectedUser.daily_limit})`);
+          const displayLimit = selectedUser.daily_limit_override || selectedUser.daily_limit || 0;
+          logs.push(`✅ Assigned ${name} -> ${selectedUser.name} (${selectedUser.leads_today}/${displayLimit})`);
           processedCount++;
         }
       }
@@ -680,7 +707,7 @@ export const AdminDashboard: React.FC = () => {
     const headers = ['Name', 'Email', 'Role', 'Plan', 'Status', 'Daily Limit', 'Leads Today', 'Valid Until', 'Created'];
     const rows = filteredAdminUsers.map(u => [
       u.name || '', u.email || '', u.role || '', u.plan_name || '', u.payment_status || '',
-      String(u.daily_limit ?? ''), String(u.leads_today ?? ''),
+      String(u.daily_limit_override || u.daily_limit || ''), String(u.leads_today ?? ''),
       u.valid_until ? new Date(u.valid_until).toLocaleDateString() : '',
       u.created_at ? new Date(u.created_at).toLocaleDateString() : ''
     ]);
@@ -1229,7 +1256,9 @@ export const AdminDashboard: React.FC = () => {
                       <span className="font-medium">{activity.loginCount}</span>
                     </td>
                     <td className="p-4">
-                      <span className="font-medium">{activity.leadsReceived}</span>
+                      <span className="font-medium">
+                        {activity.leadsReceived}/{activity.dailyLimitOverride || activity.dailyLimit || 0}
+                      </span>
                     </td>
                     <td className="p-4">
                       <span className={`font-medium ${activity.conversionRate > 20 ? 'text-green-600' :
@@ -1416,7 +1445,7 @@ export const AdminDashboard: React.FC = () => {
                           </button>
                         </td>
                         <td className="p-3 text-center font-medium">
-                          {u.leads_today ?? 0}/{u.daily_limit ?? 0}
+                          {u.leads_today ?? 0}/{u.daily_limit_override || u.daily_limit || 0}
                         </td>
                         <td className="p-3 text-right flex items-center justify-end gap-1">
                           <button
@@ -1548,7 +1577,7 @@ export const AdminDashboard: React.FC = () => {
                             </option>
                             {activeMembers.map(m => (
                               <option key={m.id} value={m.id}>
-                                {m.name} ({m.leads_today ?? 0}/{m.daily_limit ?? 0})
+                                {m.name} ({m.leads_today ?? 0}/{m.daily_limit_override || m.daily_limit || 0})
                               </option>
                             ))}
                           </select>
@@ -1709,6 +1738,7 @@ export const AdminDashboard: React.FC = () => {
               name: showEditModal.name || '',
               email: showEditModal.email,
               daily_limit: showEditModal.daily_limit,
+              daily_limit_override: showEditModal.daily_limit_override,
               leads_today: showEditModal.leads_today,
               plan_name: showEditModal.plan_name,
               is_active: showEditModal.payment_status === 'active'

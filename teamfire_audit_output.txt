@@ -1,0 +1,273 @@
+﻿=========================================================
+TEAMFIRE - VERIFIED PAYMENT AUDIT (Feb 23, 2026)
+=========================================================
+Active Users: 73 | Paid: 68 | No Payment: 5
+
+--- PENDING USERS (50) ---
+
+1. Kulwant Singh (supervisor) | Payments: 3x
+   Pay 1: Γé╣999 starter on 2026-01-09 [pay_S1nxEEhbjRbUqj]
+   Pay 2: Γé╣1999 supervisor on 2026-02-12 [MANUAL_UPI_FEB12]
+   Pay 3: Γé╣999 manager on 2026-02-12 [MANUAL_UPI_FEB12]
+   >>> Promised=346 | Got=115 | PENDING=231
+
+2. Arshdeep kaur (starter) | Payments: 3x
+   Pay 1: Γé╣999 starter on 2026-01-10 [pay_S22gOvYY8VNVfq]
+   Pay 2: Γé╣999 starter on 2026-02-12 [MANUAL_UPI_FEB12]
+   Pay 3: Γé╣999 manager on 2026-02-12 [MANUAL_UPI_FEB12]
+   >>> Promised=286 | Got=92 | PENDING=194
+
+3. Tanu Dhawan (manager) | Payments: 2x
+   Pay 1: Γé╣2999 manager on 2026-01-06 [pay_S0etvxJeq3m3i2]
+   Pay 2: Γé╣2999 manager on 2026-02-13 [pay_SFaEfMbKS1efsC]
+   >>> Promised=352 | Got=233 | PENDING=119
+
+4. Harmandeep kaur (manager) | Payments: 2x
+   Pay 1: Γé╣2999 manager on 2026-01-07 [pay_S13e6P9ie4g2HN]
+   Pay 2: Γé╣2999 manager on 2026-02-13 [pay_SFaGGEQa49JdYj]
+   >>> Promised=352 | Got=235 | PENDING=117
+
+5. Mandeep kaur (manager) | Payments: 1x
+   Pay 1: Γé╣2999 manager on 2026-02-07 [pay_SDAi2tAmaYFnOz]
+   >>> Promised=176 | Got=71 | PENDING=105
+
+6. Swati (supervisor) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-16 [pay_S4TEIEGOyy5Qib]
+   Pay 2: Γé╣1999 supervisor on 2026-02-11 [pay_SEnbOhwn0vvA7o]
+   >>> Promised=170 | Got=109 | PENDING=61
+
+7. Sujal Sankhla (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-04 [pay_SC1AkUrMslyWbe]
+   >>> Promised=115 | Got=56 | PENDING=59
+
+8. Gurteshwar Singh (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-05 [pay_SCWc3tTRCbarmK]
+   >>> Promised=115 | Got=57 | PENDING=58
+
+9. Manbir Singh (supervisor) | Payments: 2x
+   Pay 1: Γé╣1999 supervisor on 2026-01-08 [pay_S1Ru7R8QEHgI8y]
+   Pay 2: Γé╣1999 supervisor on 2026-02-12 [pay_SFGyuYA24uRLOk]
+   >>> Promised=230 | Got=172 | PENDING=58
+
+10. Harpreet kaur (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-04 [pay_SBzqk1Zr9k7Sau]
+   >>> Promised=115 | Got=61 | PENDING=54
+
+11. Mandeep kaur (supervisor) | Payments: 2x
+   Pay 1: Γé╣1999 supervisor on 2026-01-07 [pay_S122rfsdL8gmJn]
+   Pay 2: Γé╣1999 supervisor on 2026-02-04 [pay_SC4x07Ny0Sk8ea]
+   >>> Promised=230 | Got=176 | PENDING=54
+
+12. Mandeep kaur (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-09 [pay_SDxzB74V94eD2r]
+   >>> Promised=115 | Got=64 | PENDING=51
+
+13. Prince (weekly_boost) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-06 [pay_S0aE70YLFdGbRu]
+   Pay 2: Γé╣1999 weekly_boost on 2026-02-09 [pay_SE0TdSs7EEY5Rp]
+   >>> Promised=147 | Got=101 | PENDING=46
+
+14. Simran (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-05 [pay_SCPT670f9Y0dG7]
+   >>> Promised=115 | Got=69 | PENDING=46
+
+15. Suman (starter) | Payments: 4x
+   Pay 1: Γé╣999 starter on 2026-01-07 [pay_S0x4jUkXj6PJ4Z]
+   Pay 2: Γé╣999 starter on 2026-01-22 [pay_S6mQRfZ0b6bH0E]
+   Pay 3: Γé╣999 starter on 2026-02-09 [pay_SDzsLJl5Fxy2p7]
+   Pay 4: Γé╣999 starter on 2026-02-12 [pay_SFB4VeDT2mYHrb]
+   >>> Promised=220 | Got=178 | PENDING=42
+
+16. ranjodh singh (supervisor) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-06 [pay_S0fEmFfKbooX58]
+   Pay 2: Γé╣1999 supervisor on 2026-02-04 [pay_SC1LzTAMorCF2y]
+   >>> Promised=170 | Got=131 | PENDING=39
+
+17. SEEMA RANI (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-09 [pay_SE6b9F9q3udBxy]
+   >>> Promised=55 | Got=20 | PENDING=35
+
+18. Loveleen kaur (weekly_boost) | Payments: 2x
+   Pay 1: Γé╣1999 supervisor on 2026-01-06 [pay_S0aEJdBXWAvErZ]
+   Pay 2: Γé╣1999 weekly_boost on 2026-02-12 [pay_SFBPltEeTHDYoP]
+   >>> Promised=207 | Got=173 | PENDING=34
+
+19. Yuail arian (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-13 [pay_SFbCv5uoqVnhCH]
+   >>> Promised=55 | Got=23 | PENDING=32
+
+20. Neha (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-15 [pay_SGNZxBDjmkaG8W]
+   >>> Promised=55 | Got=25 | PENDING=30
+
+21. Ansh (weekly_boost) | Payments: 1x
+   Pay 1: Γé╣1999 weekly_boost on 2026-02-08 [pay_SDWPVZCEx6N1rY]
+   >>> Promised=92 | Got=63 | PENDING=29
+
+22. Manish (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-12 [pay_SFEZqNLQv8K2vb]
+   >>> Promised=55 | Got=28 | PENDING=27
+
+23. Priyanka (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-09 [pay_SDxH7xLjFxDMQx]
+   >>> Promised=55 | Got=29 | PENDING=26
+
+24. Saloni (supervisor) | Payments: 3x
+   Pay 1: Γé╣999 starter on 2026-01-06 [pay_S0fHHrCxChSXku]
+   Pay 2: Γé╣999 starter on 2026-01-18 [pay_S5PuNkNtPTPgUf]
+   Pay 3: Γé╣1999 supervisor on 2026-02-01 [pay_SAxWeAwORVpFTc]
+   >>> Promised=225 | Got=200 | PENDING=25
+
+25. Jasnoor Kaur (supervisor) | Payments: 1x
+   Pay 1: Γé╣1999 supervisor on 2026-02-02 [pay_SBCb0sBCzIfbDP]
+   >>> Promised=115 | Got=92 | PENDING=23
+
+26. Gurdeep Singh (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-07 [pay_S0wUGkKcZ0oM2K]
+   Pay 2: Γé╣999 starter on 2026-02-14 [pay_SFyMEj8Rhh79U7]
+   >>> Promised=110 | Got=88 | PENDING=22
+
+27. Jyoti (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-04 [pay_SC7eM2ERJpVigL]
+   >>> Promised=55 | Got=34 | PENDING=21
+
+28. Navjot Kaur (starter) | Payments: 2x
+   Pay 1: Γé╣1999 supervisor on 2026-01-09 [pay_S1kfqZdNIClSYG]
+   Pay 2: Γé╣999 starter on 2026-02-09 [pay_SE1bqAUfAliUFZ]
+   >>> Promised=170 | Got=150 | PENDING=20
+
+29. Priya Arora (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-06 [pay_S0f2wwxdBndRHy]
+   Pay 2: Γé╣999 starter on 2026-02-13 [pay_SFVhhF9w46u03w]
+   >>> Promised=110 | Got=91 | PENDING=19
+
+30. Prabhjeet kaur (supervisor) | Payments: 2x
+   Pay 1: Γé╣1999 weekly_boost on 2026-01-07 [pay_S13hiWKxnegBJp]
+   Pay 2: Γé╣1999 supervisor on 2026-02-06 [pay_SCvq9IS3i4Ujka]
+   >>> Promised=207 | Got=189 | PENDING=18
+
+31. Resham kaur (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-06 [pay_SCjV0P1MZBRrNP]
+   >>> Promised=55 | Got=37 | PENDING=18
+
+32. Arshdeep singh (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-08 [pay_SDadr6233ncw3E]
+   >>> Promised=55 | Got=40 | PENDING=15
+
+33. MUSKAN (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-07 [pay_S0sbbOq53gbuRn]
+   Pay 2: Γé╣999 starter on 2026-02-13 [pay_SFW6qlmq2cNjWG]
+   >>> Promised=110 | Got=95 | PENDING=15
+
+34. Kanchan sharma (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-05 [pay_SCYFuGoDJMlpkq]
+   >>> Promised=55 | Got=41 | PENDING=14
+
+35. Komal (weekly_boost) | Payments: 1x
+   Pay 1: Γé╣1999 weekly_boost on 2026-02-05 [pay_SCPipG4BZ0Vg0y]
+   >>> Promised=92 | Got=78 | PENDING=14
+
+36. Mandeep kaur (weekly_boost) | Payments: 3x
+   Pay 1: Γé╣1999 supervisor on 2026-01-06 [pay_S0aW6dsfDFLFbT]
+   Pay 2: Γé╣999 starter on 2026-02-01 [pay_SAq4TThNUInJe8]
+   Pay 3: Γé╣1999 weekly_boost on 2026-02-02 [pay_SBGKLbVJj5RtEm]
+   >>> Promised=262 | Got=249 | PENDING=13
+
+37. Akash (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-07 [pay_S0pqm3y51JspfR]
+   Pay 2: Γé╣999 starter on 2026-02-05 [pay_SCRcNGe6FSNrFp]
+   >>> Promised=110 | Got=98 | PENDING=12
+
+38. Jashandeep singh (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-06 [pay_SCjZFBxlISszYG]
+   >>> Promised=55 | Got=43 | PENDING=12
+
+39. Sonali (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-03 [pay_SBgJi1RDmSX1Fh]
+   >>> Promised=55 | Got=45 | PENDING=10
+
+40. Sakshi (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-05 [pay_SCSeeqB0M8Ui74]
+   >>> Promised=55 | Got=48 | PENDING=7
+
+41. Sandeep Rehaan (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-08 [pay_S1TJopCPIjbtJM]
+   Pay 2: Γé╣999 starter on 2026-02-09 [pay_SDvmX2AwYKz7Ci]
+   >>> Promised=110 | Got=103 | PENDING=7
+
+42. Jasmeen singh (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-03 [pay_SBf9KRdbOXqzm9]
+   >>> Promised=55 | Got=49 | PENDING=6
+
+43. Rajveer kaur (starter) | Payments: 1x
+   Pay 1: Γé╣999 starter on 2026-02-03 [pay_SBfLmiLvbmXZOs]
+   >>> Promised=55 | Got=49 | PENDING=6
+
+44. SAMAN (weekly_boost) | Payments: 3x
+   Pay 1: Γé╣1999 weekly_boost on 2026-01-08 [pay_S1L2JJbn0BcTG9]
+   Pay 2: Γé╣1999 weekly_boost on 2026-01-26 [pay_S8RBo7Hh4QoZGd]
+   Pay 3: Γé╣1999 weekly_boost on 2026-02-14 [pay_SG04YZMVBYvyH2]
+   >>> Promised=276 | Got=270 | PENDING=6
+
+45. Nitinluthra (weekly_boost) | Payments: 1x
+   Pay 1: Γé╣1999 weekly_boost on 2026-02-10 [pay_SEQtmLGjv3i9PX]
+   >>> Promised=92 | Got=88 | PENDING=4
+
+46. Sameer (weekly_boost) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-06 [pay_S0aPZQx1W5Qa2w]
+   Pay 2: Γé╣1999 weekly_boost on 2026-02-08 [pay_SDaIOH0QZpFxMT]
+   >>> Promised=147 | Got=143 | PENDING=4
+
+47. Jasdeep Kaur (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-08 [pay_S1JpV1OKApOGfr]
+   Pay 2: Γé╣999 starter on 2026-02-03 [pay_SBk6FpfXTtGvio]
+   >>> Promised=110 | Got=107 | PENDING=3
+
+48. PARAMJIT KAUR (starter) | Payments: 2x
+   Pay 1: Γé╣999 starter on 2026-01-07 [pay_S13HVbqTySWklU]
+   Pay 2: Γé╣999 starter on 2026-02-04 [pay_SC23DPgOawO1pm]
+   >>> Promised=110 | Got=107 | PENDING=3
+
+49. Sonia Chauhan (starter) | Payments: 2x
+   Pay 1: Γé╣1999 supervisor on 2026-01-07 [pay_S0urzHl9HN58km]
+   Pay 2: Γé╣999 starter on 2026-02-04 [pay_SBzVGrv9Am6r98]
+   >>> Promised=170 | Got=168 | PENDING=2
+
+50. Ajay kumar (weekly_boost) | Payments: 3x
+   Pay 1: Γé╣1999 weekly_boost on 2026-01-08 [pay_S1IchnTjVIEagL]
+   Pay 2: Γé╣1999 weekly_boost on 2026-01-25 [pay_S81Ky37EeQL7XZ]
+   Pay 3: Γé╣1999 weekly_boost on 2026-02-07 [pay_SD86UfyhGXRS1Q]
+   >>> Promised=276 | Got=275 | PENDING=1
+
+--- FULFILLED USERS (18) ---
+
+Γ£à Amritpal Kaur: 1 payment(s), Promised=92, Got=96
+Γ£à Babita: 2 payment(s), Promised=110, Got=125
+Γ£à Gurpreet kaur: 2 payment(s), Promised=147, Got=148
+Γ£à Himanshu Sharma: 1 payment(s), Promised=55, Got=285
+Γ£à Husanpreet kaur: 1 payment(s), Promised=55, Got=57
+Γ£à Jashandeep Kaur: 2 payment(s), Promised=110, Got=112
+Γ£à Jaspreet Kaur: 2 payment(s), Promised=147, Got=152
+Γ£à Kiran Brar: 2 payment(s), Promised=147, Got=151
+Γ£à Lakhveer kaur: 1 payment(s), Promised=55, Got=80
+Γ£à MOHIT LUDHRANI: 1 payment(s), Promised=92, Got=96
+Γ£à Payal: 2 payment(s), Promised=207, Got=211
+Γ£à Pooja jolly: 1 payment(s), Promised=55, Got=204
+Γ£à Rajinder: 2 payment(s), Promised=207, Got=228
+Γ£à Ravenjeet Kaur: 2 payment(s), Promised=184, Got=200
+Γ£à Saijel Goel: 1 payment(s), Promised=92, Got=96
+Γ£à Tushte: 2 payment(s), Promised=110, Got=124
+Γ£à VEERPAL KAUR: 2 payment(s), Promised=207, Got=207
+Γ£à Vinita punjabi: 2 payment(s), Promised=184, Got=187
+
+--- NO PAYMENT USERS (5) ---
+
+Γ¥î Balraj singh (supervisor): 0 payments, Got=180 leads
+Γ¥î HARDEEP KAUR (starter): 0 payments, Got=26 leads
+Γ¥î Jashandeep singh (starter): 0 payments, Got=19 leads
+Γ¥î Kiran (starter): 0 payments, Got=29 leads
+Γ¥î Sejal (starter): 0 payments, Got=41 leads
+
+=========================================================
+≡ƒöÑ TOTAL PENDING LEADS: 1867
+=========================================================

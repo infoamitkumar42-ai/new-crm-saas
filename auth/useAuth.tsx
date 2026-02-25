@@ -65,12 +65,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!session && !!profile;
 
+  // 🛡️ SAFE getSession wrapper — prevents indefinite hang on slow/unstable mobile networks
+  const getSessionSafe = useCallback(async () => {
+    try {
+      const result = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 5000)
+        )
+      ]);
+      return result;
+    } catch (err: any) {
+      if (err.message === 'SESSION_TIMEOUT') {
+        console.warn('⚡ getSession() timed out after 5s — treating as no session');
+      }
+      return { data: { session: null } };
+    }
+  }, []);
+
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // 🚀 SMART TIMEOUT: 5 Seconds
+      // 🚀 SMART TIMEOUT: 4 Seconds (reduced from 5s for faster mobile recovery)
       // If internet is slow, don't make user wait. Load temp profile immediately.
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 5000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 4000)
       );
 
       // 2. Define Fetch Promise
@@ -246,16 +264,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
-      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 15s no matter what
+      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 8s no matter what
+      // Reduced from 15s → 8s for faster recovery on slow mobile / PWA
       const timeout = setTimeout(() => {
         if (mountedRef.current && loading) {
-          console.warn("🕒 Auth Init Timeout: Forcing release...");
+          console.warn("🕒 Auth Init Timeout (8s): Forcing release...");
           setLoading(false);
         }
-      }, 15000);
+      }, 8000);
 
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const { data: { session: currentSession } } = await getSessionSafe();
 
         if (!mountedRef.current) return;
 

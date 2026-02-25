@@ -1,0 +1,111 @@
+=============================================================================
+MULTI-USER INVESTIGATION REPORT - Feb 23, 2026
+=============================================================================
+
+📌 1. RIMPY SINGH (chouhansab64@gmail.com)
+   User says: Jan 6 manual starter payment. No Feb payment.
+
+📌 2. BALRAJ SINGH (bs0525765349@gmail.com)
+   User says: Jan ₹1999 supervisor + Feb 4 ₹1999 supervisor = ₹4k total.
+
+📌 3. SEJAL (sejalrani72@gmail.com)
+   User says: Feb 4 starter payment.
+
+📌 4. JASHANDEEP SINGH (jass006623@gmail.com)
+   User says: Feb 13 starter payment.
+
+📌 5. SOHAN SINGH (sohanpgk22@gmail.com)
+   User says: 4 payments total Jan+Feb, starter on Feb 9.
+
+📌 6. RAHUL (ms028777@gmail.com)
+   Action: Leads to be reassigned.
+
+📌 7. COACH HIMANSHU (coach.himanshusharma@gmail.com)
+   Action: STOPPING this account now.
+   ✅ STOPPED!
+
+=============================================================================
+📌 NEHA GOYAL (nehagoyal36526@gmail.com) - FULL HISTORY
+=============================================================================
+  Name: Neha | Email: nehagoyal36526@gmail.com
+  Active: false | Plan: none
+  Account Created: 2026-01-06T09:44:00.572585+00:00
+  Team: TEAMFIRE
+  Payments: 1
+    ₹1999 supervisor captured 2026-01-07
+  Total Leads: 142
+  Leads by date:
+    2026-01-08: 9 leads
+    2026-01-09: 9 leads
+    2026-01-10: 5 leads
+    2026-01-12: 7 leads
+    2026-01-14: 9 leads
+    2026-01-15: 6 leads
+    2026-01-16: 4 leads
+    2026-01-17: 4 leads
+    2026-01-19: 6 leads
+    2026-01-20: 6 leads
+    2026-01-21: 6 leads
+    2026-01-22: 6 leads
+    2026-01-23: 4 leads
+    2026-01-29: 6 leads
+    2026-01-30: 6 leads
+    2026-01-31: 7 leads
+    2026-02-01: 4 leads
+    2026-02-02: 6 leads
+    2026-02-03: 6 leads
+    2026-02-04: 4 leads
+    2026-02-05: 2 leads
+    2026-02-08: 2 leads
+    2026-02-10: 2 leads
+    2026-02-13: 4 leads
+    unknown: 12 leads
+
+  First lead/activation date: 2026-01-08
+
+  --- OTHER USERS ACTIVATED ON SAME DAY (2026-01-08) ---
+  Found 34 other users who first received leads on 2026-01-08:
+    1. Ajay kumar (ajayk783382@gmail.com) [ACTIVE] -> 275 leads | Payment: YES
+    2. SAMAN (samandeepkaur1216@gmail.com) [ACTIVE] -> 270 leads | Payment: YES
+    3. Harmandeep kaur (harmandeepkaurmanes790@gmail.com) [ACTIVE] -> 235 leads | Payment: YES
+    4. Tanu Dhawan (dhawantanu536@gmail.com) [ACTIVE] -> 233 leads | Payment: YES
+    5. Navpreet kaur (navpreetkaur95271@gmail.com) [STOPPED] -> 210 leads | Payment: YES
+    6. VEERPAL KAUR (surjitsingh1067@gmail.com) [ACTIVE] -> 207 leads | Payment: YES
+    7. Jashandeep kaur (jk419473@gmail.com) [STOPPED] -> 203 leads | Payment: YES
+    8. Saloni (ananyakakkar53b@gmail.com) [ACTIVE] -> 200 leads | Payment: YES
+    9. Prabhjeet kaur (kaurdeep06164@gmail.com) [ACTIVE] -> 189 leads | Payment: YES
+    10. Balraj singh (bs0525765349@gmail.com) [ACTIVE] -> 180 leads | Payment: NO
+    11. Mandeep kaur (gurnoor1311singh@gmail.com) [ACTIVE] -> 176 leads | Payment: YES
+    12. Manbir Singh (singhmanbir938@gmail.com) [ACTIVE] -> 172 leads | Payment: YES
+    13. Simran (manukamboj8000@gmail.com) [STOPPED] -> 151 leads | Payment: YES
+    14. Gurpreet kaur (gjama1979@gmail.com) [ACTIVE] -> 148 leads | Payment: YES
+    15. Rajbinder (rajbinderkamboj123@gmail.com) [STOPPED] -> 144 leads | Payment: YES
+    16. Akshay Sharma (jerryvibes.444@gmail.com) [STOPPED] -> 143 leads | Payment: YES
+    17. Sunaina Rani (sunainakambojk@gmail.com) [STOPPED] -> 138 leads | Payment: YES
+    18. ranjodh singh (ranjodhmomi@gmail.com) [ACTIVE] -> 131 leads | Payment: YES
+    19. Shivani (shivanilead2026@gmail.com) [STOPPED] -> 130 leads | Payment: YES
+    20. Sneha (sy390588@gmail.com) [STOPPED] -> 128 leads | Payment: YES
+    21. Babita (babitanahar5@gmail.com) [ACTIVE] -> 125 leads | Payment: YES
+    22. Rahul kumar (rahulkumarrk1111@gmail.com) [STOPPED] -> 121 leads | Payment: YES
+    23. Ramandeep Kaur (ramansransran6@gmail.com) [STOPPED] -> 115 leads | Payment: YES
+    24. Jashandeep Kaur (jashandeepkaur6444@gmail.com) [ACTIVE] -> 112 leads | Payment: YES
+    25. PARAMJIT KAUR (paramjitkaur20890@gmail.com) [ACTIVE] -> 107 leads | Payment: YES
+    26. Jasdeep Kaur (jasdeepsra68@gmail.com) [ACTIVE] -> 107 leads | Payment: YES
+    27. Akash (dbrar8826@gmail.com) [ACTIVE] -> 98 leads | Payment: YES
+    28. MUSKAN (muskanchopra376@gmail.com) [ACTIVE] -> 95 leads | Payment: YES
+    29. Priya Arora (priyaarora50505@gmail.com) [ACTIVE] -> 91 leads | Payment: YES
+    30. Navjot kaur (rajbirsingh97843@gmail.com) [STOPPED] -> 80 leads | Payment: YES
+    31. Akshmala (akshmala8550@gmail.com) [STOPPED] -> 68 leads | Payment: YES
+    32. Seerat (bamniyareeta57@gmail.om) [STOPPED] -> 68 leads | Payment: YES
+    33. Rimpy Singh (chouhansab64@gmail.com) [STOPPED] -> 60 leads | Payment: NO
+    34. Himanshu Sharma (coach.himanshusharma@gmail.com) [STOPPED] -> 15 leads | Payment: NO
+
+=============================================================================
+📌 STOPPING REMAINING FREE ACTIVE USERS
+=============================================================================
+  ✅ STOPPED: HARDEEP KAUR (preetman00001@gmail.com)
+  ✅ STOPPED: Kiran (kiran@gmail.com)
+
+=============================================================================
+REPORT COMPLETE
+=============================================================================

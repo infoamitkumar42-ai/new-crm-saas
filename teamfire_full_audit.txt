@@ -1,0 +1,396 @@
+=============================================================================
+TEAMFIRE - FULL AUDIT (ALL USERS: ACTIVE + STOPPED) - Feb 23, 2026
+=============================================================================
+FIXES: Deduplicated by Razorpay ID | Plan from Amount | ALL users included
+
+Total Users: 159 (Active: 73 | Stopped: 86)
+
+SUMMARY:
+  January: 84 payments | ₹127416 | 6873 leads promised
+  February: 77 payments | ₹118923 | 6201 leads promised
+  GRAND TOTAL: Promised=13074 | Delivered=13482 | PENDING=1499
+
+=============================================================================
+PENDING LEADS USERS (52)
+=============================================================================
+
+1. Tanu Dhawan [ACTIVE]
+   JAN: 1 pay -> manager(₹2999) = 176 leads
+   FEB: 1 pay -> manager(₹2999) = 176 leads
+   TOTAL: Promised=352 | Delivered=233 | PENDING=119
+
+2. Harmandeep kaur [ACTIVE]
+   JAN: 1 pay -> manager(₹2999) = 176 leads
+   FEB: 1 pay -> manager(₹2999) = 176 leads
+   TOTAL: Promised=352 | Delivered=235 | PENDING=117
+
+3. Mandeep kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> manager(₹2999) = 176 leads
+   TOTAL: Promised=176 | Delivered=71 | PENDING=105
+
+4. Swati [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=170 | Delivered=109 | PENDING=61
+
+5. Sujal Sankhla [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=56 | PENDING=59
+
+6. Gurteshwar Singh [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=57 | PENDING=58
+
+7. Manbir Singh [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=230 | Delivered=172 | PENDING=58
+
+8. Harpreet kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=61 | PENDING=54
+
+9. Mandeep kaur [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=230 | Delivered=176 | PENDING=54
+
+10. Mandeep kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=64 | PENDING=51
+
+11. Prince [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=147 | Delivered=101 | PENDING=46
+
+12. Simran [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=69 | PENDING=46
+
+13. Suman [ACTIVE]
+   JAN: 2 pay -> starter(₹999), starter(₹999) = 110 leads
+   FEB: 2 pay -> starter(₹999), starter(₹999) = 110 leads
+   TOTAL: Promised=220 | Delivered=178 | PENDING=42
+
+14. ranjodh singh [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=170 | Delivered=131 | PENDING=39
+
+15. SEEMA RANI [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=20 | PENDING=35
+
+16. Loveleen kaur [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=207 | Delivered=173 | PENDING=34
+
+17. Yuail arian [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=23 | PENDING=32
+
+18. Neha [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=25 | PENDING=30
+
+19. Ansh [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=92 | Delivered=63 | PENDING=29
+
+20. Manish [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=28 | PENDING=27
+
+21. Priyanka [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=29 | PENDING=26
+
+22. Saloni [ACTIVE]
+   JAN: 2 pay -> starter(₹999), starter(₹999) = 110 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=225 | Delivered=200 | PENDING=25
+
+23. Davinderpal kaur [STOPPED]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=32 | PENDING=23
+
+24. Jasnoor Kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=115 | Delivered=92 | PENDING=23
+
+25. Gurdeep Singh [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=88 | PENDING=22
+
+26. Jyoti [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=34 | PENDING=21
+
+27. Navjot Kaur [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=170 | Delivered=150 | PENDING=20
+
+28. Priya Arora [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=91 | PENDING=19
+
+29. Arshdeep kaur [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=92 | PENDING=18
+
+30. Prabhjeet kaur [ACTIVE]
+   JAN: 1 pay -> weekly_boost(₹1999) = 92 leads
+   FEB: 1 pay -> supervisor(₹1999) = 115 leads
+   TOTAL: Promised=207 | Delivered=189 | PENDING=18
+
+31. Resham kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=37 | PENDING=18
+
+32. Arshdeep singh [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=40 | PENDING=15
+
+33. MUSKAN [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=95 | PENDING=15
+
+34. Kanchan sharma [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=41 | PENDING=14
+
+35. Komal [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=92 | Delivered=78 | PENDING=14
+
+36. Jashandeep kaur [STOPPED]
+   JAN: 1 pay -> turbo_boost(₹2499) = 108 leads
+   FEB: 1 pay -> turbo_boost(₹2499) = 108 leads
+   TOTAL: Promised=216 | Delivered=203 | PENDING=13
+
+37. Mandeep kaur [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 2 pay -> starter(₹999), weekly_boost(₹1999) = 147 leads
+   TOTAL: Promised=262 | Delivered=249 | PENDING=13
+
+38. Akash [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=98 | PENDING=12
+
+39. Jashandeep singh [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=43 | PENDING=12
+
+40. Sonali [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=45 | PENDING=10
+
+41. Sakshi [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=48 | PENDING=7
+
+42. Sandeep Rehaan [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=103 | PENDING=7
+
+43. Jasmeen singh [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=49 | PENDING=6
+
+44. Rajveer kaur [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=49 | PENDING=6
+
+45. SAMAN [ACTIVE]
+   JAN: 2 pay -> weekly_boost(₹1999), weekly_boost(₹1999) = 184 leads
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=276 | Delivered=270 | PENDING=6
+
+46. Nitinluthra [ACTIVE]
+   JAN: No payment
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=92 | Delivered=88 | PENDING=4
+
+47. Sameer [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=147 | Delivered=143 | PENDING=4
+
+48. Baljinder kaur [STOPPED]
+   JAN: No payment
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=55 | Delivered=52 | PENDING=3
+
+49. Jasdeep Kaur [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=107 | PENDING=3
+
+50. PARAMJIT KAUR [ACTIVE]
+   JAN: 1 pay -> starter(₹999) = 55 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=110 | Delivered=107 | PENDING=3
+
+51. Sonia Chauhan [ACTIVE]
+   JAN: 1 pay -> supervisor(₹1999) = 115 leads
+   FEB: 1 pay -> starter(₹999) = 55 leads
+   TOTAL: Promised=170 | Delivered=168 | PENDING=2
+
+52. Ajay kumar [ACTIVE]
+   JAN: 2 pay -> weekly_boost(₹1999), weekly_boost(₹1999) = 184 leads
+   FEB: 1 pay -> weekly_boost(₹1999) = 92 leads
+   TOTAL: Promised=276 | Delivered=275 | PENDING=1
+
+=============================================================================
+FULFILLED / DONE USERS (60)
+=============================================================================
+
+✅ Akshay Sharma [STOPPED]: Promised=115 | Delivered=143
+✅ Akshmala [STOPPED]: Promised=55 | Delivered=68
+✅ Amritpal Kaur [ACTIVE]: Promised=92 | Delivered=96
+✅ Anita [STOPPED]: Promised=115 | Delivered=120
+✅ Babita [ACTIVE]: Promised=110 | Delivered=125
+✅ Baljeet kaur [STOPPED]: Promised=55 | Delivered=66
+✅ Dinesh Monga [STOPPED]: Promised=115 | Delivered=138
+✅ Gurpreet kaur [ACTIVE]: Promised=147 | Delivered=148
+✅ Gurvinder Matharu [STOPPED]: Promised=55 | Delivered=66
+✅ Harpreet Kaur [STOPPED]: Promised=55 | Delivered=76
+✅ Harwinder kaur [STOPPED]: Promised=55 | Delivered=71
+✅ Himanshu Sharma [ACTIVE]: Promised=55 | Delivered=285
+✅ Husanpreet kaur [ACTIVE]: Promised=55 | Delivered=57
+✅ Jashandeep Kaur [ACTIVE]: Promised=110 | Delivered=112
+✅ Jaspreet Kaur [ACTIVE]: Promised=147 | Delivered=152
+✅ Kamal kaur [STOPPED]: Promised=115 | Delivered=130
+✅ Kiran Brar [ACTIVE]: Promised=147 | Delivered=151
+✅ Kirandeep kaur [STOPPED]: Promised=55 | Delivered=82
+✅ Kulwant Singh [ACTIVE]: Promised=55 | Delivered=115
+✅ Lakhveer kaur [ACTIVE]: Promised=55 | Delivered=80
+✅ Lalit kumar [STOPPED]: Promised=55 | Delivered=66
+✅ Loveleen [STOPPED]: Promised=110 | Delivered=110
+✅ Mandeep kaur [STOPPED]: Promised=55 | Delivered=58
+✅ Mani kaur [STOPPED]: Promised=55 | Delivered=59
+✅ Manjinder [STOPPED]: Promised=55 | Delivered=55
+✅ MOHIT LUDHRANI [ACTIVE]: Promised=92 | Delivered=96
+✅ Naina Nawani [STOPPED]: Promised=55 | Delivered=62
+✅ Navjot kaur [STOPPED]: Promised=55 | Delivered=80
+✅ Navpreet kaur [STOPPED]: Promised=184 | Delivered=210
+✅ Nazia Begam [STOPPED]: Promised=207 | Delivered=207
+✅ Neha [STOPPED]: Promised=115 | Delivered=142
+✅ Palak [STOPPED]: Promised=92 | Delivered=101
+✅ Paramjeet kaur [STOPPED]: Promised=55 | Delivered=58
+✅ Payal [ACTIVE]: Promised=207 | Delivered=211
+✅ Prabhjot kaur [STOPPED]: Promised=115 | Delivered=134
+✅ Preeti [STOPPED]: Promised=110 | Delivered=110
+✅ Princy [STOPPED]: Promised=108 | Delivered=205
+✅ Rahul [STOPPED]: Promised=55 | Delivered=57
+✅ Rahul kumar [STOPPED]: Promised=115 | Delivered=121
+✅ Rahul Rai [STOPPED]: Promised=92 | Delivered=114
+✅ Rajbinder [STOPPED]: Promised=115 | Delivered=144
+✅ Rajinder [ACTIVE]: Promised=207 | Delivered=228
+✅ Rajni [STOPPED]: Promised=147 | Delivered=169
+✅ Ramandeep Kaur [STOPPED]: Promised=115 | Delivered=115
+✅ Raveena [STOPPED]: Promised=115 | Delivered=125
+✅ Ravenjeet Kaur [ACTIVE]: Promised=184 | Delivered=200
+✅ Rohit Kumar [STOPPED]: Promised=147 | Delivered=152
+✅ Saijel Goel [ACTIVE]: Promised=92 | Delivered=96
+✅ Seerat [STOPPED]: Promised=55 | Delivered=68
+✅ Shivani [STOPPED]: Promised=115 | Delivered=130
+✅ Simran [STOPPED]: Promised=115 | Delivered=151
+✅ Simran [STOPPED]: Promised=55 | Delivered=70
+✅ Sneha [STOPPED]: Promised=92 | Delivered=128
+✅ Sonia [STOPPED]: Promised=55 | Delivered=59
+✅ Sunaina Rani [STOPPED]: Promised=115 | Delivered=138
+✅ Tanisha [STOPPED]: Promised=115 | Delivered=121
+✅ Tushte [ACTIVE]: Promised=110 | Delivered=124
+✅ VEERPAL KAUR [ACTIVE]: Promised=207 | Delivered=207
+✅ Vinita punjabi [ACTIVE]: Promised=184 | Delivered=187
+✅ Yash yadav [STOPPED]: Promised=55 | Delivered=55
+
+=============================================================================
+NO PAYMENT USERS (47)
+=============================================================================
+
+❌ Abhay garg [STOPPED]: 0 payments | Got=3 leads
+❌ AMIT BANSAL [STOPPED]: 0 payments | Got=4 leads
+❌ Babu [STOPPED]: 0 payments | Got=2 leads
+❌ Baljinder Kaur [STOPPED]: 0 payments | Got=3 leads
+❌ Balraj singh [ACTIVE]: 0 payments | Got=180 leads
+❌ Bhawna [STOPPED]: 0 payments | Got=59 leads
+❌ Daljit kaur [STOPPED]: 0 payments | Got=3 leads
+❌ Deepak [STOPPED]: 0 payments | Got=4 leads
+❌ Divya [STOPPED]: 0 payments | Got=4 leads
+❌ Gurvinder Matharu [STOPPED]: 0 payments | Got=4 leads
+❌ HARDEEP KAUR [ACTIVE]: 0 payments | Got=26 leads
+❌ Harjinder kaur [STOPPED]: 0 payments | Got=4 leads
+❌ harpreet kaur [STOPPED]: 0 payments | Got=4 leads
+❌ Harpreet kaur [STOPPED]: 0 payments | Got=4 leads
+❌ Harpreet kaur [STOPPED]: 0 payments | Got=3 leads
+❌ Harsimrat Kaur [STOPPED]: 0 payments | Got=4 leads
+❌ Himanshu Sharma [STOPPED]: 0 payments | Got=15 leads
+❌ Isha Rani [STOPPED]: 0 payments | Got=3 leads
+❌ Jashan [STOPPED]: 0 payments | Got=16 leads
+❌ Jashandeep singh [ACTIVE]: 0 payments | Got=19 leads
+❌ Jashanpreet kaur [STOPPED]: 0 payments | Got=3 leads
+❌ JASPREET [STOPPED]: 0 payments | Got=24 leads
+❌ Joyti kaur [STOPPED]: 0 payments | Got=5 leads
+❌ Kiran [ACTIVE]: 0 payments | Got=29 leads
+❌ Krishn kumari [STOPPED]: 0 payments | Got=4 leads
+❌ KULWANT SINGH [STOPPED]: 0 payments | Got=2 leads
+❌ Lovepreet singh [STOPPED]: 0 payments | Got=2 leads
+❌ Lovepreet singh [STOPPED]: 0 payments | Got=2 leads
+❌ Mandeep kaur [STOPPED]: 0 payments | Got=2 leads
+❌ Mandeep kaur [STOPPED]: 0 payments | Got=2 leads
+❌ Pooja jolly [ACTIVE]: 0 payments | Got=204 leads
+❌ Punam [STOPPED]: 0 payments | Got=2 leads
+❌ Rahul [STOPPED]: 0 payments | Got=9 leads
+❌ Rimpy Singh [STOPPED]: 0 payments | Got=60 leads
+❌ Rohit Kumar [STOPPED]: 0 payments | Got=2 leads
+❌ Sejal [ACTIVE]: 0 payments | Got=41 leads
+❌ Sheela [STOPPED]: 0 payments | Got=1 leads
+❌ Shivani [STOPPED]: 0 payments | Got=18 leads
+❌ Shivani [STOPPED]: 0 payments | Got=18 leads
+❌ Shivani Gupta [STOPPED]: 0 payments | Got=2 leads
+❌ Simran [STOPPED]: 0 payments | Got=21 leads
+❌ Simranpreet kaur [STOPPED]: 0 payments | Got=2 leads
+❌ Sohan singh [STOPPED]: 0 payments | Got=19 leads
+❌ Sohan singh [STOPPED]: 0 payments | Got=2 leads
+❌ Sunita jhatta [STOPPED]: 0 payments | Got=3 leads
+❌ Swinky [STOPPED]: 0 payments | Got=2 leads
+❌ Test [STOPPED]: 0 payments | Got=3 leads
+
+=============================================================================
+GRAND TOTAL PENDING LEADS: 1499
+=============================================================================

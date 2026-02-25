@@ -1,0 +1,41 @@
+Found 13 ACTIVE users at or exceeding their standard limits:
+
+- Rajwinder Singh (workwithrajwinder@gmail.com)
+  Plan: turbo_boost | Limit: 250 | Received Since Unknown: 266
+
+- Gurnam (gurnambal01@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since Unknown: 258
+
+- Balraj singh (bs0525765349@gmail.com)
+  Plan: supervisor | Limit: 150 | Received Since Unknown: 171
+
+- Rajni (vansh.rajni.96@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since 2026-01-30: 111
+
+- Rajni (rajnikaler01@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since Unknown: 111
+
+- Asmita (shekhbharatbhai162@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since 2026-02-04: 105
+
+- Sonal Ravrani (sonalben0099@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since 2026-02-06: 104
+
+- Mandeep kaur (mandeepbrar1325@gmail.com)
+  Plan: weekly_boost | Limit: 100 | Received Since 2026-02-02: 102
+
+- Lakhveer kaur (lakhveerkaur219@gmail.com)
+  Plan: starter | Limit: 50 | Received Since 2026-01-27: 79
+
+- Babita (babitanahar5@gmail.com)
+  Plan: starter | Limit: 50 | Received Since 2026-01-27: 65
+
+- Husanpreet kaur (husanpreetkaur9899@gmail.com)
+  Plan: starter | Limit: 50 | Received Since 2026-02-14: 57
+
+- Rahul (ms0286777@gmail.com)
+  Plan: starter | Limit: 50 | Received Since 2026-02-01: 56
+
+- Charanjeet Kaur (charanjeetkaur199292@gmail.com)
+  Plan: starter | Limit: 50 | Received Since 2026-01-28: 56
+

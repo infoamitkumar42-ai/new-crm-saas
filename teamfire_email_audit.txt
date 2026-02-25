@@ -1,0 +1,279 @@
+=============================================================================
+TEAMFIRE ACTIVE USERS - AUDIT WITH EMAIL (Feb 23, 2026)
+=============================================================================
+
+PENDING USERS (50):
+-------------
+1. Tanu Dhawan (dhawantanu536@gmail.com)
+   JAN: manager(₹2999) = 176 leads
+   FEB: manager(₹2999) = 176 leads
+   Promised=352 | Delivered=233 | PENDING=119
+
+2. Harmandeep kaur (harmandeepkaurmanes790@gmail.com)
+   JAN: manager(₹2999) = 176 leads
+   FEB: manager(₹2999) = 176 leads
+   Promised=352 | Delivered=235 | PENDING=117
+
+3. Mandeep kaur (mandeepkau340@gmail.com)
+   JAN: -
+   FEB: manager(₹2999) = 176 leads
+   Promised=176 | Delivered=71 | PENDING=105
+
+4. Swati (sainsachin737@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=170 | Delivered=109 | PENDING=61
+
+5. Sujal Sankhla (sujalsankhla11@gmail.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=56 | PENDING=59
+
+6. Gurteshwar Singh (gurteshwargill098@gmail.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=57 | PENDING=58
+
+7. Manbir Singh (singhmanbir938@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=230 | Delivered=172 | PENDING=58
+
+8. Kulwant Singh (kulwantsinghdhaliwalsaab668@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=170 | Delivered=115 | PENDING=55
+
+9. Harpreet kaur (harpreetk61988@gmail.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=61 | PENDING=54
+
+10. Mandeep kaur (gurnoor1311singh@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=230 | Delivered=176 | PENDING=54
+
+11. Mandeep kaur (mandeep.k21@icloud.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=64 | PENDING=51
+
+12. Prince (prince@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=147 | Delivered=101 | PENDING=46
+
+13. Simran (ashok376652@gmail.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=69 | PENDING=46
+
+14. Suman (sumansumankaur09@gmail.com)
+   JAN: starter(₹999), starter(₹999) = 110 leads
+   FEB: starter(₹999), starter(₹999) = 110 leads
+   Promised=220 | Delivered=178 | PENDING=42
+
+15. ranjodh singh (ranjodhmomi@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=170 | Delivered=131 | PENDING=39
+
+16. SEEMA RANI (ssatnam41912@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=20 | PENDING=35
+
+17. Loveleen kaur (loveleenkaur8285@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=207 | Delivered=173 | PENDING=34
+
+18. Yuail arian (aryansandhu652@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=23 | PENDING=32
+
+19. Neha (neharajoria1543@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=25 | PENDING=30
+
+20. Ansh (aansh8588@gmail.com)
+   JAN: -
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=92 | Delivered=63 | PENDING=29
+
+21. Manish (my440243@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=28 | PENDING=27
+
+22. Priyanka (harjinderkumarkumar56@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=29 | PENDING=26
+
+23. Saloni (ananyakakkar53b@gmail.com)
+   JAN: starter(₹999), starter(₹999) = 110 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=225 | Delivered=200 | PENDING=25
+
+24. Jasnoor Kaur (sranjasnoor11@gmail.com)
+   JAN: -
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=115 | Delivered=92 | PENDING=23
+
+25. Gurdeep Singh (gurdeepgill613@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=88 | PENDING=22
+
+26. Jyoti (rimpy7978@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=34 | PENDING=21
+
+27. Navjot Kaur (knavjotkaur113@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=170 | Delivered=150 | PENDING=20
+
+28. Priya Arora (priyaarora50505@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=91 | PENDING=19
+
+29. Arshdeep kaur (arshkaur6395@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=92 | PENDING=18
+
+30. Prabhjeet kaur (kaurdeep06164@gmail.com)
+   JAN: weekly_boost(₹1999) = 92 leads
+   FEB: supervisor(₹1999) = 115 leads
+   Promised=207 | Delivered=189 | PENDING=18
+
+31. Resham kaur (reshamkaur6@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=37 | PENDING=18
+
+32. Arshdeep singh (arshdeepjnvkauni1606@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=40 | PENDING=15
+
+33. MUSKAN (muskanchopra376@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=95 | PENDING=15
+
+34. Kanchan sharma (sharmaanjali93962@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=41 | PENDING=14
+
+35. Komal (goldymahi27@gmail.com)
+   JAN: -
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=92 | Delivered=78 | PENDING=14
+
+36. Mandeep kaur (mandeepbrar1325@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: starter(₹999), weekly_boost(₹1999) = 147 leads
+   Promised=262 | Delivered=249 | PENDING=13
+
+37. Akash (dbrar8826@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=98 | PENDING=12
+
+38. Jashandeep singh (jashanpreet0479@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=43 | PENDING=12
+
+39. Sonali (chaurasiyasonali56@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=45 | PENDING=10
+
+40. Sakshi (sakshidigra24@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=48 | PENDING=7
+
+41. Sandeep Rehaan (sipreet73@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=103 | PENDING=7
+
+42. Jasmeen singh (jasmeensingh188@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=49 | PENDING=6
+
+43. Rajveer kaur (rajveerkhattra9999@gmail.com)
+   JAN: -
+   FEB: starter(₹999) = 55 leads
+   Promised=55 | Delivered=49 | PENDING=6
+
+44. SAMAN (samandeepkaur1216@gmail.com)
+   JAN: weekly_boost(₹1999), weekly_boost(₹1999) = 184 leads
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=276 | Delivered=270 | PENDING=6
+
+45. Nitinluthra (nitinanku628@gmail.com)
+   JAN: -
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=92 | Delivered=88 | PENDING=4
+
+46. Sameer (rupanasameer551@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=147 | Delivered=143 | PENDING=4
+
+47. Jasdeep Kaur (jasdeepsra68@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=107 | PENDING=3
+
+48. PARAMJIT KAUR (paramjitkaur20890@gmail.com)
+   JAN: starter(₹999) = 55 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=110 | Delivered=107 | PENDING=3
+
+49. Sonia Chauhan (s73481109@gmail.com)
+   JAN: supervisor(₹1999) = 115 leads
+   FEB: starter(₹999) = 55 leads
+   Promised=170 | Delivered=168 | PENDING=2
+
+50. Ajay kumar (ajayk783382@gmail.com)
+   JAN: weekly_boost(₹1999), weekly_boost(₹1999) = 184 leads
+   FEB: weekly_boost(₹1999) = 92 leads
+   Promised=276 | Delivered=275 | PENDING=1
+
+FULFILLED (18):
+-------------
+✅ Amritpal Kaur (amritpalkaursohi358@gmail.com): Promised=92 | Delivered=96
+✅ Babita (babitanahar5@gmail.com): Promised=110 | Delivered=125
+✅ Gurpreet kaur (gjama1979@gmail.com): Promised=147 | Delivered=148
+✅ Himanshu Sharma (sharmahimanshu9797@gmail.com): Promised=55 | Delivered=285
+✅ Husanpreet kaur (husanpreetkaur9899@gmail.com): Promised=55 | Delivered=57
+✅ Jashandeep Kaur (jashandeepkaur6444@gmail.com): Promised=110 | Delivered=112
+✅ Jaspreet Kaur (jaspreetkaursarao45@gmail.com): Promised=147 | Delivered=152
+✅ Kiran Brar (brark5763@gmail.com): Promised=147 | Delivered=151
+✅ Lakhveer kaur (lakhveerkaur219@gmail.com): Promised=55 | Delivered=80
+✅ MOHIT LUDHRANI (ludhranimohit91@gmail.com): Promised=92 | Delivered=96
+✅ Payal (payalpuri3299@gmail.com): Promised=207 | Delivered=211
+✅ Pooja jolly (jollypooja5@gmail.com): Promised=55 | Delivered=204
+✅ Rajinder (officialrajinderdhillon@gmail.com): Promised=207 | Delivered=228
+✅ Ravenjeet Kaur (ravenjeetkaur@gmail.com): Promised=184 | Delivered=200
+✅ Saijel Goel (saijelgoel4@gmail.com): Promised=92 | Delivered=96
+✅ Tushte (tushte756@gmail.com): Promised=110 | Delivered=124
+✅ VEERPAL KAUR (surjitsingh1067@gmail.com): Promised=207 | Delivered=207
+✅ Vinita punjabi (punjabivinita@gmail.com): Promised=184 | Delivered=187
+
+GRAND TOTAL PENDING: 1515
+=============================================================================
