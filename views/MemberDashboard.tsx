@@ -43,7 +43,6 @@ interface UserProfile {
   valid_until: string;
   payment_status: string;
   manager_id: string;
-  preferred_city: string;
   total_leads_received: number;
   sheet_url: string;
   filters: any;
@@ -451,7 +450,7 @@ export const MemberDashboard = () => {
         // 3. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
         supabase
           .from('users')
-          .select('id,name,email,role,plan_name,plan_weight,daily_limit,daily_limit_override,leads_today,valid_until,payment_status,manager_id,preferred_city,total_leads_received,sheet_url,filters,last_activity,is_active,days_extended,total_leads_promised,is_plan_pending,plan_activation_time')
+          .select('id,name,email,role,plan_name,plan_weight,daily_limit,daily_limit_override,leads_today,valid_until,payment_status,manager_id,total_leads_received,sheet_url,filters,last_activity,is_active,days_extended,total_leads_promised,is_plan_pending,plan_activation_time')
           .eq('id', userId)
           .single()
       ]);
