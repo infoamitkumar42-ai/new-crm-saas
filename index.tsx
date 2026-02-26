@@ -41,19 +41,32 @@ const root = ReactDOM.createRoot(rootElement);
 // 🚀 AUTO-UPDATE PWA (Force stuck mobile devices to latest version)
 if ('serviceWorker' in navigator) {
   // @ts-ignore
-  import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({
-      immediate: true, // ⚡ Check for updates immediately
-      onNeedRefresh() {
-        console.log('🔄 New update found! Forcing immediate update...');
-        // Force hard refresh to kill old Service Worker
+  import('virtual:pwa-register')
+    .then(({ registerSW }) => {
+      registerSW({
+        immediate: true, // ⚡ Check for updates immediately
+        onNeedRefresh() {
+          console.log('🔄 New update found! Forcing immediate update...');
+          // Force hard refresh to kill old Service Worker
+          window.location.reload();
+        },
+        onOfflineReady() {
+          console.log('⚡ App ready for offline.');
+        },
+      });
+    })
+    .catch(err => {
+      console.error('❌ PWA Register Import Failed (Cache Mismatch):', err);
+      // If the module fails to load, it's usually because the version changed.
+      // A simple reload will often fix it by fetching the new index.html
+      // But we use a timer to avoid infinite reload loops
+      const lastReload = localStorage.getItem('last-pwa-error-reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload) > 30000) {
+        localStorage.setItem('last-pwa-error-reload', now.toString());
         window.location.reload();
-      },
-      onOfflineReady() {
-        console.log('⚡ App ready for offline.');
-      },
+      }
     });
-  });
 }
 
 // 🛑 GLOBAL ERROR SUPPRESSION (Permanent Fix)

@@ -572,12 +572,22 @@ export const MemberDashboard = () => {
 
         // Show System Notification for new assignments
         if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && payload.old && (payload.old as any).assigned_to !== profile.id)) {
-          if (typeof window !== 'undefined' && 'Notification' in window && (window.Notification as any).permission === 'granted') {
-            new window.Notification('🔥 New Lead Received!', {
-              body: `${newLead.name} from ${newLead.city}`,
-              icon: '/logo.png',
-              tag: 'new-lead-' + newLead.id
+          // 🚀 SAFE NOTIFICATION (Fixed Illegal Constructor Error)
+          if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(registration => {
+              registration.showNotification('🔥 New Lead Received!', {
+                body: `${newLead.name} from ${newLead.city}`,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                tag: 'new-lead-' + newLead.id,
+                vibrate: [200, 100, 200]
+              });
+            }).catch(err => {
+              console.warn("SW Notification failed, falling back to sound only", err);
+              playNotificationSound();
             });
+          } else {
+            playNotificationSound();
           }
         }
       })
