@@ -313,6 +313,30 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
+          {/* ✅ Verification Button (Only shows for ?test=true) */}
+          {window.location.search.includes('test=true') && (
+            <button
+              onClick={() => {
+                throw new Error('LeadFlow Sentry Verification: Global Error Test Success! 🚀');
+              }}
+              style={{
+                position: 'fixed',
+                bottom: '20px',
+                left: '20px',
+                zIndex: 9999,
+                padding: '10px 20px',
+                backgroundColor: '#EFF6FF',
+                color: '#1D4ED8',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #BFDBFE',
+              }}
+            >
+              ⚠️ Click to Verify Sentry
+            </button>
+          )}
         </AuthProvider>
       </BrowserRouter>
     </Sentry.ErrorBoundary>

@@ -8,23 +8,6 @@ import {
 } from 'lucide-react';
 import * as Sentry from '@sentry/react';
 
-// ✅ Verification Button Component (Only shows for ?test=true)
-const ErrorButton = () => {
-  const isTestMode = window.location.search.includes('test=true');
-  if (!isTestMode) return null;
-
-  return (
-    <button
-      onClick={() => {
-        throw new Error('LeadFlow Sentry Verification: This is your first intentional error! 🚀');
-      }}
-      className="fixed bottom-4 left-4 z-[9999] px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold shadow-lg border border-blue-200 hover:bg-blue-600 hover:text-white transition-all animate-pulse"
-    >
-      ⚠️ Verify Sentry
-    </button>
-  );
-}
-
 export const Landing = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
