@@ -18,6 +18,9 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
 });
 
+// ✅ Temporary test to wake up Sentry dashboard
+Sentry.captureMessage("Sentry Integration Test Success! 🚀");
+
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error("Root not found");
