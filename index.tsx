@@ -18,15 +18,18 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
   // 🔇 SILENCE NOISY NON-CRITICAL ERRORS
   ignoreErrors: [
-    'AbortError',
-    'signal is aborted',
-    'Network Error: Failed to fetch',
-    'TypeError: Failed to fetch'
+    /AbortError/i,
+    /signal is aborted/i,
+    /Network Error/i,
+    /Failed to fetch/i,
   ],
   beforeSend(event, hint) {
     const error = hint.originalException;
-    if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
-      return null;
+    if (error) {
+      const msg = error.message || error.toString() || '';
+      if (error.name === 'AbortError' || msg.includes('aborted') || msg.includes('AbortError')) {
+        return null;
+      }
     }
     return event;
   },

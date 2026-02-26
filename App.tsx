@@ -313,35 +313,6 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
-          {/* ✅ Verification Button (Only shows for ?test=true) */}
-          {window.location.search.includes('test=true') && (
-            <button
-              onClick={() => {
-                alert('Testing Sentry... Error will be thrown now!');
-                throw new Error('LeadFlow Sentry Verification: Test Success! 🚀');
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#DBEAFE')}
-              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#EFF6FF')}
-              style={{
-                position: 'fixed',
-                bottom: '30px',
-                left: '30px',
-                zIndex: 99999,
-                padding: '12px 24px',
-                backgroundColor: '#EFF6FF',
-                color: '#1D4ED8',
-                borderRadius: '9999px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-                border: '2px solid #2563EB',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              ⚠️ CLICK TO TEST SENTRY
-            </button>
-          )}
         </AuthProvider>
       </BrowserRouter>
     </Sentry.ErrorBoundary>
