@@ -16,12 +16,9 @@ Sentry.init({
   // Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
-  // 🔇 SILENCE NOISY NON-CRITICAL ERRORS
   ignoreErrors: [
     /AbortError/i,
     /signal is aborted/i,
-    /Network Error/i,
-    /Failed to fetch/i,
   ],
   beforeSend(event, hint) {
     const error = hint.originalException;
