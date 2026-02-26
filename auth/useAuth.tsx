@@ -95,9 +95,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
       // 1. Define Timeout Promise
-      // 🚀 INCREASED TIMEOUT: 20s (from 15s) for extremely slow mobile networks
+      // 🚀 ADJUSTED TIMEOUT: 12s (Reduced from 20s to trigger fallback faster)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 20000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 12000)
       );
 
       // 2. Define Fetch Promise
@@ -128,10 +128,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         err.message?.includes('Load failed') ||
         err.message?.includes('Network error');
 
-      // 🔄 RETRY LOGIC for Network Errors (Max 2 retries inside fetchProfile)
-      if (isNetworkError && retryCount < 2) {
-        const delay = 1000 * (retryCount + 1);
-        console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/2)`);
+      // 🔄 RETRY LOGIC for Network Errors (Max 1 retry inside fetchProfile)
+      if (isNetworkError && retryCount < 1) {
+        const delay = 500 * (retryCount + 1);
+        console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/1)`);
         await new Promise(r => setTimeout(r, delay));
         return fetchProfile(userId, retryCount + 1);
       }
@@ -196,8 +196,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
     if (!mountedRef.current) return;
 
-    // 🛑 CIRCUIT BREAKER: Stop after 2 failed retries
-    const MAX_RETRIES = 2;
+    // 🛑 CIRCUIT BREAKER: Stop after 1 failed retry (Total 2 attempts)
+    const MAX_RETRIES = 1;
 
     // Prevent parallel loads for same user
     if (loadingProfileFor.current === user.id && retryCount === 0) {
