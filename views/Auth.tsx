@@ -599,6 +599,20 @@ export const Auth: React.FC = () => {
                     Sentry.captureMessage("User triggered Manual Repair & Reset", { level: "info" });
 
                     try {
+                      // 🚀 NETWORK DIAGNOSTIC TEST
+                      console.log("📡 Testing connectivity to Supabase...");
+                      const testStart = Date.now();
+                      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/users?select=count`, {
+                        headers: { 'apikey': supabase.supabaseKey }
+                      });
+                      const latency = Date.now() - testStart;
+
+                      if (response.ok) {
+                        Sentry.captureMessage(`Connection Test: SUCCESS (${latency}ms)`, { level: "info" });
+                      } else {
+                        Sentry.captureMessage(`Connection Test: FAILED (${response.status})`, { level: "warning" });
+                      }
+
                       // 1. Clear Caches
                       if ('caches' in window) {
                         const keys = await caches.keys();
@@ -616,7 +630,10 @@ export const Auth: React.FC = () => {
                       Sentry.captureMessage("Manual Repair Success", { level: "info" });
                       window.location.href = window.location.origin + '/login?reset=done';
                     } catch (e: any) {
-                      Sentry.captureException(e, { tags: { section: "repair_button" } });
+                      Sentry.captureException(e, {
+                        tags: { section: "repair_button_diag" },
+                        extra: { message: "Network Diagnostic Failed" }
+                      });
                       window.location.reload();
                     }
                   }

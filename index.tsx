@@ -21,7 +21,7 @@ Sentry.init({
     /signal is aborted/i,
   ],
   beforeSend(event, hint) {
-    const error = hint.originalException;
+    const error = hint.originalException as any;
     if (error) {
       const msg = error.message || error.toString() || '';
       if (error.name === 'AbortError' || msg.includes('aborted') || msg.includes('AbortError')) {
