@@ -38,21 +38,21 @@ if (!rootElement) throw new Error("Root not found");
 
 const root = ReactDOM.createRoot(rootElement);
 
-// 🚀 AUTO-UPDATE PWA (Permanent Fix for stuck mobile devices)
+// 🚀 AUTO-UPDATE PWA (Force stuck mobile devices to latest version)
 if ('serviceWorker' in navigator) {
-  // @ts-ignore - Virtual module handled by vite-plugin-pwa
+  // @ts-ignore
   import('virtual:pwa-register').then(({ registerSW }) => {
-    const updateSW = registerSW({
+    registerSW({
+      immediate: true, // ⚡ Check for updates immediately
       onNeedRefresh() {
-        console.log('🔄 New update available! Refreshing directly...');
-        updateSW(true); // Automatically apply the update without user prompt
+        console.log('🔄 New update found! Forcing immediate update...');
+        // Force hard refresh to kill old Service Worker
+        window.location.reload();
       },
       onOfflineReady() {
-        console.log('⚡ App is ready to work offline.');
+        console.log('⚡ App ready for offline.');
       },
     });
-  }).catch(err => {
-    console.warn('⚠️ PWA Registration skipped (likely development mode):', err);
   });
 }
 
