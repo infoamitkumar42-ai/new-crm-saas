@@ -589,8 +589,8 @@ export const Auth: React.FC = () => {
             </p>
 
             {/* ☢️ NUCLEAR RESET BUTTON (For stuck PWA users) */}
-            <div className="pt-6 border-t border-slate-100">
-              <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-widest font-bold">App not working properly?</p>
+            <div className="pt-6 border-t border-slate-100 flex flex-col items-center gap-4">
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">App not working properly?</p>
               <button
                 type="button"
                 onClick={async () => {
@@ -625,6 +625,11 @@ export const Auth: React.FC = () => {
               >
                 Click here to Repair & Reset App
               </button>
+
+              {/* 🏁 BUILD VERSION (To verify update) */}
+              <p className="mt-4 text-[9px] text-slate-300 font-mono tracking-tighter">
+                Build: FIX-AUTH-V8 (Feb 26, 4:25 PM)
+              </p>
             </div>
           </div>
         )}

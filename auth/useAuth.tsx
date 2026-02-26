@@ -514,8 +514,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-    } catch (err) {
+    } catch (err: any) {
       setLoading(false);
+      Sentry.captureException(err, { tags: { action: 'signUp', role } });
       throw err;
     }
   }, [createUserSheetBackground]);
@@ -534,8 +535,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-    } catch (err) {
+    } catch (err: any) {
       setLoading(false);
+      Sentry.captureException(err, { tags: { action: 'signIn' } });
       throw err;
     }
   }, []);
