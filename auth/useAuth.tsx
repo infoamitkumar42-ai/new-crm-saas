@@ -295,6 +295,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
+      // 🚀 NUCLEAR RESET HANDLER (From Repair Button)
+      if (window.location.search.includes('reset=done')) {
+        console.warn("☢️ Reset parameter detected. Purging local state...");
+        localStorage.clear();
+        sessionStorage.clear();
+        setProfile(null);
+        setSession(null);
+        // Remove the parameter without refreshing to avoid infinite reset loops
+        window.history.replaceState({}, document.title, "/login");
+      }
+
       // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 8s no matter what
       // Reduced from 15s → 8s for faster recovery on slow mobile / PWA
       const timeout = setTimeout(() => {

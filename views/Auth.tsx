@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types";
 import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
+import * as Sentry from "@sentry/react";
 
 export const Auth: React.FC = () => {
   const { signUp, signIn } = useAuth();
