@@ -263,50 +263,38 @@ const AppRoutes: React.FC = () => {
 // ============================================================
 // 🚀 MAIN APP COMPONENT
 // ============================================================
+import * as Sentry from "@sentry/react";
+
 function App() {
   // 🚀 AGGRESSIVE SERVICE WORKER CLEANUP (Fixes PWA stuck loading)
-  // Many users have installed the web app → stale SWs cause "Checking session" hang
   useEffect(() => {
     const cleanupServiceWorkers = async () => {
       if (!('serviceWorker' in navigator)) return;
-
       try {
-        // 1. Get all registered service workers
         const registrations = await navigator.serviceWorker.getRegistrations();
-
-        // 2. Unregister any stale/old SWs silently
         for (const registration of registrations) {
-          // Check if the SW is stuck (not controlling any pages or is redundant)
           if (registration.installing || registration.waiting) {
-            console.log('🧹 Found stale Service Worker, cleaning up...');
             await registration.unregister();
           }
         }
-
-        // 3. Clear old caches that might serve stale HTML/JS
         if ('caches' in window) {
           const cacheNames = await caches.keys();
           for (const cacheName of cacheNames) {
-            // Delete any cache that looks like an old build cache
             if (cacheName.includes('workbox') || cacheName.includes('precache') || cacheName.includes('runtime')) {
-              console.log('🧹 Deleting stale cache:', cacheName);
               await caches.delete(cacheName);
             }
           }
         }
       } catch (e) {
-        // Silent fail — don't break app if cleanup fails
         console.warn('SW cleanup error (non-critical):', e);
       }
-
-      // 4. Listen for future SW updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         console.log('🔄 Service Worker Updated (Silent)');
       });
     };
-
     cleanupServiceWorkers();
   }, []);
+
   if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === '' || !ENV.SUPABASE_URL.includes('http')) {
     return (
       <div style={{ padding: 40, backgroundColor: '#FEF2F2', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -316,23 +304,20 @@ function App() {
           <p><strong>Missing Variable:</strong> <span style={{ color: '#DC2626' }}>VITE_SUPABASE_URL</span></p>
           <p><strong>Current Value:</strong> {JSON.stringify(ENV.SUPABASE_URL)}</p>
         </div>
-        <p style={{ marginTop: 30, maxWidth: 600, textAlign: 'center' }}>
-          <strong>FIX FOR VERCEL:</strong><br />
-          Go to Vercel Settings -&gt; Environment Variables.<br />
-          Rename <code>SUPABASE_URL</code> to <code>VITE_SUPABASE_URL</code>.<br />
-          Then <strong>Redeploy</strong>.
-        </p>
       </div>
     );
   }
 
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <Sentry.ErrorBoundary fallback={<div className="p-10 text-center"><h1>Something went wrong.</h1><p>Our team has been notified.</p></div>}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </Sentry.ErrorBoundary>
   );
 }
+
 
 export default App;

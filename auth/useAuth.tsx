@@ -23,6 +23,7 @@ import React, {
 } from "react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react";
 import { User } from "../types";
 import { ENV } from "../config/env";
 
@@ -130,6 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null; // This triggers createTempProfile in loadUserProfile
       }
 
+      Sentry.captureException(err, { extra: { status, message: err.message, context: 'fetchProfile' } });
       console.error("Auth Load Error:", err.message);
       return null;
     }
