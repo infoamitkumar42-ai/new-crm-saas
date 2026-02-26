@@ -455,18 +455,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
 
     // 🛡️ AUTH RETRY WRAPPER
-    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 2): Promise<T> => {
+    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           return await operation();
         } catch (err: any) {
           lastError = err;
+          // 🔥 AGGRESSIVE NETWORK ERROR DETECTION
+          const errString = String(err).toLowerCase();
+          const errName = (err.name || '').toLowerCase();
+          const errMsg = (err.message || '').toLowerCase();
+
           const isNetError =
-            err.message?.includes('Failed to fetch') ||
-            err.name === 'AuthRetryableFetchError' ||
-            err.name === 'TypeError' ||
-            err.message?.includes('Network error');
+            errMsg.includes('failed to fetch') ||
+            errString.includes('authretryablefetcherror') ||
+            errName === 'authretryablefetcherror' ||
+            errName === 'typeerror' ||
+            errMsg.includes('network error') ||
+            errMsg.includes('timeout');
 
           if (isNetError && attempt < maxRetries) {
             const delay = 1000 * (attempt + 1);
@@ -564,18 +571,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
 
     // 🛡️ AUTH RETRY WRAPPER
-    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 2): Promise<T> => {
+    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           return await operation();
         } catch (err: any) {
           lastError = err;
+          // 🔥 AGGRESSIVE NETWORK ERROR DETECTION
+          const errString = String(err).toLowerCase();
+          const errName = (err.name || '').toLowerCase();
+          const errMsg = (err.message || '').toLowerCase();
+
           const isNetError =
-            err.message?.includes('Failed to fetch') ||
-            err.name === 'AuthRetryableFetchError' ||
-            err.name === 'TypeError' ||
-            err.message?.includes('Network error');
+            errMsg.includes('failed to fetch') ||
+            errString.includes('authretryablefetcherror') ||
+            errName === 'authretryablefetcherror' ||
+            errName === 'typeerror' ||
+            errMsg.includes('network error') ||
+            errMsg.includes('timeout');
 
           if (isNetError && attempt < maxRetries) {
             const delay = 1000 * (attempt + 1);
