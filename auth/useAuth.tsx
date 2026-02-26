@@ -132,13 +132,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // 🛑 ALL OTHER ERRORS -> Report to Sentry with details
+      const isNetworkError = err.message === 'Failed to fetch' || err.name === 'TypeError';
       const errorMsg = err.message || err.error_description || (typeof err === 'string' ? err : 'Unknown Supabase Error');
-      const errorToReport = new Error(`Supabase [${status}]: ${errorMsg}`);
+
+      const errorToReport = isNetworkError
+        ? new Error(`Network Error: ${errorMsg}`)
+        : new Error(`Supabase [${status}]: ${errorMsg}`);
 
       Sentry.captureException(errorToReport, {
-        level: 'error',
+        level: isNetworkError ? 'warning' : 'error',
         tags: {
           context: 'fetchProfile',
+          error_category: isNetworkError ? 'network' : 'database',
           error_code: status,
           supabase_code: err.code
         },
