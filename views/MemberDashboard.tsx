@@ -20,7 +20,8 @@ import {
   StickyNote, Check, LogOut, Zap, Crown, Lock,
   Flame, ArrowUp, Bell, Shield,
   AlertCircle, Award, ChevronDown, Moon, Pause, Play,
-  CheckCircle2, AlertTriangle, Flag, Gift, User, Lightbulb
+  CheckCircle2, AlertTriangle, Flag, Gift, User, Lightbulb,
+  LucideIcon
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
@@ -581,7 +582,7 @@ export const MemberDashboard = () => {
                 badge: '/logo.png',
                 tag: 'new-lead-' + newLead.id,
                 vibrate: [200, 100, 200]
-              });
+              } as any);
             }).catch(err => {
               console.warn("SW Notification failed, falling back to sound only", err);
               playNotificationSound();
