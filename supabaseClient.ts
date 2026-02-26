@@ -22,13 +22,16 @@ export const supabase = createClient(
       detectSessionInUrl: true,
       flowType: 'pkce',
     },
-    
+
     global: {
       headers: {
         'Prefer': 'return=representation',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
     },
-    
+
     db: {
       schema: 'public'
     }
@@ -39,9 +42,9 @@ export const supabase = createClient(
  * Centralized logging
  */
 export async function logEvent(
-  event: string, 
-  payload: any, 
-  userId?: string, 
+  event: string,
+  payload: any,
+  userId?: string,
   client: SupabaseClient = supabase
 ) {
   console.log(`[LOG]: ${event}`, payload);

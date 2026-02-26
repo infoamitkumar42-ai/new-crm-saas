@@ -113,11 +113,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
       if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
-        console.error("⛔ Supabase Access Forbidden. Clearing session...");
-        supabase.auth.signOut().then(() => {
-          localStorage.removeItem('leadflow-profile-cache'); // Clear LocalStorage too
-          if (mountedRef.current) window.location.href = '/login';
-        });
+        console.warn("⛔ Supabase Access Forbidden (401/403). Session token might be refreshing. Using temp profile...");
+        // ⚠️ CRITICAL FIX: We DO NOT force signOut() or window.location.href='/login' here anymore!
+        // That was interrupting Supabase's 'autoRefreshToken' process and causing the infinite login loop.
+        // It's better to return null and let Supabase's onAuthStateChange trigger SIGNED_OUT naturally if it fails permanently.
         return null;
       }
 
