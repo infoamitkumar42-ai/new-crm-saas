@@ -413,7 +413,7 @@ export const MemberDashboard = () => {
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
   const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at';
 
-  const fetchData = async (fetchLimit: number = 50) => {
+  const fetchData = async (fetchLimit: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
@@ -490,18 +490,18 @@ export const MemberDashboard = () => {
 
       const isNetError = error.message?.includes('Failed to fetch') || error.name === 'TypeError';
 
-      // 🔄 RETRY LOGIC (Max 1 retry for network errors)
-      if (isNetError && !isInitialLoad && fetchLimit === 50) {
-        console.warn("🌐 Lead fetch failed (Network). Retrying once in 2s...");
+      // 🔄 RETRY LOGIC (Max 3 retries for network errors)
+      if (isNetError && fetchLimit === 50 && retryCount < 3) {
+        console.warn(`🌐 Dashboard data fetch failed (Network). Retrying in 2s... (Attempt ${retryCount + 1}/3)`);
         await new Promise(r => setTimeout(r, 2000));
         isFetchingRef.current = false;
-        return fetchData(fetchLimit);
+        return fetchData(fetchLimit, retryCount + 1);
       }
 
       console.error('Dashboard Data Error:', error);
 
-      if (isNetError) {
-        // Show a non-intrusive toast or indicator if possible (future enhancement)
+      if (isNetError && retryCount >= 3) {
+        alert("Your connection is too unstable to load the dashboard data. Please try switching to Wi-Fi and refresh.");
       }
     } finally {
       setLoading(false);

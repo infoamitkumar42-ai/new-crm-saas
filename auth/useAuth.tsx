@@ -56,8 +56,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<User | null>(() => {
     // 🔥 INSTANT CACHE: Load from LocalStorage (Permanent) for zero-wait UI
     try {
-      const cached = localStorage.getItem('leadflow-profile-cache');
-      return cached ? JSON.parse(cached) : null;
+      const cachedStr = localStorage.getItem('leadflow-profile-cache');
+      if (cachedStr) {
+        const parsed = JSON.parse(cachedStr);
+        // 🧹 PURGE LEGACY DUMMY PROFILE: If the cache contains the forced fallback from earlier, delete it!
+        if (parsed && parsed.daily_limit === 0 && parsed.leads_today === 0 && parsed.total_leads_received === 0 && parsed.payment_status === 'inactive') {
+          console.warn("🧹 Wiping legacy dummy profile from cache to force live DB fetch!");
+          localStorage.removeItem('leadflow-profile-cache');
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch { return null; }
   });
 
