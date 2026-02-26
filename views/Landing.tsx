@@ -8,8 +8,11 @@ import {
 } from 'lucide-react';
 import * as Sentry from '@sentry/react';
 
-// ✅ Verification Button Component
+// ✅ Verification Button Component (Only shows for ?test=true)
 const ErrorButton = () => {
+  const isTestMode = window.location.search.includes('test=true');
+  if (!isTestMode) return null;
+
   return (
     <button
       onClick={() => {

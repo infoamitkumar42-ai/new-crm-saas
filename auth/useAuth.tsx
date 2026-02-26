@@ -132,11 +132,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // 🛑 ALL OTHER ERRORS -> Report to Sentry with details
-      const errorToReport = err instanceof Error ? err : new Error(err.message || 'Unknown Supabase Error');
+      const errorMsg = err.message || err.error_description || (typeof err === 'string' ? err : 'Unknown Supabase Error');
+      const errorToReport = new Error(`Supabase [${status}]: ${errorMsg}`);
+
       Sentry.captureException(errorToReport, {
         level: 'error',
-        tags: { context: 'fetchProfile', error_code: status },
-        extra: { raw_error: err, supabase_status: status }
+        tags: {
+          context: 'fetchProfile',
+          error_code: status,
+          supabase_code: err.code
+        },
+        extra: {
+          hint: err.hint,
+          details: err.details,
+          full_error: err
+        }
       });
 
       console.error("Auth Load Error:", err.message);
