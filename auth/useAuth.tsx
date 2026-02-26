@@ -32,6 +32,7 @@ interface AuthContextValue {
   session: Session | null;
   profile: User | null;
   loading: boolean;
+  isInitialized: boolean;
   isAuthenticated: boolean;
   signUp: (params: {
     email: string;
@@ -57,7 +58,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return cached ? JSON.parse(cached) : null;
     } catch { return null; }
   });
-  const [loading, setLoading] = useState(!profile); // Only show loader if NO cache
+
+  // ⚠️ CRITICAL FIX: Distinguish between "data loading" and "initial boot"
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [loading, setLoading] = useState(true); // Always start loading to protect routes
 
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
@@ -303,6 +307,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mountedRef.current) {
           // ensure loading is off if we are done
           if (!session && !profile) setLoading(false);
+          setIsInitialized(true);
         }
       }
     };
@@ -490,6 +495,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session,
       profile,
       loading,
+      isInitialized,
       isAuthenticated,
       signUp,
       signIn,

@@ -93,14 +93,14 @@ const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedRoles?: string[];
 }> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, profile, loading } = useAuth();
+  const { isAuthenticated, profile, loading, isInitialized } = useAuth();
 
-  // ✅ FIRST: Check if still loading
-  if (loading) {
+  // ✅ FIRST: Check if still loading OR not initialized
+  if (loading || !isInitialized) {
     return <LoadingScreen message="Verifying session..." />;
   }
 
-  // ✅ SECOND: Check authentication
+  // ✅ SECOND: Check authentication ONLY after initialization
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
