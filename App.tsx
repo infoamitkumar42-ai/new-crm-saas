@@ -15,7 +15,7 @@ import { LeadAlert } from './components/LeadAlert';
 import { AuthProvider, useAuth } from './auth/useAuth';
 import { ResetPassword } from './views/ResetPassword';
 import ApplyForm from './views/ApplyForm';
-import { Loader2 } from 'lucide-react';
+import { Loader2, WifiOff } from 'lucide-react';
 import { ENV } from './config/env';
 
 // ✅ LEGAL PAGES
@@ -93,7 +93,28 @@ const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedRoles?: string[];
 }> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, profile, loading, isInitialized } = useAuth();
+  const { isAuthenticated, profile, loading, isInitialized, isNetworkError } = useAuth();
+
+  // 🌐 NEW: Handle Network Error (Slow Internet)
+  if (isNetworkError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
+        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6">
+          <WifiOff size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Connection Issue</h2>
+        <p className="text-slate-500 max-w-xs mb-8">
+          We're having trouble connecting to the server. Your internet might be slow or unstable.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   // ✅ FIRST: Check if still loading OR not initialized
   if (loading || !isInitialized) {

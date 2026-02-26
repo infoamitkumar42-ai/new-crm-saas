@@ -35,6 +35,7 @@ interface AuthContextValue {
   loading: boolean;
   isInitialized: boolean;
   isAuthenticated: boolean;
+  isNetworkError: boolean;
   signUp: (params: {
     email: string;
     password: string;
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ⚠️ CRITICAL FIX: Distinguish between "data loading" and "initial boot"
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true); // Always start loading to protect routes
+  const [isNetworkError, setIsNetworkError] = useState(false);
 
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
@@ -76,24 +78,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await Promise.race([
         supabase.auth.getSession(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 5000)
+          // 🚀 INCREASED TIMEOUT: 20s (from 5s) to support slow 3G/Mobile internet
+          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 20000)
         )
       ]);
       return result;
     } catch (err: any) {
       if (err.message === 'SESSION_TIMEOUT') {
-        console.warn('⚡ getSession() timed out after 5s — treating as no session');
+        console.warn('⚡ getSession() timed out after 20s — treating as UNKNOWN session');
       }
-      return { data: { session: null } };
+      // Return a special error instead of null to prevent accidental logout
+      return { data: { session: null }, error: err };
     }
   }, []);
 
   const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
     try {
-      // 🚀 SMART TIMEOUT: 4 Seconds (reduced from 5s for faster mobile recovery)
-      // If internet is slow, don't make user wait. Load temp profile immediately.
+      // 🚀 INCREASED TIMEOUT: 15s (from 4s)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 4000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
       );
 
       // 2. Define Fetch Promise
@@ -301,12 +304,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }, 8000);
 
       try {
-        const { data: { session: currentSession } } = await getSessionSafe();
+        const { data: { session: currentSession }, error } = await getSessionSafe();
 
         if (!mountedRef.current) return;
 
+        if (error) {
+          console.warn("🌐 Network error during session fetch. Triggering offline mode.");
+          setIsNetworkError(true);
+          return;
+        }
+
         if (currentSession?.user) {
           setSession(currentSession);
+          setIsNetworkError(false);
 
           // 🚀 AGGRESSIVE RELEASE: If we have a cached profile, release UI immediately
           // Check if cached profile matches current user
@@ -521,6 +531,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       loading,
       isInitialized,
       isAuthenticated,
+      isNetworkError,
       signUp,
       signIn,
       signOut,

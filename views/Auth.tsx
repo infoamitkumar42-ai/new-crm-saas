@@ -568,10 +568,11 @@ export const Auth: React.FC = () => {
         )}
 
         {mode !== "forgot_password" && (
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-6">
             <p className="text-slate-500 text-sm">
               {mode === "login" ? "New to LeadFlow?" : "Already have an account?"}
               <button
+                type="button"
                 className="ml-2 font-bold text-blue-600 hover:underline"
                 onClick={() => {
                   setMode(mode === "login" ? "signup" : "login");
@@ -585,6 +586,40 @@ export const Auth: React.FC = () => {
                 {mode === "login" ? "Create Account" : "Login Here"}
               </button>
             </p>
+
+            {/* ☢️ NUCLEAR RESET BUTTON (For stuck PWA users) */}
+            <div className="pt-6 border-t border-slate-100">
+              <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-widest font-bold">App not working properly?</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm("This will clear all cache and repair the app. You will need to login again. Continue?")) {
+                    try {
+                      // 1. Clear Caches
+                      if ('caches' in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(key => caches.delete(key)));
+                      }
+                      // 2. Clear Storage
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      // 3. Unregister SWs
+                      if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(registrations.map(r => r.unregister()));
+                      }
+                      // 4. Hard Reload
+                      window.location.href = window.location.origin + '/login?reset=done';
+                    } catch (e) {
+                      window.location.reload();
+                    }
+                  }
+                }}
+                className="text-[11px] text-slate-400 hover:text-red-500 transition-colors underline decoration-dotted underline-offset-4"
+              >
+                Click here to Repair & Reset App
+              </button>
+            </div>
           </div>
         )}
       </div>
