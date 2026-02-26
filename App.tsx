@@ -317,24 +317,29 @@ function App() {
           {window.location.search.includes('test=true') && (
             <button
               onClick={() => {
-                throw new Error('LeadFlow Sentry Verification: Global Error Test Success! 🚀');
+                alert('Testing Sentry... Error will be thrown now!');
+                throw new Error('LeadFlow Sentry Verification: Test Success! 🚀');
               }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#DBEAFE')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#EFF6FF')}
               style={{
                 position: 'fixed',
-                bottom: '20px',
-                left: '20px',
-                zIndex: 9999,
-                padding: '10px 20px',
+                bottom: '30px',
+                left: '30px',
+                zIndex: 99999,
+                padding: '12px 24px',
                 backgroundColor: '#EFF6FF',
                 color: '#1D4ED8',
                 borderRadius: '9999px',
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: 'bold',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #BFDBFE',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+                border: '2px solid #2563EB',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
             >
-              ⚠️ Click to Verify Sentry
+              ⚠️ CLICK TO TEST SENTRY
             </button>
           )}
         </AuthProvider>
