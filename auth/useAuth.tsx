@@ -454,6 +454,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }) => {
     setLoading(true);
 
+    // 🛡️ AUTH RETRY WRAPPER
+    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 2): Promise<T> => {
+      let lastError: any;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await operation();
+        } catch (err: any) {
+          lastError = err;
+          const isNetError =
+            err.message?.includes('Failed to fetch') ||
+            err.name === 'AuthRetryableFetchError' ||
+            err.name === 'TypeError' ||
+            err.message?.includes('Network error');
+
+          if (isNetError && attempt < maxRetries) {
+            const delay = 1000 * (attempt + 1);
+            console.warn(`🌐 Auth Operation Failed (Network). Retrying in ${delay}ms... (Attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError;
+    };
+
     try {
       let resolvedManagerId: string | null = managerId || null;
       let resolvedTeamCode: string | null = teamCode?.trim().toUpperCase() || null;
@@ -487,7 +513,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resolvedManagerId = null;
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await withAuthRetry(() => supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
@@ -498,7 +524,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             manager_id: resolvedManagerId
           }
         }
-      });
+      }));
 
       if (error) {
         setLoading(false);
@@ -518,7 +544,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (err: any) {
       setLoading(false);
-      Sentry.captureException(err, { tags: { action: 'signUp', role } });
+      const isNetError =
+        err.message?.includes('Failed to fetch') ||
+        err.name === 'AuthRetryableFetchError' ||
+        err.name === 'TypeError' ||
+        err.message?.includes('Network error');
+
+      if (isNetError) setIsNetworkError(true);
+
+      Sentry.captureException(err, {
+        level: isNetError ? 'warning' : 'error',
+        tags: { action: 'signUp', role, error_category: isNetError ? 'network' : 'auth' }
+      });
       throw err;
     }
   }, [createUserSheetBackground]);
@@ -526,11 +563,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     setLoading(true);
 
+    // 🛡️ AUTH RETRY WRAPPER
+    const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 2): Promise<T> => {
+      let lastError: any;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await operation();
+        } catch (err: any) {
+          lastError = err;
+          const isNetError =
+            err.message?.includes('Failed to fetch') ||
+            err.name === 'AuthRetryableFetchError' ||
+            err.name === 'TypeError' ||
+            err.message?.includes('Network error');
+
+          if (isNetError && attempt < maxRetries) {
+            const delay = 1000 * (attempt + 1);
+            console.warn(`🌐 Auth Operation Failed (Network). Retrying in ${delay}ms... (Attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError;
+    };
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await withAuthRetry(() => supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
-      });
+      }));
 
       if (error) {
         setLoading(false);
@@ -539,7 +602,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (err: any) {
       setLoading(false);
-      Sentry.captureException(err, { tags: { action: 'signIn' } });
+      const isNetError =
+        err.message?.includes('Failed to fetch') ||
+        err.name === 'AuthRetryableFetchError' ||
+        err.name === 'TypeError' ||
+        err.message?.includes('Network error');
+
+      if (isNetError) setIsNetworkError(true);
+
+      Sentry.captureException(err, {
+        level: isNetError ? 'warning' : 'error',
+        tags: { action: 'signIn', error_category: isNetError ? 'network' : 'auth' }
+      });
       throw err;
     }
   }, []);
