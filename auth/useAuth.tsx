@@ -95,9 +95,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
       // 1. Define Timeout Promise
-      // 🚀 ADJUSTED TIMEOUT: 12s (Reduced from 20s to trigger fallback faster)
+      // 🚀 ADJUSTED TIMEOUT: 18s (Increased for slower mobile data)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 12000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 18000)
       );
 
       // 2. Define Fetch Promise
@@ -206,8 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (retryCount > MAX_RETRIES) {
       if (mountedRef.current) {
-        // Use temp profile as last resort to allow UI to render
-        setProfile(createTempProfile(user));
+        if (!localStorage.getItem('leadflow-profile-cache')) setIsNetworkError(true);
         setLoading(false);
       }
       return;
@@ -236,9 +235,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // Max retries reached, use temp profile
-        setProfile(createTempProfile(user));
-        setLoading(false); // 🔥 FIX: Release UI even if fetch fails permanently
+        // Max retries reached, do not use dummy profile
+        if (!localStorage.getItem('leadflow-profile-cache')) {
+          console.warn("🚨 Total fetch failure and no cache exists. Triggering offline mode.");
+          setIsNetworkError(true);
+        } else {
+          console.warn("⚠️ Profile fetch failed permanently, but using stale cache.");
+        }
+        setLoading(false);
         loadingProfileFor.current = null;
       }
     } catch (err: any) {
@@ -257,13 +261,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!mountedRef.current) return;
           await loadUserProfile(user, retryCount + 1);
         } else {
-          setProfile(createTempProfile(user));
+          if (!localStorage.getItem('leadflow-profile-cache')) setIsNetworkError(true);
           setLoading(false);
           loadingProfileFor.current = null;
         }
       }
     }
-  }, [fetchProfile, createTempProfile]);
+  }, [fetchProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
