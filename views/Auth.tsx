@@ -7,6 +7,7 @@ import { logEvent } from "../supabaseClient";
 import { UserRole } from "../types";
 import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
 import * as Sentry from "@sentry/react";
+import { ENV } from "../config/env";
 
 export const Auth: React.FC = () => {
   const { signUp, signIn } = useAuth();
@@ -138,7 +139,7 @@ export const Auth: React.FC = () => {
     setLoading(true);
 
     try {
-      const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const redirectUrl = (import.meta.env as any).VITE_APP_URL || window.location.origin;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${redirectUrl}/reset-password`,
@@ -602,16 +603,29 @@ export const Auth: React.FC = () => {
                       // 🚀 NETWORK DIAGNOSTIC TEST
                       console.log("📡 Testing connectivity to Supabase...");
                       const testStart = Date.now();
-                      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/users?select=count`, {
-                        headers: { 'apikey': supabase.supabaseKey }
-                      });
+
+                      // Test both REST and Auth endpoints to see if one is blocked
+                      const restTest = fetch(`${ENV.SUPABASE_URL}/rest/v1/users?select=count`, {
+                        headers: { 'apikey': ENV.SUPABASE_ANON_KEY }
+                      }).catch(e => ({ ok: false, status: 'BLOCKED', error: e.message }));
+
+                      const authTest = fetch(`${ENV.SUPABASE_URL}/auth/v1/health`, {
+                      }).catch(e => ({ ok: false, status: 'BLOCKED', error: e.message }));
+
+                      const [restRes, authRes] = await Promise.all([restTest, authTest]);
                       const latency = Date.now() - testStart;
 
-                      if (response.ok) {
-                        Sentry.captureMessage(`Connection Test: SUCCESS (${latency}ms)`, { level: "info" });
-                      } else {
-                        Sentry.captureMessage(`Connection Test: FAILED (${response.status})`, { level: "warning" });
-                      }
+                      Sentry.captureMessage(`Connection Diagnostic Results`, {
+                        level: "info",
+                        extra: {
+                          latency: `${latency}ms`,
+                          rest_status: (restRes as any).status,
+                          auth_status: (authRes as any).status,
+                          rest_ok: (restRes as any).ok,
+                          auth_ok: (authRes as any).ok,
+                          agent: navigator.userAgent
+                        }
+                      });
 
                       // 1. Clear Caches
                       if ('caches' in window) {

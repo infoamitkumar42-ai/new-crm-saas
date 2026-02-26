@@ -99,16 +99,30 @@ const ProtectedRoute: React.FC<{
   if (isNetworkError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
-        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6">
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-6">
           <WifiOff size={32} />
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">Connection Issue</h2>
-        <p className="text-slate-500 max-w-xs mb-8">
-          We're having trouble connecting to the server. Your internet might be slow or unstable.
+        <p className="text-slate-500 max-w-sm mb-6 leading-relaxed">
+          We're having trouble connecting to the Supabase server. This usually happens on unstable internet connections (like Jio/Mobile data) or if your ISP is blocking the database.
         </p>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-8 text-left max-w-sm">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Quick Fixes:</p>
+          <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4">
+            <li>Switch to <strong>Wi-Fi</strong> or a different mobile network.</li>
+            <li>Try turning <strong>Airplane Mode</strong> on and off.</li>
+            <li>Wait 30 seconds and click Try Again below.</li>
+          </ul>
+        </div>
+
         <button
-          onClick={() => window.location.reload()}
-          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+          onClick={() => {
+            // Aggressive reload
+            localStorage.removeItem('leadflow-profile-cache');
+            window.location.reload();
+          }}
+          className="px-10 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-transform"
         >
           Try Again
         </button>

@@ -92,11 +92,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const fetchProfile = useCallback(async (userId: string): Promise<User | null> => {
+  const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
-      // 🚀 INCREASED TIMEOUT: 15s (from 4s)
+      // 1. Define Timeout Promise
+      // 🚀 INCREASED TIMEOUT: 20s (from 15s) for extremely slow mobile networks
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 20000)
       );
 
       // 2. Define Fetch Promise
@@ -119,41 +120,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err: any) {
       const status = typeof err === 'object' ? (err.status || err.code) : '';
 
+      // 🌐 IDENTIFY NETWORK ERRORS
+      const isNetworkError =
+        err.message?.includes('Failed to fetch') ||
+        err.name === 'TypeError' ||
+        err.message === 'TIMEOUT' ||
+        err.message?.includes('Load failed') ||
+        err.message?.includes('Network error');
+
+      // 🔄 RETRY LOGIC for Network Errors (Max 2 retries inside fetchProfile)
+      if (isNetworkError && retryCount < 2) {
+        const delay = 1000 * (retryCount + 1);
+        console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/2)`);
+        await new Promise(r => setTimeout(r, delay));
+        return fetchProfile(userId, retryCount + 1);
+      }
+
       // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
       if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
-        console.warn("⛔ Supabase Access Forbidden (401/403). Session token might be refreshing. Using temp profile...");
-        // ⚠️ CRITICAL FIX: We DO NOT force signOut() or window.location.href='/login' here anymore!
-        // That was interrupting Supabase's 'autoRefreshToken' process and causing the infinite login loop.
-        // It's better to return null and let Supabase's onAuthStateChange trigger SIGNED_OUT naturally if it fails permanently.
+        console.warn("⛔ Supabase Access Forbidden (401/403). Token might be refreshing. Return null for silent fallback.");
         return null;
       }
 
-      // 🛑 HANDLE TIMEOUT (Safe Null -> Temp Profile)
-      if (err.message === 'TIMEOUT') {
-        console.warn('⚡ Quick Timeout (5s) triggered. Using Temp Profile for speed.');
-        return null; // This triggers createTempProfile in loadUserProfile
-      }
+      // 🛑 REPORT TO SENTRY
+      const errorMsg = err.message || err.error_description || 'Unknown Supabase Error';
 
-      // 🛑 ALL OTHER ERRORS -> Report to Sentry with details
-      const isNetworkError = err.message === 'Failed to fetch' || err.name === 'TypeError';
-      const errorMsg = err.message || err.error_description || (typeof err === 'string' ? err : 'Unknown Supabase Error');
-
-      const errorToReport = isNetworkError
-        ? new Error(`Network Error: ${errorMsg}`)
-        : new Error(`Supabase [${status}]: ${errorMsg}`);
-
-      Sentry.captureException(errorToReport, {
-        level: isNetworkError ? 'warning' : 'error',
+      Sentry.captureException(isNetworkError ? new Error(`Network Error: ${errorMsg}`) : err, {
+        level: isNetworkError ? 'warning' : 'error', // 🚀 Downgrade network errors to Warning
         tags: {
           context: 'fetchProfile',
           error_category: isNetworkError ? 'network' : 'database',
           error_code: status,
-          supabase_code: err.code
+          is_retry: retryCount > 0
         },
         extra: {
-          hint: err.hint,
-          details: err.details,
-          full_error: err
+          attempts: retryCount + 1,
+          full_err: err
         }
       });
 

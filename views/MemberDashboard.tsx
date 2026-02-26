@@ -487,7 +487,22 @@ export const MemberDashboard = () => {
 
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
+
+      const isNetError = error.message?.includes('Failed to fetch') || error.name === 'TypeError';
+
+      // 🔄 RETRY LOGIC (Max 1 retry for network errors)
+      if (isNetError && !isInitialLoad && fetchLimit === 50) {
+        console.warn("🌐 Lead fetch failed (Network). Retrying once in 2s...");
+        await new Promise(r => setTimeout(r, 2000));
+        isFetchingRef.current = false;
+        return fetchData(fetchLimit);
+      }
+
       console.error('Dashboard Data Error:', error);
+
+      if (isNetError) {
+        // Show a non-intrusive toast or indicator if possible (future enhancement)
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
