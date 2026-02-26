@@ -6,6 +6,21 @@ import {
   MessageCircle, Clock, Gift, ChevronDown,
   Users, RefreshCw
 } from 'lucide-react';
+import * as Sentry from '@sentry/react';
+
+// ✅ Verification Button Component
+const ErrorButton = () => {
+  return (
+    <button
+      onClick={() => {
+        throw new Error('LeadFlow Sentry Verification: This is your first intentional error! 🚀');
+      }}
+      className="text-[10px] text-slate-400 opacity-20 hover:opacity-100 transition-opacity ml-4 underline"
+    >
+      Verify System
+    </button>
+  );
+}
 
 export const Landing = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -167,6 +182,7 @@ export const Landing = () => {
                 LF
               </div>
               <span className="font-extrabold text-xl tracking-tight text-slate-900">LeadFlow</span>
+              <ErrorButton />
             </div>
 
             <div className="hidden md:flex items-center gap-6">
