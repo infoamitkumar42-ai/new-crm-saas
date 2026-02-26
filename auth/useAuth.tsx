@@ -131,7 +131,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null; // This triggers createTempProfile in loadUserProfile
       }
 
-      Sentry.captureException(err, { extra: { status, message: err.message, context: 'fetchProfile' } });
+      // 🛑 ALL OTHER ERRORS -> Report to Sentry with details
+      const errorToReport = err instanceof Error ? err : new Error(err.message || 'Unknown Supabase Error');
+      Sentry.captureException(errorToReport, {
+        level: 'error',
+        tags: { context: 'fetchProfile', error_code: status },
+        extra: { raw_error: err, supabase_status: status }
+      });
+
       console.error("Auth Load Error:", err.message);
       return null;
     }

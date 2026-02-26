@@ -15,9 +15,9 @@ const ErrorButton = () => {
       onClick={() => {
         throw new Error('LeadFlow Sentry Verification: This is your first intentional error! 🚀');
       }}
-      className="text-[10px] text-slate-400 opacity-20 hover:opacity-100 transition-opacity ml-4 underline"
+      className="fixed bottom-4 left-4 z-[9999] px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold shadow-lg border border-blue-200 hover:bg-blue-600 hover:text-white transition-all animate-pulse"
     >
-      Verify System
+      ⚠️ Verify Sentry
     </button>
   );
 }
@@ -182,7 +182,6 @@ export const Landing = () => {
                 LF
               </div>
               <span className="font-extrabold text-xl tracking-tight text-slate-900">LeadFlow</span>
-              <ErrorButton />
             </div>
 
             <div className="hidden md:flex items-center gap-6">
