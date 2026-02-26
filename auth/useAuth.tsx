@@ -236,6 +236,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // Max retries reached, use temp profile
         setProfile(createTempProfile(user));
+        setLoading(false); // 🔥 FIX: Release UI even if fetch fails permanently
         loadingProfileFor.current = null;
       }
     } catch (err: any) {
@@ -311,6 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error) {
           console.warn("🌐 Network error during session fetch. Triggering offline mode.");
           setIsNetworkError(true);
+          setLoading(false); // 🔥 FIX: Release UI so Network error screen can show
           return;
         }
 
@@ -396,6 +398,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
   }, [loadUserProfile]);
+
+  useEffect(() => {
+    // 🛡️ EMERGENCY RELEASE TIMER: If app is stuck on 'loading' for > 12s, release it.
+    // This is the ultimate safety net for any hidden auth hangs.
+    const emergencyRelease = setTimeout(() => {
+      if (loading && isInitialized) {
+        console.warn("🚨 EMERGENCY RELEASE: Auth took too long (>12s). Forcing UI release.");
+        setLoading(false);
+      }
+    }, 12000);
+
+    return () => clearTimeout(emergencyRelease);
+  }, [loading, isInitialized]);
 
   useEffect(() => {
     if (!session?.user) return;

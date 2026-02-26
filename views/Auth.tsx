@@ -594,6 +594,9 @@ export const Auth: React.FC = () => {
                 type="button"
                 onClick={async () => {
                   if (window.confirm("This will clear all cache and repair the app. You will need to login again. Continue?")) {
+                    // 🚀 LOG RESET ATTEMPT TO SENTRY
+                    Sentry.captureMessage("User triggered Manual Repair & Reset", { level: "info" });
+
                     try {
                       // 1. Clear Caches
                       if ('caches' in window) {
@@ -608,9 +611,11 @@ export const Auth: React.FC = () => {
                         const registrations = await navigator.serviceWorker.getRegistrations();
                         await Promise.all(registrations.map(r => r.unregister()));
                       }
-                      // 4. Hard Reload
+
+                      Sentry.captureMessage("Manual Repair Success", { level: "info" });
                       window.location.href = window.location.origin + '/login?reset=done';
-                    } catch (e) {
+                    } catch (e: any) {
+                      Sentry.captureException(e, { tags: { section: "repair_button" } });
                       window.location.reload();
                     }
                   }
