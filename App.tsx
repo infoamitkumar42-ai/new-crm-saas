@@ -46,9 +46,17 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
           await registration.unregister();
         }
       }
-      // 2. Clear Session Caches
+      // 2. Clear Session & Local Caches
       sessionStorage.clear();
-      // 3. Hard Reload bypassing disk cache
+      localStorage.clear();
+
+      // 3. Clear Cache Storage (PWA Assets like old JS/CSS files)
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      }
+
+      // 4. Hard Reload bypassing disk cache
       window.location.reload();
     } catch (e) {
       window.location.reload();
