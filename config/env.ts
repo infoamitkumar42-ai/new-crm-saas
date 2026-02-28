@@ -1,9 +1,9 @@
 // Simple, Vite-friendly Env Configuration
 export const ENV = {
-  // 🛡️ Bypass ISP Blocks: If in browser, use Vercel/Vite same-origin proxy instead of direct URL
-  SUPABASE_URL: typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.host}/supabase`
-    : (import.meta.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co"),
+  // 🛡️ Global Direct Supabase URL: Directly targeting the Supabase project domain
+  // (Removed Vercel Proxy because it drops WebSocket Upgrade headers and causes 20s timeouts)
+  // @ts-ignore
+  SUPABASE_URL: import.meta.env.VITE_SUPABASE_DIRECT_URL || import.meta.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co",
 
   // 🔌 Direct URL for WebSockets (Vercel rewrites don't proxy wss://)
   SUPABASE_DIRECT_URL: import.meta.env.VITE_SUPABASE_URL || "https://vewqzsqddgmkslnuctvb.supabase.co",
