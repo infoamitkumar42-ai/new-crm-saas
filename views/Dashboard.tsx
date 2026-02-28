@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
+import {
   LayoutDashboard, MapPin, Star, AlertCircle,
   Zap, Clock, Users, Activity, BarChart3, Timer,
   RefreshCw, Volume2, Target, Flame, TrendingUp,
@@ -33,7 +33,7 @@ export const Dashboard = () => {
     totalLeadsToday: 0, distributedToday: 0, queuedLeads: 0,
     orphanLeads: 0, activeUsers: 0, distributionRate: 0, avgScore: 0
   });
-  
+
   const [userDistribution, setUserDistribution] = useState<UserDistribution[]>([]);
   const [recentDistributions, setRecentDistributions] = useState<RecentDistribution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,9 +59,9 @@ export const Dashboard = () => {
     try {
       setRefreshing(true);
       // Supabase function call to handle logic
-      const { error } = await supabase.rpc('report_invalid_lead', { 
-        lead_id: leadId, 
-        member_id: memberId 
+      const { error } = await supabase.rpc('report_invalid_lead', {
+        lead_id: leadId,
+        member_id: memberId
       });
 
       if (error) throw error;
@@ -99,11 +99,11 @@ export const Dashboard = () => {
         .gte('created_at', startOfToday);
 
       const distributed = todayLeads?.filter(l => l.user_id).length || 0;
-      
+
       // 2. Fetch Allocation (All Active Users)
       const { data: activeUsers } = await supabase.from('users')
         .select('*').eq('payment_status', 'active');
-      
+
       const distribution = activeUsers?.map(u => ({
         id: u.id, name: u.name, email: u.email, plan_name: u.plan_name,
         leads_today: u.leads_today || 0, daily_limit: u.daily_limit, role: u.role,
@@ -115,7 +115,7 @@ export const Dashboard = () => {
         .select('*, users!leads_user_id_fkey(name)')
         .gte('created_at', startOfToday)
         .order('assigned_at', { ascending: false }).limit(15);
-      
+
       const recent = recentLeads?.map(l => ({
         id: l.id, lead_name: l.name, lead_phone: l.phone, lead_city: l.city || 'Unknown',
         assigned_to: l.users?.name || 'User', user_id: l.user_id,
@@ -129,7 +129,7 @@ export const Dashboard = () => {
         distributionRate: todayLeads?.length > 0 ? Math.round((distributed / todayLeads.length) * 100) : 0,
         avgScore: 88
       });
-      
+
       setUserDistribution(distribution.sort((a, b) => b.leads_today - a.leads_today));
       setRecentDistributions(recent);
     } catch (error) {
@@ -141,7 +141,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    const channel = supabase.channel('global-sync')
+    const channel = supabaseRealtime.channel('global-sync')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => {
         playNotificationSound();
         fetchDashboardData();
@@ -150,14 +150,14 @@ export const Dashboard = () => {
         fetchDashboardData();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabaseRealtime.removeChannel(channel); };
   }, [playNotificationSound]);
 
   if (loading) return <div className="p-10 text-center text-slate-400 animate-pulse font-bold">Connecting to LeadFlow...</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6 bg-slate-50/50 min-h-screen">
-      
+
       {/* HEADER */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -229,7 +229,7 @@ export const Dashboard = () => {
                 </div>
                 {/* Report Button: Visible if lead is not already invalid AND user is the one who got it OR admin */}
                 {dist.status !== 'invalid' && (dist.user_id === user?.id || userRole === 'admin') && (
-                  <button 
+                  <button
                     onClick={() => handleReportLead(dist.id, dist.user_id)}
                     className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                     title="Report Invalid Lead"

@@ -13,7 +13,7 @@
  */
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, supabaseRealtime } from '../supabaseClient';
 import {
   Phone, MapPin, RefreshCw, FileSpreadsheet, MessageSquare,
   X, Calendar, Target, Clock,
@@ -563,7 +563,7 @@ export const MemberDashboard = () => {
   useEffect(() => {
     if (!profile?.id || isPaused) return;
 
-    const channel = supabase
+    const channel = supabaseRealtime
       .channel(`member-leads-${profile.id}`)
       .on('postgres_changes', {
         event: '*', // 🚀 Listen for BOTH Insert and Update
@@ -610,7 +610,7 @@ export const MemberDashboard = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseRealtime.removeChannel(channel);
     };
   }, [profile?.id, isPaused]);
 
