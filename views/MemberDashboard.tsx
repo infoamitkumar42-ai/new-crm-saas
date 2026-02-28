@@ -185,8 +185,7 @@ const StatCard = ({
 // ============================================================
 
 export const MemberDashboard = () => {
-  // 🔥 USE GLOBAL PROFILE (Robust & Reliable)
-  const { profile: authProfile, refreshProfile } = useAuth();
+  const { profile: authProfile, refreshProfile, session, loading: authLoading } = useAuth();
 
   // Local state for leads and UI only
   const [leads, setLeads] = useState<Lead[]>(() => {
@@ -561,7 +560,8 @@ export const MemberDashboard = () => {
   }, [authProfile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || isPaused || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+    // 🔥 Hard-Guard Realtime Subscriptions
+    if (!session || authLoading || !profile?.id || isPaused || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
 
     const channel = supabaseRealtime
       .channel(`member-leads-${profile.id}`)
@@ -612,7 +612,7 @@ export const MemberDashboard = () => {
     return () => {
       supabaseRealtime.removeChannel(channel);
     };
-  }, [profile?.id, isPaused]);
+  }, [session, authLoading, profile?.id, isPaused]);
 
   // ============================================================
   // HANDLERS

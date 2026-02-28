@@ -38,8 +38,13 @@ if (!rootElement) throw new Error("Root not found");
 
 const root = ReactDOM.createRoot(rootElement);
 
-// 🚀 AUTO-UPDATE PWA (Force stuck mobile devices to latest version)
+// 🚀 AUTO-UPDATE PWA & NUKE POISONED SW
 if ('serviceWorker' in navigator) {
+  // 💣 Aggressively unregister all old service workers that might be caching WebSockets
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (let r of registrations) r.unregister();
+  });
+
   // @ts-ignore
   import('virtual:pwa-register')
     .then(({ registerSW }) => {

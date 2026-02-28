@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, supabaseRealtime } from '../supabaseClient';
 import {
   LayoutDashboard, MapPin, Star, AlertCircle,
   Zap, Clock, Users, Activity, BarChart3, Timer,
@@ -141,9 +141,11 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, []);
 
-    // 🔥 Conditional Sub: Only attempt websocket if explicitly online
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  useEffect(() => {
+    // 🔥 Hard-Guard Realtime Subscriptions
+    if (!user || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
 
     const channel = supabaseRealtime.channel('global-sync')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => {
@@ -155,7 +157,7 @@ export const Dashboard = () => {
       })
       .subscribe();
     return () => { supabaseRealtime.removeChannel(channel); };
-  }, [playNotificationSound]);
+  }, [user, playNotificationSound]);
 
   if (loading) return <div className="p-10 text-center text-slate-400 animate-pulse font-bold">Connecting to LeadFlow...</div>;
 
