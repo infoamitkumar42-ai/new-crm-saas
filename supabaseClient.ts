@@ -31,6 +31,11 @@ export const supabase = createClient(
 
     db: {
       schema: 'public'
+    },
+
+    // 🔌 WebSockets bypass proxy directly to Supabase since Vercel cannot handle wss://
+    realtime: {
+      url: `${ENV.SUPABASE_DIRECT_URL.replace('https://', 'wss://')}/realtime/v1`
     }
   }
 );
