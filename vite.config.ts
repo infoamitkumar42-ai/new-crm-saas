@@ -38,7 +38,15 @@ export default defineConfig(({ mode }) => {
       'process.env': env // Safe env access
     },
     server: {
-      port: 3000
+      port: 3000,
+      proxy: {
+        '/supabase': {
+          target: 'https://vewqzsqddgmkslnuctvb.supabase.co',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/supabase/, ''),
+          secure: true,
+        }
+      }
     }
   };
 });
