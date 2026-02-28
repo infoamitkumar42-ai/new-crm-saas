@@ -561,7 +561,7 @@ export const MemberDashboard = () => {
   }, [authProfile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || isPaused) return;
+    if (!profile?.id || isPaused || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
 
     const channel = supabaseRealtime
       .channel(`member-leads-${profile.id}`)

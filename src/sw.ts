@@ -1,11 +1,22 @@
 /// <reference lib="webworker" />
 
 import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { NetworkOnly } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope;
 
 // 1. Precache assets (Automated by VitePWA)
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// 🚀 STRICT NETWORK BYPASS FOR SUPABASE API & WEBSOCKETS
+registerRoute(
+    ({ url, request }) =>
+        url.pathname.startsWith('/supabase/') ||
+        url.hostname.includes('supabase.co') ||
+        request.url.startsWith('wss://'),
+    new NetworkOnly()
+);
 
 // 2. Install & Activate
 self.addEventListener('install', (event) => {

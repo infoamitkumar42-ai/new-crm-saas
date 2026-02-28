@@ -22,7 +22,7 @@ import React, {
   ReactNode
 } from "react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
-import { supabase } from "../supabaseClient";
+import { supabase, supabaseRealtime } from "../supabaseClient";
 import * as Sentry from "@sentry/react";
 import { User } from "../types";
 import { ENV } from "../config/env";
@@ -96,6 +96,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err: any) {
       if (err.message === 'SESSION_TIMEOUT') {
         console.warn('⚡ getSession() timed out after 20s — treating as UNKNOWN session');
+        // 🔥 CRITICAL: Clean up dangling web sockets that might be starving the connection pool
+        supabase.removeAllChannels();
+        supabaseRealtime.removeAllChannels();
       }
       // Return a special error instead of null to prevent accidental logout
       return { data: { session: null }, error: err };
@@ -324,10 +327,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 8s no matter what
       // Reduced from 15s → 8s for faster recovery on slow mobile / PWA
-      const timeout = setTimeout(() => {
+      const timeout = setTimeout(async () => {
         if (mountedRef.current && loading) {
           console.warn("🕒 Auth Init Timeout (8s): Forcing release...");
           setLoading(false);
+          // 🔥 CRITICAL: Kill any hanging WebSocket connections to free connection pool
+          await supabase.removeAllChannels();
+          await supabaseRealtime.removeAllChannels();
         }
       }, 8000);
 

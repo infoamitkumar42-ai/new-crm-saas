@@ -141,6 +141,10 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+
+    // 🔥 Conditional Sub: Only attempt websocket if explicitly online
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
     const channel = supabaseRealtime.channel('global-sync')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => {
         playNotificationSound();
