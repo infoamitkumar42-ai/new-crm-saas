@@ -259,18 +259,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch { }
       } else if (retryCount < MAX_RETRIES) {
         // Retry with exponential backoff
-        const backoffMs = 1000 * (retryCount + 1);
+        const backoffMs = 1500 * (retryCount + 1);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
 
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // Max retries reached, do not use dummy profile
-        if (!localStorage.getItem('leadflow-profile-cache')) {
+        // Max retries reached
+        // 🚀 SMART FALLBACK: If we have a cache, keep using it! Don't trigger error.
+        if (!profile && !localStorage.getItem('leadflow-profile-cache')) {
           console.warn("🚨 Total fetch failure and no cache exists. Triggering offline mode.");
           setIsNetworkError(true);
         } else {
-          console.warn("⚠️ Profile fetch failed permanently, but using stale cache.");
+          console.warn("⚠️ Profile fetch failed permanently, but using stale cache. Silent recovery.");
         }
         setLoading(false);
         loadingProfileFor.current = null;
@@ -376,12 +377,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
           setIsNetworkError(false);
 
-          // 🚀 AGGRESSIVE RELEASE: If we have a cached profile, release UI immediately
+          // 🚀 ZERO-WAIT REHYDRATION: If we have a cached profile, release UI immediately
           // Check if cached profile matches current user
-          if (profile && profile.id === currentSession.user.id) {
+          const cachedProfileStr = localStorage.getItem('leadflow-profile-cache');
+          const cachedProfile = cachedProfileStr ? JSON.parse(cachedProfileStr) : null;
+
+          if (cachedProfile && cachedProfile.id === currentSession.user.id) {
+            console.log("⚡ Optimistic Load: Showing cached profile. Rehydrating in background...");
+            setProfile(cachedProfile);
             setLoading(false);
-            // Refresh logic in background (Silent Update)
-            console.log("⚡ Optimistic Load: Showing cached profile while validating...");
+            // Refresh logic in background (Silent Update) — DON'T AWAIT
             loadUserProfile(currentSession.user, 0);
           } else {
             // No cache or wrong user? We must wait
