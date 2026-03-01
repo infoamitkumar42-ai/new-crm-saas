@@ -1221,6 +1221,20 @@ export const MemberDashboard = () => {
               })}
             </div>
           )}
+
+          {/* 🔄 LOAD MORE BUTTON */}
+          {hasMoreLeads && filteredLeads.length > 0 && (
+            <div className="p-4 bg-slate-50 border-t border-slate-100">
+              <button
+                onClick={() => setLeadLimit((prev: number) => prev + 50)}
+                disabled={refreshing}
+                className="w-full py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
+              >
+                {refreshing ? <RefreshCw size={16} className="animate-spin" /> : <ChevronDown size={18} />}
+                <span>{refreshing ? 'Loading leads...' : 'Load More Leads'}</span>
+              </button>
+            </div>
+          )}
         </div>
       </main>
 
