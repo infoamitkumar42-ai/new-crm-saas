@@ -16,7 +16,7 @@ export const supabase = createClient(
   {
     auth: {
       persistSession: true,
-      storageKey: 'leadflow-auth-session',
+      storageKey: 'leadflow-auth',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       autoRefreshToken: true,
       detectSessionInUrl: true,

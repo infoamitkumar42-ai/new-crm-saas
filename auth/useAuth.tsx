@@ -88,8 +88,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await Promise.race([
         supabase.auth.getSession(),
         new Promise<never>((_, reject) =>
-          // 🚀 INCREASED TIMEOUT: 20s (from 5s) to support slow 3G/Mobile internet
-          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 20000)
+          // 🚀 INCREASED TIMEOUT: 30s to support slow 3G/Mobile internet
+          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 30000)
         )
       ]);
       return result;
@@ -108,9 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
       // 1. Define Timeout Promise
-      // 🚀 ADJUSTED TIMEOUT: 18s (Increased for slower mobile data)
+      // 🚀 ADJUSTED TIMEOUT: 30s (Increased for slower mobile data)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 18000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 30000)
       );
 
       // 2. Define Fetch Promise
@@ -325,17 +325,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         window.history.replaceState({}, document.title, "/login");
       }
 
-      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 8s no matter what
-      // Reduced from 15s → 8s for faster recovery on slow mobile / PWA
+      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 30s no matter what
+      // Increased to 30s for better recovery on slow mobile / PWA
       const timeout = setTimeout(async () => {
         if (mountedRef.current && loading) {
-          console.warn("🕒 Auth Init Timeout (8s): Forcing release...");
+          console.warn("🕒 Auth Init Timeout (30s): Forcing release...");
           setLoading(false);
           // 🔥 CRITICAL: Kill any hanging WebSocket connections to free connection pool
           await supabase.removeAllChannels();
           await supabaseRealtime.removeAllChannels();
         }
-      }, 8000);
+      }, 30000);
 
       try {
         const { data: { session: currentSession }, error } = await getSessionSafe();
@@ -433,14 +433,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUserProfile]);
 
   useEffect(() => {
-    // 🛡️ EMERGENCY RELEASE TIMER: If app is stuck on 'loading' for > 12s, release it.
+    // 🛡️ EMERGENCY RELEASE TIMER: If app is stuck on 'loading' for > 30s, release it.
     // This is the ultimate safety net for any hidden auth hangs.
     const emergencyRelease = setTimeout(() => {
       if (loading && isInitialized) {
-        console.warn("🚨 EMERGENCY RELEASE: Auth took too long (>12s). Forcing UI release.");
+        console.warn("🚨 EMERGENCY RELEASE: Auth took too long (>30s). Forcing UI release.");
         setLoading(false);
       }
-    }, 12000);
+    }, 30000);
 
     return () => clearTimeout(emergencyRelease);
   }, [loading, isInitialized]);
