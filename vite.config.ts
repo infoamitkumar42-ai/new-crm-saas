@@ -8,12 +8,16 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
+        // 🚀 MINIMAL SW: No Workbox caching, only push notifications
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectManifest: {
           swDest: 'dist/sw.js',
+          // 🔥 CRITICAL: Don't inject ANY precache manifest entries
+          // This prevents Workbox from registering fetch handlers
+          injectionPoint: undefined,
         },
         manifest: {
           name: 'LeadFlow CRM',
