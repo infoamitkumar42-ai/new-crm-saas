@@ -201,6 +201,8 @@ export const MemberDashboard = () => {
   const [managerName, setManagerName] = useState('Loading...');
   const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
+  const [leadLimit, setLeadLimit] = useState(50);
+  const [hasMoreLeads, setHasMoreLeads] = useState(true);
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
