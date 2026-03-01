@@ -6,6 +6,15 @@ import { NetworkOnly } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope;
 
+// 🚀 BYPASS SERVICE WORKER FOR API/AUTH
+// (Prevents SW from blocking or incorrectly caching Cloudflare Proxy/Supabase requests)
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+    if (url.hostname === 'api.leadflowcrm.in' || url.hostname.includes('supabase.co')) {
+        return; // Allow browser to handle directly
+    }
+});
+
 // 1. Precache assets (Automated by VitePWA)
 precacheAndRoute(self.__WB_MANIFEST || []);
 
