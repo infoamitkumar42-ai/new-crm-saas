@@ -1,31 +1,31 @@
 /// <reference lib="webworker" />
 
 import { precacheAndRoute } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
-import { NetworkOnly } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope;
 
-// 🚀 BYPASS SERVICE WORKER FOR API/AUTH
-// (Prevents SW from blocking or incorrectly caching Cloudflare Proxy/Supabase requests)
-self.addEventListener('fetch', (event) => {
+// 🚀 CRITICAL FIX: Bypass Service Worker for API/Auth requests
+// 
+// WHY event.respondWith(fetch()) instead of just `return;`:
+// - Workbox's precacheAndRoute() registers its OWN fetch listener
+// - A bare `return;` in our listener does NOT prevent Workbox from intercepting
+// - After transpilation, `if (...) return;` can become a no-op expression
+// - event.respondWith(fetch()) CLAIMS the event, preventing ALL other handlers
+//
+self.addEventListener('fetch', (event: FetchEvent) => {
     const url = new URL(event.request.url);
     if (url.hostname === 'api.leadflowcrm.in' || url.hostname.includes('supabase.co')) {
-        return; // Allow browser to handle directly
+        // Force direct network fetch — bypass Workbox completely
+        event.respondWith(fetch(event.request));
+        return;
     }
 });
 
 // 1. Precache assets (Automated by VitePWA)
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// 🚀 STRICT NETWORK BYPASS FOR SUPABASE API & WEBSOCKETS
-registerRoute(
-    ({ url, request }) =>
-        url.pathname.startsWith('/supabase/') ||
-        url.hostname.includes('supabase.co') ||
-        request.url.startsWith('wss://'),
-    new NetworkOnly()
-);
+// NOTE: Removed the old NetworkOnly registerRoute for supabase — 
+// the event.respondWith above handles it more reliably.
 
 // 2. Install & Activate
 self.addEventListener('install', (event) => {
