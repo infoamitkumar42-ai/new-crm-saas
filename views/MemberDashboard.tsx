@@ -275,9 +275,9 @@ export const MemberDashboard = () => {
     return leads.filter(l => new Date(l.created_at) >= today).length;
   }, [leads]);
 
-  // 🔥 PERMANENT FIX: Exact live counts from database
+  // 🔥 FIXED: Use profile.total_leads_received from users table (NOT paginated leads.length!)
   const leadsToday = todayLeadsCount;
-  const totalReceived = leads.length;
+  const totalReceived = profile?.total_leads_received || 0;
 
   const dailyLimit = profile?.daily_limit_override || profile?.daily_limit || 0;
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
