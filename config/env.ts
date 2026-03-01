@@ -2,8 +2,7 @@
 export const ENV = {
   // 🛡️ Global Cloudflare Proxy URL: Directly targeting the Cloudflare proxy domain
   // (Bypasses ISP blocks for REST and WebSockets)
-  // @ts-ignore
-  SUPABASE_URL: import.meta.env.VITE_SUPABASE_DIRECT_URL || import.meta.env.VITE_SUPABASE_URL || "https://api.leadflowcrm.in",
+  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || "https://api.leadflowcrm.in",
 
   // 🔌 Direct URL for WebSockets (Using Cloudflare Proxy)
   SUPABASE_DIRECT_URL: import.meta.env.VITE_SUPABASE_URL || "https://api.leadflowcrm.in",
