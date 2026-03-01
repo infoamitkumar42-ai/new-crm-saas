@@ -201,8 +201,8 @@ export const MemberDashboard = () => {
   const [managerName, setManagerName] = useState('Loading...');
   const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
-  const [leadLimit, setLeadLimit] = useState(50);
   const [hasMoreLeads, setHasMoreLeads] = useState(true);
+  const [totalLeadCount, setTotalLeadCount] = useState<number | null>(null);
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
@@ -414,7 +414,7 @@ export const MemberDashboard = () => {
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
   const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at';
 
-  const fetchData = async (fetchLimit: number = 50, retryCount: number = 0) => {
+  const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
     const startTime = Date.now();
     try {
@@ -434,27 +434,33 @@ export const MemberDashboard = () => {
         return;
       }
 
-      // 🚀 PARALLEL FETCHING: Fetch everything at once (3 queries instead of 4)
-      const [managerResult, leadsResult, profileResult] = await Promise.all([
+      // 🚀 PARALLEL FETCHING: Fetch everything at once
+      const [managerResult, leadsResult, profileResult, countResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // 2. Fetch Leads — selective columns only
+        // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .order('created_at', { ascending: false })
-          .range(0, leadLimit - 1),
+          .range(offset, offset + pageSize - 1),
 
         // 3. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
         supabase
           .from('users')
           .select('id,name,email,role,plan_name,plan_weight,daily_limit,daily_limit_override,leads_today,valid_until,payment_status,manager_id,total_leads_received,sheet_url,filters,last_activity,is_active,days_extended,total_leads_promised,is_plan_pending,plan_activation_time')
           .eq('id', userId)
-          .single()
+          .single(),
+
+        // 4. Total count of leads (lightweight HEAD query)
+        supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
       ]);
 
       // Update UI with results
@@ -464,25 +470,43 @@ export const MemberDashboard = () => {
         setManagerName('Direct (No Manager)');
       }
 
-      // Update profile with fresh data (total_leads_received comes from profile itself)
+      // Update profile with fresh data
       if (profileResult?.data) {
         setProfile((prev: any) => ({ ...prev, ...profileResult.data }));
       }
 
-      if (leadsResult.data) {
-        const fetchedLeads = leadsResult.data as unknown as Lead[];
-        setLeads(fetchedLeads);
-
-        // 🚀 PAGINATION CHECK: If we got fewer leads than the limit, we've reached the end
-        setHasMoreLeads(fetchedLeads.length === leadLimit);
-
-        // 🔥 CACHE FOR INSTANT NEXT LOAD
-        try {
-          localStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads.slice(0, 50)));
-        } catch { }
+      // Update total count
+      if (countResult?.count !== null && countResult?.count !== undefined) {
+        setTotalLeadCount(countResult.count);
       }
 
-      console.log(`⚡ Dashboard loaded in ${Date.now() - startTime}ms (${fetchLimit} leads)`);
+      if (leadsResult.data) {
+        const fetchedLeads = leadsResult.data as unknown as Lead[];
+
+        if (offset === 0) {
+          // Initial load or refresh — replace leads
+          setLeads(fetchedLeads);
+        } else {
+          // Load More — APPEND to existing leads (deduplicated)
+          setLeads(prev => {
+            const existingIds = new Set(prev.map(l => l.id));
+            const newLeads = fetchedLeads.filter(l => !existingIds.has(l.id));
+            return [...prev, ...newLeads];
+          });
+        }
+
+        // PAGINATION CHECK: If we got fewer than requested, no more to load
+        setHasMoreLeads(fetchedLeads.length === pageSize);
+
+        // 🔥 CACHE FOR INSTANT NEXT LOAD (only first 50)
+        if (offset === 0) {
+          try {
+            localStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads.slice(0, 50)));
+          } catch { }
+        }
+      }
+
+      console.log(`⚡ Dashboard loaded in ${Date.now() - startTime}ms (offset=${offset}, page=${pageSize})`);
 
       // 🔥 BACKGROUND TASK: Update last activity AND online status without blocking UI
       supabase.from('users').update({
@@ -496,11 +520,11 @@ export const MemberDashboard = () => {
       const isNetError = error.message?.includes('Failed to fetch') || error.name === 'TypeError';
 
       // 🔄 RETRY LOGIC (Max 3 retries for network errors)
-      if (isNetError && fetchLimit === 50 && retryCount < 3) {
+      if (isNetError && retryCount < 3) {
         console.warn(`🌐 Dashboard data fetch failed (Network). Retrying in 2s... (Attempt ${retryCount + 1}/3)`);
         await new Promise(r => setTimeout(r, 2000));
         isFetchingRef.current = false;
-        return fetchData(fetchLimit, retryCount + 1);
+        return fetchData(offset, pageSize, retryCount + 1);
       }
 
       console.error('Dashboard Data Error:', error);
@@ -545,21 +569,23 @@ export const MemberDashboard = () => {
     if (params.get('payment_success') === 'true') {
       setLoading(true);
       refreshProfile().then(() => {
-        fetchData().then(() => {
+        fetchData(0, 50).then(() => {
           window.history.replaceState({}, '', '/');
         });
       });
     } else {
-      fetchData(leadLimit);
+      fetchData(0, 50);
     }
-  }, [authProfile?.id, leadLimit]);
+  }, [authProfile?.id]);
 
   // 🔄 BACKGROUND POLLING: Refresh data every 20s to keep it fresh (User Request)
   useEffect(() => {
     if (!authProfile?.id) return;
 
     const interval = setInterval(() => {
-      fetchData(50); // Background: Only sync latest 50 for performance
+      // Background: Refresh currently loaded range (preserve expanded list)
+      const currentCount = Math.max(leads.length, 50);
+      fetchData(0, currentCount);
     }, 20000); // 20 Seconds
 
     return () => clearInterval(interval);
@@ -1097,7 +1123,7 @@ export const MemberDashboard = () => {
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">My Leads</h2>
             <span className="text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-500 font-medium">
-              {filteredLeads.length} of {leads.length}
+              {filteredLeads.length} of {totalLeadCount !== null ? totalLeadCount : leads.length}
             </span>
           </div>
 
@@ -1223,15 +1249,15 @@ export const MemberDashboard = () => {
           )}
 
           {/* 🔄 LOAD MORE BUTTON */}
-          {hasMoreLeads && filteredLeads.length > 0 && (
+          {hasMoreLeads && leads.length > 0 && (
             <div className="p-4 bg-slate-50 border-t border-slate-100">
               <button
-                onClick={() => setLeadLimit((prev: number) => prev + 50)}
+                onClick={() => fetchData(leads.length, 50)}
                 disabled={refreshing}
                 className="w-full py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
               >
                 {refreshing ? <RefreshCw size={16} className="animate-spin" /> : <ChevronDown size={18} />}
-                <span>{refreshing ? 'Loading leads...' : 'Load More Leads'}</span>
+                <span>{refreshing ? 'Loading leads...' : `Load More (${leads.length}${totalLeadCount ? ` of ${totalLeadCount}` : ''})`}</span>
               </button>
             </div>
           )}
