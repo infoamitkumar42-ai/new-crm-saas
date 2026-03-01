@@ -158,10 +158,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         err.message?.includes('Load failed') ||
         err.message?.includes('Network error');
 
-      // 🔄 RETRY LOGIC for Network Errors (Max 1 retry inside fetchProfile)
-      if (isNetworkError && retryCount < 1) {
-        const delay = 500 * (retryCount + 1);
-        console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/1)`);
+      // 🔄 RETRY LOGIC for Network Errors (Max 3 retries inside fetchProfile)
+      if (isNetworkError && retryCount < 3) {
+        const delay = 1000 * (retryCount + 1); // Exponential-ish delay
+        console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
         await new Promise(r => setTimeout(r, delay));
         return fetchProfile(userId, retryCount + 1);
       }

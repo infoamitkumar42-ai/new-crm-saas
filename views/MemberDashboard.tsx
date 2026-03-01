@@ -445,7 +445,7 @@ export const MemberDashboard = () => {
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .order('created_at', { ascending: false })
-          .limit(fetchLimit),
+          .range(0, leadLimit - 1),
 
         // 3. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
         supabase
@@ -470,9 +470,13 @@ export const MemberDashboard = () => {
       if (leadsResult.data) {
         const fetchedLeads = leadsResult.data as unknown as Lead[];
         setLeads(fetchedLeads);
+
+        // 🚀 PAGINATION CHECK: If we got fewer leads than the limit, we've reached the end
+        setHasMoreLeads(fetchedLeads.length === leadLimit);
+
         // 🔥 CACHE FOR INSTANT NEXT LOAD
         try {
-          localStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads));
+          localStorage.setItem('leadflow-leads-cache', JSON.stringify(fetchedLeads.slice(0, 50)));
         } catch { }
       }
 
@@ -544,16 +548,16 @@ export const MemberDashboard = () => {
         });
       });
     } else {
-      fetchData();
+      fetchData(leadLimit);
     }
-  }, [authProfile?.id]);
+  }, [authProfile?.id, leadLimit]);
 
   // 🔄 BACKGROUND POLLING: Refresh data every 20s to keep it fresh (User Request)
   useEffect(() => {
     if (!authProfile?.id) return;
 
     const interval = setInterval(() => {
-      fetchData(300); // Background: fetch more leads for full history
+      fetchData(50); // Background: Only sync latest 50 for performance
     }, 20000); // 20 Seconds
 
     return () => clearInterval(interval);
