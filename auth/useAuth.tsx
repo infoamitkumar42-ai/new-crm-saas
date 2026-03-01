@@ -88,14 +88,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await Promise.race([
         supabase.auth.getSession(),
         new Promise<never>((_, reject) =>
-          // 🚀 ZERO-WAIT REHYDRATION: 3s timeout. If Supabase is slow, we proceed anyway.
-          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 3000)
+          // 🚀 BALANCED TIMEOUT: 15s for slow mobile networks.
+          setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 15000)
         )
       ]);
       return result;
     } catch (err: any) {
       if (err.message === 'SESSION_TIMEOUT') {
-        console.warn('⚡ getSession() timed out after 3s — treating as UNKNOWN session for now');
+        console.warn('⚡ getSession() timed out after 15s — Attempting localStorage fallback...');
+
+        // 🛡️ LOCALSTORAGE FALLBACK: Try to recover session from storage to prevent logout
+        const storageKey = 'leadflow-auth';
+        const rawSession = localStorage.getItem(storageKey);
+
+        if (rawSession) {
+          try {
+            const cachedSession = JSON.parse(rawSession);
+            if (cachedSession?.user && cachedSession?.access_token) {
+              console.log('✅ Recovered session from localStorage after timeout. Proceeding optimistically.');
+              return { data: { session: cachedSession }, error: null };
+            }
+          } catch (e) {
+            console.error('❌ Failed to parse cached session:', e);
+          }
+        }
+
         // 🔥 CRITICAL: Clean up dangling web sockets that might be starving the connection pool
         supabase.removeAllChannels();
         supabaseRealtime.removeAllChannels();
@@ -342,11 +359,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (!mountedRef.current) return;
 
-        if (error) {
-          console.warn("🌐 Network error during session fetch. Triggering offline mode.");
+        if (error && error.message !== 'SESSION_TIMEOUT') {
+          console.warn("🌐 Genuine network error during session fetch. Triggering offline mode.");
           setIsNetworkError(true);
           setLoading(false); // 🔥 FIX: Release UI so Network error screen can show
           return;
+        }
+
+        // If it was a timeout but we recovered via fallback, error is now null.
+        // If it was a timeout and no fallback, error remains SESSION_TIMEOUT.
+        if (error?.message === 'SESSION_TIMEOUT') {
+          console.warn("🕒 Session fetch timed out with no local cache. Proceeding to login.");
         }
 
         if (currentSession?.user) {
