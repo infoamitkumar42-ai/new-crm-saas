@@ -20,22 +20,63 @@ export default defineConfig(({ mode }) => {
           injectionPoint: undefined,
         },
         manifest: {
-          name: 'LeadFlow CRM',
+          name: 'LeadFlow CRM - Automated Lead Distribution',
           short_name: 'LeadFlow',
-          theme_color: '#4f46e5',
+          description: 'Automated Lead Distribution & CRM System for teams. Distribute Facebook leads automatically, track conversions, and manage your sales pipeline.',
+          theme_color: '#6366f1',
+          background_color: '#ffffff',
+          display: 'standalone',
+          display_override: ['window-controls-overlay', 'standalone'],
+          orientation: 'portrait',
+          scope: '/',
+          start_url: '/',
+          id: '/',
+          lang: 'en',
+          dir: 'ltr',
+          categories: ['business', 'productivity'],
+          prefer_related_applications: false,
           icons: [
+            { src: 'icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: 'icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: 'icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: 'icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          ],
+          screenshots: [
             {
-              src: 'icon-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
+              src: 'screenshot-dashboard.png',
+              sizes: '1024x1024',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Dashboard - Track leads, daily stats, and team performance'
             },
             {
-              src: 'icon-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
+              src: 'screenshot-leads.png',
+              sizes: '1024x1024',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Lead Details - Manage contacts, call, and track conversions'
             }
-          ]
+          ],
+          shortcuts: [
+            {
+              name: 'Dashboard',
+              short_name: 'Home',
+              description: 'View your lead dashboard and daily stats',
+              url: '/dashboard',
+              icons: [{ src: 'icon-192x192.png', sizes: '192x192', type: 'image/png' }]
+            },
+            {
+              name: 'My Leads',
+              short_name: 'Leads',
+              description: 'View and manage your assigned leads',
+              url: '/leads',
+              icons: [{ src: 'icon-192x192.png', sizes: '192x192', type: 'image/png' }]
+            }
+          ],
+          handle_links: 'preferred',
+          launch_handler: { client_mode: 'navigate-existing' }
         }
+
       })
     ],
     define: {
