@@ -9,7 +9,24 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { ENV } from "./config/env";
 
-// ✅ FIXED CLIENT - No more 406 errors
+/**
+ * 🛡️ CUSTOM FETCH: Force ALL Supabase requests through Cloudflare proxy.
+ * 
+ * WHY: The Supabase JS SDK internally constructs URLs for auth token refresh,
+ * PKCE exchange, and JWKS fetching that may bypass the configured base URL.
+ * This wrapper intercepts EVERY request and rewrites supabase.co → proxy.
+ * This fixes Jio/Airtel ISP blocks that cannot reach supabase.co directly.
+ */
+const customFetch = (url: RequestInfo | URL, options?: RequestInit) => {
+  const urlString = url.toString();
+  const modifiedUrl = urlString.replace(
+    'vewqzsqddgmkslnuctvb.supabase.co',
+    'api.leadflowcrm.in'
+  );
+  return fetch(modifiedUrl, options);
+};
+
+// ✅ MAIN CLIENT — All requests forced through Cloudflare proxy
 export const supabase = createClient(
   ENV.SUPABASE_URL,
   ENV.SUPABASE_ANON_KEY,
@@ -24,6 +41,7 @@ export const supabase = createClient(
     },
 
     global: {
+      fetch: customFetch,
       headers: {
         'X-Client-Info': 'leadflow-crm'
       },
@@ -35,13 +53,16 @@ export const supabase = createClient(
   }
 );
 
-// 🔌 Dedicated Realtime Client (Bypasses Vercel Proxy because Vercel doesn't support wss://)
+// 🔌 Dedicated Realtime Client — also forced through proxy
 export const supabaseRealtime = createClient(
   ENV.SUPABASE_DIRECT_URL,
   ENV.SUPABASE_ANON_KEY,
   {
-    auth: { persistSession: false }, // Prevent caching conflicts with main client
-    global: { headers: { 'X-Client-Info': 'leadflow-realtime' } }
+    auth: { persistSession: false },
+    global: {
+      fetch: customFetch,
+      headers: { 'X-Client-Info': 'leadflow-realtime' }
+    }
   }
 );
 
