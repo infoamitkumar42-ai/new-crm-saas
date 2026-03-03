@@ -143,21 +143,20 @@ export const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  useEffect(() => {
-    // 🔥 Hard-Guard Realtime Subscriptions
-    if (!user || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
-
-    const channel = supabaseRealtime.channel('global-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => {
-        playNotificationSound();
-        fetchDashboardData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        fetchDashboardData();
-      })
-      .subscribe();
-    return () => { supabaseRealtime.removeChannel(channel); };
-  }, [user, playNotificationSound]);
+  // 🔇 REALTIME DISABLED — WebSocket connections removed to prevent console errors
+  // Data refreshes via manual triggers and polling instead
+  // useEffect(() => {
+  //   if (!user || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+  //   const channel = supabaseRealtime.channel('global-sync')
+  //     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => {
+  //       playNotificationSound(); fetchDashboardData();
+  //     })
+  //     .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+  //       fetchDashboardData();
+  //     })
+  //     .subscribe();
+  //   return () => { supabaseRealtime.removeChannel(channel); };
+  // }, [user, playNotificationSound]);
 
   if (loading) return <div className="p-10 text-center text-slate-400 animate-pulse font-bold">Connecting to LeadFlow...</div>;
 

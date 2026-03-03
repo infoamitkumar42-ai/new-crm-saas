@@ -77,42 +77,13 @@ export const LeadAlert: React.FC = () => {
     await subscribe();
   };
 
-  // 📡 REALTIME SUBSCRIPTION - Immediate alerts
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const channel = supabase
-      .channel(`lead-alerts-${session.user.id}`)
-      .on('postgres_changes', {
-        event: '*', // 🚀 Listen for BOTH Insert and Update
-        schema: 'public',
-        table: 'leads',
-        filter: `assigned_to=eq.${session.user.id}`,
-      }, (payload) => {
-        const newLead = payload.new as any;
-        const leadId = newLead.id;
-
-        // 🔥 Only alert if this lead hasn't been played before
-        // This handles cases where a lead goes from Queued -> Assigned
-        if (!playedLeadsRef.current.has(leadId)) {
-          playedLeadsRef.current.add(leadId);
-
-          if (soundEnabled && audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => { });
-          }
-
-          setBanner({ show: true, lead: newLead });
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          setTimeout(() => setBanner({ show: false, lead: null }), 8000);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session?.user?.id, soundEnabled]);
+  // 🔇 REALTIME DISABLED — WebSocket connections removed to prevent console errors
+  // Polling backup below still handles lead alerts every 5 seconds
+  // useEffect(() => {
+  //   if (!session?.user?.id) return;
+  //   const channel = supabase.channel(`lead-alerts-${session.user.id}`)...subscribe();
+  //   return () => { supabase.removeChannel(channel); };
+  // }, [session?.user?.id, soundEnabled]);
 
   // 📡 POLLING BACKUP - Fixed to prevent duplicate sounds
   useEffect(() => {

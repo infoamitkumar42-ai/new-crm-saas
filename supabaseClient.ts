@@ -26,7 +26,7 @@ const customFetch = (url: RequestInfo | URL, options?: RequestInit) => {
   return fetch(modifiedUrl, options);
 };
 
-// ✅ MAIN CLIENT — All requests forced through Cloudflare proxy
+// ✅ MAIN CLIENT — All requests forced through Cloudflare proxy, Realtime DISABLED
 export const supabase = createClient(
   ENV.SUPABASE_URL,
   ENV.SUPABASE_ANON_KEY,
@@ -49,22 +49,19 @@ export const supabase = createClient(
 
     db: {
       schema: 'public'
+    },
+
+    // 🔇 DISABLE Realtime/WebSocket completely — stops console WS errors
+    realtime: {
+      params: {
+        eventsPerSecond: -1
+      }
     }
   }
 );
 
-// 🔌 Dedicated Realtime Client — also forced through proxy
-export const supabaseRealtime = createClient(
-  ENV.SUPABASE_DIRECT_URL,
-  ENV.SUPABASE_ANON_KEY,
-  {
-    auth: { persistSession: false },
-    global: {
-      fetch: customFetch,
-      headers: { 'X-Client-Info': 'leadflow-realtime' }
-    }
-  }
-);
+// 🔇 Realtime DISABLED — alias for backward compatibility (no separate WS client needed)
+export const supabaseRealtime = supabase;
 
 /**
  * Centralized logging

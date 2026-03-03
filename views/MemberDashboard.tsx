@@ -591,60 +591,13 @@ export const MemberDashboard = () => {
     return () => clearInterval(interval);
   }, [authProfile?.id]);
 
-  useEffect(() => {
-    // 🔥 Hard-Guard Realtime Subscriptions
-    if (!session || authLoading || !profile?.id || isPaused || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
-
-    const channel = supabaseRealtime
-      .channel(`member-leads-${profile.id}`)
-      .on('postgres_changes', {
-        event: '*', // 🚀 Listen for BOTH Insert and Update
-        schema: 'public',
-        table: 'leads',
-        filter: `assigned_to=eq.${profile.id}`,
-      }, (payload) => {
-        const newLead = payload.new as Lead;
-
-        // 🔥 Robust Update: Only add if not already in list (for Manual Reassignments)
-        setLeads(prev => {
-          const exists = prev.find(l => l.id === newLead.id);
-          if (exists && payload.eventType === 'UPDATE') {
-            return prev.map(l => l.id === newLead.id ? newLead : l);
-          }
-          if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && !exists)) {
-            playNotificationSound();
-            return [newLead, ...prev];
-          }
-          return prev;
-        });
-
-        // Show System Notification for new assignments
-        if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && payload.old && (payload.old as any).assigned_to !== profile.id)) {
-          // 🚀 SAFE NOTIFICATION (Fixed Illegal Constructor Error)
-          if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
-            navigator.serviceWorker.ready.then(registration => {
-              registration.showNotification('🔥 New Lead Received!', {
-                body: `${newLead.name} from ${newLead.city}`,
-                icon: '/logo.png',
-                badge: '/logo.png',
-                tag: 'new-lead-' + newLead.id,
-                vibrate: [200, 100, 200]
-              } as any);
-            }).catch(err => {
-              console.warn("SW Notification failed, falling back to sound only", err);
-              playNotificationSound();
-            });
-          } else {
-            playNotificationSound();
-          }
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabaseRealtime.removeChannel(channel);
-    };
-  }, [session, authLoading, profile?.id, isPaused]);
+  // 🔇 REALTIME DISABLED — WebSocket connections removed to prevent console errors
+  // Leads refresh via polling and manual "Load More" instead
+  // useEffect(() => {
+  //   if (!session || authLoading || !profile?.id || isPaused || ...) return;
+  //   const channel = supabaseRealtime.channel(`member-leads-${profile.id}`)...subscribe();
+  //   return () => { supabaseRealtime.removeChannel(channel); };
+  // }, [session, authLoading, profile?.id, isPaused]);
 
   // ============================================================
   // HANDLERS
