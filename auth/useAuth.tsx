@@ -236,8 +236,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (retryCount > MAX_RETRIES) {
       if (mountedRef.current) {
-        if (!localStorage.getItem('leadflow-profile-cache')) setIsNetworkError(true);
+        // 🛡️ NEVER trigger offline mode for profile failures — use stale cache
+        console.warn('⚠️ Profile fetch retries exhausted. Using stale cache, scheduling background retry.');
         setLoading(false);
+        // 🔄 Schedule silent background retry after 30s
+        setTimeout(() => {
+          if (mountedRef.current && user) loadUserProfile(user, 0);
+        }, 30000);
       }
       return;
     }
@@ -265,16 +270,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // Max retries reached
-        // 🚀 SMART FALLBACK: If we have a cache, keep using it! Don't trigger error.
-        if (!profile && !localStorage.getItem('leadflow-profile-cache')) {
-          console.warn("🚨 Total fetch failure and no cache exists. Triggering offline mode.");
-          setIsNetworkError(true);
-        } else {
-          console.warn("⚠️ Profile fetch failed permanently, but using stale cache. Silent recovery.");
-        }
+        // 🛡️ Max retries reached — NEVER logout or trigger offline mode
+        // Use stale cache and retry silently after 30s
+        console.warn('⚠️ Profile fetch failed permanently. Using stale cache. Silent 30s retry scheduled.');
         setLoading(false);
         loadingProfileFor.current = null;
+        // 🔄 Silent background retry after 30s
+        setTimeout(() => {
+          if (mountedRef.current && user) loadUserProfile(user, 0);
+        }, 30000);
       }
     } catch (err: any) {
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
@@ -292,9 +296,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!mountedRef.current) return;
           await loadUserProfile(user, retryCount + 1);
         } else {
-          if (!localStorage.getItem('leadflow-profile-cache')) setIsNetworkError(true);
+          // 🛡️ NEVER trigger offline mode for profile failures
+          console.warn('⚠️ Profile catch: using stale cache, scheduling 30s retry.');
           setLoading(false);
           loadingProfileFor.current = null;
+          setTimeout(() => {
+            if (mountedRef.current && user) loadUserProfile(user, 0);
+          }, 30000);
         }
       }
     }
