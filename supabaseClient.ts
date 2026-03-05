@@ -103,6 +103,16 @@ export const supabase = createClient(
   }
 );
 
+// 🛡️ DISABLE visibility change handler that causes lock hangs on tab focus.
+// Supabase's internal _onVisibilityChanged triggers _recoverAndRefresh → acquireLock → 15s hang.
+if (typeof document !== 'undefined') {
+  const authClient = supabase.auth as any;
+  if (authClient._onVisibilityChanged) {
+    document.removeEventListener('visibilitychange', authClient._onVisibilityChanged);
+    console.log('🛡️ Disabled Supabase visibilitychange handler (prevents lock hangs)');
+  }
+}
+
 // 🔇 Realtime DISABLED — alias for backward compatibility (no separate WS client needed)
 export const supabaseRealtime = supabase;
 
