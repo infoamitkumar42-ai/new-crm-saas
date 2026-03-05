@@ -9,6 +9,35 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { ENV } from "./config/env";
 
+// ╔════════════════════════════════════════════════════════════╗
+// ║  🛡️ GLOBAL FETCH OVERRIDE — Intercepts ALL requests       ║
+// ║  including Supabase library internal _recoverAndRefresh    ║
+// ║  that bypasses the customFetch option.                     ║
+// ╚════════════════════════════════════════════════════════════╝
+const SUPABASE_HOST = 'vewqzsqddgmkslnuctvb.supabase.co';
+const PROXY_HOST = 'api.leadflowcrm.in';
+
+const originalFetch = window.fetch.bind(window);
+window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = input instanceof Request
+    ? input.url
+    : input.toString();
+
+  if (url.includes(SUPABASE_HOST)) {
+    // 🔑 Auth requests = direct to Supabase (faster token refresh)
+    if (url.includes('/auth/v1/')) {
+      return originalFetch(input, init);
+    }
+    // 📊 All other requests = through Cloudflare proxy (ISP bypass)
+    const proxiedUrl = url.replace(SUPABASE_HOST, PROXY_HOST);
+    if (input instanceof Request) {
+      return originalFetch(new Request(proxiedUrl, input), init);
+    }
+    return originalFetch(proxiedUrl, init);
+  }
+  return originalFetch(input, init);
+};
+
 /**
  * 🛡️ SMART FETCH: Split routing for optimal performance.
  * 
