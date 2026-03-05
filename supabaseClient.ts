@@ -71,12 +71,11 @@ export const supabase = createClient(
   ENV.SUPABASE_ANON_KEY,
   {
     auth: {
+      autoRefreshToken: false, // 🛡️ DISABLED — manual refresh in useAuth.tsx prevents internal fetch bypass
       persistSession: true,
       storageKey: 'leadflow-auth',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
+      detectSessionInUrl: false, // 🛡️ DISABLED — prevents internal URL parsing
     },
 
     global: {

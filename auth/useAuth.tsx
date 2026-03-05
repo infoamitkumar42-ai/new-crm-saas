@@ -390,7 +390,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
           setIsNetworkError(false);
 
-          // 🚀 ZERO-WAIT REHYDRATION: If we have a cached profile, release UI immediately
+          // �️ MANUAL TOKEN REFRESH: Since autoRefreshToken is disabled,
+          // check if token expires within 10 minutes and refresh manually.
+          // This uses our customFetch proxy instead of library's internal bypass.
+          try {
+            const expiresAt = currentSession.expires_at; // Unix timestamp in seconds
+            if (expiresAt) {
+              const nowSec = Math.floor(Date.now() / 1000);
+              const timeLeftSec = expiresAt - nowSec;
+              if (timeLeftSec < 600) { // Less than 10 minutes
+                console.log(`🔑 Token expires in ${timeLeftSec}s — refreshing manually via proxy...`);
+                const { data: refreshData } = await supabase.auth.refreshSession();
+                if (refreshData?.session) {
+                  setSession(refreshData.session);
+                  console.log('✅ Token refreshed successfully via proxy.');
+                }
+              }
+            }
+          } catch (refreshErr) {
+            console.warn('⚠️ Manual token refresh failed, using existing session:', refreshErr);
+          }
+
+          // �🚀 ZERO-WAIT REHYDRATION: If we have a cached profile, release UI immediately
           // Check if cached profile matches current user
           const cachedProfileStr = localStorage.getItem('leadflow-profile-cache');
           const cachedProfile = cachedProfileStr ? JSON.parse(cachedProfileStr) : null;
