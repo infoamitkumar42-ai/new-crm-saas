@@ -10,20 +10,30 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { ENV } from "./config/env";
 
 /**
- * 🛡️ CUSTOM FETCH: Force ALL Supabase requests through Cloudflare proxy.
+ * 🛡️ SMART FETCH: Split routing for optimal performance.
  * 
- * WHY: The Supabase JS SDK internally constructs URLs for auth token refresh,
- * PKCE exchange, and JWKS fetching that may bypass the configured base URL.
- * This wrapper intercepts EVERY request and rewrites supabase.co → proxy.
- * This fixes Jio/Airtel ISP blocks that cannot reach supabase.co directly.
+ * AUTH requests (/auth/v1/*) → DIRECT to Supabase (faster token refresh)
+ * DATA requests (REST, RPC)  → Through Cloudflare proxy (ISP bypass)
+ * 
+ * WHY: Auth token refresh was taking 10+ seconds through the proxy,
+ * causing EMERGENCY RELEASE and profile fetch failures. Direct auth
+ * is faster and more reliable. Data requests still need the proxy
+ * to bypass Jio/Airtel ISP blocks.
  */
 const customFetch = (url: RequestInfo | URL, options?: RequestInit) => {
-  const urlString = url.toString();
-  const modifiedUrl = urlString.replace(
+  const urlStr = url.toString();
+
+  // 🔑 Auth requests = direct to Supabase (faster token refresh)
+  if (urlStr.includes('/auth/v1/')) {
+    return fetch(urlStr, options);
+  }
+
+  // 📊 Data requests = through Cloudflare proxy (ISP bypass)
+  const proxiedUrl = urlStr.replace(
     'vewqzsqddgmkslnuctvb.supabase.co',
     'api.leadflowcrm.in'
   );
-  return fetch(modifiedUrl, options);
+  return fetch(proxiedUrl, options);
 };
 
 // ✅ MAIN CLIENT — All requests forced through Cloudflare proxy, Realtime DISABLED
