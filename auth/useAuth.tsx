@@ -79,6 +79,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
   const loadingProfileFor = useRef<string | null>(null); // 🔥 Prevents parallel loads
+  const profileFailCount = useRef(0); // 🛡️ Circuit breaker: stops retries after 3 consecutive failures
+  const isRefreshing = useRef(false); // 🛡️ Prevents parallel refreshProfile calls
 
   const isAuthenticated = !!session && !!profile;
 
@@ -236,13 +238,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (retryCount > MAX_RETRIES) {
       if (mountedRef.current) {
-        // 🛡️ NEVER trigger offline mode for profile failures — use stale cache
-        console.warn('⚠️ Profile fetch retries exhausted. Using stale cache, scheduling background retry.');
+        profileFailCount.current += 1;
+        console.warn(`⚠️ Profile fetch retries exhausted (fail #${profileFailCount.current}). Using stale cache.`);
         setLoading(false);
-        // 🔄 Schedule silent background retry after 30s
-        setTimeout(() => {
-          if (mountedRef.current && user) loadUserProfile(user, 0);
-        }, 30000);
+        loadingProfileFor.current = null;
+        // 🛡️ CIRCUIT BREAKER: After 3 consecutive failures, STOP completely
+        // Only retry after 5 minutes (not 30s infinite loop)
+        if (profileFailCount.current >= 3) {
+          console.warn('🛑 CIRCUIT BREAKER: 3 consecutive profile failures. Stopping retries for 5 minutes.');
+          setTimeout(() => { profileFailCount.current = 0; }, 5 * 60 * 1000);
+        }
       }
       return;
     }
@@ -258,6 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(userProfile);
         setLoading(false);
         loadingProfileFor.current = null;
+        profileFailCount.current = 0; // ✅ Reset failure counter on success
         // 🔥 SAVE TO CACHE (LocalStorage now)
         try {
           localStorage.setItem('leadflow-profile-cache', JSON.stringify(userProfile));
@@ -270,15 +276,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // 🛡️ Max retries reached — NEVER logout or trigger offline mode
-        // Use stale cache and retry silently after 30s
-        console.warn('⚠️ Profile fetch failed permanently. Using stale cache. Silent 30s retry scheduled.');
+        // 🛡️ Max retries reached — use stale cache, NO automatic retry
+        profileFailCount.current += 1;
+        console.warn(`⚠️ Profile fetch failed permanently (fail #${profileFailCount.current}). Using stale cache.`);
         setLoading(false);
         loadingProfileFor.current = null;
-        // 🔄 Silent background retry after 30s
-        setTimeout(() => {
-          if (mountedRef.current && user) loadUserProfile(user, 0);
-        }, 30000);
       }
     } catch (err: any) {
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
@@ -297,27 +299,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await loadUserProfile(user, retryCount + 1);
         } else {
           // 🛡️ NEVER trigger offline mode for profile failures
-          console.warn('⚠️ Profile catch: using stale cache, scheduling 30s retry.');
+          profileFailCount.current += 1;
+          console.warn(`⚠️ Profile catch: using stale cache (fail #${profileFailCount.current}).`);
           setLoading(false);
           loadingProfileFor.current = null;
-          setTimeout(() => {
-            if (mountedRef.current && user) loadUserProfile(user, 0);
-          }, 30000);
         }
       }
     }
   }, [fetchProfile]);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) {
-      console.log('🔄 Force refreshing profile...');
+    // 🛡️ Guard: skip if already refreshing, circuit breaker tripped, or no user
+    if (isRefreshing.current || profileFailCount.current >= 3 || !session?.user) return;
+    isRefreshing.current = true;
+    try {
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
+        profileFailCount.current = 0; // ✅ Reset on success
         try {
           localStorage.setItem('leadflow-profile-cache', JSON.stringify(updated));
         } catch { }
       }
+    } finally {
+      isRefreshing.current = false;
     }
   }, [session, fetchProfile]);
 
@@ -485,13 +490,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!session?.user) return;
 
     const interval = setInterval(() => {
-      if (mountedRef.current) {
+      if (mountedRef.current && profileFailCount.current < 3) {
         refreshProfile();
       }
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [session, refreshProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]); // 🛡️ Only re-run when user ID changes, NOT on refreshProfile recreation
 
   const signUp = useCallback(async ({
     email,
