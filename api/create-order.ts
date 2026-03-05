@@ -29,14 +29,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 🛑 MAINTENANCE MODE (Until March)
-  const MAINTENANCE_MODE = true;
-  if (MAINTENANCE_MODE) {
-    return res.status(503).json({
-      error: "Payments are currently paused for system upgrades. Please try again in March."
-    });
-  }
-
   try {
     const { planId, price, userId } = req.body;
 
