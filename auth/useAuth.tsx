@@ -100,8 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn('⚡ getSession() timed out after 15s — Attempting localStorage fallback...');
 
         // 🛡️ LOCALSTORAGE FALLBACK: Try to recover session from storage to prevent logout
-        const storageKey = 'leadflow-auth';
-        const rawSession = localStorage.getItem(storageKey);
+        const storageKey = 'leadflow-auth-v2';
+        const rawSession = localStorage.getItem(storageKey) || localStorage.getItem('leadflow-auth'); // Fallback to old key
 
         if (rawSession) {
           try {

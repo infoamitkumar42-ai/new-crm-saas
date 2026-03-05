@@ -73,9 +73,14 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: false, // 🛡️ DISABLED — manual refresh in useAuth.tsx prevents internal fetch bypass
       persistSession: true,
-      storageKey: 'leadflow-auth',
+      storageKey: 'leadflow-auth-v2', // 🛡️ Changed to avoid stale lock conflict from old key
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       detectSessionInUrl: false, // 🛡️ DISABLED — prevents internal URL parsing
+      // 🛡️ BYPASS LOCK: The Web Locks API causes 15s hangs on mobile
+      // "Lock 'lock:leadflow-auth' was not released within 5000ms"
+      lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+        return await fn();
+      },
     },
 
     global: {
