@@ -53,6 +53,40 @@
   }
   </script>
 
+  <!-- FAQ Schema for Rich Results -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Are these leads for Forever Living business?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! These leads are people searching for Work From Home, Passive Income, and Business Opportunities."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where do leads come from?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "We use Facebook and Instagram Ads with specific Network Marketing interest targeting."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How fast is the setup?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Just 2 minutes. Choose your plan and get your dashboard instantly. Leads start from 10 AM."
+        }
+      }
+    ]
+  }
+  </script>
+
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-TRXZZ9QV7C"></script>
   <script>
@@ -98,7 +132,81 @@
 </head>
 
 <body class="bg-slate-50 text-slate-900 antialiased">
-  <div id="root"></div>
+  <div id="root">
+    <!-- SEO: Static content for search engine crawlers. React replaces this on load. -->
+    <div id="seo-fallback" style="font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:40px 20px;">
+      <header style="text-align:center;margin-bottom:40px;">
+        <h1 style="font-size:2em;color:#1e293b;">LeadFlow CRM — Facebook Lead Distribution System for India</h1>
+        <p style="font-size:1.1em;color:#475569;">Automatically distribute Facebook leads to your sales team instantly.
+          Used by 500+ sales professionals across India.</p>
+        <nav style="margin-top:20px;">
+          <a href="/login" style="margin:0 10px;color:#2563eb;">Login</a>
+          <a href="/register" style="margin:0 10px;color:#2563eb;">Register</a>
+          <a href="/plans" style="margin:0 10px;color:#2563eb;">Pricing Plans</a>
+        </nav>
+      </header>
+
+      <section>
+        <h2 style="color:#1e293b;">Best CRM for MLM &amp; Network Marketing Teams</h2>
+        <p>LeadFlow CRM is India's #1 automated lead distribution system for Forever Living, network marketing, and
+          affiliate marketing teams. Get high-quality, business-interested leads delivered daily to your dashboard and
+          WhatsApp.</p>
+        <ul>
+          <li><strong>500+ Active Agents</strong> across India using LeadFlow</li>
+          <li><strong>50,000+ Leads Delivered</strong> to sales teams</li>
+          <li><strong>₹11 Per Lead</strong> — Most affordable in India</li>
+          <li><strong>4.8★ User Rating</strong> from verified users</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 style="color:#1e293b;">How LeadFlow Works</h2>
+        <ol>
+          <li><strong>Choose Your Plan</strong> — Starter (₹999/10 days), Supervisor (₹1,999/15 days), or Manager
+            (₹2,999/20 days)</li>
+          <li><strong>Get Your Dashboard</strong> — Instant access to your personal lead dashboard + Google Sheet</li>
+          <li><strong>Receive Daily Leads</strong> — Fresh leads delivered daily from Facebook &amp; Instagram Ads</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2 style="color:#1e293b;">Pricing Plans</h2>
+        <div>
+          <h3>Starter Plan — ₹999 / 10 days</h3>
+          <p>5 Fresh Leads/Day, 50 Total Leads, Personal Dashboard, WhatsApp Alerts, 5 Lead Replacements</p>
+        </div>
+        <div>
+          <h3>Supervisor Plan — ₹1,999 / 15 days (Best Value)</h3>
+          <p>7 Fresh Leads/Day, 105 Total Leads, Priority Queue, 10 Lead Replacements, ₹19/lead</p>
+        </div>
+        <div>
+          <h3>Manager Plan — ₹2,999 / 20 days (Pro)</h3>
+          <p>8 Fresh Leads/Day, 160 Total Leads, Highest Priority, 16 Lead Replacements, Dedicated Manager</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 style="color:#1e293b;">Frequently Asked Questions</h2>
+        <h3>Are these leads for Forever Living business?</h3>
+        <p>Yes! These leads are people searching for Work From Home, Passive Income, and Business Opportunities.</p>
+        <h3>Where do leads come from?</h3>
+        <p>We use Facebook and Instagram Ads with specific Network Marketing interest targeting.</p>
+        <h3>How fast is the setup?</h3>
+        <p>Just 2 minutes. Choose your plan and get your dashboard instantly. Leads start from 10 AM.</p>
+      </section>
+
+      <footer
+        style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:0.9em;">
+        <p>© 2026 LeadFlow CRM. All rights reserved.</p>
+        <nav>
+          <a href="/terms" style="margin:0 10px;color:#64748b;">Terms of Service</a>
+          <a href="/privacy" style="margin:0 10px;color:#64748b;">Privacy Policy</a>
+          <a href="/refund" style="margin:0 10px;color:#64748b;">Refund Policy</a>
+          <a href="/contact" style="margin:0 10px;color:#64748b;">Contact Us</a>
+        </nav>
+      </footer>
+    </div>
+  </div>
   <script type="module" src="/index.tsx"></script>
 </body>
 
