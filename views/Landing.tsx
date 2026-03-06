@@ -60,82 +60,78 @@ export const Landing = () => {
     // Optional: Keep only very subtle behavior if needed
   }, []);
 
-  // ✅ REALISTIC Indian Testimonials with genuine Hinglish
+  // ✅ REALISTIC Manager Testimonials
   const testimonials = [
     {
       name: "Rajesh Sharma",
-      role: "Supervisor, Lucknow",
+      role: "Manager, 250+ Team",
       city: "Lucknow",
-      text: "Pehle main cold calling karta tha, logon ne block kar diya tha. Ab leads khud interested hoke aati hain. 3 mahine mein 12 sponsors mile!",
+      text: "Maine apni 250 agents ki team ko LeadFlow se connect kiya. Ab sabko daily automatic leads milti hain aur mera sir dard khatam ho gaya.",
       image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face"
     },
     {
       name: "Priya Gupta",
-      role: "Assistant Manager, Delhi",
+      role: "Senior Manager, 400+ Team",
       city: "Delhi NCR",
-      text: "Meri team mein 8 log hain, sabko maine Starter plan dilwaya. Ab main sirf training pe focus karti hun, leads automatic milti hain!",
+      text: "Pehle manually leads distribute karti thi, ab system karta hai. Best part hai ki LeadFlow pe har agent ka performance track hota hai.",
       image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face"
     },
     {
       name: "Vikram Singh",
-      role: "Manager, Chandigarh",
+      role: "Soaring Manager, 150+ Team",
       city: "Chandigarh",
-      text: "₹11 per lead bohot sasta hai bhai. Facebook ads khud chalaoge toh ₹50-60 lagega per lead. Yahan ready-to-call leads milti hain directly.",
+      text: "Meri team ke har agent ko daily fresh leads milti hain. ₹11 per lead mein itni high-quality business leads poore India mein nahi milengi.",
       image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
     },
     {
       name: "Sunita Devi",
-      role: "Supervisor, Jaipur",
+      role: "Manager, 300+ Team",
       city: "Jaipur",
-      text: "Ghar baith ke kaam karti hun. Subah leads aati hain, dopahar mein call karti hun. Husband bhi impressed hai ab meri income se!",
+      text: "Ab agents complain nahi karte ki leads nahi mili. LeadFlow ka auto-distribution system bahut fair aur fast hai.",
       image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face"
     },
     {
       name: "Amit Verma",
-      role: "Soaring Manager, Mumbai",
+      role: "Diamond Manager, 500+ Team",
       city: "Mumbai",
-      text: "2CC karne mein 6 mahine lag gaye the pehle. LeadFlow ke baad sirf 45 din mein Silver Manager ban gaya. System sach mein kaam karta hai!",
+      text: "Team badi ho toh manual management impossible hai. LeadFlow ne meri team ki productivity 3x kar di hai sirf ek mahine mein.",
       image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face"
     },
     {
       name: "Neha Patel",
-      role: "FLP Distributor, Ahmedabad",
+      role: "Manager, 200+ Team",
       city: "Ahmedabad",
-      text: "Fresh leads daily milti hain. Kal ek lead se 2 hours baat ki, wo abhi join karne wali hai. Quality bahut acchi hai!",
+      text: "Manager dashboard features kamaal ke hain. Main decide karti hu kis agent ko kitni leads deni hain aur sab auto-pilot pe chalta hai.",
       image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face"
     }
   ];
 
   const faqs = [
     {
-      q: "Kya ye leads Forever Living business ke liye hain?",
-      a: "Bilkul! Ye leads wahi log hain jo 'Work From Home', 'Passive Income' aur 'Business Opportunity' dhund rahe hain."
+      q: "Kitne agents ki team manage kar sakta hai?",
+      a: "LeadFlow CRM 5 se 500+ agents tak handle kar sakta hai."
     },
     {
-      q: "Leads kahan se generate hoti hain?",
-      a: "Hum Facebook aur Instagram Ads use karte hain specific 'Network Marketing' interest targeting ke saath."
+      q: "Kya main apni team mein leads equally distribute kar sakta hun?",
+      a: "Haan, aap quota set kar sakte ho - 5 leads/day per agent ya custom."
     },
     {
-      q: "Setup mein kitna time lagta hai?",
-      a: "Sirf 2 Minute. Plan choose karo aur turant Dashboard mil jayega. Leads subah 10 baje se aani shuru ho jayengi."
+      q: "Manager aur Agent ka alag dashboard hota hai?",
+      a: "Bilkul - Manager ko full team overview milta hai, agent ko sirf apni leads."
     },
     {
-      q: "Agar leads phone na uthaye toh?",
-      a: "Humare 'Supervisor' aur 'Manager' plan mein 'Lead Replacement Guarantee' milti hai invalid numbers ke liye."
-    },
-    {
-      q: "Kya main apni purani leads upload kar sakta hu?",
-      a: "Haan, Manager plan mein Bulk Upload aur Team Distribution ka feature available hai."
+      q: "Kya agent khud leads nahi dekh sakta jab tak manager approve na kare?",
+      a: "Haan, manager-controlled distribution completely possible hai."
     }
   ];
 
   return (
     <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
       <Helmet>
-        <title>LeadFlow CRM - Facebook Lead Distribution System India</title>
-        <meta name="description" content="Automatically distribute Facebook leads to 260+ sales professionals. Best CRM for MLM, Forever Living, network marketing teams in India." />
-        <meta property="og:title" content="LeadFlow CRM - Facebook Lead Distribution System India" />
-        <meta property="og:description" content="Automatically distribute Facebook leads to 260+ sales professionals. Best CRM for MLM, Forever Living, network marketing teams in India." />
+        <title>Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM</title>
+        <meta name="description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
+        <meta property="og:title" content="Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM" />
+        <meta property="og:description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
       </Helmet>
 
       <div
@@ -223,25 +219,31 @@ export const Landing = () => {
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
-                Forever Business के लिए
+                Apni Poori Team को
                 <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">High Quality Leads</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Daily Fresh Leads Do</span>
               </h1>
 
               <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-                Ab <strong>2cc Complete</strong> karna hua aasaan.
-                <strong className="text-slate-800"> ₹11/lead</strong> mein 'Business Interested' log seedha
-                aapke WhatsApp aur Dashboard par.
+                Forever Living Manager ho? 200-300 agents ki team hai? Ab har agent ko automatically fresh leads milegi - bina manually distribute kiye. Aap sirf training pe focus karo.
               </p>
 
               <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-8">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>No Rejections</span>
+                  <span>Auto Team Distribution</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <CheckCircle size={18} className="text-green-500" />
-                  <span>Auto-Followup</span>
+                  <span>Har Agent ka Alag Dashboard</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle size={18} className="text-green-500" />
+                  <span>Manager Control Panel</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle size={18} className="text-green-500" />
+                  <span>Bulk Lead Management</span>
                 </div>
               </div>
 
@@ -357,20 +359,20 @@ export const Landing = () => {
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <p className="text-4xl md:text-5xl font-black text-blue-600">500+</p>
-              <p className="text-slate-600 font-medium mt-1">Active Agents</p>
+              <p className="text-4xl md:text-5xl font-black text-blue-600">50+</p>
+              <p className="text-slate-600 font-medium mt-1">Manager Teams</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-black text-green-600">50K+</p>
-              <p className="text-slate-600 font-medium mt-1">Leads Delivered</p>
+              <p className="text-slate-600 font-medium mt-1">Leads Distributed</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-black text-purple-600">₹11</p>
               <p className="text-slate-600 font-medium mt-1">Per Lead Only</p>
             </div>
             <div>
-              <p className="text-4xl md:text-5xl font-black text-orange-600">4.8★</p>
-              <p className="text-slate-600 font-medium mt-1">User Rating</p>
+              <p className="text-4xl md:text-5xl font-black text-orange-600">200+</p>
+              <p className="text-slate-600 font-medium mt-1">Avg Team Size</p>
             </div>
           </div>
         </div>
@@ -391,24 +393,24 @@ export const Landing = () => {
             <div className="bg-red-50 p-8 rounded-3xl md:rounded-r-none border border-red-100">
               <div className="flex items-center gap-3 mb-6">
                 <span className="bg-red-100 p-2 rounded-lg text-2xl">😫</span>
-                <h3 className="text-xl font-bold text-red-900">Old Way (Struggle)</h3>
+                <h3 className="text-xl font-bold text-red-900">Manager ki Problem (Old Way)</h3>
               </div>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3 text-red-800/80">
                   <X size={20} className="mt-0.5 text-red-500 flex-shrink-0" />
-                  <span>DMing strangers on Instagram (Blocked)</span>
+                  <span>Manually WhatsApp pe leads distribute karna</span>
                 </li>
                 <li className="flex items-start gap-3 text-red-800/80">
                   <X size={20} className="mt-0.5 text-red-500 flex-shrink-0" />
-                  <span>Calling friends & relatives (Rejected)</span>
+                  <span>Koi track nahi kon agent ne call kiya</span>
                 </li>
                 <li className="flex items-start gap-3 text-red-800/80">
                   <X size={20} className="mt-0.5 text-red-500 flex-shrink-0" />
-                  <span>Spending ₹50-60 per lead on generic Ads</span>
+                  <span>Team ke liye alag alag leads dhundhna</span>
                 </li>
                 <li className="flex items-start gap-3 text-red-800/80">
                   <X size={20} className="mt-0.5 text-red-500 flex-shrink-0" />
-                  <span>Manual follow-up in notebook</span>
+                  <span>Agent complain karte hain leads nahi mili</span>
                 </li>
               </ul>
             </div>
@@ -420,26 +422,94 @@ export const Landing = () => {
               </div>
               <div className="flex items-center gap-3 mb-6">
                 <span className="bg-blue-100 p-2 rounded-lg text-2xl">🚀</span>
-                <h3 className="text-xl font-bold text-blue-900">LeadFlow Way (Success)</h3>
+                <h3 className="text-xl font-bold text-blue-900">Manager ka Solution (LeadFlow Way)</h3>
               </div>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3 text-slate-700 font-medium">
                   <CheckCircle size={20} className="mt-0.5 text-green-500 flex-shrink-0" />
-                  <span>Interested Leads directly on WhatsApp</span>
+                  <span>System automatically sahi agent ko lead deta hai</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-700 font-medium">
                   <CheckCircle size={20} className="mt-0.5 text-green-500 flex-shrink-0" />
-                  <span>Professional approach (No begging)</span>
+                  <span>Dashboard pe sab track hota hai</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-700 font-medium">
                   <CheckCircle size={20} className="mt-0.5 text-green-500 flex-shrink-0" />
-                  <span>Only ₹11/lead (High Quality)</span>
+                  <span>Ek jagah se puri team manage karo</span>
                 </li>
                 <li className="flex items-start gap-3 text-slate-700 font-medium">
                   <CheckCircle size={20} className="mt-0.5 text-green-500 flex-shrink-0" />
-                  <span>Automated Dashboard & Follow-ups</span>
+                  <span>Har agent ko equal fresh leads milti hain</span>
                 </li>
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* MANAGER DASHBOARD FEATURES */}
+      <section className="py-20 bg-slate-900 text-white overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 blur-3xl rounded-full"></div>
+        <div className="absolute bottom-0 left-0 w-1/2 h-full bg-indigo-600/10 blur-3xl rounded-full"></div>
+
+        <div className="max-w-6xl mx-auto px-4 relative z-10">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm font-bold mb-4 border border-blue-500/30">
+              👑 FOR TEAM LEADERS
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Manager Dashboard Features
+            </h2>
+            <p className="text-slate-400 text-lg">Control everything. Distribute automatically. Grow your team.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Users size={24} className="text-blue-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Team Overview</h3>
+              <p className="text-slate-400 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
+            </div>
+
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4">
+                <CheckCircle size={24} className="text-green-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Track Every Agent</h3>
+              <p className="text-slate-400 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
+            </div>
+
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Shield size={24} className="text-purple-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Set Daily Quotas</h3>
+              <p className="text-slate-400 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
+            </div>
+
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Star size={24} className="text-orange-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Performance Leaderboard</h3>
+              <p className="text-slate-400 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
+            </div>
+
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-pink-500/20 rounded-xl flex items-center justify-center mb-4">
+                <ArrowRight size={24} className="text-pink-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Bulk Lead Upload</h3>
+              <p className="text-slate-400 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
+            </div>
+
+            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Zap size={24} className="text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Auto Rules</h3>
+              <p className="text-slate-400 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
             </div>
           </div>
         </div>
@@ -524,7 +594,7 @@ export const Landing = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section >
       <section id="how-it-works" className="py-20 bg-slate-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -853,44 +923,46 @@ export const Landing = () => {
       </div>
 
       {/* EXIT INTENT POPUP */}
-      {showExitPopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-8 relative animate-bounce-in">
-            <button
-              onClick={() => setShowExitPopup(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-            >
-              <X size={24} />
-            </button>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Gift size={32} className="text-red-500" />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! Don't Miss Out 🎁</h3>
-              <p className="text-slate-600 mb-6">
-                Jane se pehle yeh special offer claim karein:
-                <br />
-                <strong className="text-green-600 text-xl">Get 3 EXTRA Leads FREE!</strong>
-                <br />
-                <span className="text-sm text-slate-500">On your first recharge. No extra cost.</span>
-              </p>
-              <Link
-                to="/login"
+      {
+        showExitPopup && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-8 relative animate-bounce-in">
+              <button
                 onClick={() => setShowExitPopup(false)}
-                className="block w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
               >
-                Claim My Bonus Leads
-              </Link>
-              <p className="text-xs text-slate-400 mt-4">
-                * Limited time offer. Valid for first purchase only.
-              </p>
+                <X size={24} />
+              </button>
+
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Gift size={32} className="text-red-500" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! Don't Miss Out 🎁</h3>
+                <p className="text-slate-600 mb-6">
+                  Jane se pehle yeh special offer claim karein:
+                  <br />
+                  <strong className="text-green-600 text-xl">Get 3 EXTRA Leads FREE!</strong>
+                  <br />
+                  <span className="text-sm text-slate-500">On your first recharge. No extra cost.</span>
+                </p>
+                <Link
+                  to="/login"
+                  onClick={() => setShowExitPopup(false)}
+                  className="block w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
+                >
+                  Claim My Bonus Leads
+                </Link>
+                <p className="text-xs text-slate-400 mt-4">
+                  * Limited time offer. Valid for first purchase only.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+    </div >
   );
 };
 
