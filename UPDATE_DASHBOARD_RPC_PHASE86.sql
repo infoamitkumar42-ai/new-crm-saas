@@ -15,7 +15,7 @@ BEGIN
         'user_stats', (
             SELECT json_build_object(
                 'total_users', COUNT(*),
-                'active_users', COUNT(*) FILTER (WHERE payment_status = 'active'),
+                'active_users', COUNT(*) FILTER (WHERE payment_status = 'active' AND is_active = true),
                 'daily_active_users', COUNT(*) FILTER (WHERE last_activity::date = CURRENT_DATE),
                 'monthly_active_users', COUNT(*) FILTER (WHERE last_activity > CURRENT_DATE - INTERVAL '30 days'),
                 'online_now', COUNT(*) FILTER (WHERE last_activity > NOW() - INTERVAL '5 minutes'),

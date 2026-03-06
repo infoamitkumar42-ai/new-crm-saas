@@ -749,7 +749,7 @@ export const AdminDashboard: React.FC = () => {
   // ============================================================
 
   const activeMembers = useMemo(
-    () => adminUsers.filter(u => u.role === 'member' && u.payment_status === 'active'),
+    () => adminUsers.filter(u => u.role === 'member' && u.payment_status === 'active' && u.is_active === true),
     [adminUsers]
   );
 

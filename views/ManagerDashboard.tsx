@@ -21,8 +21,8 @@ interface TeamMember {
   leads_today: number;
   created_at: string;
   total_leads?: number;
-  interested_leads?: number;
   closed_leads?: number;
+  is_active?: boolean;
 }
 
 interface Stats {
@@ -142,7 +142,7 @@ export const ManagerDashboard = () => {
       const totalLeads = membersWithStats.reduce((sum, m) => sum + (m.total_leads || 0), 0);
       const interestedLeads = membersWithStats.reduce((sum, m) => sum + (m.interested_leads || 0), 0);
       const closedLeads = membersWithStats.reduce((sum, m) => sum + (m.closed_leads || 0), 0);
-      const activeMembers = membersWithStats.filter(m => m.payment_status === 'active').length;
+      const activeMembers = membersWithStats.filter(m => m.payment_status === 'active' && m.is_active === true).length;
 
       setStats({
         teamSize: membersWithStats.length,

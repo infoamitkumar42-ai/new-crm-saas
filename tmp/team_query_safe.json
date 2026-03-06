@@ -1,0 +1,65 @@
+[
+  {
+    "team_code": "GJ01TEAMFIRE",
+    "total_members": 63,
+    "online_active": 5,
+    "eligible_for_leads": 4,
+    "total_quota_remaining": 5050
+  },
+  {
+    "team_code": "TEAMFIRE",
+    "total_members": 159,
+    "online_active": 28,
+    "eligible_for_leads": 6,
+    "total_quota_remaining": 4084
+  },
+  {
+    "team_code": "TEAMRAJ",
+    "total_members": 8,
+    "online_active": 0,
+    "eligible_for_leads": 0,
+    "total_quota_remaining": 2590
+  },
+  {
+    "team_code": "UNASSIGNED",
+    "total_members": 7,
+    "online_active": 3,
+    "eligible_for_leads": 3,
+    "total_quota_remaining": 450
+  },
+  {
+    "team_code": "TEAMSIMRAN",
+    "total_members": 21,
+    "online_active": 3,
+    "eligible_for_leads": 1,
+    "total_quota_remaining": 354
+  },
+  {
+    "team_code": "WIN11",
+    "total_members": 2,
+    "online_active": 0,
+    "eligible_for_leads": 0,
+    "total_quota_remaining": 100
+  },
+  {
+    "team_code": "826",
+    "total_members": 1,
+    "online_active": 0,
+    "eligible_for_leads": 0,
+    "total_quota_remaining": 50
+  },
+  {
+    "team_code": "1234",
+    "total_members": 1,
+    "online_active": 0,
+    "eligible_for_leads": 0,
+    "total_quota_remaining": 50
+  },
+  {
+    "team_code": "WIN",
+    "total_members": 1,
+    "online_active": 0,
+    "eligible_for_leads": 0,
+    "total_quota_remaining": 50
+  }
+]

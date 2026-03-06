@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Ravenjeet Kaur",
+    "email": "ravenjeetkaur@gmail.com",
+    "team_code": "TEAMFIRE",
+    "plan_name": "weekly_boost",
+    "plan_weight": 7,
+    "daily_limit": 12,
+    "total_leads_received": 0,
+    "total_leads_promised": 92,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Ansh",
+    "email": "aansh8588@gmail.com",
+    "team_code": "TEAMFIRE",
+    "plan_name": "weekly_boost",
+    "plan_weight": 7,
+    "daily_limit": 12,
+    "total_leads_received": 0,
+    "total_leads_promised": 92,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Ajay kumar",
+    "email": "ajayk783382@gmail.com",
+    "team_code": "TEAMFIRE",
+    "plan_name": "weekly_boost",
+    "plan_weight": 7,
+    "daily_limit": 12,
+    "total_leads_received": 0,
+    "total_leads_promised": 92,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Saloni",
+    "email": "ananyakakkar53b@gmail.com",
+    "team_code": "TEAMFIRE",
+    "plan_name": "supervisor",
+    "plan_weight": 3,
+    "daily_limit": 7,
+    "total_leads_received": 0,
+    "total_leads_promised": 115,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Bhawna",
+    "email": "bhawna1330@gmail.com",
+    "team_code": "TEAMFIRE",
+    "plan_name": "supervisor",
+    "plan_weight": 3,
+    "daily_limit": 7,
+    "total_leads_received": 0,
+    "total_leads_promised": 115,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Manisha",
+    "email": "mt5567519@gmail.com",
+    "team_code": "TEAMSIMRAN",
+    "plan_name": "starter",
+    "plan_weight": 1,
+    "daily_limit": 5,
+    "total_leads_received": 0,
+    "total_leads_promised": 55,
+    "is_active": true,
+    "is_online": true
+  },
+  {
+    "name": "Simmi teja",
+    "email": "simmiteja3@gmail.com",
+    "team_code": "TEAMSIMRAN",
+    "plan_name": "starter",
+    "plan_weight": 1,
+    "daily_limit": 5,
+    "total_leads_received": 0,
+    "total_leads_promised": 55,
+    "is_active": true,
+    "is_online": true
+  }
+]

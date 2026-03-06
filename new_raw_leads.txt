@@ -1,0 +1,373 @@
+your_age_?	what_is_your_profession_?	full_name	phone	city
+19	student	avnaaz kaur grewal	p:+919878753281	samrala
+21	Car deataling	𝓟𝓻𝓪𝓫𝓱	p:+919646362262	Ludhiana
+34	ItI	Didar Singh	p:+918973100027	khamano
+35	pvt job	Gobind Dhillon	p:+919815783875	Ludhiana
+sunny	cooking	sny_	p:+918699215951	samrala
+23	graution	Laddi singh	p:+916283810667	Dirba
+33	sop keepr	Gurpreet Singh	p:+918872296070	samrala
+8195050248rinku	D	Rinku Machhiwara	p:+918195050248	Hello
+32	accounting	Janvi Harman Mehra	p:7889004939	Ludhiana
+33	Job	Pritpal Singh	p:9814174020	Ludhiana
+Vishal Singh	Vishal Singh	Koka Boss	p:9914804541	Moga
+46	labour	Surinder Kumar	p:+919855977902	Mohali
+31	Agriculture	Er Harpreet Singh	p:+917889209540	Machhiwara
+18+	Study in DMLT course	Pardeep  Singh	p:7986064960	Khamano village Badesh kalan
+35	accounts	Param	p:+919915674822	jandiala guru
+38	free	Rajwant Singh	p:+918968658585	Khanna
+34	Housewife	Its_Kiranmannu	p:+916283504073	Faridkot
+41	private job	ਮਨਦੀਪ ਸਿੰਘ ਛਾਹੜ	p:+919872697659	Sunam
+Mandeep singg	computer operator	Mandeep Singh	p:+919169700090	Khanna
+39	Marketing	Kulvir Singh Benipal	p:9832600043	Ludhiana
+23	Drivery	Harry Ludhiana	p:+917973845873	Ludhiana
+51	8847547634	Gurjeet Saini	p:+918847547634	Jalandhar
+21	+2 pass	Sourav mehra	p:+919814247992	Phillaur
+37	house wife	Barinder Kour	p:+919876597758	Ludhiana
+Baljinder singh	Baljindersingh	Baljinder singh	p:+917696796231	Khanna
+28	free	Charan Khangura	p:+919041824127	Ludhiana
+48	Atwal Studio	Atwal Photographe	p:+919814570430	Khanna
+35	8847664060	Manpreet Singh Singh	p:+918847664060	barnala
+38	farmar	Kuldeep Benipal	p:+919779765084	Khanna
+50	Karmjit Singh	Karmjit simgh	p:9041380639	Samrala
+32	staff nurse	Lovepreet Dhindsa	p:+918146090582	Samrala
+28	Job  problem	Jaswinder Singh	p:+919915396470	Giaspura Ludhiana
+47	House wife	Satwinder Kaur	p:+919501959690	Kharar
+46	Job	Harwinder Singh veer	p:+918906398000	Ludhiana
+,41	Carpater	Palli Satpal Singh Palli	p:9814384503	Ludhiana Punjab  abuwal
+27	Turban tying service	Jagtar Singh Grewal	p:+918360027617	Khanna
+18+	Tejinder Singh	Tejinder singh	p:+919592818505	Khanna
+19	Salon	🅢🅘🅜🅡🅐🅝	p:+919417554415	Morinda
+52	Tailor	Davinder Singh	p:+918054488256	Patiala
+24	Student	Dilpreet Singh Mangat	p:+919501179617	Ludhiana
+40 years	Teacher	Lakhwinder iaur	p:+919914985017	Amloh
+21	Ok	Pardeep Singh	p:+916283626445	Sri muktsar sahib
+34	private job	Preet Mani Rai	p:+919023626001	Ludhiana
+30	not now any thing im free now	CʜŋDŋ SʜʀMʌ	p:+919877459017	khanna
+33	House wife	Sumandeep kaur	p:+919914146802	Morinda
+19	farmer	Manreet Maan	p:+919779282467	powat
+25	Housewife	Piyaa Sharma	p:+916239427569	Ludhiana
+41	sale line	Taranjeet Singh	p:+919877750401	sirhind fatehgarh sahib
+29	Chef	Gaggi Sran	p:+918528665505	Barnala
+29	agriculture	manjeet singh Benipal	p:+919878942887	Khanna
+24	12th	Priyanka	p:+917508782203	Patiala
+30	Builder	Simran janjua	p:7652909013	Croydon
+25	Ys	Jot	p:7347553572	KhAnna
+32	free	Manpreet Laddi	p:+919914068665	machhiwara india
+24	Video editing	Aman Toderpuria	p:+919814561065	Samrala
+34	Labour	Gurdeep Singh	p:+919915200195	ludhiana
+Harsh tiwari	Harsh tiwari	harsh_photo_graphy_51631	p:+916239881781	Samrala
+42	Transport	Bawa Sandeep	p:+918837627588	Ludhiana
+21 year	nhi pta 🤔	Harpreet Harpreet Singh	p:+918699417702	Amritsar
+59	Housewife	Aman Kaur	p:+17696934843	Khamano
+28 years	Computer	kamaljit kaur	p:+918196960844	Amritsar
+59	59 year	Aujla Manmohan	p:+19417370090	Ludhiana
+30	B,. A. +Civil engineer diploma+ntt	Er. Ninder gill guru 93	p:6239611377	Bathinda
+30	Job less	SANGAR	p:+917657926419	Amloh
+21	Welder	Deepu	p:+916239466780	Khamanon
+31	V.m.c line	ਸ਼ੇਰੇ ਪੰਜਾਬ Ak47	p:+918427370513	Ludhiana
+35	Parwinder singh	Parwinder singh	p:+919592957411	Ludhiana
+Sukhwinder singh	Zomato delivery	ਸੁਖਵਿੰਦਰ ਸਿੰਘ	p:+917696876939	Patiala
+19	Free	Prabhjot Kaur	p:9876032185	Patiala
+19	12th class student	pavu	p:+918699530974	Ludhiana
+30	House wife	Balwinder kaur	p:+919779130638	Chamkaur sahib
+18+	Am free	Gurjot Singh	p:+917696339454	Malerkotla
+24	job	Sahil Sher Gill	p:+919814160741	Khanna
+33	Part time job	Satnam singh	p:+919814764762	Samrala
+27	Cafe maneger	Simrandeep Kaur	p:+917814809462	Mandi Gobind Garh
+26	Job	Sohan singh	p:+918708851144	Panchkula
+36	Job	Gurmeet Singh	p:+919501354847	Raikot
+Guddi	Guddi	Ritu	p:+918556021636	Patiala
+35	Nursing	sonubrar	p:9781640392	Tricity
+25	Avon job	Sharan	p:+918264507690	Samrala
+29	Housewife	Jasspreet	p:+919646600682	Mandi Gobindgarh
+18	Student	Gurkirat Gosal	p:+917814604747	Samrala
+35	Home maker	Rajvir Kaur Tiwana	p:+919855221574	Chamkaur Sahib
+30	Study	Angrej singh	p:7652909861	Ludhiana
+27	Private job	ਨਾਜ਼ੁਕ ਅੱਖਰਦਾਰੀ	p:+917087017319	Samrala
+36	Nothing	Dipanshu Goyal	p:9041125955	Dhuri
+Jaspal singh	Jaspal singh	Jaspal Singh	p:+917527906859	Firozpur
+16	Manege	shubh	p:+918437597795	Samrala
+18	Ac technician	 Raman	p:+917087992594	Jalandhar , Punjab
+Gagan sandhu	Gagansandhu	Paramjeet	p:+918727857627	Faridkot
+19	No	Ansh Preet	p:+916239690842	Amritsar
+32	job	Ajeet Singh Rana	p:+919592799157	Samrala
+Dalveer singh	Yas	Dalveer Singh	p:+919914705733	Sirhind
+20	Student	Suman	p:+916280921892	MOHALI
+17	No	𝕾𝖚𝖐𝖍	p:+917009538979	Nurpur Bedi
+53	near Chamkaur sahib Village Dhoulran	karamjeet kaur	p:+918289045014	Sri Chamkaur Sahib
+40	job	Navu	p:+918699409277	Bathinda
+19	Architect	Gurpreet	p:+919855724277	Khamano
+Sonia	Online work	dil__xk	p:+917719766919	Sangrur
+19	+2 Complete 84.8% Numbers	Khushpreet Singh	p:+917973421728	Fatehgarh Sahib
+36	electronic	Ram Singh	p:+917837755435	Muktsar
+22	Fhion life	islaam khan	p:75086 17063	Samrala
+36	Agriculture	Prabhjot Singh	p:+919056234112	Dera Baba Nanak
+19	+2	ਖੈਹਿਰਾ	p:+917973707441	Patran
+33	12	parm2411	p:+919814322154	Malerkotla
+32	Student	Rajveer Syan	p:8283080932	Amargarh
+20	Study+job	simar singh	p:+919876785569	ਲੁਧਿਆਣਾ
+30	elctrical	Feroz Maksudra	p:+918437638773	Doraha
+24	12	Lovepreet Sahauli	p:+918872405332	LDH
+18	Ko	Sukhi Janagal	p:+919855704497	Rupnagar
+42	factory job	Amandeep Singh	p:+918528014380	ludhiana
+34	Private job	Yudhveer singh	p:+919815116519	Machhiwara
+32	Free now	Raja	p:+919906728100	Ludhiana
+Yes	Yes	kaur6287	p:+917626862801	Fatehgarh sahib
+23'07'1999	Music🎶	preet sidhu	p:+918446163589	Taran taran
+21	Study	ਵਰਿੰਦਰ	p:+916283634022	Ldh
+24	Free	jot_bhalwan	p:+918264747136	Samaral
+35	Housewife	Amandeep Singh	p:+919592766600	Khanna
+Karan	Fresher	Karan	p:+917814354853	Ferozpur
+23	10	official _sanjay_	p:7347310521	Dubai
+18	Work	Jagjeet Singh	p:+919478105516	Sadhugrh
+Jaskaran Singh	8968985227	Jaskaran Yoyo	p:+918968985227	Jaskaran Singh
+40	Accountant	Sharma Rajesh	p:+919888060101	Khamano
+19	A	ਗੁਰਪੀ੍ਤ ਸਿੰਘ	p:+919872229879	Fatehgarh Sahib sirhind
+Sagar	Riding	Sagar Kumar	p:+918076960930	Ludhiana
+18	12th medical pass out	Kratima	p:7589939043	Anandpur sahib
+34	engineer	Gurjant singh	p:+919915811758	ludhiana
+38	House wife	Karamjit Kaur	p:7589841641	Machhiwara
+35	writer	Satinder Khuranj	p:+919056126410	khamano
+42	free	Kulwinder Singh Gill	p:+917710280060	ludhiana
+Name = sandhu  Mobile number = 7717587477	Address = amloh	Akashdeep	p:7717587477	Amloh
+27	supervisor	Surjit Singh	p:+919779729543	Ludhiana
+Harjit Kaur	Tailoring 🪡	Harjeet Kaur	p:7009273235	Sunam
+19	Student	Harmxn Bedi	p:+917009310602	Ludhiana
+Simranjit kaur	Computer operator	Simranjit kaur	p:6284119082	Sahnewal,ludhiana,Punjab
+37	Hi	Harpal Brar	p:7888870392	Ajnala
+20	Music, singing	𝑫𝒂𝒗𝒊𝒅 𝑺𝒂𝒏𝒅𝒉𝒖	p:+918847223776	Roper
+25	House wife	Sukhdeep Sukhdeep Deep	p:+918360104428	Mudki fzr
+30	As Computer Working Job	Lalit Mangotra	p:+918360146130	Amritsar
+32	House wife	maninder kaur	p:9501092079	Chamkaur sahib
+35	driver	Mandeep Hundal	p:+919815133913	machhiwara sahib
+Charanjeet singh	Charanjeet singh	charanjeet Singh	p:+917340829950	Gurveer9967
+Davinder Singh Khanna	Madiya road Khanna	, Waheguru ji waheguru ji Khanna L Ludhiana	p:7814786095	Khanna
+22years	I am a housewife	Pardeep kaur	p:+918968927173	Amritsar
+32	agriculture	ਮਿੱਠਾ ਜੱਟ	p:+919501944140	Samrala
+27	Kriyana shop village	Lakhwinder Singh	p:+919855095782	Patran
+27	Others	Gopi Mahra	p:+9779029554	Chandigarh
+32	g	Happy Dholran	p:+919592086096	Chamkaur Sahib
+28 year	Agriculture	Sandeep Dmc	p:+919888213016	Fazilka
+Happy	Plambar	Harpreet Singh	p:+919780898216	Amritsar
+29	Cab driver	MANDEEP JHAJJ	p:+918575003800	Khamanon
+35  year	markitting	manjot kaur	p:+919814394067	kurar
+29	Job	PRABH KAUR	p:+917973974052	Hoshiarpur
+33	housewife	ਜੱਟੀ ਬਾਠ	p:+917528972693	Ropar
+21	15000	Rajveer Singh	p:+919779430218	Samrala
+33	Job	Gurpreet Gagan	p:+919915255087	Mohali
+33	House wife	Ak Kaur Mundi	p:9878308899	Mandi Gobindgarh
+40	pvt job	Sidhu	p:+917986511354	bathinda
+28	Agriculture	Gurpreet Sandhu	p:+916239467980	Tarn-Taran sahib
+28	Driver	ਮਾਲਕ ਸਿੰਘ ਗੁਰੂ	p:+919115533312	Bareta
+28	koi ni	Gurwinder Singh Sahota	p:+16239353171	Mandi Gobind garh
+29	Electrition	Raman Jassuka	p:+917508644318	Patiala
+40	business	Amarjit kaur	p:+919815731959	Rampuraphul
+34	Photography	Amit Galhotra	p:+919914089664	Doraha
+18+	Student	۩V͇̿I͇̿P͇̿۩𝘚𝕦c𝒽𝑎ꌗơᴏ𝑟𝘮ꪖ	p:9877846176	Maur
+17	Punjabi	Gursewak Singh	p:+919781516908	Ludhiana
+16	School	꧁𓊈𒆜𝒜𝓇𝓂𝒶𝒶𝓃 𝓃𝓌𝒶𝒶𝒷 𒆜𓊉꧂	p:+916239821383	jalandhar
+45	agriculture	Gurpreet Singh	p:+917837027111	Amritsar
+30	banker	Jaskaran Singh	p:+918872801034	payal
+24	Ac technician	Mandeep	p:7059710005	Khanna
+27	Trader	BullRun Trading Academy	p:+918557885855	Mandi Gobindgarh
+28	Sale man	Dancer Kumar Rakesh	p:+919517303461	Ahemdgarh
+26	Study	🅶🅶🅽	p:+919780549401	Abohar
+32	Account assistant	مسئلہ.	p:+916280676598	Ludhiana
+24	Farming	ਜਸਪ੍ਰੀਤ ਸਿੰਘ ਤੱਤਲਾ	p:+919781900213	Bharowal Kalan
+45 years	parivet job	Cheema Shab Cheema	p:+919915763223	𝚙𝚊𝚢𝚊𝚕
+17	Ni	Balraj singh	p:+919041537299	Sungrur sherpur sodian
+27	ਹਾਊਸ wife	Harman	p:+9729018688	punjabi
+35	House wife	Manpreet Kaur	p:+919876641984	Sangrur
+25	Phone shop	gurjass	p:+918146158049	Sunam
+18	+2 pass b com 2. Year	its pratham 02	p:+918872527974	Dorangla Gurdaspur
+20	digital online work	Lovedeep Singh Deepan	p:+917814807768	Jalalabad
+42	House wife	Anhad bhindwr	p:+918284077063	Ghuman
+18	Job	harry kulewal	p:+919517868217	Samrala
+19	Beauty	Gursharan kaur	p:+919877599698	Macchiwara sahib
+35	Agriculture	Malkeet Dhillon	p:+919988009826	Samana
+20	student	Kaur	p:+919292215501	Barnala
+48	Driver	Gurvinder Toura	p:+918988763916	Una
+21	Study	Vicky Faridkotiya	p:+919815958851	Faridkot
+36	Farming	Rupinder Singh	p:+919478077770	Sangrur
+33	Business	Gurwinder Singh Nagpal	p:+919646497318	Khanna
+16	Yes	꧁𓊈𒆜🅷🆁🆁🅴🅴🆃 🆂🅸🅽🅶🅷𒆜𓊉꧂	p:+919855164594	Moga
+45	Teaching	Simer Jeet Kaur	p:+917986491916	Moga
+18	Study	ਸਿਮਰਨ	p:+919915887966	Moga
+28	student	Shubham Garments Samrala	p:951325115	Samrala
+49	Business	Gagandeep Singh Parhar	p:+919478018872	Banga
+32	Finance	Jatinder singh	p:+917051925904	Balachaur
+20years	Online work	Raman Kumar	p:9780546985	Jalalabad - West
+22	Satudant	Sushil	p:+917814397031	Adamval
+Major singh	Major singh	Major singh	p:+919878814071	Ferozepur
+25	Studying	Deep Singh	p:+918882342603	Mansa
+18	+1 class	Naina	p:+919646129821	Amritsar
+21	Farming	𝘩𝘢𝘳𝘱𝘳𝘦𝘦𝘵 𝘨𝘪𝘭𝘭	p:+917087504056	Zira
+34	Ger	Raipuria Mani	p:8196066751	Amlho
+.	.	Satnam Singh	p:+918872202946	Bagha Purana
+24	BCA complete	Sandeep Singh	p:6280926858	Mansa
+Ok	Ok	Kaka Chaawariya	p:+919815684771	Ludhiana
+24	Private employee	Sumit Pal	p:+918264541997	Jalandhar
+20	Bca countinue	kamal_sehgal1120	p:+919056080328	Ludhiana
+18.1	Online business karna	Anmol Singh	p:+919779790540	Amritsar
+20	Sarabjot singh	Sagarkml	p:+917837953125	Jalandhar
+33	Housewife	Mani Sidhu Pawar	p:8437906802	Firozpur
+20	Bsc nursing	Sajandeep kaur	p:8557960491	Faridkot
+tanya	student	𝚃𝙰𝙽𝚈𝙰	p:+917009550440	Phagwara
+19	Farming	ਦਿਉਲ	p:+919815213680	Doraha
+19	I am interested your business .	arshnoor	p:+919914907206	Chung
+23	12th	Rohit Saini	p:+919041290045	Naya Nangal
+37	job	Jaswinder Singh	p:+919914181305	Chandigarh
+44	X service man	Prittam Prittam	p:+919478346509	Gurdaspur
+18+	Video editing	Amardeep Pal	p:+916283272402	Punjab faridkot
+30	majdur	NIRBHA Singh	p:+919888276550	Bathinda
+24	Free	Gurjot Bhangu	p:+917814776296	Ludhiana
+20	No	Harman	p:+918699288405	Punjab
+32	Cooking	Mandeep Kaur	p:+918699401966	Samrla
+34	House wife	Pinky Virdi	p:+916284675381	Moga
+19	Businessmen	davinder singh (ਰਫੂਜੀਆ ਦਾ ਮੁੰਡਾ)	p:+917719653727	Dhanaula
+50	labor	Ravinder Singh abhepal	p:+971545041012	Abudahbi
+22	House wife	Gurpreet Kaur	p:+916283052110	Barnala
+Yes	Bro	Sandeep Singh mehra	p:+919915096309	Amritsar
+I am 19 year old	I want to earning money	Shubhi	p:7901836268	Raikot
+My age 24	Medicine	Jashan Chouhan	p:+919888852318	Khanna
+29	Nursing	Sharanjit Kaur	p:8264696698	Mohali
+17	Female	NAWAB	p:+917717203142	Dhat
+30	I am student  I'm graduate	Guri Singh	p:+919759648965	Amritsar
+31	Agricultre	Gurtej Chahal Bhikhi	p:+919780628701	Mansa
+Bsc nm	Bsc nm	Jaspreet Kaur	p:+917717200413	Punjab
+Harman	Singh	𝄟⃝Harman⓵⍣⃟	p:+917658037138	Harman 124
+21	yes	inderkaur	p:6283772996	Purana Shalla
+43	private job	Narinder Singh	p:+919815595102	Adampur
+23 years	Vivo Brand Advisor	Harry Bårñàlã	p:+917527800394	Barnala
+22	Cooking	íɑʍ≋ɭovi≋	p:+917681913356	Barnala
+Amritpreet Singh	Study	Amritpreet Singh	p:+916283091094	Baudey
+32	lebar	Shamsher Rajput	p:+918437631922	Rajpura
+18	editor	ګوریندر	p:+917986421031	Dasua
+19	Student	Yashmeen kaur	p:7009244092	Mandi gobindgarh
+37	Job	Parminder Mangat	p:+917889090968	Ludhiana
+Bikram	Free	ਬਿਕਰਮ ਸਿੰਘ	p:+918727957541	ਜਲੰਧਰ
+32	stchag	Kuldeep Singh Raju	p:+919653541133	Barnala Punjab
+50	agriculcher	Bittu Takhar	p:+919814151142	Machhiwara Sahib
+Hlw	Hlw	Varun Mehmi	p:+9815112471	Indian
+49	Privet job	Sukhwinder Singh Bawa	p:+919815345256	Ghoman gurdaspur
+25	I'm also free	Kaur Amandeep	p:9877247409	Sirhind (Fatehgarh sahib)
+22	House' wife	Rajvinder kaur	p:+919872899320	Mohali
+27	Student	Lovepreet Singh	p:+919653792811	SRI Muktsar Sahib
+Yes	Agriculture	maninder singh	p:+918146788850	Machiwara
+22	No	Nahar	p:+918194979765	Ferozepur
+29	Homemaker	K@vita	p:8264235316	Pathankot
+18	Student	Deepika	p:+919779343945	Nabha
+18	Sutdy	Gurpreet	p:+917652958161	Rampura
+18	12th pass	rana	p:+916280902881	Khamano
+32	Agriculture	Bhupinder Singh	p:+919876920852	Nihal Singh Wala
+45	job	Sunny Hunny	p:+919754301313	Zirakpur pb
+35	Driver	Ravinder Singh Sandhu Sandhu	p:+917710494378	Tarn Taran
+26	Loan department	Harpreet Singh	p:+919779338690	Hoshiarpur
+38	housewife	Manjeet	p:8728040639	Ludhiana
+Prabhjot	Prabhjot	Prabhjot	p:+9855795116	Family
+48 yr	bike sale purchase	Jagjit Singh	p:+917814010374	moga
+22 years	I am private employee	pargat Singh	p:+919855805730	Sangrur
+19	student	supan	p:9855598065	mansa /punjab
+21	Farmer	SANDHU	p:+917657903546	Amritsar
+18	Student	Harsh Verma	p:+916239763107	Fazilka punjab
+28	profesor	Tejinderjeet singh	p:+919855636960	khamano
+22	work	Gurbaksh Singh	p:+917658029761	Nakodar
+20	+2	Pawan Mattu	p:+917973578609	Amritsar Punjab
+21	No	JASS재스	p:+916284240858	Mohali
+35	wood work	Anwer Khan	p:+9465526881	Sunam
+Haji I am ready	Stronger men and lauryl life	Gurjeet Gurjeet	p:9915535989	Bathinda
+39	job	Harmeet Singh	p:+919592333373	mohali
+32	private job	Satwinder Singh	p:+919041368608	Rupnagar
+39	Teachers	Parvinder Singh	p:9053557237	Mandi Dabwali
+36	only work	Ranjit singh	p:+919780600645	FARIDKOT
+41	farmer and 15 years Bahrain gulf country heavy Trailer driver experience	Surjit Singh	p:+917658076674	Gurdaspur
+34	Fitter	Joga Singh	p:+917901934335	Batala
+27	Carpenter	Namdeep Singh Khanna	p:+916284390037	Bathinda
+Yes Sir	Job Person	Gurdeep Singh	p:+919803410348	yes sir I agree
+40	house wife	Devinder kaur	p:+918699380912	Kapurthala
+41	ਮਿਸਤਰੀ	Raju Syan	p:+919855625866	Ludhiana
+Atinder pal Singh  From.chandigarh Mob.9465215064	Parivat job	Atinder Guri Guri	p:9465215064	Chandigarh
+32	kam kar koi v	Preet Atwal Pathi	p:+919781016453	Patiala
+58	advocate	Adv Amarjit Singh	p:+919872417915	Ludhiana
+27	farmar	Ajit Singh	p:+919781273522	Moga
+33	bank	Shamsher Singh	p:+919780397703	Moga
+Plz I want more about it	Banking	it's Garry g	p:+919257088681	Faridkot
+45 year	job less	AMARJOT SINGH	p:+919855758390	Amritsar
+35	job	Harman Cheeda	p:+919876706476	Amritsar Batala road
+46	property advisor	Amarjit Singh Bhullar	p:+919023778899	Amritsar
+41	only sosal active	Mohit Thakur	p:+918556923609	BATHINDA
+35	driver	Heart Sahota	p:+917973970185	punjab
+31	farmer	Gurinder	p:+919781919086	sirhind
+28	operator	Jagdev Gill	p:+919987131814	Ferozepur
+34	farming	Pardeep Kamboj	p:+919888222018	Abohar
+32	hard work	Dharminder Singh	p:+919914341087	amritsar
+50	Bikram Singh	Bikram Singh	p:+919781112003	Amritsar
+38	medical	Jaswinder Kumar	p:+919876402505	kotkapura,Matta
+39	yes	Harwinder Singh Aloarkh	p:+919464915729	punjab  disstik. sangrur .villag e.aloarkh
+18	House wife	sardarni	p:9988009463	Bhawanigarh
+37	agriculture	Kulwinder Singh Dhaliwal	p:+918728819752	Barnala
+15	Tgvjf	jot	p:+917814103244	Jaito
+32	farming	Sukhi Bains	p:+917355996770	Bagha Purana
+21	auto Electrician	Lab Locham	p:8360012799	Mansa
+32	Accountant	Gurjeet Singh Jatt	p:+918901489689	Ambala
+49	job	Kuljinder Singh	p:+918054003204	Rupnagar
+82	agriculture	Resham Singh	p:+919914358183	Jalandhar
+Simran	Simran	𝓼𝓲𝓶𝓶𝓾	p:8427141201	Saila kalan
+35	Work	Dharminder Singh	p:+919877352477	Sirhind
+Sukhraj singh	Job	Sukhraj Singh	p:+918560000348	Khanna
+19	Sania	Sukoon	p:9872320760	Ludhiana
+19	Work home	mannu	p:+91628071210	Punjab
+26	Development	$ I M £ R	p:+918558045804	Ludhiana
+30	Private sector	Taranjit Singh	p:+919855060053	Khanna
+21	Doctor	Gopi	p:+919914307148	Tarn-taran
+35	Private Job	Rajinder Kumar	p:+919780173025	Ferozepur Cantt.
+21	Student	Ramandeep Singh	p:+917973109195	Jalalabad
+56	ਸੀਨੀਅਰ ਟੇਲਰ	Karnail Singh Syan	p:+919878009056	Ludhiana
+20	student	Gurjot singh	p:+919888983513	Ludhiana
+01-05-1968	business	Ram Arts	p:+19855979004	Pakhowal
+31	Free	Harman Sharma	p:+916280004986	Amloh
+44	photographer	Balvir Singh 6239208033	p:+919517962649	phagwara 6239208033
+58	Retired	Harbhajan Singh	p:+919914400364	Nawanshahr Doaba
+16	Student of +1	Chahat Verma	p:+919781349051	Amritsar
+52	Employe private	Manjit Singh	p:+919781107600	khamano
+27	Dreving	Lovepreet	p:+917888412890	Jaspalon
+19	Delevery boy	Harmanpreet sweep	p:+919855137279	Ludhiana
+27	Anny one	Binder Dhalio	p:8268234546	Punjab
+33	unemployed	Ankur	p:+919998792187	Fazilka
+50 yr	home maker	Reeta Kalra	p:+918146793176	Phagwara
+29	Labor work	Jagdeep Singh	p:+971506800302	Dubai
+21	editor	Prince Ratanpuria	p:+916284854773	fazilka
+26	Student	KaWaLpReEt SiNgH	p:+919646412242	Patiala
+27	Job	Singh Saab	p:9646314193	Amrisar
+21	Student	ਜੋਤ	p:+917814877537	Ropar
+17	Zmsl	laddi.ramgarhia__	p:+918968159733	Ramgarh Punjab
+33	medical anesthesia technician	Gurpreet Singh	p:+919501389941	Doraha disst ludhiana
+23	Computer	Ranjeet Dhiman	p:+919463812976	Amloh
+22	Free	Akash_Brar	p:+919501159116	Fazilka
+30	Suit stitching	Mandeep Kaur	p:+916284715416	Patti
+26	Driving	Baidwan Lovepreet	p:+917087617441	Mohali
+40	property consultant and building matirial suply	sukhwinder singh	p:+919878495190	Mohali
+50	50	Gurmukh SIngh	p:+919463822652	Rupnagar
+55	ਸਕੂਲ ਵੈਨ ਡਰਾਈਵਰ	Avtar Singh Sohi	p:+919781698680	Bagrian
+35	privte job	Jagjeet Singh	p:+919592267701	ludihana
+52	free	Kulwinder Singh	p:+919815541615	Bathinda
+56	medical	Randhir Singh	p:+917355475740	barnala
+43	Private job	Sukhraj Singh	p:8968402986	Jalandhar
+36	Banking	Sandeep	p:9914168031	Bhuchomandi
+22	Student	Jasman Dadwal	p:+917717475889	Amritsar
+48	House wife	deep kaur	p:+919877390834	Ludhiana
+21	+2	gursewak parjapat	p:+919464331519	Chandigarh
+60	duty	guljar singh	p:+919257049500	ludhiana
+21	Bba in2nd year	أرجون الخيشوم	p:8198849787	Moga
+42	bussiness	Sukhpal Singh Rana	p:+919592294500	Khem Karan
+22	Yes	crying_circle	p:+916284540806	Mansa
+19	Driving	Arshdeep Sandhu	p:+916280909421	Sandhu Khurd
+29	Security guard	Singh Sukhwinder	p:+916239821842	Ludhiana
+24	Costmtolgi	KOMALARIYAN	p:+919501251436	Malerkotla
+45	ਦੁਕਾਨਦਾਰੀ	Avtar Bhangu	p:+919876774808	Samrala
+Jaswinder Singh	Student	⎝⎝✧Babbu✧⎠⎠	p:+917710364492	Patran dist patiala
+41	Agriculture	Gurmeet Singh Sandhu	p:+919888962704	Muktsar
+34	Computer	sukhmander Singh	p:+919041264125	Bathinda
+34	Job	Sawan Singh Badyal	p:+919464069278	Ludhiana
+22	It	Manshu Gambhir	p:+919817372010	Ambala
+40	govt job	Gurpreet	p:+918872868500	Amritsar

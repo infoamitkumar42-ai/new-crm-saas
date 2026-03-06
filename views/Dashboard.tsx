@@ -102,7 +102,7 @@ export const Dashboard = () => {
 
       // 2. Fetch Allocation (All Active Users)
       const { data: activeUsers } = await supabase.from('users')
-        .select('*').eq('payment_status', 'active');
+        .select('*').eq('payment_status', 'active').eq('is_active', true);
 
       const distribution = activeUsers?.map(u => ({
         id: u.id, name: u.name, email: u.email, plan_name: u.plan_name,

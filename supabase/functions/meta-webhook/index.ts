@@ -223,7 +223,7 @@ serve(async (req) => {
                     let rpcError: any = null;
 
                     // FORCE MANUAL DISTRIBUTION (User Request 2026-02-19)
-                    const MANUALLY_DISTRIBUTE = true;
+                    const MANUALLY_DISTRIBUTE = false;
 
                     if (MANUALLY_DISTRIBUTE) {
                         console.log(`🛑 DISTRIBUTION HALTED: Saving Lead ${name} as ORPHAN.`);
@@ -335,12 +335,41 @@ serve(async (req) => {
                     }
 
                     // Increment user's leads_today for dashboard
-                    await supabase.rpc('exec_sql', {
-                        sql_query: `UPDATE users SET leads_today = leads_today + 1 WHERE id = '${finalUserId}'`
-                    }).catch(() => { });
+                    try {
+                        await supabase.rpc('exec_sql', {
+                            sql_query: `UPDATE users SET leads_today = leads_today + 1 WHERE id = '${finalUserId}'`
+                        });
+                    } catch (_) { }
 
                     leadsAssigned++;
                     console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);
+
+                    // 🔔 SEND PUSH NOTIFICATION TO USER
+                    try {
+                        const notificationPayload = {
+                            user_id: targetUser.user_id || targetUser.out_user_id,
+                            lead_name: name || 'New Lead',
+                            lead_phone: phone || '',
+                            title: '🎉 Naya Lead Aaya!',
+                            body: `${name || 'New Lead'} - ${phone || 'Check Dashboard'}`,
+                            type: 'new_lead'
+                        };
+
+                        // Call the send-push-notification edge function
+                        const { error: notifError } = await supabase.functions.invoke(
+                            'send-push-notification',
+                            { body: notificationPayload }
+                        );
+
+                        if (notifError) {
+                            console.log('⚠️ Push notification failed (non-critical):', notifError.message);
+                        } else {
+                            console.log('🔔 Push notification sent to user');
+                        }
+                    } catch (notifErr) {
+                        // Non-critical - don't fail the webhook if notification fails
+                        console.log('⚠️ Notification error (ignored):', notifErr);
+                    }
                 }
             }
 
