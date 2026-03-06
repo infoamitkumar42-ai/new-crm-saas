@@ -343,7 +343,14 @@ function App() {
         console.log('🔄 Service Worker Updated (Silent)');
       });
     };
-    cleanupServiceWorkers();
+
+    // 🔧 SMART SERVICE WORKER CLEANUP
+    // Only cleanup on version change or explicit user action
+    // NOT on every load - this breaks push notifications!
+    if (import.meta.env.DEV) {
+      // Only in development - never in production!
+      cleanupServiceWorkers();
+    }
   }, []);
 
   if (!ENV.SUPABASE_URL || ENV.SUPABASE_URL === '' || !ENV.SUPABASE_URL.includes('http')) {
