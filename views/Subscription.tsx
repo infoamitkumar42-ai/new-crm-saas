@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '../supabaseClient';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
@@ -349,6 +350,10 @@ const currentPlans = plans[activeTab];
 
 return (
   <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">
+    <Helmet>
+      <title>Pricing Plans - LeadFlow CRM</title>
+      <meta name="description" content="Choose the right plan for your sales team. Start distributing Facebook leads automatically. Plans start at ₹999." />
+    </Helmet>
     <div className="h-full w-full overflow-y-auto">
 
       {/* ━━━ Simplified Background (No Heavy Blurs) ━━━ */}

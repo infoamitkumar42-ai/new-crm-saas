@@ -1,6 +1,7 @@
 // src/views/Auth.tsx
 
 import React, { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
 import { logEvent } from "../supabaseClient";
@@ -274,6 +275,10 @@ export const Auth: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
+      <Helmet>
+        <title>{mode === "signup" ? "Register - LeadFlow CRM | Join Your Sales Team" : "Login - LeadFlow CRM"}</title>
+        <meta name="description" content={mode === "signup" ? "Join LeadFlow CRM and start receiving Facebook leads automatically." : "Login to your LeadFlow CRM account."} />
+      </Helmet>
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
 
         {/* Header */}

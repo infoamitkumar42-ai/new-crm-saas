@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import {
   CheckCircle, Zap, Shield, ArrowRight,
   Star, Lock, X, Menu,
@@ -130,6 +131,12 @@ export const Landing = () => {
 
   return (
     <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
+      <Helmet>
+        <title>LeadFlow CRM - Facebook Lead Distribution System India</title>
+        <meta name="description" content="Automatically distribute Facebook leads to 260+ sales professionals. Best CRM for MLM, Forever Living, network marketing teams in India." />
+        <meta property="og:title" content="LeadFlow CRM - Facebook Lead Distribution System India" />
+        <meta property="og:description" content="Automatically distribute Facebook leads to 260+ sales professionals. Best CRM for MLM, Forever Living, network marketing teams in India." />
+      </Helmet>
 
       <div
         className="fixed top-0 left-0 h-1 bg-gradient-to-r from-blue-600 to-purple-600 z-[60] transition-all duration-300"

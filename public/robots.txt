@@ -3,4 +3,14 @@ Allow: /
 Disallow: /dashboard
 Disallow: /admin
 Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
 Sitemap: https://www.leadflowcrm.in/sitemap.xml

@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './auth/useAuth';
@@ -92,8 +93,10 @@ window.addEventListener('unhandledrejection', (event) => {
 
 root.render(
   // <React.StrictMode>  <-- REMOVED TO PREVENT DOUBLE-FETCH / ABORT LOOPS
-  <AuthProvider>
-    <App />
-  </AuthProvider>
+  <HelmetProvider>
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </HelmetProvider>
   // </React.StrictMode>
 );
