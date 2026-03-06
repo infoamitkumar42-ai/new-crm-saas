@@ -17,11 +17,11 @@ const PLAN_CONFIG: Record<string, {
   weight: number;
   maxReplacements: number;
 }> = {
-  starter: { price: 999, duration: 10, dailyLeads: 5, totalLeads: 50, weight: 1, maxReplacements: 5 },
-  supervisor: { price: 1999, duration: 15, dailyLeads: 7, totalLeads: 105, weight: 3, maxReplacements: 10 },
-  manager: { price: 2999, duration: 20, dailyLeads: 8, totalLeads: 160, weight: 5, maxReplacements: 16 },
-  weekly_boost: { price: 1999, duration: 7, dailyLeads: 12, totalLeads: 84, weight: 7, maxReplacements: 8 },
-  turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 98, weight: 9, maxReplacements: 10 }
+  starter: { price: 999, duration: 10, dailyLeads: 5, totalLeads: 55, weight: 1, maxReplacements: 5 },
+  supervisor: { price: 1999, duration: 15, dailyLeads: 7, totalLeads: 115, weight: 3, maxReplacements: 10 },
+  manager: { price: 2999, duration: 20, dailyLeads: 8, totalLeads: 176, weight: 5, maxReplacements: 16 },
+  weekly_boost: { price: 1999, duration: 7, dailyLeads: 12, totalLeads: 92, weight: 7, maxReplacements: 8 },
+  turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 10 }
 };
 
 export default async function handler(req: any, res: any) {
@@ -144,12 +144,9 @@ export default async function handler(req: any, res: any) {
 
       const currentPromised = userData?.total_leads_promised || 0;
 
-      // 2. Base Quota Calculation (Forgive overage, carry forward unused)
-      // If user received MORE than promised (glitch), we start fresh from that count.
-      // If user received LESS (pending), we keep the higher promised number.
-      const baseQuota = Math.max(currentPromised, realLeadsCount || 0);
-
-      const newTotalLeadsPromised = baseQuota + config.totalLeads;
+      // 2. FRESH START — Reset quota on every renewal
+      // User pays for new plan = fresh quota, no carry forward
+      const newTotalLeadsPromised = config.totalLeads;
 
       // 3. Infinite Validity (2099)
       const infiniteValidity = '2099-01-01T00:00:00.000Z'; // Never expire by date
@@ -160,16 +157,18 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           plan_name: normalizedPlan,
           payment_status: 'active',
-          daily_limit: isRenewal ? config.dailyLeads : 0,
-          total_leads_promised: newTotalLeadsPromised,   // ✅ SYNCED & ADDED
-          total_leads_received: realLeadsCount,          // ✅ CORRECTS DB IF WRONG
+          is_active: true,                               // ✅ ADD THIS
+          daily_limit: config.dailyLeads,                // ✅ CHANGED (was conditional)
+          total_leads_promised: newTotalLeadsPromised,   // ✅ RESET (not ADD)
+          total_leads_received: 0,                       // ✅ RESET to 0
           plan_weight: config.weight,
           max_replacements: config.maxReplacements,
-          valid_until: infiniteValidity,                 // ✅ INFINITE VALIDITY
+          valid_until: infiniteValidity,
           leads_today: 0,
           plan_start_date: now.toISOString(),
           plan_activation_time: isRenewal ? null : activationTime.toISOString(),
           is_plan_pending: isRenewal ? false : true,
+          is_online: true,                               // ✅ ADD THIS — user online on payment
           updated_at: now.toISOString()
         })
       });
