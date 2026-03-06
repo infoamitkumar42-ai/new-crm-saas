@@ -662,7 +662,7 @@ export const Landing = () => {
               <div key={i} className="w-[300px] md:w-[400px] mx-4 flex-shrink-0">
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
                   <div className="flex items-center gap-4 mb-4">
-                    <img src={t.image} alt={t.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                    <img src={t.image} alt={t.name} width="56" height="56" loading="lazy" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
                     <div>
                       <p className="font-bold text-slate-900">{t.name}</p>
                       <p className="text-xs font-bold text-blue-600 uppercase bg-blue-100 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
@@ -832,7 +832,7 @@ export const Landing = () => {
             Ready to Get Daily Fresh Leads?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join 500+ agents who are growing their business with LeadFlow
+            Join 50+ managers who are growing their teams with LeadFlow
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
