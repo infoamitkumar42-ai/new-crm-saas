@@ -100,3 +100,5 @@ root.render(
   </HelmetProvider>
   // </React.StrictMode>
 );
+
+document.getElementById('app-loader')?.remove();

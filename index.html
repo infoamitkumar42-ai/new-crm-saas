@@ -139,7 +139,9 @@
 <body class="bg-slate-50 text-slate-900 antialiased">
   <div id="root">
     <!-- SEO: Static content for search engine crawlers. React replaces this on load. -->
-    <div id="seo-fallback" style="font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:40px 20px;">
+    <div id="seo-fallback"
+      style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;"
+      aria-hidden="true">
       <header style="text-align:center;margin-bottom:40px;">
         <h1 style="font-size:2em;color:#1e293b;">LeadFlow CRM — Facebook Lead Distribution System for India</h1>
         <p style="font-size:1.1em;color:#475569;">Automatically distribute Facebook leads to your sales team instantly.
@@ -212,6 +214,37 @@
       </footer>
     </div>
   </div>
+
+  <div id="app-loader" style="
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    background:#fff;
+    font-family:sans-serif;
+  ">
+    <div style="text-align:center">
+      <div style="
+        width:48px;height:48px;
+        border:4px solid #e2e8f0;
+        border-top:4px solid #2563eb;
+        border-radius:50%;
+        animation:spin 0.8s linear infinite;
+        margin:0 auto 16px;
+      "></div>
+      <p style="color:#64748b;font-size:14px;
+      font-weight:600;">LeadFlow CRM</p>
+    </div>
+  </div>
+
+  <style>
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+
   <script type="module" src="/index.tsx"></script>
 </body>
 
