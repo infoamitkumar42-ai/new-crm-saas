@@ -510,8 +510,7 @@ export const MemberDashboard = () => {
 
       // 🔥 BACKGROUND TASK: Update last activity AND online status without blocking UI
       supabase.from('users').update({
-        last_activity: new Date().toISOString(),
-        is_online: true // 🚀 FORCE ONLINE: If user is on dashboard, they ARE online!
+        last_activity: new Date().toISOString()
       }).eq('id', userId).then(() => { });
 
     } catch (error: any) {
