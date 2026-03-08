@@ -412,7 +412,7 @@ export const MemberDashboard = () => {
 
   // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
-  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at';
+  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to';
 
   const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
