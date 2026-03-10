@@ -2,6 +2,7 @@
  * ╔════════════════════════════════════════════════════════════╗
  * ║  🔒 LOCKED - Edge Function: send-push-notification         ║
  * ║  Status: PRODUCTION READY (Fast Mode)                      ║
+ * ║  v1.1: Fixed user_id snake_case matching                   ║
  * ║  Logic: Lead Aayi -> Turant Ghanti Bajao 🔔                ║
  * ╚════════════════════════════════════════════════════════════╝
  */
@@ -66,8 +67,9 @@ serve(async (req) => {
       title = "🔥 New Lead Alert!";
       body = `👤 ${record.name || "Unknown"} | 📍 ${record.city || "Online"}\nTap to check details.`;
       data = { url: "/leads", leadId: record.id };
-    } else if (payload.userId) {
-      userId = payload.userId;
+    // ✅ FIX: Added payload.user_id check (meta-webhook sends snake_case)
+    } else if (payload.userId || payload.user_id) {
+      userId = payload.userId || payload.user_id;
       title = payload.title || title;
       body = payload.body || body;
     }
