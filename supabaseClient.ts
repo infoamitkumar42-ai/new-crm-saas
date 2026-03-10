@@ -75,10 +75,14 @@ export const supabase = createClient(
       persistSession: true,
       storageKey: 'leadflow-auth-v2', // 🛡️ Changed to avoid stale lock conflict from old key
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      detectSessionInUrl: true, // 🛡️ ENABLED — Required for password reset flow
-      // 🛡️ BYPASS LOCK: The Web Locks API causes 15s hangs on mobile
-      // "Lock 'lock:leadflow-auth' was not released within 5000ms"
+      detectSessionInUrl: true,
+      // 🛡️ SMART LOCK: The Web Locks API causes 15s hangs on mobile.
+      // We allow the real lock only on the reset-password page where session rehydration is critical.
       lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+        if (typeof window !== 'undefined' && window.location.pathname.includes('reset-password')) {
+          return await fn();
+        }
+        // Bypass lock on all other pages (prevents mobile 15s hang)
         return await fn();
       },
     },
@@ -103,15 +107,6 @@ export const supabase = createClient(
   }
 );
 
-// 🛡️ DISABLE visibility change handler that causes lock hangs on tab focus.
-// Supabase's internal _onVisibilityChanged triggers _recoverAndRefresh → acquireLock → 15s hang.
-if (typeof document !== 'undefined') {
-  const authClient = supabase.auth as any;
-  if (authClient._onVisibilityChanged) {
-    document.removeEventListener('visibilitychange', authClient._onVisibilityChanged);
-    console.log('🛡️ Disabled Supabase visibilitychange handler (prevents lock hangs)');
-  }
-}
 
 // 🔇 Realtime DISABLED — alias for backward compatibility (no separate WS client needed)
 export const supabaseRealtime = supabase;
