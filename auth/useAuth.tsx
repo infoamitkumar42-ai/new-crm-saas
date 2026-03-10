@@ -1,14 +1,13 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v6.3 (ANTI-CASCADE)              ║
+ * ║  🔒 LOCKED - useAuth.tsx v6.4 (LOOP FIX)                  ║
  * ║  Locked Date: March 10, 2026                              ║
  * ║  Status: STABLE                                           ║
  * ║                                                            ║
- * ║  Changes from v6.2:                                        ║
- * ║  - ✅ Cooldown system — prevents duplicate fetch cycles    ║
- * ║  - ✅ SIGNED_IN skip — no re-fetch if profile loaded      ║
- * ║  - ✅ Visibility handler — smart reconnect on app resume  ║
- * ║  - ✅ Lock recovery guard — stops cascade loop            ║
+ * ║  Changes from v6.3:                                        ║
+ * ║  - ✅ FIXED infinite loop (profileRef vs profile dep)      ║
+ * ║  - ✅ initializeAuth runs only ONCE                        ║
+ * ║  - ✅ SIGNED_IN uses ref instead of state                  ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -125,10 +124,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loadingProfileFor = useRef<string | null>(null);
   const profileFailCount = useRef(0);
   const isRefreshing = useRef(false);
-
-  // ✅ NEW v6.3: Cooldown system to prevent duplicate fetch cycles
   const lastProfileAttemptRef = useRef<number>(0);
-  const PROFILE_COOLDOWN_MS = 30000; // 30 seconds cooldown between fetch attempts
+  const PROFILE_COOLDOWN_MS = 30000;
+
+  // ✅ FIX v6.4: Use ref to track profile without causing dependency loops
+  const profileRef = useRef<User | null>(profile);
+  const hasInitializedRef = useRef(false); // ✅ FIX v6.4: Prevent double init
+
+  // ✅ FIX v6.4: Keep profileRef in sync with profile state
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const isAuthenticated = !!session && !!profile;
 
@@ -315,14 +321,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // ✅ FIX v6.4: Uses profileRef.current instead of profile state dependency
   const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
     if (!mountedRef.current) return;
 
     const MAX_RETRIES = 1;
 
-    // ✅ NEW v6.3: Cooldown check — prevent duplicate fetch cycles
+    // Cooldown check — uses REF instead of state to avoid dependency loop
     const timeSinceLastAttempt = Date.now() - lastProfileAttemptRef.current;
-    if (timeSinceLastAttempt < PROFILE_COOLDOWN_MS && profile && retryCount === 0) {
+    if (timeSinceLastAttempt < PROFILE_COOLDOWN_MS && profileRef.current && retryCount === 0) {
       console.log(`⏸️ Profile fetch cooldown active (${Math.round(timeSinceLastAttempt / 1000)}s ago). Using existing profile.`);
       setLoading(false);
       return;
@@ -349,7 +356,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       if (retryCount === 0) {
         loadingProfileFor.current = user.id;
-        lastProfileAttemptRef.current = Date.now(); // ✅ NEW v6.3: Record attempt time
+        lastProfileAttemptRef.current = Date.now();
       }
 
       let userProfile = await fetchProfile(user.id);
@@ -397,12 +404,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-  }, [fetchProfile, profile]); // ✅ NEW v6.3: Added 'profile' dependency for cooldown check
+  }, [fetchProfile]); // ✅ FIX v6.4: Removed 'profile' from dependencies
 
   const refreshProfile = useCallback(async () => {
     if (isRefreshing.current || profileFailCount.current >= 3 || !session?.user) return;
 
-    // ✅ NEW v6.3: Cooldown check for refreshProfile too
     const timeSinceLastAttempt = Date.now() - lastProfileAttemptRef.current;
     if (timeSinceLastAttempt < PROFILE_COOLDOWN_MS) {
       console.log(`⏸️ Refresh cooldown active (${Math.round(timeSinceLastAttempt / 1000)}s ago). Skipping.`);
@@ -410,7 +416,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     isRefreshing.current = true;
-    lastProfileAttemptRef.current = Date.now(); // ✅ Record attempt time
+    lastProfileAttemptRef.current = Date.now();
     try {
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
@@ -442,6 +448,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
+      // ✅ FIX v6.4: Prevent double initialization
+      if (hasInitializedRef.current) {
+        console.log('⏭️ Auth already initialized. Skipping duplicate init.');
+        return;
+      }
+      hasInitializedRef.current = true;
+
       if (window.location.search.includes('reset=done')) {
         console.warn("☢️ Reset parameter detected. Purging local state...");
         localStorage.clear();
@@ -535,17 +548,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (newSession?.user) {
           setSession(newSession);
 
-          // ✅ NEW v6.3: Skip profile re-fetch if already loaded for this user
-          if (profile && profile.id === newSession.user.id) {
-            console.log('⚡ Profile already loaded for this user. Skipping re-fetch on SIGNED_IN (lock recovery).');
+          // ✅ FIX v6.4: Use profileRef.current instead of profile state
+          if (profileRef.current && profileRef.current.id === newSession.user.id) {
+            console.log('⚡ Profile already loaded for this user. Skipping re-fetch on SIGNED_IN.');
             setLoading(false);
-            // Background refresh only if cooldown allows
             const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
             if (timeSinceLast > PROFILE_COOLDOWN_MS) {
               refreshProfile();
             }
           } else {
-            if (!profile) setLoading(true);
+            if (!profileRef.current) setLoading(true);
             await loadUserProfile(newSession.user);
             if (mountedRef.current) {
               setLoading(false);
@@ -563,15 +575,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(null);
         setProfile(null);
         setLoading(false);
-        lastProfileAttemptRef.current = 0; // ✅ Reset cooldown on logout
+        lastProfileAttemptRef.current = 0;
+        hasInitializedRef.current = false; // ✅ Allow re-init after logout
         localStorage.removeItem('leadflow-profile-cache');
       }
 
       if (event === 'TOKEN_REFRESHED' && newSession) {
         setSession(newSession);
-        // ✅ NEW v6.3: On token refresh, do a background profile refresh (with cooldown)
         const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
-        if (timeSinceLast > PROFILE_COOLDOWN_MS && profile) {
+        if (timeSinceLast > PROFILE_COOLDOWN_MS && profileRef.current) {
           refreshProfile();
         }
       }
@@ -600,32 +612,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearTimeout(emergencyRelease);
   }, [loading, isInitialized]);
 
-  // ✅ NEW v6.3: Smart Visibility Change Handler
-  // When user switches back to app/tab, don't re-fetch immediately
+  // Smart Visibility Change Handler
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && session?.user && profile) {
-        console.log('👁️ App resumed — checking if profile refresh needed...');
-
+      if (document.visibilityState === 'visible' && session?.user && profileRef.current) {
         const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
-        const cachedStr = localStorage.getItem('leadflow-profile-cache');
-        const cached = cachedStr ? JSON.parse(cachedStr) : null;
 
         if (timeSinceLast > 5 * 60 * 1000) {
-          // 5+ minutes since last fetch — refresh in background
           console.log('🔄 Profile stale (5+ min). Background refresh...');
           refreshProfile();
-        } else if (cached && isCacheFresh(cached)) {
-          console.log('✅ Profile cache is fresh. No refresh needed.');
-        } else {
-          console.log(`⏸️ Profile fetched ${Math.round(timeSinceLast / 1000)}s ago. Cooldown active.`);
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [session?.user?.id, profile, refreshProfile]);
+  }, [session?.user?.id, refreshProfile]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -771,9 +773,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     setLoading(true);
 
-    // ✅ NEW v6.3: Reset cooldown on fresh login
     lastProfileAttemptRef.current = 0;
     profileFailCount.current = 0;
+    hasInitializedRef.current = false; // ✅ Allow fresh init on login
 
     const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
@@ -839,7 +841,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setProfile(null);
     setLoading(false);
-    lastProfileAttemptRef.current = 0; // ✅ Reset cooldown
+    lastProfileAttemptRef.current = 0;
+    hasInitializedRef.current = false;
 
     try {
       await supabase.auth.signOut();
