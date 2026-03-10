@@ -7,7 +7,7 @@ import { Loader2, CheckCircle, XCircle, KeyRound, Eye, EyeOff, AlertTriangle } f
 
 export const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,15 +17,21 @@ export const ResetPassword: React.FC = () => {
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // SET UP LISTENER FIRST — before any async calls
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setIsValidSession(true);
+      }
+    });
+
     const checkSession = async () => {
       try {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
-        
+
         const error = hashParams.get('error') || queryParams.get('error');
-        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
-        
         if (error) {
+          const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
           setError(errorDescription?.replace(/\+/g, ' ') || "Invalid or expired reset link");
           setIsValidSession(false);
           return;
@@ -40,13 +46,12 @@ export const ResetPassword: React.FC = () => {
             access_token: accessToken,
             refresh_token: refreshToken || '',
           });
-
           if (sessionError) {
+            console.error('setSession error:', sessionError);
             setError("Invalid or expired reset link. Please request a new one.");
             setIsValidSession(false);
             return;
           }
-
           if (data.session) {
             setIsValidSession(true);
             window.history.replaceState(null, '', window.location.pathname);
@@ -55,27 +60,20 @@ export const ResetPassword: React.FC = () => {
         }
 
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session) {
           setIsValidSession(true);
         } else {
           setError("Invalid or expired reset link. Please request a new one.");
           setIsValidSession(false);
         }
-
       } catch (err) {
+        console.error('checkSession error:', err);
         setError("Something went wrong. Please try again.");
         setIsValidSession(false);
       }
     };
 
     checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsValidSession(true);
-      }
-    });
 
     return () => {
       subscription.unsubscribe();
@@ -99,14 +97,14 @@ export const ResetPassword: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({ 
-        password: password 
+      const { error } = await supabase.auth.updateUser({
+        password: password
       });
 
       if (error) throw error;
 
       setSuccess(true);
-      
+
       setTimeout(() => {
         navigate('/login');
       }, 3000);
@@ -171,7 +169,7 @@ export const ResetPassword: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-        
+
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <KeyRound size={32} className="text-blue-600" />
@@ -185,7 +183,7 @@ export const ResetPassword: React.FC = () => {
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-          
+
           {error && (
             <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
               <XCircle size={18} />
@@ -199,7 +197,7 @@ export const ResetPassword: React.FC = () => {
             </label>
             <div className="relative">
               <KeyRound className="absolute left-3 top-3 text-slate-400" size={18} />
-              <input 
+              <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -225,17 +223,16 @@ export const ResetPassword: React.FC = () => {
             </label>
             <div className="relative">
               <KeyRound className="absolute left-3 top-3 text-slate-400" size={18} />
-              <input 
+              <input
                 type={showPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                className={`w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 outline-none transition-all ${
-                  confirmPassword && password !== confirmPassword 
-                    ? 'border-red-500 focus:ring-red-500' 
+                className={`w-full border px-4 py-3 pl-10 rounded-lg focus:ring-2 outline-none transition-all ${confirmPassword && password !== confirmPassword
+                    ? 'border-red-500 focus:ring-red-500'
                     : confirmPassword && password === confirmPassword
-                    ? 'border-green-500 focus:ring-green-500'
-                    : 'focus:ring-blue-500'
-                }`}
+                      ? 'border-green-500 focus:ring-green-500'
+                      : 'focus:ring-blue-500'
+                  }`}
                 placeholder="••••••••"
                 required
               />
@@ -251,8 +248,8 @@ export const ResetPassword: React.FC = () => {
             )}
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading || !password || !confirmPassword || password !== confirmPassword}
             className="w-full font-bold py-3.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700"
           >
@@ -268,7 +265,7 @@ export const ResetPassword: React.FC = () => {
         </form>
 
         <div className="mt-6 text-center">
-          <button 
+          <button
             onClick={() => navigate('/login')}
             className="text-sm text-slate-500 hover:text-slate-700"
           >
