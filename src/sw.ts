@@ -3,15 +3,15 @@
 declare const self: ServiceWorkerGlobalScope;
 
 // ╔════════════════════════════════════════════════════════════╗
-// ║  🚀 LeadFlow CRM Service Worker v5.0 (MINIMAL)            ║
+// ║  🚀 LeadFlow CRM Service Worker v5.1 (NOTIFICATION FIX)   ║
 // ║  ZERO caching. ZERO fetch interception.                    ║
 // ║  Only: Push Notifications + Notification Click             ║
 // ║                                                            ║
-// ║  WHY: Workbox precacheAndRoute was silently swallowing      ║
-// ║  ALL auth/API requests to api.leadflowcrm.in, causing      ║
-// ║  15s timeouts and profile fetch failures on page refresh.   ║
-// ║  No amount of bypass logic survives Workbox's internal      ║
-// ║  fetch handler registration.                                ║
+// ║  v5.1 Changes:                                             ║
+// ║  - ✅ Fixed URL routing from edge function payload          ║
+// ║  - ✅ requireInteraction: notification stays on screen      ║
+// ║  - ✅ renotify: no missed duplicate notifications           ║
+// ║  - ✅ Full URL construction for notificationclick           ║
 // ╚════════════════════════════════════════════════════════════╝
 
 // 1. Install & Activate — take control immediately
@@ -49,11 +49,14 @@ self.addEventListener('push', (event) => {
             icon: '/icon-192x192.png',
             badge: '/icon-192x192.png',
             vibrate: [200, 100, 200],
+            tag: payload.tag || 'leadflow-notification',
+            renotify: true,
+            requireInteraction: true,
             data: {
-                url: payload.url || '/'
+                url: payload.data?.url || payload.url || '/'
             },
             actions: [
-                { action: 'open', title: 'View Dashboard' }
+                { action: 'open', title: 'View Lead' }
             ]
         };
 
@@ -75,15 +78,21 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const urlToOpen = event.notification.data?.url || '/';
+    const targetPath = event.notification.data?.url || '/';
+    const baseUrl = self.location.origin;
+    const urlToOpen = targetPath.startsWith('http') ? targetPath : baseUrl + targetPath;
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // Check if app is already open
             for (const client of windowClients) {
-                if (client.url === urlToOpen && 'focus' in client) {
+                if (client.url.includes(baseUrl) && 'focus' in client) {
+                    // App open hai — navigate + focus
+                    (client as any).navigate(urlToOpen);
                     return (client as any).focus();
                 }
             }
+            // App band hai — naya window kholo
             if (self.clients.openWindow) {
                 return self.clients.openWindow(urlToOpen);
             }
