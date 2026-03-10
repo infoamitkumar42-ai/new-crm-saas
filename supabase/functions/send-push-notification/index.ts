@@ -67,7 +67,10 @@ serve(async (req) => {
       title = "🔥 New Lead Alert!";
       body = `👤 ${record.name || "Unknown"} | 📍 ${record.city || "Online"}\nTap to check details.`;
       data = { url: "/leads", leadId: record.id };
+<<<<<<< Updated upstream
     // ✅ FIX: Added payload.user_id check (meta-webhook sends snake_case)
+=======
+>>>>>>> Stashed changes
     } else if (payload.userId || payload.user_id) {
       userId = payload.userId || payload.user_id;
       title = payload.title || title;

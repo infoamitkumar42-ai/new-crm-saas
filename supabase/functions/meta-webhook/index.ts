@@ -334,12 +334,15 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // Increment user's leads_today for dashboard
+                    // Increment user's leads_today AND total_leads_received
                     try {
-                        await supabase.rpc('exec_sql', {
-                            sql_query: `UPDATE users SET leads_today = leads_today + 1 WHERE id = '${finalUserId}'`
+                        await supabase.rpc('increment_user_lead_counters', {
+                            p_user_id: finalUserId
                         });
-                    } catch (_) { }
+                        console.log('📊 Counters incremented for user:', finalUserId);
+                    } catch (counterErr) {
+                        console.error('⚠️ Counter increment failed (non-critical):', counterErr);
+                    }
 
                     leadsAssigned++;
                     console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);
