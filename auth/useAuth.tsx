@@ -1,14 +1,15 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v6.1 (FIXED)                      ║
- * ║  Locked Date: January 6, 2025                              ║
- * ║  Status: STABLE - FIXED 400 ERROR                          ║
+ * ║  🔒 LOCKED - useAuth.tsx v6.2 (PERFORMANCE)               ║
+ * ║  Locked Date: March 10, 2026                              ║
+ * ║  Status: STABLE - NETWORK-AWARE + CACHE TIMESTAMP         ║
  * ║                                                            ║
- * ║  Features:                                                 ║
- * ║  - ✅ Removed Invalid 't' Parameter (Fixes 400 Error)      ║
- * ║  - ✅ Strict Cache-Control Headers                         ║
- * ║  - ✅ Auto-Refresh Timer                                   ║
- * ║  - ✅ Session Persistence                                  ║
+ * ║  Changes from v6.1:                                        ║
+ * ║  - ✅ Network-aware dynamic timeout (15s-45s)              ║
+ * ║  - ✅ Stale cache fallback on network failure              ║
+ * ║  - ✅ Cache timestamp tracking (_cachedAt)                 ║
+ * ║  - ✅ Enhanced Sentry tags (network_type, rtt)             ║
+ * ║  - ✅ Offline detection before retry                       ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -28,6 +29,59 @@ import { User } from "../types";
 import { ENV } from "../config/env";
 
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzq4iBT3_Cdcj2OO8XY8B5IXNSIHa0AJdYYTGCx1lGJFPbVt1RmDvF5gel0JD-12TDI/exec";
+
+// ═══════════════════════════════════════════════════════════
+// 🌐 NETWORK-AWARE UTILITIES (Added for Sentry Timeout Fix)
+// ═══════════════════════════════════════════════════════════
+
+/** Get current network info for Sentry debugging */
+const getNetworkInfo = () => {
+  const conn = (navigator as any).connection;
+  return {
+    online: navigator.onLine,
+    type: conn?.effectiveType || 'unknown',
+    downlink: conn?.downlink || 'unknown',
+    rtt: conn?.rtt || 'unknown',
+    saveData: conn?.saveData || false,
+  };
+};
+
+/** Dynamic timeout based on network quality */
+const getTimeoutForNetwork = (): number => {
+  const conn = (navigator as any).connection;
+  const type = conn?.effectiveType;
+  switch (type) {
+    case 'slow-2g':
+    case '2g':
+      return 45000;
+    case '3g':
+      return 30000;
+    case '4g':
+      return 15000;
+    default:
+      return 20000; // iPhone Safari doesn't expose connection API
+  }
+};
+
+/** Write profile to cache with timestamp */
+const writeProfileCache = (userId: string, data: any) => {
+  try {
+    const cacheEntry = {
+      ...data,
+      _cachedAt: Date.now(),
+    };
+    localStorage.setItem('leadflow-profile-cache', JSON.stringify(cacheEntry));
+  } catch {
+    // localStorage full or unavailable — silent fail
+  }
+};
+
+/** Check if cached profile is fresh (< 10 min old) */
+const isCacheFresh = (cachedProfile: any): boolean => {
+  if (!cachedProfile?._cachedAt) return false;
+  const age = Date.now() - cachedProfile._cachedAt;
+  return age < 10 * 60 * 1000;
+};
 
 interface AuthContextValue {
   session: Session | null;
@@ -59,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const cachedStr = localStorage.getItem('leadflow-profile-cache');
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr);
-        // 🧹 PURGE LEGACY DUMMY PROFILE: If the cache contains the forced fallback from earlier, delete it!
+        // 🧹 PURGE LEGACY DUMMY PROFILE
         if (parsed && parsed.daily_limit === 0 && parsed.leads_today === 0 && parsed.total_leads_received === 0 && parsed.payment_status === 'inactive') {
           console.warn("🧹 Wiping legacy dummy profile from cache to force live DB fetch!");
           localStorage.removeItem('leadflow-profile-cache');
@@ -71,26 +125,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { return null; }
   });
 
-  // ⚠️ CRITICAL FIX: Distinguish between "data loading" and "initial boot"
   const [isInitialized, setIsInitialized] = useState(false);
-  const [loading, setLoading] = useState(true); // Always start loading to protect routes
+  const [loading, setLoading] = useState(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
 
   const mountedRef = useRef(true);
   const processingSignIn = useRef(false);
-  const loadingProfileFor = useRef<string | null>(null); // 🔥 Prevents parallel loads
-  const profileFailCount = useRef(0); // 🛡️ Circuit breaker: stops retries after 3 consecutive failures
-  const isRefreshing = useRef(false); // 🛡️ Prevents parallel refreshProfile calls
+  const loadingProfileFor = useRef<string | null>(null);
+  const profileFailCount = useRef(0);
+  const isRefreshing = useRef(false);
 
   const isAuthenticated = !!session && !!profile;
 
-  // 🛡️ SAFE getSession wrapper — prevents indefinite hang on slow/unstable mobile networks
+  // 🛡️ SAFE getSession wrapper
   const getSessionSafe = useCallback(async () => {
     try {
       const result = await Promise.race([
         supabase.auth.getSession(),
         new Promise<never>((_, reject) =>
-          // 🚀 BALANCED TIMEOUT: 15s for slow mobile networks.
           setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 15000)
         )
       ]);
@@ -99,9 +151,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (err.message === 'SESSION_TIMEOUT') {
         console.warn('⚡ getSession() timed out after 15s — Attempting localStorage fallback...');
 
-        // 🛡️ LOCALSTORAGE FALLBACK: Try to recover session from storage to prevent logout
         const storageKey = 'leadflow-auth-v2';
-        const rawSession = localStorage.getItem(storageKey) || localStorage.getItem('leadflow-auth'); // Fallback to old key
+        const rawSession = localStorage.getItem(storageKey) || localStorage.getItem('leadflow-auth');
 
         if (rawSession) {
           try {
@@ -115,36 +166,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
 
-        // 🔥 CRITICAL: Clean up dangling web sockets that might be starving the connection pool
         supabase.removeAllChannels();
         supabaseRealtime.removeAllChannels();
       }
-      // Return a special error instead of null to prevent accidental logout
       return { data: { session: null }, error: err };
     }
   }, []);
 
+  // ═══════════════════════════════════════════════════════════
+  // 🔥 fetchProfile v6.2 — Network-Aware + Stale Cache Fallback
+  // ═══════════════════════════════════════════════════════════
   const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
-      // 1. Define Timeout Promise
-      // 🚀 ADJUSTED TIMEOUT: 30s (Increased for slower mobile data)
+      // ✅ Check if user is offline before wasting a request
+      if (!navigator.onLine && retryCount > 0) {
+        console.warn('📴 User offline — skipping retry, checking stale cache...');
+        const staleCache = localStorage.getItem('leadflow-profile-cache');
+        if (staleCache) {
+          try {
+            const parsed = JSON.parse(staleCache);
+            if (parsed?.id === userId) {
+              Sentry.addBreadcrumb({
+                message: 'Used stale cache — user offline during fetchProfile retry',
+                level: 'info',
+                data: { userId, retryCount },
+              });
+              return parsed as User;
+            }
+          } catch { }
+        }
+      }
+
+      // ✅ Dynamic timeout based on network quality
+      const timeoutMs = getTimeoutForNetwork();
+
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 30000)
+        setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
       );
 
-      // 2. Define Fetch Promise
       const fetchPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      // 3. Race!
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) throw error;
 
       if (mountedRef.current) {
+        // ✅ Write to cache on successful fetch (with timestamp)
+        writeProfileCache(userId, data);
         return data as User;
       }
       return null;
@@ -152,44 +224,80 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err: any) {
       const status = typeof err === 'object' ? (err.status || err.code) : '';
 
-      // 🌐 IDENTIFY NETWORK ERRORS
-      const isNetworkError =
+      const isNetworkErr =
         err.message?.includes('Failed to fetch') ||
         err.name === 'TypeError' ||
         err.message === 'TIMEOUT' ||
         err.message?.includes('Load failed') ||
         err.message?.includes('Network error');
 
-      // 🔄 RETRY LOGIC for Network Errors (Max 3 retries inside fetchProfile)
-      if (isNetworkError && retryCount < 3) {
-        const delay = 1000 * (retryCount + 1); // Exponential-ish delay
+      // 🔄 RETRY LOGIC for Network Errors (Max 3 retries)
+      if (isNetworkErr && retryCount < 3) {
+        // ✅ Don't retry if offline — use cache instead
+        if (!navigator.onLine) {
+          console.warn('📴 User offline — stopping retries early');
+          const staleCache = localStorage.getItem('leadflow-profile-cache');
+          if (staleCache) {
+            try {
+              const parsed = JSON.parse(staleCache);
+              if (parsed?.id === userId) return parsed as User;
+            } catch { }
+          }
+        }
+
+        const delay = 1000 * (retryCount + 1);
         console.warn(`🌐 Profile Fetch Failed (Network). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
         await new Promise(r => setTimeout(r, delay));
         return fetchProfile(userId, retryCount + 1);
       }
 
-      // 🛑 HANDLE 403/401 (Auth Loop / Corrupted Session)
+      // 🛑 HANDLE 403/401
       if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
-        console.warn("⛔ Supabase Access Forbidden (401/403). Token might be refreshing. Return null for silent fallback.");
+        console.warn("⛔ Supabase Access Forbidden (401/403). Return null for silent fallback.");
         return null;
       }
 
-      // 🛑 REPORT TO SENTRY
+      // ✅ Enhanced Sentry with network details
       const errorMsg = err.message || err.error_description || 'Unknown Supabase Error';
+      const networkInfo = getNetworkInfo();
 
-      Sentry.captureException(isNetworkError ? new Error(`Network Error: ${errorMsg}`) : err, {
-        level: isNetworkError ? 'warning' : 'error', // 🚀 Downgrade network errors to Warning
+      Sentry.captureException(isNetworkErr ? new Error(`Network Error: ${errorMsg}`) : err, {
+        level: isNetworkErr ? 'warning' : 'error',
         tags: {
           context: 'fetchProfile',
-          error_category: isNetworkError ? 'network' : 'database',
-          error_code: status,
-          is_retry: retryCount > 0
+          error_category: isNetworkErr ? 'network' : 'database',
+          error_code: String(status),
+          is_retry: String(retryCount > 0),
+          network_type: String(networkInfo.type),
+          is_online: String(networkInfo.online),
         },
         extra: {
           attempts: retryCount + 1,
-          full_err: err
+          network: networkInfo,
+          timeout_used_ms: getTimeoutForNetwork(),
+          device_memory: (navigator as any).deviceMemory || 'unknown',
+          full_err: err,
         }
       });
+
+      // ✅ Last resort — return stale cache instead of null
+      if (isNetworkErr) {
+        const staleCache = localStorage.getItem('leadflow-profile-cache');
+        if (staleCache) {
+          try {
+            const parsed = JSON.parse(staleCache);
+            if (parsed?.id === userId) {
+              console.warn('🛡️ All retries failed — returning stale cached profile');
+              Sentry.addBreadcrumb({
+                message: 'Returned stale cache after all fetchProfile retries failed',
+                level: 'warning',
+                data: { userId, retryCount, networkType: networkInfo.type },
+              });
+              return parsed as User;
+            }
+          } catch { }
+        }
+      }
 
       console.error("Auth Load Error:", err.message);
       return null;
@@ -200,7 +308,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const userEmailRaw = user.email || '';
     const userEmailLower = userEmailRaw.toLowerCase().trim();
 
-    // 🛡️ FALLBACK: Force Admin for specific emails (Case Insensitive)
     const isAdminEmail = [
       'info.amitkumar42@gmail.com',
       'amitdemo1@gmail.com'
@@ -210,7 +317,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       id: user.id,
       email: userEmailRaw,
       name: user.user_metadata?.name || "User",
-      role: isAdminEmail ? 'admin' : (user.user_metadata?.role || "member"), // 🔥 Force match
+      role: isAdminEmail ? 'admin' : (user.user_metadata?.role || "member"),
       sheet_url: "",
       payment_status: "inactive",
       valid_until: null,
@@ -228,10 +335,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loadUserProfile = useCallback(async (user: SupabaseUser, retryCount = 0): Promise<void> => {
     if (!mountedRef.current) return;
 
-    // 🛑 CIRCUIT BREAKER: Stop after 1 failed retry (Total 2 attempts)
     const MAX_RETRIES = 1;
 
-    // Prevent parallel loads for same user
     if (loadingProfileFor.current === user.id && retryCount === 0) {
       return;
     }
@@ -242,8 +347,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn(`⚠️ Profile fetch retries exhausted (fail #${profileFailCount.current}). Using stale cache.`);
         setLoading(false);
         loadingProfileFor.current = null;
-        // 🛡️ CIRCUIT BREAKER: After 3 consecutive failures, STOP completely
-        // Only retry after 5 minutes (not 30s infinite loop)
         if (profileFailCount.current >= 3) {
           console.warn('🛑 CIRCUIT BREAKER: 3 consecutive profile failures. Stopping retries for 5 minutes.');
           setTimeout(() => { profileFailCount.current = 0; }, 5 * 60 * 1000);
@@ -263,20 +366,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(userProfile);
         setLoading(false);
         loadingProfileFor.current = null;
-        profileFailCount.current = 0; // ✅ Reset failure counter on success
-        // 🔥 SAVE TO CACHE (LocalStorage now)
-        try {
-          localStorage.setItem('leadflow-profile-cache', JSON.stringify(userProfile));
-        } catch { }
+        profileFailCount.current = 0;
+        // ✅ v6.2: Use writeProfileCache with timestamp
+        writeProfileCache(userProfile.id, userProfile);
       } else if (retryCount < MAX_RETRIES) {
-        // Retry with exponential backoff
         const backoffMs = 1500 * (retryCount + 1);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
 
         if (!mountedRef.current) return;
         await loadUserProfile(user, retryCount + 1);
       } else {
-        // 🛡️ Max retries reached — use stale cache, NO automatic retry
         profileFailCount.current += 1;
         console.warn(`⚠️ Profile fetch failed permanently (fail #${profileFailCount.current}). Using stale cache.`);
         setLoading(false);
@@ -298,7 +397,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!mountedRef.current) return;
           await loadUserProfile(user, retryCount + 1);
         } else {
-          // 🛡️ NEVER trigger offline mode for profile failures
           profileFailCount.current += 1;
           console.warn(`⚠️ Profile catch: using stale cache (fail #${profileFailCount.current}).`);
           setLoading(false);
@@ -309,17 +407,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchProfile]);
 
   const refreshProfile = useCallback(async () => {
-    // 🛡️ Guard: skip if already refreshing, circuit breaker tripped, or no user
     if (isRefreshing.current || profileFailCount.current >= 3 || !session?.user) return;
     isRefreshing.current = true;
     try {
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
-        profileFailCount.current = 0; // ✅ Reset on success
-        try {
-          localStorage.setItem('leadflow-profile-cache', JSON.stringify(updated));
-        } catch { }
+        profileFailCount.current = 0;
+        // ✅ v6.2: Use writeProfileCache with timestamp
+        writeProfileCache(updated.id, updated);
       }
     } finally {
       isRefreshing.current = false;
@@ -345,24 +441,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
-      // 🚀 NUCLEAR RESET HANDLER (From Repair Button)
       if (window.location.search.includes('reset=done')) {
         console.warn("☢️ Reset parameter detected. Purging local state...");
         localStorage.clear();
         sessionStorage.clear();
         setProfile(null);
         setSession(null);
-        // Remove the parameter without refreshing to avoid infinite reset loops
         window.history.replaceState({}, document.title, "/login");
       }
 
-      // 🛡️ LOADING CIRCUIT BREAKER: Force end loading after 12s no matter what
-      // Reduced to 12s for better UX. If auth hasn't solved by now, something is wrong.
       const timeout = setTimeout(async () => {
         if (mountedRef.current && loading) {
           console.warn("🕒 Auth Init Timeout (12s): Forcing release...");
           setLoading(false);
-          // 🔥 CRITICAL: Kill any hanging WebSocket connections to free connection pool
           await supabase.removeAllChannels();
           await supabaseRealtime.removeAllChannels();
         }
@@ -376,12 +467,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error && error.message !== 'SESSION_TIMEOUT') {
           console.warn("🌐 Genuine network error during session fetch. Triggering offline mode.");
           setIsNetworkError(true);
-          setLoading(false); // 🔥 FIX: Release UI so Network error screen can show
+          setLoading(false);
           return;
         }
 
-        // If it was a timeout but we recovered via fallback, error is now null.
-        // If it was a timeout and no fallback, error remains SESSION_TIMEOUT.
         if (error?.message === 'SESSION_TIMEOUT') {
           console.warn("🕒 Session fetch timed out with no local cache. Proceeding to login.");
         }
@@ -390,15 +479,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
           setIsNetworkError(false);
 
-          // �️ MANUAL TOKEN REFRESH: Since autoRefreshToken is disabled,
-          // check if token expires within 10 minutes and refresh manually.
-          // This uses our customFetch proxy instead of library's internal bypass.
           try {
-            const expiresAt = currentSession.expires_at; // Unix timestamp in seconds
+            const expiresAt = currentSession.expires_at;
             if (expiresAt) {
               const nowSec = Math.floor(Date.now() / 1000);
               const timeLeftSec = expiresAt - nowSec;
-              if (timeLeftSec < 600) { // Less than 10 minutes
+              if (timeLeftSec < 600) {
                 console.log(`🔑 Token expires in ${timeLeftSec}s — refreshing manually via proxy...`);
                 const { data: refreshData } = await supabase.auth.refreshSession();
                 if (refreshData?.session) {
@@ -411,8 +497,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.warn('⚠️ Manual token refresh failed, using existing session:', refreshErr);
           }
 
-          // �🚀 ZERO-WAIT REHYDRATION: If we have a cached profile, release UI immediately
-          // Check if cached profile matches current user
           const cachedProfileStr = localStorage.getItem('leadflow-profile-cache');
           const cachedProfile = cachedProfileStr ? JSON.parse(cachedProfileStr) : null;
 
@@ -420,14 +504,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log("⚡ Optimistic Load: Showing cached profile. Rehydrating in background...");
             setProfile(cachedProfile);
             setLoading(false);
-            // Refresh logic in background (Silent Update) — DON'T AWAIT
             loadUserProfile(currentSession.user, 0);
           } else {
-            // No cache or wrong user? We must wait
             await loadUserProfile(currentSession.user);
           }
         } else {
-          // No session
           setLoading(false);
         }
       } catch (err: any) {
@@ -436,7 +517,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } finally {
         clearTimeout(timeout);
         if (mountedRef.current) {
-          // ensure loading is off if we are done
           if (!session && !profile) setLoading(false);
           setIsInitialized(true);
         }
@@ -453,8 +533,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (newSession?.user) {
           setSession(newSession);
-          // 🚀 AGGRESSIVE RELEASE: Don't set loading(true) if we already have a profile
-          // This prevents the 1-minute hang during background refreshes.
           if (!profile) setLoading(true);
 
           await loadUserProfile(newSession.user);
@@ -495,8 +573,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUserProfile]);
 
   useEffect(() => {
-    // 🛡️ EMERGENCY RELEASE TIMER: If app is stuck on 'loading' for > 15s, release it.
-    // This is the ultimate safety net for any hidden auth hangs.
     const emergencyRelease = setTimeout(() => {
       if (loading && isInitialized) {
         console.warn("🚨 EMERGENCY RELEASE: Auth took too long (>15s). Forcing UI release.");
@@ -518,7 +594,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id]); // 🛡️ Only re-run when user ID changes, NOT on refreshProfile recreation
+  }, [session?.user?.id]);
 
   const signUp = useCallback(async ({
     email,
@@ -537,7 +613,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }) => {
     setLoading(true);
 
-    // 🛡️ AUTH RETRY WRAPPER
     const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -545,7 +620,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return await operation();
         } catch (err: any) {
           lastError = err;
-          // 🔥 AGGRESSIVE NETWORK ERROR DETECTION
           const errString = String(err).toLowerCase();
           const errName = (err.name || '').toLowerCase();
           const errMsg = (err.message || '').toLowerCase();
@@ -653,7 +727,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     setLoading(true);
 
-    // 🛡️ AUTH RETRY WRAPPER
     const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -661,7 +734,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return await operation();
         } catch (err: any) {
           lastError = err;
-          // 🔥 AGGRESSIVE NETWORK ERROR DETECTION
           const errString = String(err).toLowerCase();
           const errName = (err.name || '').toLowerCase();
           const errMsg = (err.message || '').toLowerCase();
