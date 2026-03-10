@@ -1,15 +1,14 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v6.2 (PERFORMANCE)               ║
+ * ║  🔒 LOCKED - useAuth.tsx v6.3 (ANTI-CASCADE)              ║
  * ║  Locked Date: March 10, 2026                              ║
- * ║  Status: STABLE - NETWORK-AWARE + CACHE TIMESTAMP         ║
+ * ║  Status: STABLE                                           ║
  * ║                                                            ║
- * ║  Changes from v6.1:                                        ║
- * ║  - ✅ Network-aware dynamic timeout (15s-45s)              ║
- * ║  - ✅ Stale cache fallback on network failure              ║
- * ║  - ✅ Cache timestamp tracking (_cachedAt)                 ║
- * ║  - ✅ Enhanced Sentry tags (network_type, rtt)             ║
- * ║  - ✅ Offline detection before retry                       ║
+ * ║  Changes from v6.2:                                        ║
+ * ║  - ✅ Cooldown system — prevents duplicate fetch cycles    ║
+ * ║  - ✅ SIGNED_IN skip — no re-fetch if profile loaded      ║
+ * ║  - ✅ Visibility handler — smart reconnect on app resume  ║
+ * ║  - ✅ Lock recovery guard — stops cascade loop            ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -31,10 +30,9 @@ import { ENV } from "../config/env";
 const SHEET_CREATOR_URL = "https://script.google.com/macros/s/AKfycbzq4iBT3_Cdcj2OO8XY8B5IXNSIHa0AJdYYTGCx1lGJFPbVt1RmDvF5gel0JD-12TDI/exec";
 
 // ═══════════════════════════════════════════════════════════
-// 🌐 NETWORK-AWARE UTILITIES (Added for Sentry Timeout Fix)
+// 🌐 NETWORK-AWARE UTILITIES
 // ═══════════════════════════════════════════════════════════
 
-/** Get current network info for Sentry debugging */
 const getNetworkInfo = () => {
   const conn = (navigator as any).connection;
   return {
@@ -46,7 +44,6 @@ const getNetworkInfo = () => {
   };
 };
 
-/** Dynamic timeout based on network quality */
 const getTimeoutForNetwork = (): number => {
   const conn = (navigator as any).connection;
   const type = conn?.effectiveType;
@@ -59,11 +56,10 @@ const getTimeoutForNetwork = (): number => {
     case '4g':
       return 15000;
     default:
-      return 20000; // iPhone Safari doesn't expose connection API
+      return 20000;
   }
 };
 
-/** Write profile to cache with timestamp */
 const writeProfileCache = (userId: string, data: any) => {
   try {
     const cacheEntry = {
@@ -71,12 +67,9 @@ const writeProfileCache = (userId: string, data: any) => {
       _cachedAt: Date.now(),
     };
     localStorage.setItem('leadflow-profile-cache', JSON.stringify(cacheEntry));
-  } catch {
-    // localStorage full or unavailable — silent fail
-  }
+  } catch { }
 };
 
-/** Check if cached profile is fresh (< 10 min old) */
 const isCacheFresh = (cachedProfile: any): boolean => {
   if (!cachedProfile?._cachedAt) return false;
   const age = Date.now() - cachedProfile._cachedAt;
@@ -108,12 +101,10 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(() => {
-    // 🔥 INSTANT CACHE: Load from LocalStorage (Permanent) for zero-wait UI
     try {
       const cachedStr = localStorage.getItem('leadflow-profile-cache');
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr);
-        // 🧹 PURGE LEGACY DUMMY PROFILE
         if (parsed && parsed.daily_limit === 0 && parsed.leads_today === 0 && parsed.total_leads_received === 0 && parsed.payment_status === 'inactive') {
           console.warn("🧹 Wiping legacy dummy profile from cache to force live DB fetch!");
           localStorage.removeItem('leadflow-profile-cache');
@@ -135,9 +126,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const profileFailCount = useRef(0);
   const isRefreshing = useRef(false);
 
+  // ✅ NEW v6.3: Cooldown system to prevent duplicate fetch cycles
+  const lastProfileAttemptRef = useRef<number>(0);
+  const PROFILE_COOLDOWN_MS = 30000; // 30 seconds cooldown between fetch attempts
+
   const isAuthenticated = !!session && !!profile;
 
-  // 🛡️ SAFE getSession wrapper
   const getSessionSafe = useCallback(async () => {
     try {
       const result = await Promise.race([
@@ -173,12 +167,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // ═══════════════════════════════════════════════════════════
-  // 🔥 fetchProfile v6.2 — Network-Aware + Stale Cache Fallback
-  // ═══════════════════════════════════════════════════════════
   const fetchProfile = useCallback(async (userId: string, retryCount = 0): Promise<User | null> => {
     try {
-      // ✅ Check if user is offline before wasting a request
       if (!navigator.onLine && retryCount > 0) {
         console.warn('📴 User offline — skipping retry, checking stale cache...');
         const staleCache = localStorage.getItem('leadflow-profile-cache');
@@ -197,7 +187,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // ✅ Dynamic timeout based on network quality
       const timeoutMs = getTimeoutForNetwork();
 
       const timeoutPromise = new Promise((_, reject) =>
@@ -215,7 +204,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
 
       if (mountedRef.current) {
-        // ✅ Write to cache on successful fetch (with timestamp)
         writeProfileCache(userId, data);
         return data as User;
       }
@@ -231,9 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         err.message?.includes('Load failed') ||
         err.message?.includes('Network error');
 
-      // 🔄 RETRY LOGIC for Network Errors (Max 3 retries)
       if (isNetworkErr && retryCount < 3) {
-        // ✅ Don't retry if offline — use cache instead
         if (!navigator.onLine) {
           console.warn('📴 User offline — stopping retries early');
           const staleCache = localStorage.getItem('leadflow-profile-cache');
@@ -251,13 +237,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return fetchProfile(userId, retryCount + 1);
       }
 
-      // 🛑 HANDLE 403/401
       if (status === 403 || status === 401 || err.message?.includes('Forbidden')) {
         console.warn("⛔ Supabase Access Forbidden (401/403). Return null for silent fallback.");
         return null;
       }
 
-      // ✅ Enhanced Sentry with network details
       const errorMsg = err.message || err.error_description || 'Unknown Supabase Error';
       const networkInfo = getNetworkInfo();
 
@@ -280,7 +264,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
-      // ✅ Last resort — return stale cache instead of null
       if (isNetworkErr) {
         const staleCache = localStorage.getItem('leadflow-profile-cache');
         if (staleCache) {
@@ -337,6 +320,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const MAX_RETRIES = 1;
 
+    // ✅ NEW v6.3: Cooldown check — prevent duplicate fetch cycles
+    const timeSinceLastAttempt = Date.now() - lastProfileAttemptRef.current;
+    if (timeSinceLastAttempt < PROFILE_COOLDOWN_MS && profile && retryCount === 0) {
+      console.log(`⏸️ Profile fetch cooldown active (${Math.round(timeSinceLastAttempt / 1000)}s ago). Using existing profile.`);
+      setLoading(false);
+      return;
+    }
+
     if (loadingProfileFor.current === user.id && retryCount === 0) {
       return;
     }
@@ -356,7 +347,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      if (retryCount === 0) loadingProfileFor.current = user.id;
+      if (retryCount === 0) {
+        loadingProfileFor.current = user.id;
+        lastProfileAttemptRef.current = Date.now(); // ✅ NEW v6.3: Record attempt time
+      }
 
       let userProfile = await fetchProfile(user.id);
 
@@ -367,7 +361,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
         loadingProfileFor.current = null;
         profileFailCount.current = 0;
-        // ✅ v6.2: Use writeProfileCache with timestamp
         writeProfileCache(userProfile.id, userProfile);
       } else if (retryCount < MAX_RETRIES) {
         const backoffMs = 1500 * (retryCount + 1);
@@ -404,17 +397,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-  }, [fetchProfile]);
+  }, [fetchProfile, profile]); // ✅ NEW v6.3: Added 'profile' dependency for cooldown check
 
   const refreshProfile = useCallback(async () => {
     if (isRefreshing.current || profileFailCount.current >= 3 || !session?.user) return;
+
+    // ✅ NEW v6.3: Cooldown check for refreshProfile too
+    const timeSinceLastAttempt = Date.now() - lastProfileAttemptRef.current;
+    if (timeSinceLastAttempt < PROFILE_COOLDOWN_MS) {
+      console.log(`⏸️ Refresh cooldown active (${Math.round(timeSinceLastAttempt / 1000)}s ago). Skipping.`);
+      return;
+    }
+
     isRefreshing.current = true;
+    lastProfileAttemptRef.current = Date.now(); // ✅ Record attempt time
     try {
       const updated = await fetchProfile(session.user.id);
       if (updated && mountedRef.current) {
         setProfile(updated);
         profileFailCount.current = 0;
-        // ✅ v6.2: Use writeProfileCache with timestamp
         writeProfileCache(updated.id, updated);
       }
     } finally {
@@ -533,12 +534,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (newSession?.user) {
           setSession(newSession);
-          if (!profile) setLoading(true);
 
-          await loadUserProfile(newSession.user);
-
-          if (mountedRef.current) {
+          // ✅ NEW v6.3: Skip profile re-fetch if already loaded for this user
+          if (profile && profile.id === newSession.user.id) {
+            console.log('⚡ Profile already loaded for this user. Skipping re-fetch on SIGNED_IN (lock recovery).');
             setLoading(false);
+            // Background refresh only if cooldown allows
+            const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
+            if (timeSinceLast > PROFILE_COOLDOWN_MS) {
+              refreshProfile();
+            }
+          } else {
+            if (!profile) setLoading(true);
+            await loadUserProfile(newSession.user);
+            if (mountedRef.current) {
+              setLoading(false);
+            }
           }
         }
 
@@ -552,11 +563,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(null);
         setProfile(null);
         setLoading(false);
+        lastProfileAttemptRef.current = 0; // ✅ Reset cooldown on logout
         localStorage.removeItem('leadflow-profile-cache');
       }
 
       if (event === 'TOKEN_REFRESHED' && newSession) {
         setSession(newSession);
+        // ✅ NEW v6.3: On token refresh, do a background profile refresh (with cooldown)
+        const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
+        if (timeSinceLast > PROFILE_COOLDOWN_MS && profile) {
+          refreshProfile();
+        }
       }
     });
 
@@ -582,6 +599,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => clearTimeout(emergencyRelease);
   }, [loading, isInitialized]);
+
+  // ✅ NEW v6.3: Smart Visibility Change Handler
+  // When user switches back to app/tab, don't re-fetch immediately
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && session?.user && profile) {
+        console.log('👁️ App resumed — checking if profile refresh needed...');
+
+        const timeSinceLast = Date.now() - lastProfileAttemptRef.current;
+        const cachedStr = localStorage.getItem('leadflow-profile-cache');
+        const cached = cachedStr ? JSON.parse(cachedStr) : null;
+
+        if (timeSinceLast > 5 * 60 * 1000) {
+          // 5+ minutes since last fetch — refresh in background
+          console.log('🔄 Profile stale (5+ min). Background refresh...');
+          refreshProfile();
+        } else if (cached && isCacheFresh(cached)) {
+          console.log('✅ Profile cache is fresh. No refresh needed.');
+        } else {
+          console.log(`⏸️ Profile fetched ${Math.round(timeSinceLast / 1000)}s ago. Cooldown active.`);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [session?.user?.id, profile, refreshProfile]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -727,6 +771,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
     setLoading(true);
 
+    // ✅ NEW v6.3: Reset cooldown on fresh login
+    lastProfileAttemptRef.current = 0;
+    profileFailCount.current = 0;
+
     const withAuthRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
       let lastError: any;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -791,6 +839,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setProfile(null);
     setLoading(false);
+    lastProfileAttemptRef.current = 0; // ✅ Reset cooldown
 
     try {
       await supabase.auth.signOut();
