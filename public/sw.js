@@ -1,105 +1,157 @@
+// public/sw.js
+// ╔════════════════════════════════════════════════════════════╗
+// ║  LeadFlow Service Worker v6 - Background Push Fixed       ║
+// ║  Status: PRODUCTION READY                                 ║
+// ║  Changes: Sound ON, RequireInteraction, Renotify, URL fix ║
+// ╚════════════════════════════════════════════════════════════╝
 
-// LeadFlow Service Worker v5 - NETWORK FIRST ONLY (Feb 7 Emergency Fix)
-const CACHE_NAME = 'leadflow-v5-emergency';
+const CACHE_NAME = 'leadflow-v6';
 
-// Only cache static assets
-const urlsToCache = [
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png'
-];
-
+// -----------------------------------------------------------------------
+// 1. INSTALL
+// -----------------------------------------------------------------------
 self.addEventListener('install', (event) => {
-  console.log('SW v5 installing...');
+  console.log('[SW v6] Installing...');
   self.skipWaiting();
 });
 
+// -----------------------------------------------------------------------
+// 2. ACTIVATE - Clean old caches
+// -----------------------------------------------------------------------
 self.addEventListener('activate', (event) => {
-  console.log('SW v5 activating...');
-  // Delete ALL old caches
+  console.log('[SW v6] Activating...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          console.log('Deleting cache:', cacheName);
-          return caches.delete(cacheName);
-        })
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => {
+            console.log('[SW v6] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
-
-
 
 // -----------------------------------------------------------------------
 // PASSIVE MODE: No fetch listener.
-// This allows the browser to handle all requests natively (Network Only).
-// This prevents "AbortError" and other SW-related fetch failures.
+// Browser handles all requests natively (Network Only).
+// Prevents "AbortError" and SW-related fetch failures.
 // -----------------------------------------------------------------------
 
-// 3. 🚀 BACKGROUND PUSH LISTENER (Restored Feb 12)
+// -----------------------------------------------------------------------
+// 3. 🔔 PUSH HANDLER - Background Notifications
+// -----------------------------------------------------------------------
 self.addEventListener('push', (event) => {
-  console.log('📬 [SW] Push Received!');
+  console.log('[SW v6] 📬 Push Received!');
 
-  if (!event.data) return;
-
-  try {
-    const payload = event.data.json();
-    const title = payload.title || '🔥 New Lead Received!';
-    const options = {
-      body: payload.body || 'Open the app to see details.',
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      vibrate: [200, 100, 200],
-      data: {
-        url: payload.url || '/'
-      },
-      actions: [
-        { action: 'open', title: 'View Dashboard' }
-      ]
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(title, options)
-    );
-  } catch (err) {
-    console.error('❌ [SW] Push Payload Error:', err);
-    // Fallback notification for non-JSON payloads
+  if (!event.data) {
+    console.log('[SW v6] ❌ Empty push data, showing fallback');
     event.waitUntil(
       self.registration.showNotification('🔥 LeadFlow Alert', {
-        body: 'You have a new activity on your dashboard.',
-        icon: '/icon-192x192.png'
+        body: 'You have a new activity.',
+        icon: '/icon-192x192.png',
+        badge: '/icon-192x192.png',
+        requireInteraction: true,
+        silent: false,
+        renotify: true,
+        tag: 'fallback-' + Date.now()
       })
     );
+    return;
   }
-});
 
-// 4. 🖱️ NOTIFICATION CLICK HANDLER
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch (e) {
+    // Non-JSON push data
+    payload = {
+      title: '🔥 LeadFlow Alert',
+      body: event.data.text() || 'New activity on your dashboard.'
+    };
+  }
 
-  const urlToOpen = event.notification.data?.url || '/';
+  console.log('[SW v6] 📦 Payload:', JSON.stringify(payload));
+
+  const title = payload.title || '🔥 New Lead Received!';
+
+  const options = {
+    body: payload.body || 'Open the app to see details.',
+    icon: payload.icon || '/icon-192x192.png',
+    badge: payload.badge || '/icon-192x192.png',
+
+    // 🔊 SOUND & VIBRATION - Ye pehle missing the
+    vibrate: [300, 100, 300, 100, 300],
+    silent: false,
+
+    // 📌 PERSISTENCE - Auto dismiss nahi hoga
+    requireInteraction: true,
+
+    // 🔄 RENOTIFY - Har push pe sound bajegi
+    renotify: true,
+    tag: payload.tag || 'lead-' + Date.now(),
+
+    // 📂 CLICK DATA - URL extraction fix
+    data: {
+      url: payload.data?.url || payload.url || '/',
+      leadId: payload.data?.leadId || null,
+      timestamp: Date.now()
+    },
+
+    // 🖱️ ACTION BUTTONS
+    actions: [
+      { action: 'open', title: '📂 View Lead' },
+      { action: 'dismiss', title: '✖ Dismiss' }
+    ]
+  };
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // 1. If an app window is already open, just focus it
-      for (const client of windowClients) {
-        if (client.url.includes(urlToOpen) && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // 2. Otherwise, open a new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
-    })
+    self.registration.showNotification(title, options)
   );
 });
 
-// 5. 🛠️ SELF-HEALING: Clear old caches if version changes
+// -----------------------------------------------------------------------
+// 4. 🖱️ NOTIFICATION CLICK HANDLER
+// -----------------------------------------------------------------------
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW v6] 🖱️ Notification clicked, action:', event.action);
+  event.notification.close();
+
+  // Dismiss action - just close
+  if (event.action === 'dismiss') return;
+
+  const urlToOpen = event.notification.data?.url || '/';
+  const fullUrl = urlToOpen.startsWith('http')
+    ? urlToOpen
+    : self.location.origin + urlToOpen;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        // If app already open, focus and navigate
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.navigate(fullUrl).then(() => client.focus());
+          }
+        }
+        // Otherwise open new window
+        return self.clients.openWindow(fullUrl);
+      })
+  );
+});
+
+// -----------------------------------------------------------------------
+// 5. 🛠️ MESSAGE HANDLER - Keep alive + Skip waiting
+// -----------------------------------------------------------------------
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  // Keep alive ping response
+  if (event.data === 'KEEP_ALIVE') {
+    // SW is alive, no action needed
   }
 });
