@@ -1,4 +1,10 @@
-// src/hooks/usePushNotification.ts
+// hooks/usePushNotification.ts
+// ╔════════════════════════════════════════════════════════════╗
+// ║  Push Notification Hook v7 - SW Ready Fix                  ║
+// ║  Fix: navigator.serviceWorker.ready stuck issue            ║
+// ║  Uses getRegistrations() fallback                          ║
+// ╚════════════════════════════════════════════════════════════╝
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
@@ -16,34 +22,54 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-// Helper function for timeout
-const timeout = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("SW_TIMEOUT")), ms));
-
-// Resilient SW registration getter — never hangs
-// 1. Race navigator.serviceWorker.ready against a 3s timeout
-// 2. On timeout → try getRegistrations() for an existing registration
-// 3. Still nothing → re-register sw.js manually
-async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
+// 🔧 FIX: Get SW registration with fallback (main fix)
+async function getSwRegistration(): Promise<ServiceWorkerRegistration> {
+  // Method 1: Try navigator.serviceWorker.ready with 3s timeout
   try {
     const reg = await Promise.race([
       navigator.serviceWorker.ready,
-      timeout(3000)
-    ]) as ServiceWorkerRegistration;
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('SW_READY_TIMEOUT')), 3000)
+      )
+    ]);
+    console.log('[Push] ✅ SW ready resolved');
     return reg;
-  } catch (e: any) {
-    if (e.message !== 'SW_TIMEOUT') throw e;
-
-    console.warn('[Push] serviceWorker.ready timed out — trying getRegistrations()');
-
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    if (registrations.length > 0) {
-      console.log('[Push] Found existing registration via getRegistrations()');
-      return registrations[0];
-    }
-
-    console.warn('[Push] No registration found — re-registering sw.js');
-    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  } catch {
+    console.log('[Push] ⚠️ SW ready timeout, using fallback...');
   }
+
+  // Method 2: Fallback - getRegistrations()
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  const activeReg = registrations.find(r => r.active);
+
+  if (activeReg) {
+    console.log('[Push] ✅ Found active SW via getRegistrations()');
+    return activeReg;
+  }
+
+  // Method 3: Re-register SW
+  console.log('[Push] ⚠️ No active SW, re-registering...');
+  const newReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+  // Wait for activation
+  if (newReg.installing || newReg.waiting) {
+    await new Promise<void>((resolve) => {
+      const sw = newReg.installing || newReg.waiting;
+      if (!sw) { resolve(); return; }
+      sw.addEventListener('statechange', () => {
+        if (sw.state === 'activated') resolve();
+      });
+      // Safety timeout
+      setTimeout(resolve, 5000);
+    });
+  }
+
+  if (newReg.active) {
+    console.log('[Push] ✅ SW re-registered and active');
+    return newReg;
+  }
+
+  throw new Error('Could not get active Service Worker');
 }
 
 interface UsePushNotificationReturn {
@@ -59,16 +85,13 @@ interface UsePushNotificationReturn {
 }
 
 export function usePushNotification(): UsePushNotificationReturn {
-  // 1. Detect iOS + PWA mode
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // iOS detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  // 🔧 FIX: Check if running as PWA (Add to Home Screen)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isStandalone = (window.matchMedia?.('(display-mode: standalone)').matches) ||
     (navigator as any).standalone === true;
 
-  // Only block iOS if NOT in PWA mode (regular Safari doesn't support push)
   if (isIOS && !isStandalone) {
     return {
       isSubscribed: false,
@@ -76,10 +99,13 @@ export function usePushNotification(): UsePushNotificationReturn {
       isSupported: false,
       permission: 'denied',
       error: null,
-      subscribe: async () => { alert("📱 iPhone pe notifications ke liye 'Add to Home Screen' karein!\n\nSafari → Share button → 'Add to Home Screen'"); return false; },
+      subscribe: async () => {
+        alert("📱 iPhone pe notifications ke liye 'Add to Home Screen' karein!\n\nSafari → Share button → 'Add to Home Screen'");
+        return false;
+      },
       unsubscribe: async () => false,
-      testNotification: async () => { },
-      refreshSubscription: async () => { }
+      testNotification: async () => {},
+      refreshSubscription: async () => {}
     };
   }
 
@@ -89,104 +115,108 @@ export function usePushNotification(): UsePushNotificationReturn {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [error, setError] = useState<string | null>(null);
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
-  const isSyncingRef = useRef(false); // 🔥 Prevent parallel sync loops
+  const isSyncingRef = useRef(false);
 
   const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
-  // Debug logger (reduced logging for performance)
-  const log = (message: string, data?: any) => {
-    if ((import.meta.env as any).DEV) {
-      console.log(`[Push] ${message}`, data || '');
-    }
-  };
-
-  // 1. REFACTOR: initialize() - The "Silent Observer"
+  // ---------------------------------------------------------------
+  // INITIALIZE - Check existing subscription
+  // ---------------------------------------------------------------
   useEffect(() => {
     const initialize = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        console.log('[Push] ❌ Not supported');
+        setIsSupported(false);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsSupported(true);
+      setPermission(Notification.permission);
 
       try {
-        // Step A: Get SW registration (with timeout fallback — prevents hanging)
-        const registration = await getServiceWorkerRegistration();
+        // 🔧 FIX: Use our custom function instead of navigator.serviceWorker.ready
+        const registration = await getSwRegistration();
         swRegistrationRef.current = registration;
 
-        // Step B: Check Subscription (Silent Polling)
-        const checkSub = async () => {
-          try {
-            const sub = await registration.pushManager.getSubscription();
-            if (sub) {
-              // console.log("✅ [LeadAlert] Subscription found. Syncing state.");
-              setIsSubscribed(true);
-              setIsLoading(false);
-              // Silent sync to DB (Only if user is logged in)
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) subscribe(true);
-            } else {
-              // console.log("ℹ️ [LeadAlert] No subscription yet. UI will show 'Enable Button'.");
-              setIsSubscribed(false);
-              setIsLoading(false);
-            }
-          } catch (e: any) {
-            // Silence noise (Harmless background aborts)
-            const isAbort = e.name === 'AbortError' || e.message?.toLowerCase().includes('abort');
-            if (!isAbort) {
-              console.warn("CheckSub Error:", e);
-            }
+        // Check existing subscription
+        const sub = await registration.pushManager.getSubscription();
+        if (sub) {
+          console.log('[Push] ✅ Existing subscription found');
+          setIsSubscribed(true);
+
+          // Silent sync to DB
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            syncSubscriptionToDb(sub, user.id).catch(() => {});
           }
-        };
+        } else {
+          console.log('[Push] ℹ️ No subscription yet');
+          setIsSubscribed(false);
 
-        await checkSub();
-        // REMOVED: redundant setTimeout(checkSub, 2000)
-
-        // Listen for Controller Change (Quietly update state)
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          checkSub();
-        });
-
-      } catch (error: any) {
-        if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
-          console.warn("SW Init Warning (Non-Fatal):", error);
+          // Auto-subscribe if permission already granted
+          if (Notification.permission === 'granted') {
+            console.log('[Push] 🔄 Permission granted, auto-subscribing...');
+            subscribe(true);
+          }
         }
-        setIsLoading(false);
+      } catch (err: any) {
+        console.warn('[Push] Init warning:', err.message);
       }
+
+      setIsLoading(false);
     };
 
     setIsLoading(true);
     initialize();
   }, [VAPID_KEY]);
 
-  // Auto-Sync: If permission granted, update UI and sync DB
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
-      setIsSubscribed(true);
-      // Silent sync
-      subscribe(true);
-    }
-  }, []);
+  // ---------------------------------------------------------------
+  // SYNC SUBSCRIPTION TO DB
+  // ---------------------------------------------------------------
+  const syncSubscriptionToDb = async (sub: PushSubscription, userId: string) => {
+    try {
+      const subJson = sub.toJSON();
+      const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
+        p_endpoint: subJson.endpoint,
+        p_p256dh: subJson.keys?.p256dh,
+        p_auth: subJson.keys?.auth,
+        p_user_agent: navigator.userAgent.substring(0, 200)
+      });
 
-  // Keep service worker alive (prevent sleep)
+      if (rpcError) {
+        console.warn('[Push] DB sync error:', rpcError.message);
+      } else {
+        console.log('[Push] ✅ Subscription synced to DB');
+      }
+    } catch (e: any) {
+      console.warn('[Push] DB sync failed:', e.message);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // KEEP ALIVE - Prevent SW from sleeping
+  // ---------------------------------------------------------------
   useEffect(() => {
-    const keepAlive = async () => {
+    const keepAlive = () => {
       try {
         if (swRegistrationRef.current?.active) {
-          const messageChannel = new MessageChannel();
-          swRegistrationRef.current.active.postMessage('KEEP_ALIVE', [messageChannel.port2]);
+          const mc = new MessageChannel();
+          swRegistrationRef.current.active.postMessage('KEEP_ALIVE', [mc.port2]);
         }
-      } catch (err) {
-        // Silent fail - don't spam console
-      }
+      } catch { /* ignore */ }
     };
 
-    // Ping every 25 seconds
     const interval = setInterval(keepAlive, 25000);
-    keepAlive(); // Initial ping
+    keepAlive();
 
     return () => clearInterval(interval);
   }, []);
 
-  // Subscribe to push notifications
+  // ---------------------------------------------------------------
+  // SUBSCRIBE
+  // ---------------------------------------------------------------
   const subscribe = useCallback(async (isSilent = false): Promise<boolean> => {
-    // Deduplication
     if (isSyncingRef.current) return false;
     isSyncingRef.current = true;
 
@@ -196,85 +226,84 @@ export function usePushNotification(): UsePushNotificationReturn {
     try {
       if (!VAPID_KEY) throw new Error('VAPID Key missing');
 
-      // 1. Get SW registration (with timeout fallback — prevents hanging)
-      const reg = await getServiceWorkerRegistration();
-      if (!reg.active) {
-        throw new Error('Service Worker not active yet. Please refresh.');
-      }
+      // 🔧 FIX: Use our custom function
+      const reg = await getSwRegistration();
       swRegistrationRef.current = reg;
 
-      // 2. Request Permission
-      const permissionResult = await window.Notification.requestPermission();
+      // Request permission
+      const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
       if (permissionResult !== 'granted') {
         throw new Error('Notification permission denied');
       }
 
-      // 3. Subscribe
-      let subscription;
+      // Subscribe to push
+      let subscription: PushSubscription;
       try {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
+          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
         });
+        console.log('[Push] ✅ Subscribed!');
+        console.log('[Push] Endpoint:', subscription.endpoint.substring(0, 80));
       } catch (subErr: any) {
-        // Auto-fix for InvalidStateError or Key Mismatch
         if (subErr.name === 'InvalidStateError' || subErr.message?.includes('applicationServerKey')) {
-          console.warn("State/Key error. Resetting subscription...");
+          console.warn('[Push] Key mismatch, resetting...');
           const existing = await reg.pushManager.getSubscription();
           if (existing) await existing.unsubscribe();
           subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as any
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
           });
         } else {
           throw subErr;
         }
       }
 
-      // 4. Save to DB
+      // Save to DB
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not logged in');
 
-      const subJson = subscription.toJSON();
-      const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
-        p_endpoint: subJson.endpoint,
-        p_p256dh: subJson.keys?.p256dh,
-        p_auth: subJson.keys?.auth,
-        p_user_agent: navigator.userAgent
-      });
-
-      if (rpcError) throw rpcError;
+      await syncSubscriptionToDb(subscription, user.id);
 
       setIsSubscribed(true);
-      // console.log("✅ [LeadAlert] Subscription synchronized.");
+      console.log('[Push] ✅ Fully subscribed and synced!');
+
+      // Send a confirmation test notification
+      if (!isSilent) {
+        reg.showNotification('🔔 Notifications Enabled!', {
+          body: 'You will now receive lead alerts.',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          vibrate: [200, 100, 200],
+          tag: 'enabled-' + Date.now(),
+          requireInteraction: false
+        });
+      }
+
       return true;
 
     } catch (err: any) {
-      // 🛑 IGNORE ABORT ERRORS (Harmless background noise)
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         return false;
       }
 
-      // 🛑 HANDLE 403/Login issues quietly if silent sync
       const isLoginError = err.message?.includes('User not logged in') || err.status === 403;
+      if (isLoginError && isSilent) return false;
 
-      if (isLoginError) {
-        if (!isSilent) console.warn("Push sync skipped: User not logged in.");
-        return false;
-      }
-
-      if (!isSilent && !err.message?.toLowerCase().includes('abort')) {
-        console.warn("Subscribe Info:", err.message);
-      }
-
-      // Only reload for critical key mismatch after 1s delay (manual action)
       if (err.message?.includes('different applicationServerKey')) {
-        console.error("Critical VAPID Mismatch. Resetting in 1s...");
-        setTimeout(() => window.location.reload(), 1000);
+        console.error('[Push] VAPID mismatch. Clearing...');
+        try {
+          const reg = await getSwRegistration();
+          const existing = await reg.pushManager.getSubscription();
+          if (existing) await existing.unsubscribe();
+        } catch { /* ignore */ }
+        if (!isSilent) {
+          setError('Key mismatch fixed. Please try again.');
+        }
       } else if (!isSilent) {
+        console.error('[Push] Subscribe error:', err.message);
         setError(err.message);
-        alert("Notification Error: " + err.message);
       }
       return false;
     } finally {
@@ -283,32 +312,30 @@ export function usePushNotification(): UsePushNotificationReturn {
     }
   }, [VAPID_KEY]);
 
-  // Unsubscribe from push notifications
+  // ---------------------------------------------------------------
+  // UNSUBSCRIBE
+  // ---------------------------------------------------------------
   const unsubscribe = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      if (swRegistrationRef.current) {
-        const subscription = await swRegistrationRef.current.pushManager.getSubscription();
+      const reg = await getSwRegistration();
+      const subscription = await reg.pushManager.getSubscription();
 
-        if (subscription) {
-          // Remove from database first
-          await supabase.rpc('remove_push_subscription', {
-            p_endpoint: subscription.endpoint
-          });
-
-          // Unsubscribe from browser
-          await subscription.unsubscribe();
-        }
+      if (subscription) {
+        await supabase.rpc('remove_push_subscription', {
+          p_endpoint: subscription.endpoint
+        });
+        await subscription.unsubscribe();
       }
 
       setIsSubscribed(false);
-      log('✅ Unsubscribed');
+      console.log('[Push] ✅ Unsubscribed');
       return true;
 
     } catch (err: any) {
-      log('❌ Unsubscribe error:', err);
+      console.error('[Push] Unsubscribe error:', err);
       setError(err.message);
       return false;
     } finally {
@@ -316,15 +343,15 @@ export function usePushNotification(): UsePushNotificationReturn {
     }
   }, []);
 
-  // Refresh subscription if stale (auto-renew)
+  // ---------------------------------------------------------------
+  // REFRESH SUBSCRIPTION (Auto-renew stale subs)
+  // ---------------------------------------------------------------
   const refreshSubscription = useCallback(async () => {
     try {
-      if (!swRegistrationRef.current) return;
-
-      const existingSub = await swRegistrationRef.current.pushManager.getSubscription();
+      const reg = await getSwRegistration();
+      const existingSub = await reg.pushManager.getSubscription();
 
       if (existingSub) {
-        // Check if subscription is stale (> 7 days old)
         const { data: dbSub } = await supabase
           .from('push_subscriptions')
           .select('created_at')
@@ -336,52 +363,56 @@ export function usePushNotification(): UsePushNotificationReturn {
           const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
           if (age > sevenDays) {
-            log('Subscription stale, refreshing...');
+            console.log('[Push] Subscription stale, refreshing...');
             await existingSub.unsubscribe();
-            await subscribe(); // Re-subscribe
+            await subscribe();
           }
+        } else {
+          // Subscription exists in browser but not in DB - sync it
+          console.log('[Push] Subscription not in DB, syncing...');
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) await syncSubscriptionToDb(existingSub, user.id);
         }
       }
     } catch (err) {
-      log('Refresh error', err);
+      console.warn('[Push] Refresh error:', err);
     }
   }, [subscribe]);
 
   // Auto-refresh on mount and daily
   useEffect(() => {
-    // Initial refresh check
     refreshSubscription();
-
-    // Daily refresh
     const interval = setInterval(refreshSubscription, 24 * 60 * 60 * 1000);
-
     return () => clearInterval(interval);
   }, [refreshSubscription]);
 
-  // Test notification (client-side only)
+  // ---------------------------------------------------------------
+  // TEST NOTIFICATION
+  // ---------------------------------------------------------------
   const testNotification = useCallback(async () => {
     try {
-      if (!swRegistrationRef.current) {
-        alert('Service Worker not ready');
-        return;
-      }
-
+      const reg = await getSwRegistration();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const options: any = {
-        body: 'Push notifications are working correctly!',
-        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        vibrate: [300, 100, 300],
-        tag: 'test-notification',
-        requireInteraction: true
+        body: 'Push notifications are working correctly! 🎉',
+        icon: '/icon-192x192.png',
+        badge: '/icon-192x192.png',
+        vibrate: [300, 100, 300, 100, 300],
+        tag: 'test-' + Date.now(),
+        requireInteraction: true,
+        silent: false,
+        renotify: true,
+        actions: [
+          { action: 'open', title: '📂 Open App' },
+          { action: 'dismiss', title: '✖ Dismiss' }
+        ]
       };
 
-      await swRegistrationRef.current.showNotification('🧪 Test Notification', options);
-
-      log('Test notification sent');
+      await reg.showNotification('🧪 Test Notification', options);
+      console.log('[Push] ✅ Test notification sent');
     } catch (err) {
-      log('Test notification error:', err);
-      alert('Failed to show test notification');
+      console.error('[Push] Test error:', err);
+      alert('Failed to show test notification: ' + (err as Error).message);
     }
   }, []);
 
