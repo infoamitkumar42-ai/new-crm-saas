@@ -8,6 +8,21 @@
 
 import crypto from 'crypto';
 
+// ✅ Vercel body parser disable karo — raw body chahiye HMAC ke liye
+export const config = {
+  api: { bodyParser: false }
+};
+
+// ✅ Helper: raw body string read karo req stream se
+async function getRawBody(req: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
 // ... (PLAN_CONFIG same rahega, usme change nahi hai) ...
 const PLAN_CONFIG: Record<string, {
   price: number;
@@ -43,17 +58,18 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'Server misconfiguration' });
     }
 
-    // 1️⃣ Verify Signature
+    // 1️⃣ Verify Signature — raw body use karo (parsed body se HMAC galat hoga)
     const signature = req.headers['x-razorpay-signature'];
-    const body = JSON.stringify(req.body);
-    const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(body).digest('hex');
+    const rawBody = await getRawBody(req);
+    const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
 
     if (signature !== expectedSignature) {
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    const event = req.body.event;
-    const payload = req.body.payload?.payment?.entity;
+    const parsedBody = JSON.parse(rawBody);
+    const event = parsedBody.event;
+    const payload = parsedBody.payload?.payment?.entity;
 
     if (!payload) return res.status(400).json({ error: 'No payload' });
 
