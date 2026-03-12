@@ -67,10 +67,7 @@ serve(async (req) => {
       title = "🔥 New Lead Alert!";
       body = `👤 ${record.name || "Unknown"} | 📍 ${record.city || "Online"}\nTap to check details.`;
       data = { url: "/leads", leadId: record.id };
-<<<<<<< Updated upstream
     // ✅ FIX: Added payload.user_id check (meta-webhook sends snake_case)
-=======
->>>>>>> Stashed changes
     } else if (payload.userId || payload.user_id) {
       userId = payload.userId || payload.user_id;
       title = payload.title || title;
@@ -120,11 +117,13 @@ serve(async (req) => {
           );
           return { success: true };
         } catch (err: any) {
-          // Auto-Cleaning: Agar device kharab hai (410 Gone), toh delete karo
+          console.error("❌ Push failed for endpoint:", sub.endpoint?.substring(0, 60));
+          console.error("❌ Error:", err.statusCode, err.message, err.body);
           if (err.statusCode === 410 || err.statusCode === 404) {
+            console.log("🗑️ Removing stale subscription");
             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
-          return { success: false };
+          return { success: false, error: err.message, statusCode: err.statusCode };
         }
       })
     );
@@ -132,7 +131,17 @@ serve(async (req) => {
     const successCount = results.filter(r => r.success).length;
     console.log(`✅ Sent to ${successCount} devices.`);
 
-    return new Response(JSON.stringify({ success: true, sent: successCount }), {
+    const failedResults = results.filter(r => !r.success);
+    console.log(`📊 Results: ${successCount} sent, ${failedResults.length} failed`);
+    if (failedResults.length > 0) {
+      console.error("❌ Failed details:", JSON.stringify(failedResults));
+    }
+    return new Response(JSON.stringify({
+      success: true,
+      sent: successCount,
+      failed: failedResults.length,
+      errors: failedResults
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
