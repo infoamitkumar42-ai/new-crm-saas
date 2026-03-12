@@ -134,21 +134,25 @@ export default async function handler(req: any, res: any) {
       const userData = existingData?.[0];
       const isRenewal = userData?.payment_status === 'active' && userData?.plan_name !== 'none';
 
-      // 🚀 ROBUST ALL-TIME SYNC LOGIC (Infinite Validity)
+      // 🚀 ROBUST ALL-TIME SYNC LOGIC (Cumulative Counter)
 
-      // 1. Get REAL leads count from DB to prevent sync issues
+      // 1. Get REAL all-time leads count from DB
       const { count: realLeadsCount } = await fetch(
         `${supabaseUrl}/rest/v1/leads?user_id=eq.${userId}&select=*&head=true`,
         { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
       ).then(r => ({ count: parseInt(r.headers.get('content-range')?.split('/')[1] || '0') }));
 
-      const currentPromised = userData?.total_leads_promised || 0;
+      // 2. CUMULATIVE QUOTA — Old leads count + new plan leads
+      // Example: User had 50 leads (Jan/Feb), buys Starter (55) → promised = 105
+      // check-renewals uses real leads count, so user gets exactly 55 new leads
+      const newTotalLeadsPromised = realLeadsCount + config.totalLeads;
 
-      // 2. FRESH START — Reset quota on every renewal
-      // User pays for new plan = fresh quota, no carry forward
-      const newTotalLeadsPromised = config.totalLeads;
+      // 3. total_leads_received = real all-time count (for accurate display)
+      // New user: 0 + plan = plan total
+      // Old user: 50 + plan = cumulative total
+      const newTotalLeadsReceived = realLeadsCount;
 
-      // 3. Infinite Validity (2099)
+      // 4. Infinite Validity (2099)
       const infiniteValidity = '2099-01-01T00:00:00.000Z'; // Never expire by date
 
       await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
@@ -157,10 +161,10 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           plan_name: normalizedPlan,
           payment_status: 'active',
-          is_active: true,                               // ✅ ADD THIS
-          daily_limit: config.dailyLeads,                // ✅ CHANGED (was conditional)
-          total_leads_promised: newTotalLeadsPromised,   // ✅ RESET (not ADD)
-          total_leads_received: 0,                       // ✅ RESET to 0
+          is_active: true,
+          daily_limit: config.dailyLeads,
+          total_leads_promised: newTotalLeadsPromised,   // ✅ CUMULATIVE (old + new plan)
+          total_leads_received: newTotalLeadsReceived,   // ✅ REAL all-time count
           plan_weight: config.weight,
           max_replacements: config.maxReplacements,
           valid_until: infiniteValidity,
@@ -168,7 +172,7 @@ export default async function handler(req: any, res: any) {
           plan_start_date: now.toISOString(),
           plan_activation_time: isRenewal ? null : activationTime.toISOString(),
           is_plan_pending: isRenewal ? false : true,
-          is_online: true,                               // ✅ ADD THIS — user online on payment
+          is_online: true,
           updated_at: now.toISOString()
         })
       });

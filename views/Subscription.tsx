@@ -4,7 +4,8 @@ import { supabase } from '../supabaseClient';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, X, ChevronLeft, TrendingUp,
-  Phone, Users, ChevronDown, ChevronUp, RefreshCw, Star
+  Phone, Users, ChevronDown, ChevronUp, RefreshCw, Star,
+  BadgeCheck, Sparkles, MessageCircle, Target, Timer
 } from 'lucide-react';
 
 interface SubscriptionProps {
@@ -57,7 +58,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         originalPrice: 1499,
         duration: 10,
         dailyLeads: 5,
-        totalLeads: 50,
+        totalLeads: 55,
         perDay: 99.9,
         weight: 1,
         priority: 'Standard',
@@ -91,7 +92,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         originalPrice: 2999,
         duration: 15,
         dailyLeads: 7,
-        totalLeads: 105,
+        totalLeads: 115,
         perDay: 133,
         weight: 3,
         priority: 'High',
@@ -126,7 +127,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         originalPrice: 4499,
         duration: 20,
         dailyLeads: 8,
-        totalLeads: 160,
+        totalLeads: 176,
         perDay: 150,
         weight: 5,
         priority: 'Premium',
@@ -164,7 +165,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         originalPrice: 2499,
         duration: 7,
         dailyLeads: 12,
-        totalLeads: 84,
+        totalLeads: 92,
         perDay: 285,
         weight: 7,
         priority: 'Turbo',
@@ -198,7 +199,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
         originalPrice: 3499,
         duration: 7,
         dailyLeads: 14,
-        totalLeads: 98,
+        totalLeads: 108,
         perDay: 357,
         weight: 9,
         priority: 'Ultra',
