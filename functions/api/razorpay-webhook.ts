@@ -120,6 +120,18 @@ export const onRequestPost = async (context: any) => {
             // Infinite Validity (2099)
             const infiniteValidity = '2099-01-01T00:00:00.000Z';
 
+            // Get REAL all-time leads count from DB
+            const leadsCountRes = await fetch(
+                `${supabaseUrl}/rest/v1/leads?user_id=eq.${userId}&select=*&head=true`,
+                { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+            );
+            const realLeadsCount = parseInt(leadsCountRes.headers.get('content-range')?.split('/')[1] || '0');
+
+            // CUMULATIVE QUOTA: old leads + new plan
+            // Example: user had 50 leads (Jan/Feb), buys Starter (55) → promised = 105
+            // check-renewals counts real leads, so user gets exactly 55 new leads
+            const newTotalLeadsPromised = realLeadsCount + config.totalLeads;
+
             // 🚀 IMMEDIATE ACTIVATION LOGIC
             await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
                 method: 'PATCH',
@@ -129,16 +141,16 @@ export const onRequestPost = async (context: any) => {
                     payment_status: 'active',
                     is_active: true,
                     daily_limit: config.dailyLeads,
-                    total_leads_promised: config.totalLeads,
-                    total_leads_received: 0,
+                    total_leads_promised: newTotalLeadsPromised,  // ✅ CUMULATIVE (old + new plan)
+                    total_leads_received: realLeadsCount,         // ✅ REAL all-time count
                     plan_weight: config.weight,
                     max_replacements: config.maxReplacements,
                     valid_until: infiniteValidity,
                     leads_today: 0,
                     plan_start_date: now.toISOString(),
-                    plan_activation_time: null,       // ✅ IMMEDIATE
-                    is_plan_pending: false,             // ✅ IMMEDIATE
-                    is_online: true,                   // ✅ ALWAYS ONLINE AFTER PAYMENT
+                    plan_activation_time: null,
+                    is_plan_pending: false,
+                    is_online: true,
                     updated_at: now.toISOString()
                 })
             });
