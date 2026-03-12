@@ -19,6 +19,33 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 // Helper function for timeout
 const timeout = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("SW_TIMEOUT")), ms));
 
+// Resilient SW registration getter — never hangs
+// 1. Race navigator.serviceWorker.ready against a 3s timeout
+// 2. On timeout → try getRegistrations() for an existing registration
+// 3. Still nothing → re-register sw.js manually
+async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
+  try {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      timeout(3000)
+    ]) as ServiceWorkerRegistration;
+    return reg;
+  } catch (e: any) {
+    if (e.message !== 'SW_TIMEOUT') throw e;
+
+    console.warn('[Push] serviceWorker.ready timed out — trying getRegistrations()');
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    if (registrations.length > 0) {
+      console.log('[Push] Found existing registration via getRegistrations()');
+      return registrations[0];
+    }
+
+    console.warn('[Push] No registration found — re-registering sw.js');
+    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  }
+}
+
 interface UsePushNotificationReturn {
   isSubscribed: boolean;
   isLoading: boolean;
@@ -79,8 +106,8 @@ export function usePushNotification(): UsePushNotificationReturn {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
       try {
-        // Step A: Wait for the SW to be ready (This prevents InvalidStateError)
-        const registration = await navigator.serviceWorker.ready;
+        // Step A: Get SW registration (with timeout fallback — prevents hanging)
+        const registration = await getServiceWorkerRegistration();
         swRegistrationRef.current = registration;
 
         // Step B: Check Subscription (Silent Polling)
@@ -169,8 +196,8 @@ export function usePushNotification(): UsePushNotificationReturn {
     try {
       if (!VAPID_KEY) throw new Error('VAPID Key missing');
 
-      // 1. Ensure Service Worker is fully initialized and active
-      const reg = await navigator.serviceWorker.ready;
+      // 1. Get SW registration (with timeout fallback — prevents hanging)
+      const reg = await getServiceWorkerRegistration();
       if (!reg.active) {
         throw new Error('Service Worker not active yet. Please refresh.');
       }
