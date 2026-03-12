@@ -60,7 +60,7 @@ serve(async (req) => {
         const { data: leads, error: leadsError } = await supabase
             .from('leads')
             .select('*')
-            .eq('status', 'New')
+            .in('status', ['New', 'Night_Backlog', 'Queued'])
             .order('created_at', { ascending: true })
             .limit(100); // Process 100 at a time
 
@@ -208,7 +208,7 @@ serve(async (req) => {
                 continue;
             }
 
-            // Critical Atomic Update: Check status is STILL 'New'
+            // Critical Atomic Update: Check status is STILL unassigned
             const { error: assignError, data: updateData } = await supabase
                 .from('leads')
                 .update({
@@ -218,15 +218,25 @@ serve(async (req) => {
                     assigned_at: new Date().toISOString()
                 })
                 .eq('id', lead.id)
-                .eq('status', 'New') // Safety check
+                .in('status', ['New', 'Night_Backlog', 'Queued']) // Safety check
                 .select();
 
             if (!assignError && updateData && updateData.length > 0) {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
-                await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
+
+                // Increment leads_today using verified fresh count (direct update, no RPC needed)
+                await supabase.from('users')
+                    .update({ leads_today: freshCurrent + 1 })
+                    .eq('id', selectedUser.id);
+
+                // Increment total_leads_received via RPC (non-critical if fails)
+                const { error: rpcErr } = await supabase.rpc('increment_user_lead_counters', { p_user_id: selectedUser.id });
+                if (rpcErr) {
+                    console.log('⚠️ total_leads_received increment skipped:', rpcErr.message);
+                }
 
                 // Update local cache
-                selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
+                selectedUser.leads_today = freshCurrent + 1;
                 distributedCount++;
             }
         }
