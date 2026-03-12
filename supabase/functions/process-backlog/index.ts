@@ -52,6 +52,16 @@ serve(async (req) => {
 
         console.log('🧹 Backlog Sweeper Started...')
 
+        // 0. 10 AM IST Time Gate — only run after 10 AM IST
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const hourIST = nowIST.getHours();
+        if (hourIST < 10) {
+            console.log(`⏰ Time gate: ${hourIST}:xx IST — too early, backlog runs after 10 AM IST`);
+            return new Response(JSON.stringify({ message: 'Too early — runs after 10 AM IST', hour_ist: hourIST }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
+
         // 1. Fetch 'New' Leads (Oldest First)
         // We look for anything 'New' that is older than 5 minutes (to give webhook a chance first?)
         // Or just 'New'. 
@@ -109,10 +119,18 @@ serve(async (req) => {
 
             // B. Filter Eligible Users
             let eligible = users.filter(u => {
-                // 1. Capacity
+                // 1. Daily Capacity
                 const limit = u.daily_limit || 0;
                 const current = u.leads_today || 0;
                 if (current >= limit) {
+                    if (i === 0) firstLeadRejections.capacity++;
+                    return false;
+                }
+
+                // 2. Total Quota (total_leads_received < total_leads_promised)
+                const totalPromised = u.total_leads_promised || 0;
+                const totalReceived = u.total_leads_received || 0;
+                if (totalPromised > 0 && totalReceived >= totalPromised) {
                     if (i === 0) firstLeadRejections.capacity++;
                     return false;
                 }
@@ -223,7 +241,7 @@ serve(async (req) => {
 
             if (!assignError && updateData && updateData.length > 0) {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
-                await supabase.rpc('increment_leads_today', { user_id: selectedUser.id });
+                await supabase.rpc('increment_user_lead_counters', { p_user_id: selectedUser.id });
 
                 // Update local cache
                 selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;

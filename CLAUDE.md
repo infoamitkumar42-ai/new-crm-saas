@@ -327,18 +327,24 @@ Application event log inserted via `logEvent()`.
 
 ---
 
-## API Endpoints (Vercel Serverless — `api/` directory)
+## API Endpoints
 
-All use Next.js `NextApiRequest` / `NextApiResponse` types.
+### Cloudflare Pages Functions (`functions/` directory) — LIVE
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| POST | `/api/razorpay-webhook` | Processes Razorpay payment success — immediate activation | **Working** ✅ |
+
+### Legacy Vercel Serverless (`api/` directory) — NOT active in production
+These files remain in the repo for reference but the site is deployed on Cloudflare Pages, not Vercel.
 
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
 | POST | `/api/create-order` | Creates Razorpay order | **BROKEN** — `MAINTENANCE_MODE = true` returns 503 |
-| POST | `/api/razorpay-webhook` | Processes Razorpay payment success | Working (blocked by create-order) |
-| POST | `/api/check-renewals` | Checks/flags expired subscriptions | Working |
-| POST | `/api/confirm-user` | Admin: manually activate user | Working |
-| POST | `/api/create-sheet` | Creates Google Sheet for user | Working |
-| POST | `/api/init-user` | Initializes user after signup | Working |
+| POST | `/api/razorpay-webhook` | Old Vercel version with 30-min delay | Superseded by Cloudflare Pages version |
+| POST | `/api/check-renewals` | Checks/flags expired subscriptions | Legacy |
+| POST | `/api/confirm-user` | Admin: manually activate user | Legacy |
+| POST | `/api/create-sheet` | Creates Google Sheet for user | Legacy |
+| POST | `/api/init-user` | Initializes user after signup | Legacy |
 
 ---
 
@@ -431,10 +437,10 @@ Many Indian ISPs (Jio, Airtel) block direct Supabase connections. `supabaseClien
 
 ## Deployment
 
-- **Frontend:** Vercel. Push to `master` triggers auto-deploy.
+- **Frontend:** Cloudflare Pages (NOT Vercel). `vercel.json` exists in the repo but is not the active deployment config.
+- **Cloudflare Pages Functions:** Serverless functions live in `functions/` directory (e.g., `functions/api/razorpay-webhook.ts`). These replace the old `api/` Vercel functions for production.
 - **Supabase Edge Functions:** Deploy via Supabase CLI (`supabase functions deploy <name>`).
-- **`vercel.json`:** Configures SPA rewrites (all paths → `index.html`) and `no-cache` headers.
-- **Cloudflare:** The `cloudflare-worker/` directory contains the worker proxying `api.leadflowcrm.in` → Supabase.
+- **Cloudflare Worker (Supabase Proxy):** The `cloudflare-worker/` directory contains the worker proxying `api.leadflowcrm.in` → Supabase (separate from Pages Functions).
 
 ---
 
