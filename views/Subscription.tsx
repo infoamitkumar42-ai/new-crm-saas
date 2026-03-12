@@ -4,7 +4,8 @@ import { supabase } from '../supabaseClient';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, X, ChevronLeft, TrendingUp,
-  Phone, Users, ChevronDown, ChevronUp, RefreshCw, Star
+  Phone, Users, ChevronDown, ChevronUp, RefreshCw, Star,
+  BadgeCheck, Sparkles, MessageCircle, Target, Timer
 } from 'lucide-react';
 
 interface SubscriptionProps {
