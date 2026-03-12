@@ -146,16 +146,13 @@ export function usePushNotification(): UsePushNotificationReturn {
           setIsSubscribed(true);
 
           // Silent sync to DB
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            syncSubscriptionToDb(sub, user.id).catch(() => {});
-          }
+          syncSubscriptionToDb(sub).catch(() => {});
         } else {
           console.log('[Push] ℹ️ No subscription yet');
           setIsSubscribed(false);
 
-          // Auto-subscribe if permission already granted
-          if (Notification.permission === 'granted') {
+          // Auto-subscribe if permission already granted (guard prevents double subscribe)
+          if (Notification.permission === 'granted' && !isSyncingRef.current) {
             console.log('[Push] 🔄 Permission granted, auto-subscribing...');
             subscribe(true);
           }
@@ -174,7 +171,26 @@ export function usePushNotification(): UsePushNotificationReturn {
   // ---------------------------------------------------------------
   // SYNC SUBSCRIPTION TO DB
   // ---------------------------------------------------------------
-  const syncSubscriptionToDb = async (sub: PushSubscription, userId: string) => {
+  const syncSubscriptionToDb = async (sub: PushSubscription) => {
+    // 🔧 FIX: getUser() gives 403 when token expired, use getSession instead
+    let userId: string | null = null;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id || null;
+    } catch {
+      // Fallback: try getUser
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+      } catch { /* ignore */ }
+    }
+
+    if (!userId) {
+      console.warn('[Push] No user session, skipping DB sync');
+      return;
+    }
+
     try {
       const subJson = sub.toJSON();
       const { error: rpcError } = await supabase.rpc('upsert_push_subscription', {
@@ -261,10 +277,18 @@ export function usePushNotification(): UsePushNotificationReturn {
       }
 
       // Save to DB
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not logged in');
+      let userId: string | null = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        userId = session?.user?.id || null;
+      } catch { /* ignore */ }
 
-      await syncSubscriptionToDb(subscription, user.id);
+      if (!userId) {
+        console.warn('[Push] No user session for subscribe');
+        return false;
+      }
+
+      await syncSubscriptionToDb(subscription);
 
       setIsSubscribed(true);
       console.log('[Push] ✅ Fully subscribed and synced!');
@@ -370,8 +394,7 @@ export function usePushNotification(): UsePushNotificationReturn {
         } else {
           // Subscription exists in browser but not in DB - sync it
           console.log('[Push] Subscription not in DB, syncing...');
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) await syncSubscriptionToDb(existingSub, user.id);
+          await syncSubscriptionToDb(existingSub);
         }
       }
     } catch (err) {
