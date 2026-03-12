@@ -33,7 +33,8 @@ export const onRequestPost = async (context: any) => {
 
     try {
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
-        const supabaseUrl = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+        // ✅ Direct Supabase URL use karo (proxy nahi) — webhook server-side hai
+        const supabaseUrl = env.VITE_SUPABASE_DIRECT_URL || env.SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
         const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!webhookSecret || !supabaseUrl || !supabaseKey) {
@@ -44,11 +45,11 @@ export const onRequestPost = async (context: any) => {
         const signature = request.headers.get('x-razorpay-signature');
         const rawBody = await request.text();
 
-        // Use Web Crypto API or Node crypto (Cloudflare supports Node.js compatibility)
-        // For Cloudflare, we can import crypto or use SubtleCrypto.
-        // However, the user asked to copy the logic. Cloudflare supports Node crypto via `import crypto from 'node:crypto'`.
-        const crypto = await import('node:crypto');
-        const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+        // ✅ Web Crypto API — Cloudflare mein natively available, node:crypto ki zaroorat nahi
+        const enc = new TextEncoder();
+        const key = await crypto.subtle.importKey('raw', enc.encode(webhookSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sigBuffer = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
+        const expectedSignature = Array.from(new Uint8Array(sigBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
         if (signature !== expectedSignature) {
             return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: corsHeaders });
