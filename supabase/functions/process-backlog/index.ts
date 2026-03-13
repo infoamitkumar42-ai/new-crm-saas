@@ -52,12 +52,12 @@ serve(async (req) => {
 
         console.log('🧹 Backlog Sweeper Started...')
 
-        // 0. 10 AM IST Time Gate — only run after 10 AM IST
+        // 0. 8 AM IST Time Gate — only run after 8 AM IST
         const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
         const hourIST = nowIST.getHours();
-        if (hourIST < 10) {
-            console.log(`⏰ Time gate: ${hourIST}:xx IST — too early, backlog runs after 10 AM IST`);
-            return new Response(JSON.stringify({ message: 'Too early — runs after 10 AM IST', hour_ist: hourIST }), {
+        if (hourIST < 8) {
+            console.log(`⏰ Time gate: ${hourIST}:xx IST — too early, backlog runs after 8 AM IST`);
+            return new Response(JSON.stringify({ message: 'Too early — runs after 8 AM IST', hour_ist: hourIST }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
@@ -70,7 +70,7 @@ serve(async (req) => {
         const { data: leads, error: leadsError } = await supabase
             .from('leads')
             .select('*')
-            .eq('status', 'New')
+            .in('status', ['New', 'Night_Backlog', 'Queued'])
             .order('created_at', { ascending: true })
             .limit(100); // Process 100 at a time
 
@@ -226,7 +226,7 @@ serve(async (req) => {
                 continue;
             }
 
-            // Critical Atomic Update: Check status is STILL 'New'
+            // Critical Atomic Update: Check status is STILL unassigned
             const { error: assignError, data: updateData } = await supabase
                 .from('leads')
                 .update({
@@ -236,7 +236,7 @@ serve(async (req) => {
                     assigned_at: new Date().toISOString()
                 })
                 .eq('id', lead.id)
-                .eq('status', 'New') // Safety check
+                .in('status', ['New', 'Night_Backlog', 'Queued']) // Safety check
                 .select();
 
             if (!assignError && updateData && updateData.length > 0) {
