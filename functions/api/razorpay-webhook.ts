@@ -32,9 +32,12 @@ export const onRequestPost = async (context: any) => {
     };
 
     try {
+        console.log('[Webhook] Hit received');
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
-        const supabaseUrl = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
         const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+        console.log('[Webhook] Supabase URL:', supabaseUrl);
+        console.log('[Webhook] Service Key exists:', !!supabaseKey);
 
         if (!webhookSecret || !supabaseUrl || !supabaseKey) {
             return new Response(JSON.stringify({ error: 'Server misconfiguration' }), { status: 500, headers: corsHeaders });
@@ -166,7 +169,7 @@ export const onRequestPost = async (context: any) => {
         return new Response(JSON.stringify({ ignored: true }), { status: 200, headers: corsHeaders });
 
     } catch (err: any) {
-        console.error('Webhook error:', err.message);
+        console.error('[Webhook] Error:', err.message);
         return new Response(JSON.stringify({ error: 'Webhook crash', message: err.message }), { status: 500, headers: corsHeaders });
     }
 };
