@@ -48,10 +48,11 @@ self.addEventListener('push', (event) => {
             body: payload.body || 'Open the app to see details.',
             icon: '/icon-192x192.png',
             badge: '/icon-192x192.png',
-            vibrate: [200, 100, 200],
-            tag: payload.tag || 'leadflow-notification',
+            vibrate: [300, 100, 300, 100, 300],
+            tag: payload.tag || 'lead-' + Date.now(),
             renotify: true,
             requireInteraction: true,
+            silent: false,
             data: {
                 url: payload.data?.url || payload.url || '/'
             },
