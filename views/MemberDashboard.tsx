@@ -200,6 +200,7 @@ export const MemberDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
   const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
+  const leadsCountRef = useRef(0); // 🔥 Track current leads count for polling (avoids stale closure)
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
   const [hasMoreLeads, setHasMoreLeads] = useState(true);
   const [totalLeadCount, setTotalLeadCount] = useState<number | null>(null);
@@ -213,6 +214,11 @@ export const MemberDashboard = () => {
       setProfile(authProfile);
     }
   }, [authProfile]);
+
+  // Keep leadsCountRef in sync so polling interval doesn't use stale closure
+  useEffect(() => {
+    leadsCountRef.current = leads.length;
+  }, [leads.length]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -583,7 +589,8 @@ export const MemberDashboard = () => {
 
     const interval = setInterval(() => {
       // Background: Refresh currently loaded range (preserve expanded list)
-      const currentCount = Math.max(leads.length, 50);
+      // Use ref instead of leads.length to avoid stale closure after "Load More"
+      const currentCount = Math.max(leadsCountRef.current, 50);
       fetchData(0, currentCount);
     }, 20000); // 20 Seconds
 

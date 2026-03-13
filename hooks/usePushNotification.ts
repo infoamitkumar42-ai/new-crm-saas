@@ -403,10 +403,11 @@ export function usePushNotification(): UsePushNotificationReturn {
   }, [subscribe]);
 
   // Auto-refresh on mount and daily
+  // Delay initial call by 5s to avoid auth lock contention during app startup
   useEffect(() => {
-    refreshSubscription();
+    const initialDelay = setTimeout(refreshSubscription, 5000);
     const interval = setInterval(refreshSubscription, 24 * 60 * 60 * 1000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(initialDelay); clearInterval(interval); };
   }, [refreshSubscription]);
 
   // ---------------------------------------------------------------
