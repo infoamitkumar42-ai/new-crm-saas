@@ -52,12 +52,12 @@ serve(async (req) => {
 
         console.log('🧹 Backlog Sweeper Started...')
 
-        // 0. 8 AM IST Time Gate — only run after 8 AM IST
+        // 0. 10 AM IST Time Gate — only run after 10 AM IST
         const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
         const hourIST = nowIST.getHours();
-        if (hourIST < 8) {
-            console.log(`⏰ Time gate: ${hourIST}:xx IST — too early, backlog runs after 8 AM IST`);
-            return new Response(JSON.stringify({ message: 'Too early — runs after 8 AM IST', hour_ist: hourIST }), {
+        if (hourIST < 10) {
+            console.log(`⏰ Time gate: ${hourIST}:xx IST — too early, backlog runs after 10 AM IST`);
+            return new Response(JSON.stringify({ message: 'Too early — runs after 10 AM IST', hour_ist: hourIST }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
