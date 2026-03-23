@@ -678,10 +678,6 @@ export const AdminDashboard: React.FC = () => {
         } else {
           // 7. Update Local Counter (Critical for next iteration sort)
           selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
-
-          // Update DB Counter (also increments total_leads_received)
-          await supabase.rpc('increment_user_lead_counters', { p_user_id: selectedUser.id });
-
           const displayLimit = selectedUser.daily_limit_override || selectedUser.daily_limit || 0;
           logs.push(`✅ Assigned ${name} -> ${selectedUser.name} (${selectedUser.leads_today}/${displayLimit})`);
           processedCount++;

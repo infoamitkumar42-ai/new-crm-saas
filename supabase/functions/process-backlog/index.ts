@@ -241,7 +241,6 @@ serve(async (req) => {
 
             if (!assignError && updateData && updateData.length > 0) {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
-                await supabase.rpc('increment_user_lead_counters', { p_user_id: selectedUser.id });
 
                 // Update local cache
                 selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;

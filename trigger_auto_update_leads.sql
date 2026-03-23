@@ -13,11 +13,11 @@ BEGIN
         -- Update the assigned user's record
         UPDATE users
         SET 
-            -- Increment the counter
+            -- Increment the counters
             total_leads_received = COALESCE(total_leads_received, 0) + 1,
+            leads_today = COALESCE(leads_today, 0) + 1,
             
             -- Automatically deactivate the user if their new count hits or exceeds their promised limit
-            -- (We only apply this if they have a promised limit greater than 0)
             is_active = CASE 
                             WHEN COALESCE(total_leads_received, 0) + 1 >= COALESCE(total_leads_promised, 0) AND COALESCE(total_leads_promised, 0) > 0 THEN false 
                             ELSE is_active 

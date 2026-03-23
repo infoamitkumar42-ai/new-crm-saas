@@ -334,16 +334,6 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // Increment user's leads_today AND total_leads_received
-                    try {
-                        await supabase.rpc('increment_user_lead_counters', {
-                            p_user_id: finalUserId
-                        });
-                        console.log('📊 Counters incremented for user:', finalUserId);
-                    } catch (counterErr) {
-                        console.error('⚠️ Counter increment failed (non-critical):', counterErr);
-                    }
-
                     leadsAssigned++;
                     console.log(`✅ ASSIGNED: ${name} (${phone}) -> ${targetUser.user_name} [${requiredTeamCode}]`);
 
@@ -372,6 +362,87 @@ serve(async (req) => {
                     } catch (notifErr) {
                         // Non-critical - don't fail the webhook if notification fails
                         console.log('⚠️ Notification error (ignored):', notifErr);
+                    }
+
+                    // ═══════════════════════════════════════════════════════════
+                    // 📊 FACEBOOK CONVERSION API (CAPI) — Send event back
+                    // Helps Facebook optimize ad delivery for better leads
+                    // ═══════════════════════════════════════════════════════════
+                    try {
+                        // 1. Lookup pixel config from DB
+                        const { data: pixelConfigs } = await supabase
+                            .from('pixel_config')
+                            .select('pixel_id, capi_access_token, page_name, team_code')
+                            .eq('is_active', true);
+
+                        // 2. Match lead source to pixel config
+                        let matchedPixel = null;
+                        if (pixelConfigs && pixelConfigs.length > 0) {
+                            for (const config of pixelConfigs) {
+                                const configPage = (config.page_name || '').toLowerCase().substring(0, 25);
+                                const sourcePage = (pageName || '').toLowerCase();
+                                if (sourcePage.includes(configPage) || configPage.includes(sourcePage.substring(0, 25))) {
+                                    matchedPixel = config;
+                                    break;
+                                }
+                            }
+                            // Fallback: match by team_code
+                            if (!matchedPixel) {
+                                matchedPixel = pixelConfigs.find(
+                                    (c: any) => c.team_code === requiredTeamCode
+                                ) || null;
+                            }
+                        }
+
+                        // 3. Send CAPI event if valid pixel found
+                        if (matchedPixel && matchedPixel.capi_access_token !== 'PENDING_TOKEN') {
+                            const hashValue = async (val: string): Promise<string> => {
+                                const encoder = new TextEncoder();
+                                const data = encoder.encode((val || '').toLowerCase().trim());
+                                const hash = await crypto.subtle.digest('SHA-256', data);
+                                return Array.from(new Uint8Array(hash))
+                                    .map(b => b.toString(16).padStart(2, '0'))
+                                    .join('');
+                            };
+
+                            const capiPayload = {
+                                data: [{
+                                    event_name: 'Lead',
+                                    event_time: Math.floor(Date.now() / 1000),
+                                    action_source: 'system_generated',
+                                    user_data: {
+                                        ph: [await hashValue(phone || '')],
+                                        fn: [await hashValue(name || '')],
+                                        ct: [await hashValue(city || '')],
+                                        country: [await hashValue('in')],
+                                        lead_id: leadId ? Number(leadId) : undefined,
+                                    },
+                                    custom_data: {
+                                        event_source: 'crm',
+                                        lead_event_source: 'LeadFlow CRM',
+                                        currency: 'INR',
+                                        value: 0,
+                                    },
+                                }],
+                            };
+
+                            const capiResp = await fetch(
+                                `https://graph.facebook.com/v18.0/${matchedPixel.pixel_id}/events?access_token=${matchedPixel.capi_access_token}`,
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(capiPayload),
+                                }
+                            );
+
+                            const capiResult = await capiResp.json();
+                            console.log(`[CAPI] ✅ Pixel ${matchedPixel.pixel_id} | Page: ${pageName} | Result:`, JSON.stringify(capiResult));
+                        } else {
+                            console.log(`[CAPI] ⏭️ Skipped — ${!matchedPixel ? 'no config' : 'PENDING_TOKEN'} | Page: ${pageName}`);
+                        }
+                    } catch (capiError: any) {
+                        // NEVER fail the main webhook because of CAPI
+                        console.error('[CAPI] ❌ Error (non-fatal):', capiError.message);
                     }
                 }
             }
