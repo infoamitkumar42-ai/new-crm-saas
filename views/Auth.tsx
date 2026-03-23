@@ -40,8 +40,10 @@ export const Auth: React.FC = () => {
   // on mount so the first RPC call doesn't hit a cold TCP handshake.
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
-    // Fire a lightweight ping to warm up the proxy — ignore result
-    supabase.from('users').select('id').limit(1).maybeSingle().catch(() => {});
+    console.log('[WARMUP] Firing at:', Date.now());
+    supabase.from('users').select('id').limit(1).maybeSingle()
+      .then(() => console.log('[WARMUP] Success', Date.now()))
+      .catch((e: any) => console.log('[WARMUP] Failed:', e));
   }, []);
 
   // ═══════════════════════════════════════════════════════════
@@ -49,12 +51,15 @@ export const Auth: React.FC = () => {
   // ═══════════════════════════════════════════════════════════
 
   const verifyTeamCode = async (code: string, attempt = 0) => {
+    console.log('[VERIFY] Start:', Date.now(), 'Code:', code, 'Attempt:', attempt);
     if (!code || code.length < 3) {
+      console.log('[STATUS] Setting to: idle at:', Date.now());
       setTeamCodeStatus('idle');
       setManagerInfo(null);
       return;
     }
 
+    console.log('[STATUS] Setting to: checking at:', Date.now());
     setTeamCodeStatus('checking');
 
     try {
@@ -62,8 +67,10 @@ export const Auth: React.FC = () => {
       const { data, error } = await supabase.rpc('verify_team_code', {
         code: code.toUpperCase()
       });
+      console.log('[VERIFY] RPC Response:', Date.now(), { data, error });
 
       if (!error && data && data.length > 0 && data[0].is_valid) {
+        console.log('[STATUS] Setting to: valid at:', Date.now());
         setTeamCodeStatus('valid');
         setManagerInfo({
           id: data[0].manager_id,
@@ -91,12 +98,14 @@ export const Auth: React.FC = () => {
           .eq('team_code', code.toUpperCase())
           .eq('role', 'manager')
           .maybeSingle();
+        console.log('[STATUS] Setting to: valid at:', Date.now());
         setTeamCodeStatus('valid');
         setManagerInfo({
           id: managerData?.id || userData.id,
           name: managerData?.name || userData.name || 'Manager'
         });
       } else {
+        console.log('[STATUS] Setting to: invalid (fallback query failed) at:', Date.now());
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
       }
@@ -106,11 +115,13 @@ export const Auth: React.FC = () => {
       // can fail before the TCP connection is established.
       if (attempt === 0) {
         console.warn('[TeamCode] Network error on first attempt, retrying in 800ms...', err);
+        console.log('[STATUS] Setting to: checking (retry) at:', Date.now());
         setTeamCodeStatus('checking'); // stay in checking, don't flash invalid
         setTimeout(() => verifyTeamCode(code, 1), 800);
       } else {
         // Retry also failed — now we can genuinely show an error
         console.error('[TeamCode] Verification failed after retry:', err);
+        console.log('[STATUS] Setting to: invalid (catch) at:', Date.now());
         setTeamCodeStatus('invalid');
         setManagerInfo(null);
       }
@@ -144,7 +155,11 @@ export const Auth: React.FC = () => {
 
   const handleTeamCodeChange = (value: string) => {
     const upperValue = value.toUpperCase().replace(/\s/g, '');
+    
+    console.log('[INPUT]', Date.now(), 'Value:', upperValue, 'RequestId:', verifyRequestId.current);
+    
     setTeamCode(upperValue);
+    console.log('[STATUS] Setting to: idle (handleTeamCodeChange) at:', Date.now());
     setTeamCodeStatus('idle');
     setManagerInfo(null);
 
