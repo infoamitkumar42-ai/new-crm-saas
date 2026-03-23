@@ -2,7 +2,7 @@
  * ╔════════════════════════════════════════════════════════════╗
  * ║  🔒 Razorpay Webhook (Cloudflare Pages Version)            ║
  * ║  SAFE • IMMEDIATE ACTIVATION • LOGS FAILURES • SCALE READY ║
- * ║  Author: LeadFlow CRM                                     ║
+ * ║  Author: LeadFlow CRM                                      ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -14,11 +14,11 @@ const PLAN_CONFIG: Record<string, {
     weight: number;
     maxReplacements: number;
 }> = {
-    starter: { price: 999, duration: 10, dailyLeads: 5, totalLeads: 55, weight: 1, maxReplacements: 5 },
-    supervisor: { price: 1999, duration: 15, dailyLeads: 7, totalLeads: 115, weight: 3, maxReplacements: 10 },
+    starter: { price: 999, duration: 10, dailyLeads: 5, totalLeads: 55, weight: 1, maxReplacements: 0 },
+    supervisor: { price: 1999, duration: 15, dailyLeads: 7, totalLeads: 115, weight: 3, maxReplacements: 0 },
     manager: { price: 2999, duration: 20, dailyLeads: 8, totalLeads: 176, weight: 5, maxReplacements: 16 },
     weekly_boost: { price: 1999, duration: 7, dailyLeads: 12, totalLeads: 92, weight: 7, maxReplacements: 8 },
-    turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 10 }
+    turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 8 }
 };
 
 export const onRequestPost = async (context: any) => {
@@ -26,16 +26,24 @@ export const onRequestPost = async (context: any) => {
 
     // Set CORS headers
     const corsHeaders = {
+        'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, X-Razorpay-Signature',
     };
 
+    console.log('[Webhook] ========== REQUEST RECEIVED ==========');
+    console.log('[Webhook] Timestamp:', new Date().toISOString());
+    console.log('[Webhook] Method:', request.method);
+    console.log('[Webhook] URL:', request.url);
+    
     try {
-        console.log('[Webhook] Received request');
         const headersObj: Record<string, string> = {};
         request.headers.forEach((value: string, key: string) => { headersObj[key] = value; });
         console.log('[Webhook] Headers:', JSON.stringify(headersObj));
+
+        const rawBody = await request.text();
+        console.log('[Webhook] Body:', rawBody);
 
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
         const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
@@ -49,12 +57,7 @@ export const onRequestPost = async (context: any) => {
 
         // 1️⃣ Verify Signature
         const signature = request.headers.get('x-razorpay-signature');
-        const rawBody = await request.text();
-        console.log('[Webhook] Body:', rawBody);
 
-        // Use Web Crypto API or Node crypto (Cloudflare supports Node.js compatibility)
-        // For Cloudflare, we can import crypto or use SubtleCrypto.
-        // However, the user asked to copy the logic. Cloudflare supports Node crypto via `import crypto from 'node:crypto'`.
         const crypto = await import('node:crypto');
         const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
 
@@ -137,9 +140,7 @@ export const onRequestPost = async (context: any) => {
             console.log('[Webhook] Insert result:', { status: paymentInsertRes.status, data: paymentInsertText, error: !paymentInsertRes.ok });
 
             // Activate User Plan
-            const now = new Date();
-            // Infinite Validity (2099)
-            const infiniteValidity = '2099-01-01T00:00:00.000Z';
+            console.log('[Webhook] Activating user:', userId, 'Plan:', normalizedPlan);
 
             // Get REAL all-time leads count from DB
             const leadsCountRes = await fetch(
@@ -148,15 +149,18 @@ export const onRequestPost = async (context: any) => {
             );
             const realLeadsCount = parseInt(leadsCountRes.headers.get('content-range')?.split('/')[1] || '0');
 
-            // CUMULATIVE QUOTA: old leads + new plan
-            // Example: user had 50 leads (Jan/Feb), buys Starter (55) → promised = 105
-            // check-renewals counts real leads, so user gets exactly 55 new leads
             const newTotalLeadsPromised = realLeadsCount + config.totalLeads;
+            const infiniteValidity = '2099-01-01T00:00:00.000Z';
+            const now = new Date();
 
-            // 🚀 IMMEDIATE ACTIVATION LOGIC
-            await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
+            const userUpdateRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
                 method: 'PATCH',
-                headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    apikey: supabaseKey, 
+                    Authorization: `Bearer ${supabaseKey}`, 
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
                 body: JSON.stringify({
                     plan_name: normalizedPlan,
                     payment_status: 'active',
@@ -176,6 +180,14 @@ export const onRequestPost = async (context: any) => {
                 })
             });
 
+            const userUpdateText = await userUpdateRes.text();
+            console.log('[Webhook] User update result:', { status: userUpdateRes.status, data: userUpdateText, error: !userUpdateRes.ok });
+
+            if (!userUpdateRes.ok) {
+                console.error('[Webhook] Failed to activate user!', userUpdateText);
+            }
+
+            console.log('[Webhook] Sending response:', { success: true });
             return new Response(JSON.stringify({
                 success: true,
                 status: 'ok',
@@ -184,11 +196,12 @@ export const onRequestPost = async (context: any) => {
             }), { status: 200, headers: corsHeaders });
         }
 
+        console.log('[Webhook] Sending response:', { ignored: true });
         return new Response(JSON.stringify({ ignored: true }), { status: 200, headers: corsHeaders });
 
     } catch (err: any) {
-        console.error('[Webhook] Error:', err.message);
-        return new Response(JSON.stringify({ error: 'Webhook crash', message: err.message }), { status: 500, headers: corsHeaders });
+        console.error('[Webhook] ERROR:', err.message, err.stack);
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
     }
 };
 
@@ -200,8 +213,8 @@ export const onRequestGet = async (context: any) => {
     });
 };
 
-// Handle OPTIONS for CORS
-export const onRequestOptions = async () => {
+// Handle OPTIONS for CORS explicitly
+export const onRequestOptions = async (context: any) => {
     return new Response(null, {
         status: 204,
         headers: {
