@@ -58,8 +58,25 @@ export const onRequestPost = async (context: any) => {
         // 1️⃣ Verify Signature
         const signature = request.headers.get('x-razorpay-signature');
 
-        const crypto = await import('node:crypto');
-        const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+        // Use standard Web Crypto API for Cloudflare Workers/Pages
+        const encoder = new TextEncoder();
+        const key = await globalThis.crypto.subtle.importKey(
+            'raw',
+            encoder.encode(webhookSecret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        
+        const signatureBuffer = await globalThis.crypto.subtle.sign(
+            'HMAC',
+            key,
+            encoder.encode(rawBody)
+        );
+        
+        const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
 
         console.log('[Webhook] Signature from header:', signature);
         console.log('[Webhook] Expected Signature:', expectedSignature);
