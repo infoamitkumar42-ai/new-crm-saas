@@ -297,13 +297,36 @@ export const MemberDashboard = () => {
   const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
+  // 🔥 DYNAMIC PLAN DISPLAY NAME
+  const getPlanDisplayName = (name: string): string => {
+    if (!name) return 'NONE';
+    const mappings: Record<string, string> = {
+      'starter': 'STARTER',
+      'supervisor': 'SUPERVISOR',
+      'weekly_boost': 'WEEKLY BOOST',
+      'turbo_boost': 'TURBO BOOST',
+      'manager': 'MANAGER',
+      'none': 'EXPIRED'
+    };
+    return mappings[name.toLowerCase()] || name.toUpperCase().replace(/_/g, ' ');
+  };
+
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
+    const pName = profile?.plan_name || 'none';
+
+    // 1. Check for specific Tier Labels based on Weight (Override labels)
     if (w >= 50) return { text: 'MANAGER', color: 'bg-red-600 text-white', icon: Crown as LucideIcon };
     if (w >= 40) return { text: 'VIP BOOST', color: 'bg-purple-600 text-white', icon: Flame as LucideIcon };
     if (w >= 30) return { text: 'SUPERVISOR', color: 'bg-blue-600 text-white', icon: Shield as LucideIcon };
-    return { text: 'STARTER', color: 'bg-slate-600 text-white', icon: User as LucideIcon };
-  }, [profile?.plan_weight]);
+
+    // 2. Default to actual Plan Name (Mapped to Display)
+    return {
+      text: getPlanDisplayName(pName),
+      color: 'bg-slate-600 text-white',
+      icon: User as LucideIcon
+    };
+  }, [profile?.plan_weight, profile?.plan_name]);
 
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
@@ -615,7 +638,7 @@ export const MemberDashboard = () => {
     const currentlyPaused = profile.is_active === false;
     const newActiveStatus = !currentlyPaused ? false : true;
 
-    setProfile(prev => prev ? { ...prev, is_active: newActiveStatus } : null);
+    setProfile((prev: any) => prev ? { ...prev, is_active: newActiveStatus } : null);
 
     try {
       // 🔥 FIX: Update BOTH is_active AND is_online
@@ -633,13 +656,13 @@ export const MemberDashboard = () => {
       await fetchData();
 
     } catch (err: any) {
-      setProfile(prev => prev ? { ...prev, is_active: !newActiveStatus } : null);
+      setProfile((prev: any) => prev ? { ...prev, is_active: !newActiveStatus } : null);
       alert(`Error: ${err.message || 'Unknown error'}`);
     }
   };
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
-    setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
+    setLeads((prev: Lead[]) => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
     const { error } = await supabase
       .from('leads')
       .update({ status: newStatus, updated_at: new Date().toISOString() })
