@@ -1,6 +1,6 @@
 // src/views/Auth.tsx
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
@@ -36,10 +36,19 @@ export const Auth: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ═══════════════════════════════════════════════════════════
+  // 🔥 PROXY WARM-UP — Pre-heats the Cloudflare proxy connection
+  // on mount so the first RPC call doesn't hit a cold TCP handshake.
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    // Fire a lightweight ping to warm up the proxy — ignore result
+    supabase.from('users').select('id').limit(1).maybeSingle().catch(() => {});
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
   // 🔍 TEAM CODE VERIFICATION
   // ═══════════════════════════════════════════════════════════
 
-  const verifyTeamCode = async (code: string) => {
+  const verifyTeamCode = async (code: string, attempt = 0) => {
     if (!code || code.length < 3) {
       setTeamCodeStatus('idle');
       setManagerInfo(null);
@@ -92,9 +101,19 @@ export const Auth: React.FC = () => {
         setManagerInfo(null);
       }
     } catch (err) {
-      console.error("Team code verification error:", err);
-      setTeamCodeStatus('invalid');
-      setManagerInfo(null);
+      // 🛡️ Network/proxy error — NOT a bad code. Retry once after 800ms.
+      // This handles cold-start: first request through Cloudflare proxy
+      // can fail before the TCP connection is established.
+      if (attempt === 0) {
+        console.warn('[TeamCode] Network error on first attempt, retrying in 800ms...', err);
+        setTeamCodeStatus('checking'); // stay in checking, don't flash invalid
+        setTimeout(() => verifyTeamCode(code, 1), 800);
+      } else {
+        // Retry also failed — now we can genuinely show an error
+        console.error('[TeamCode] Verification failed after retry:', err);
+        setTeamCodeStatus('invalid');
+        setManagerInfo(null);
+      }
     }
   };
 
