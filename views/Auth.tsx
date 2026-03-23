@@ -1,6 +1,6 @@
 // src/views/Auth.tsx
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabaseClient";
@@ -23,6 +23,11 @@ export const Auth: React.FC = () => {
   const [teamCode, setTeamCode] = useState("");
   const [teamCodeStatus, setTeamCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [managerInfo, setManagerInfo] = useState<{ id: string; name: string } | null>(null);
+
+  // 🛡️ Debounce ref — cancels previous timer so only the LAST keystroke fires the RPC
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 🛡️ Request counter — discards stale responses that arrive out-of-order
+  const verifyRequestId = useRef<number>(0);
 
   const [selectedRole, setSelectedRole] = useState<UserRole>("member");
   const [loading, setLoading] = useState(false);
@@ -59,20 +64,28 @@ export const Auth: React.FC = () => {
       }
 
       // 2. Fallback: Direct DB Query (if RPC fails/missing or code not found in RPC logic)
-      // This helps if the SQL script wasn't run but public read access is allowed
+      // Check if the team_code exists for ANY user — not just managers.
+      // This handles cases where the manager row may be missing or team_code stored differently.
       console.log("RPC verification failed or returned invalid, trying direct query...");
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, name')
+        .select('id, name, role')
         .eq('team_code', code.toUpperCase())
-        .eq('role', 'manager')
+        .limit(1)
         .maybeSingle();
 
       if (userData && !userError) {
+        // Code exists — try to get the manager name for display
+        const { data: managerData } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('team_code', code.toUpperCase())
+          .eq('role', 'manager')
+          .maybeSingle();
         setTeamCodeStatus('valid');
         setManagerInfo({
-          id: userData.id,
-          name: userData.name || 'Manager'
+          id: managerData?.id || userData.id,
+          name: managerData?.name || userData.name || 'Manager'
         });
       } else {
         setTeamCodeStatus('invalid');
@@ -116,9 +129,20 @@ export const Auth: React.FC = () => {
     setTeamCodeStatus('idle');
     setManagerInfo(null);
 
+    // 🛡️ Cancel any pending debounce timer before starting a new one
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+
     if (selectedRole === 'member' && upperValue.length >= 3) {
-      setTimeout(() => {
-        verifyTeamCode(upperValue);
+      // Increment request ID — any in-flight response with an older ID will be ignored
+      const thisRequestId = ++verifyRequestId.current;
+
+      debounceTimer.current = setTimeout(async () => {
+        // Only proceed if this is still the latest request
+        if (thisRequestId !== verifyRequestId.current) return;
+        await verifyTeamCode(upperValue);
       }, 500);
     }
   };
@@ -196,17 +220,27 @@ export const Auth: React.FC = () => {
             if (!rpcError && rpcData && rpcData.length > 0 && rpcData[0].is_valid) {
               validManager = { id: rpcData[0].manager_id, name: rpcData[0].manager_name };
             } else {
-              // 2. Fallback: Direct Query
+              // 2. Fallback: Direct Query — check any user with this team_code
               console.log("RPC verify failed in submit, trying direct query...");
-              const { data: userData } = await supabase
+              const { data: anyUser } = await supabase
                 .from('users')
-                .select('id, name')
-                .eq('team_code', teamCode)
-                .eq('role', 'manager')
+                .select('id, name, role')
+                .eq('team_code', teamCode.toUpperCase())
+                .limit(1)
                 .maybeSingle();
 
-              if (userData) {
-                validManager = { id: userData.id, name: userData.name };
+              if (anyUser) {
+                // Try to find manager specifically for ID
+                const { data: managerData } = await supabase
+                  .from('users')
+                  .select('id, name')
+                  .eq('team_code', teamCode.toUpperCase())
+                  .eq('role', 'manager')
+                  .maybeSingle();
+                validManager = {
+                  id: managerData?.id || anyUser.id,
+                  name: managerData?.name || anyUser.name
+                };
               }
             }
 
