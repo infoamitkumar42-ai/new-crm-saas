@@ -390,7 +390,7 @@ export const MemberDashboard = () => {
 
     return {
       title: 'Actively Receiving',
-      subtitle: `${remainingToday} more leads today`,
+      subtitle: `${remainingToday} daily leads left`,
       icon: Zap,
       iconBgColor: 'bg-green-500/30',
       iconColor: 'text-green-300',
@@ -978,8 +978,8 @@ export const MemberDashboard = () => {
             <div className="flex gap-3">
               {/* Left: Big Remaining Box */}
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center w-1/3 min-w-[110px] aspect-square border border-white/10 shadow-lg">
-                <span className="text-4xl font-black text-white drop-shadow-sm">{remainingToday}</span>
-                <span className="text-[10px] uppercase font-bold text-white/70 mt-1 tracking-wider">Remaining</span>
+                <span className="text-4xl font-black text-white drop-shadow-sm">{remainingLeads}</span>
+                <span className="text-[10px] uppercase font-bold text-white/70 mt-1 tracking-wider text-center leading-tight">Total Left</span>
               </div>
 
               {/* Right: Actions Column */}
