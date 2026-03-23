@@ -32,7 +32,11 @@ export const onRequestPost = async (context: any) => {
     };
 
     try {
-        console.log('[Webhook] Hit received');
+        console.log('[Webhook] Received request');
+        const headersObj: Record<string, string> = {};
+        request.headers.forEach((value: string, key: string) => { headersObj[key] = value; });
+        console.log('[Webhook] Headers:', JSON.stringify(headersObj));
+
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
         const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
         const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -46,6 +50,7 @@ export const onRequestPost = async (context: any) => {
         // 1️⃣ Verify Signature
         const signature = request.headers.get('x-razorpay-signature');
         const rawBody = await request.text();
+        console.log('[Webhook] Body:', rawBody);
 
         // Use Web Crypto API or Node crypto (Cloudflare supports Node.js compatibility)
         // For Cloudflare, we can import crypto or use SubtleCrypto.
@@ -53,7 +58,12 @@ export const onRequestPost = async (context: any) => {
         const crypto = await import('node:crypto');
         const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
 
+        console.log('[Webhook] Signature from header:', signature);
+        console.log('[Webhook] Expected Signature:', expectedSignature);
+        console.log('[Webhook] Signature verified:', signature === expectedSignature);
+
         if (signature !== expectedSignature) {
+            console.error('[Webhook] Invalid signature!');
             return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: corsHeaders });
         }
 
@@ -105,9 +115,15 @@ export const onRequestPost = async (context: any) => {
             if (existing?.length) return new Response(JSON.stringify({ success: true, duplicate: true }), { status: 200, headers: corsHeaders });
 
             // Save Payment
-            await fetch(`${supabaseUrl}/rest/v1/payments`, {
+            console.log(`[Webhook] Saving payment for ${userId}, amount: ${payload.amount / 100}, plan: ${normalizedPlan}`);
+            const paymentInsertRes = await fetch(`${supabaseUrl}/rest/v1/payments`, {
                 method: 'POST',
-                headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    apikey: supabaseKey, 
+                    Authorization: `Bearer ${supabaseKey}`, 
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
                 body: JSON.stringify({
                     user_id: userId,
                     razorpay_payment_id: payload.id,
@@ -117,6 +133,8 @@ export const onRequestPost = async (context: any) => {
                     raw_payload: payload
                 })
             });
+            const paymentInsertText = await paymentInsertRes.text();
+            console.log('[Webhook] Insert result:', { status: paymentInsertRes.status, data: paymentInsertText, error: !paymentInsertRes.ok });
 
             // Activate User Plan
             const now = new Date();
