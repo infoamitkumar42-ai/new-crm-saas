@@ -648,7 +648,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
                     <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
                   ))}
                 </div>
-                <p className="text-sm text-white italic">"15 din mein 4 joining ki. LeadFlow is a game changer!"</p>
+                <p className="text-sm text-white italic">"15 din mein 4 success achieve ki. LeadFlow is a game changer!"</p>
                 <p className="text-xs text-white/50 mt-1">— Rahul Kumar, Ludhiana</p>
               </div>
             </div>

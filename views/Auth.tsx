@@ -10,6 +10,18 @@ import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, X
 import * as Sentry from "@sentry/react";
 import { ENV } from "../config/env";
 
+// src/views/Auth.tsx
+
+import React, { useState, useRef, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
+import { useAuth } from "../auth/useAuth";
+import { supabase } from "../supabaseClient";
+import { logEvent } from "../supabaseClient";
+import { UserRole } from "../types";
+import { Users, Briefcase, ShieldCheck, FileSpreadsheet, Loader2, CheckCircle, XCircle, Mail, ArrowLeft } from "lucide-react";
+import * as Sentry from "@sentry/react";
+import { ENV } from "../config/env";
+
 export const Auth: React.FC = () => {
   const { signUp, signIn } = useAuth();
   const [mode, setMode] = useState<"login" | "signup" | "forgot_password">("login");

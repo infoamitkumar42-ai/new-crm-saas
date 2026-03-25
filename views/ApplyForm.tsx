@@ -284,7 +284,7 @@ export default function ApplyForm() {
                         <Star size={10} className="fill-blue-700" /> Official Application
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight tracking-tight mb-1">
-                        Build Your <span className="text-blue-600">Online Income</span>
+                        Build Your <span className="text-blue-600">Professional Success</span>
                     </h1>
                     <p className="text-slate-500 text-xs px-4">
                         Join 5,000+ people earning daily. Free mentorship & support.

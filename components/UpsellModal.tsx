@@ -29,7 +29,7 @@ export const UpsellModal: React.FC<UpsellModalProps> = ({ user }) => {
     }
   }, [user, hasShown]);
 
-  const dismissForever = () => {
+  const dismissForNow = () => {
     // Dismiss for 24 hours (Logic can be adjusted)
     localStorage.setItem('upsell_dismissed', Date.now().toString());
     setIsOpen(false);
@@ -84,7 +84,7 @@ export const UpsellModal: React.FC<UpsellModalProps> = ({ user }) => {
             View Plans & Pricing
           </button>
           <button 
-            onClick={dismissForever}
+            onClick={dismissForNow}
             className="w-full text-slate-500 text-sm hover:text-slate-700"
           >
             Don't show this again today
