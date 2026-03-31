@@ -44,7 +44,7 @@ export const TermsOfService = () => {
                 <h2 className="text-xl font-bold text-slate-800">Service Description</h2>
               </div>
               <p className="pl-11">
-                LeadFlow provides a CRM dashboard and digital leads generation service for business professionals. We generate leads via social media ads targeted at specific interests (Professional Success / Business Growth).
+                LeadFlow provides a CRM dashboard and digital leads generation service for network marketers. We generate leads via social media ads targeted at specific interests (Work from Home / Business Opportunity).
               </p>
             </section>
 

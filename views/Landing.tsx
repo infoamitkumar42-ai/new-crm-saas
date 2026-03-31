@@ -78,7 +78,7 @@ export const Landing = () => {
     },
     {
       name: "Vikram Singh",
-      role: "Senior Success Manager, 150+ Team",
+      role: "Soaring Manager, 150+ Team",
       city: "Chandigarh",
       text: "Meri team ke har agent ko daily fresh leads milti hain. ₹11 per lead mein itni high-quality business leads poore India mein nahi milengi.",
       image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
@@ -92,7 +92,7 @@ export const Landing = () => {
     },
     {
       name: "Amit Verma",
-      role: "Lead Growth Manager, 500+ Team",
+      role: "Diamond Manager, 500+ Team",
       city: "Mumbai",
       text: "Team badi ho toh manual management impossible hai. LeadFlow ne meri team ki productivity 3x kar di hai sirf ek mahine mein.",
       image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face"
@@ -128,10 +128,10 @@ export const Landing = () => {
   return (
     <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
       <Helmet>
-        <title>Professional Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM</title>
-        <meta name="description" content="India ka #1 Team Lead Distribution CRM. Business & Growth Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
-        <meta property="og:title" content="Professional Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM" />
-        <meta property="og:description" content="India ka #1 Team Lead Distribution CRM. Business & Growth Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
+        <title>Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM</title>
+        <meta name="description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
+        <meta property="og:title" content="Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM" />
+        <meta property="og:description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
       </Helmet>
 
       <div
@@ -215,7 +215,7 @@ export const Landing = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                 </span>
-                {liveLeadsCount.toLocaleString()} Business leads distributed today
+                {liveLeadsCount.toLocaleString()} FLP leads distributed today
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
@@ -225,7 +225,7 @@ export const Landing = () => {
               </h1>
 
               <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-                Business Manager ho? 200-300 agents ki team hai? Ab har agent ko automatically fresh leads milegi - bina manually distribute kiye. Aap sirf training pe focus karo.
+                Forever Living Manager ho? 200-300 agents ki team hai? Ab har agent ko automatically fresh leads milegi - bina manually distribute kiye. Aap sirf training pe focus karo.
               </p>
 
               <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-8">
@@ -279,7 +279,7 @@ export const Landing = () => {
                     ))}
                   </div>
                   <p className="text-sm text-slate-600">
-                    Used by <strong>500+ Business Partners</strong>
+                    Used by <strong>500+ FLP Distributors</strong>
                   </p>
                 </div>
               </div>
@@ -538,7 +538,7 @@ export const Landing = () => {
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">Facebook Ads</h3>
               <p className="text-slate-600 text-sm">
-                "Professional Growth", "Digital Success", "Entrepreneurship" interest targeting
+                "Work From Home", "Passive Income", "Business Opportunity" interest targeting
               </p>
             </div>
 
@@ -648,7 +648,7 @@ export const Landing = () => {
             ⭐ SUCCESS STORIES
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-            Business Leaders ki Pasand
+            Forever Leaders ki Pasand
           </h2>
           <p className="text-slate-500 text-lg">Top Earners ye system use kar rahe hain</p>
         </div>
