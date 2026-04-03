@@ -38,6 +38,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
+  const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FINAL PLAN CONFIGURATION
@@ -673,6 +674,20 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
             <Shield size={14} />
             <span>Secure Payment via Razorpay • 256-bit SSL Encryption</span>
           </div>
+
+          {/* ━━━ TEST MODE (only visible at ?test=1) ━━━ */}
+          {isTestMode && (
+            <div className="mt-6 border-2 border-dashed border-yellow-400/50 rounded-2xl p-4 bg-yellow-400/5">
+              <p className="text-yellow-400 text-xs font-bold text-center mb-3">⚠️ TEST MODE — ₹1 Webhook Test</p>
+              <button
+                onClick={() => handleSubscribe({ id: 'test_plan', name: 'Test Plan', price: 1 } as any)}
+                disabled={loading === 'test_plan'}
+                className="w-full py-3 rounded-xl font-bold text-sm bg-yellow-500 text-black hover:bg-yellow-400 transition-all"
+              >
+                {loading === 'test_plan' ? 'Processing...' : '₹1 Test Payment — Webhook Test'}
+              </button>
+            </div>
+          )}
 
         </div>
 

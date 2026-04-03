@@ -41,6 +41,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Missing fields: planId, price, or userId is empty" });
     }
 
+    // Test plan: only allow ₹1 for test_plan
+    if (planId === 'test_plan' && price !== 1) {
+      return res.status(400).json({ error: "test_plan must have price=1" });
+    }
+
     // 4. Create Order Options
     const options = {
       amount: Math.round(price * 100), // Convert Rupee to Paise
@@ -48,8 +53,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       receipt: `rcpt_${Date.now().toString().slice(-8)}`,
       payment_capture: 1, // 🔥 CRITICAL: Auto-capture payment (No manual action needed)
       notes: {
-        userId: String(userId),
-        planId: String(planId)
+        user_id: String(userId),   // FIX: webhook reads payload.notes.user_id
+        plan_name: String(planId)  // FIX: webhook reads payload.notes.plan_name
       }
     };
 

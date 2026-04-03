@@ -18,7 +18,8 @@ const PLAN_CONFIG: Record<string, {
     supervisor: { price: 1999, duration: 15, dailyLeads: 7, totalLeads: 115, weight: 3, maxReplacements: 0 },
     manager: { price: 2999, duration: 20, dailyLeads: 8, totalLeads: 176, weight: 5, maxReplacements: 16 },
     weekly_boost: { price: 1999, duration: 7, dailyLeads: 12, totalLeads: 92, weight: 7, maxReplacements: 8 },
-    turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 8 }
+    turbo_boost: { price: 2499, duration: 7, dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 8 },
+    test_plan: { price: 1, duration: 1, dailyLeads: 1, totalLeads: 1, weight: 1, maxReplacements: 0 }
 };
 
 export const onRequestPost = async (context: any) => {
@@ -116,8 +117,9 @@ export const onRequestPost = async (context: any) => {
 
         // ── HANDLE SUCCESSFUL PAYMENTS (Captured) ──
         if (event === 'payment.captured') {
-            const userId = payload.notes?.user_id;
-            const planName = payload.notes?.plan_name;
+            // FIX: support both key formats (old: userId/planId, new: user_id/plan_name)
+            const userId = payload.notes?.user_id || payload.notes?.userId;
+            const planName = payload.notes?.plan_name || payload.notes?.planId;
 
             if (!userId || !planName) return new Response(JSON.stringify({ error: 'Missing notes' }), { status: 400, headers: corsHeaders });
 
