@@ -48,8 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       receipt: `rcpt_${Date.now().toString().slice(-8)}`,
       payment_capture: 1, // 🔥 CRITICAL: Auto-capture payment (No manual action needed)
       notes: {
-        userId: String(userId),
-        planId: String(planId)
+        user_id: String(userId),   // FIX: webhook reads payload.notes.user_id
+        plan_name: String(planId)  // FIX: webhook reads payload.notes.plan_name
       }
     };
 
