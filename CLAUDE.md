@@ -232,7 +232,7 @@ new-crm-saas/
 | turbo_boost | ₹2,499 | 14 | 108 | 108 |
 | manager | ₹2,999 | 7 | 176 | 176 |
 
-> **CRITICAL**: `daily_limit` in the users table stores the TOTAL leads for the plan, NOT the per-day limit. The RPC divides by days internally.
+> **CRITICAL**: `daily_limit` in the users table stores the **per-day cap** (e.g. 12 for weekly_boost). `total_leads_promised` stores the full plan quota (e.g. 92 for weekly_boost = 84 leads + 8 replacements).
 
 ---
 
