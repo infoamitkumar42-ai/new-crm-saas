@@ -186,7 +186,7 @@ export const onRequestPost = async (context: any) => {
                     plan_name: normalizedPlan,
                     payment_status: 'active',
                     is_active: true,
-                    daily_limit: config.totalLeads,              // DB stores total quota, not per-day
+                    daily_limit: config.dailyLeads,              // per-day cap (e.g. 12 for weekly_boost)
                     total_leads_promised: newTotalLeadsPromised, // cumulative += per renewal
                     plan_weight: config.weight,
                     max_replacements: config.maxReplacements,
