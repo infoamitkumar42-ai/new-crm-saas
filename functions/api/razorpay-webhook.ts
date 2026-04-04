@@ -161,22 +161,24 @@ export const onRequestPost = async (context: any) => {
             // Activate User Plan
             console.log('[Webhook] Activating user:', userId, 'Plan:', normalizedPlan);
 
-            // Get REAL all-time leads count from DB
-            const leadsCountRes = await fetch(
-                `${supabaseUrl}/rest/v1/leads?user_id=eq.${userId}&select=*&head=true`,
+            // Fetch current total_leads_promised to accumulate correctly on renewal
+            const userFetchRes = await fetch(
+                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
-            const realLeadsCount = parseInt(leadsCountRes.headers.get('content-range')?.split('/')[1] || '0');
+            const userData = await userFetchRes.json();
+            const currentTotalLeadsPromised = userData?.[0]?.total_leads_promised || 0;
 
-            const newTotalLeadsPromised = realLeadsCount + config.totalLeads;
+            // Cumulative: add new plan quota to existing promised leads
+            const newTotalLeadsPromised = currentTotalLeadsPromised + config.totalLeads;
             const infiniteValidity = '2099-01-01T00:00:00.000Z';
             const now = new Date();
 
             const userUpdateRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
                 method: 'PATCH',
-                headers: { 
-                    apikey: supabaseKey, 
-                    Authorization: `Bearer ${supabaseKey}`, 
+                headers: {
+                    apikey: supabaseKey,
+                    Authorization: `Bearer ${supabaseKey}`,
                     'Content-Type': 'application/json',
                     'Prefer': 'return=representation'
                 },
@@ -184,9 +186,8 @@ export const onRequestPost = async (context: any) => {
                     plan_name: normalizedPlan,
                     payment_status: 'active',
                     is_active: true,
-                    daily_limit: config.dailyLeads,
-                    total_leads_promised: newTotalLeadsPromised,  // ✅ CUMULATIVE (old + new plan)
-                    total_leads_received: realLeadsCount,         // ✅ REAL all-time count
+                    daily_limit: config.totalLeads,              // DB stores total quota, not per-day
+                    total_leads_promised: newTotalLeadsPromised, // cumulative += per renewal
                     plan_weight: config.weight,
                     max_replacements: config.maxReplacements,
                     valid_until: infiniteValidity,
