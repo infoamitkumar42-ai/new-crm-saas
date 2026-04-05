@@ -110,6 +110,59 @@ interface OrphanLeadRow {
   created_at: string;
 }
 
+// Smart Activation Types
+interface ActivationUser {
+  id: string;
+  email: string;
+  name: string;
+  plan_name: string | null;
+  payment_status: string;
+  total_leads_promised: number;
+  total_leads_received: number;
+  fresh_leads_quota: number;
+  fresh_leads_received: number;
+  recycled_leads_quota: number;
+  recycled_leads_received: number;
+  daily_limit: number;
+  leads_today: number;
+  is_new_system: boolean;
+  plan_start_date: string | null;
+}
+
+interface PaymentRecord {
+  id: string;
+  amount: number;
+  status: string;
+  plan_name: string;
+  razorpay_payment_id: string;
+  created_at: string;
+}
+
+interface MissedPayment {
+  payment_id: string;
+  razorpay_payment_id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  amount: number;
+  plan_name: string;
+  payment_date: string;
+  user_status: string;
+  user_plan: string;
+}
+
+// Full plan config (mirrors razorpay-webhook.ts)
+const FULL_PLAN_CONFIG: Record<string, {
+  price: number; dailyLeads: number; totalLeads: number;
+  freshCount: number; recycledCount: number; weight: number;
+}> = {
+  starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1 },
+  supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3 },
+  manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5 },
+  weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 43, recycledCount: 49, weight: 7 },
+  turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 54, recycledCount: 54, weight: 9 },
+};
+
 // API Response Types
 interface DashboardAPIResponse {
   user_stats: {
@@ -232,6 +285,18 @@ export const AdminDashboard: React.FC = () => {
   const [assignStrategy, setAssignStrategy] = useState<'smart_fair' | 'fill_quota'>('smart_fair');
   const [assignLogs, setAssignLogs] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Smart Activation State
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationUser, setActivationUser] = useState<ActivationUser | null>(null);
+  const [activationPlan, setActivationPlan] = useState('');
+  const [activationMode, setActivationMode] = useState<'renewal' | 'fresh'>('renewal');
+  const [activationPaymentId, setActivationPaymentId] = useState('');
+  const [activationLoading, setActivationLoading] = useState(false);
+  const [activationSuccess, setActivationSuccess] = useState('');
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  const [missedPayments, setMissedPayments] = useState<MissedPayment[]>([]);
+  const [showMissedPayments, setShowMissedPayments] = useState(false);
 
   // Refs
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -522,6 +587,155 @@ export const AdminDashboard: React.FC = () => {
       setActionLoading(null);
     }
   }, [fetchOpsData, fetchAnalytics]);
+
+  // ── OPEN ACTIVATION MODAL ──
+  const openActivationModal = useCallback(async (userId: string) => {
+    try {
+      const { data: user } = await supabase
+        .from('users')
+        .select('id, email, name, plan_name, payment_status, total_leads_promised, total_leads_received, fresh_leads_quota, fresh_leads_received, recycled_leads_quota, recycled_leads_received, daily_limit, leads_today, is_new_system, plan_start_date')
+        .eq('id', userId)
+        .single();
+
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('id, amount, status, plan_name, razorpay_payment_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setActivationUser(user as ActivationUser);
+      setPaymentHistory((payments || []) as PaymentRecord[]);
+      setActivationPlan(user?.plan_name || 'starter');
+      setActivationMode('renewal');
+      setActivationPaymentId('');
+      setActivationSuccess('');
+      setShowActivationModal(true);
+    } catch (err) {
+      alert('Error loading user: ' + (err instanceof Error ? err.message : 'Unknown'));
+    }
+  }, []);
+
+  // ── SMART ACTIVATE ──
+  const smartActivateUser = useCallback(async () => {
+    if (!activationUser || !activationPlan) return;
+    const config = FULL_PLAN_CONFIG[activationPlan];
+    if (!config) return;
+
+    setActivationLoading(true);
+    setActivationSuccess('');
+
+    try {
+      const received = activationUser.total_leads_received || 0;
+      const promised = activationUser.total_leads_promised || 0;
+      const carryOver = Math.max(0, promised - received);
+
+      let newTotalPromised: number;
+      let newFreshQuota: number;
+      let newRecycledQuota: number;
+      let resetCounters: Record<string, number> = {};
+
+      if (activationMode === 'renewal') {
+        // Keep existing received + carry-over remaining + new plan
+        newTotalPromised = received + carryOver + config.totalLeads;
+        // 40% of carry-over = fresh, 60% = recycled
+        newFreshQuota = config.freshCount + Math.ceil(carryOver * 0.4);
+        newRecycledQuota = config.recycledCount + Math.floor(carryOver * 0.6);
+      } else {
+        // Fresh start — reset everything
+        newTotalPromised = config.totalLeads;
+        newFreshQuota = config.freshCount;
+        newRecycledQuota = config.recycledCount;
+        resetCounters = { total_leads_received: 0, fresh_leads_received: 0, recycled_leads_received: 0 };
+      }
+
+      // Generate payment ID if not provided
+      const paymentId = activationPaymentId.trim() ||
+        `pay_ADMIN_${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+
+      // Insert payment record
+      const { error: payErr } = await supabase.from('payments').insert({
+        user_id: activationUser.id,
+        amount: config.price,
+        status: 'captured',
+        plan_name: activationPlan,
+        razorpay_payment_id: paymentId,
+        raw_payload: { note: 'Manual admin activation', mode: activationMode, activated_at: new Date().toISOString() }
+      });
+      if (payErr) throw payErr;
+
+      // Update user
+      const { error: userErr } = await supabase.from('users').update({
+        plan_name: activationPlan,
+        payment_status: 'active',
+        is_active: true,
+        is_online: true,
+        is_new_system: true,
+        is_plan_pending: false,
+        daily_limit: config.dailyLeads,
+        total_leads_promised: newTotalPromised,
+        fresh_leads_quota: newFreshQuota,
+        recycled_leads_quota: newRecycledQuota,
+        leads_today: 0,
+        plan_start_date: new Date().toISOString(),
+        plan_activation_time: null,
+        valid_until: '2099-01-01T00:00:00.000Z',
+        updated_at: new Date().toISOString(),
+        ...resetCounters
+      }).eq('id', activationUser.id);
+      if (userErr) throw userErr;
+
+      const modeLabel = activationMode === 'renewal' ? 'Renewal' : 'Fresh Start';
+      setActivationSuccess(`✅ ${modeLabel} done! ${activationPlan} activated. Total: ${newTotalPromised} leads (Fresh: ${newFreshQuota}, Recycled: ${newRecycledQuota}). Payment ID: ${paymentId}`);
+
+      // Refresh modal data
+      const { data: updated } = await supabase
+        .from('payments').select('id, amount, status, plan_name, razorpay_payment_id, created_at')
+        .eq('user_id', activationUser.id).order('created_at', { ascending: false }).limit(10);
+      setPaymentHistory((updated || []) as PaymentRecord[]);
+
+      await fetchOpsData();
+      await fetchAnalytics();
+    } catch (err) {
+      alert('Activation failed: ' + (err instanceof Error ? err.message : 'Unknown'));
+    } finally {
+      setActivationLoading(false);
+    }
+  }, [activationUser, activationPlan, activationMode, activationPaymentId, fetchOpsData, fetchAnalytics]);
+
+  // ── MISSED WEBHOOKS / PENDING ACTIVATIONS ──
+  const fetchMissedPayments = useCallback(async () => {
+    try {
+      // Payments in last 30 days where user is not active
+      const { data } = await supabase
+        .from('payments')
+        .select('id, user_id, amount, status, plan_name, razorpay_payment_id, created_at, users!inner(email, name, payment_status, plan_name)')
+        .eq('status', 'captured')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false });
+
+      const missed = (data || []).filter((p: any) =>
+        p.users?.payment_status !== 'active' ||
+        (p.plan_name !== p.users?.plan_name)
+      ).map((p: any) => ({
+        payment_id: p.id,
+        razorpay_payment_id: p.razorpay_payment_id,
+        user_id: p.user_id,
+        user_email: p.users?.email || '',
+        user_name: p.users?.name || '',
+        amount: p.amount,
+        plan_name: p.plan_name,
+        payment_date: p.created_at,
+        user_status: p.users?.payment_status || '',
+        user_plan: p.users?.plan_name || ''
+      }));
+
+      setMissedPayments(missed as MissedPayment[]);
+      setShowMissedPayments(true);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'));
+    }
+  }, []);
 
   const assignOrphanLead = useCallback(async (orphan: OrphanLeadRow, userId: string) => {
     setActionLoading(orphan.id);
@@ -932,6 +1146,15 @@ export const AdminDashboard: React.FC = () => {
                   <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce delay-75" />
                 </div>
                 Manual Assign
+              </button>
+
+              <button
+                onClick={fetchMissedPayments}
+                className="flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm font-medium shadow-md"
+                title="Show payments that may not have activated user plan"
+              >
+                <Zap size={16} />
+                Missed Webhooks
               </button>
 
               <button
@@ -1445,6 +1668,13 @@ export const AdminDashboard: React.FC = () => {
                         </td>
                         <td className="p-3 text-right flex items-center justify-end gap-1">
                           <button
+                            onClick={() => openActivationModal(u.id)}
+                            className="p-2 rounded-lg text-green-600 hover:bg-green-50"
+                            title="Smart Activate / Renew Plan"
+                          >
+                            <Zap size={16} />
+                          </button>
+                          <button
                             onClick={() => setShowEditModal(u)}
                             className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
                             title="Edit User"
@@ -1747,6 +1977,254 @@ export const AdminDashboard: React.FC = () => {
           />
         )
       }
+
+      {/* ============================================================
+          SMART ACTIVATION MODAL
+      ============================================================ */}
+      {showActivationModal && activationUser && (() => {
+        const config = FULL_PLAN_CONFIG[activationPlan];
+        const received = activationUser.total_leads_received || 0;
+        const promised = activationUser.total_leads_promised || 0;
+        const carryOver = Math.max(0, promised - received);
+        const newTotal = activationMode === 'renewal'
+          ? received + carryOver + (config?.totalLeads || 0)
+          : (config?.totalLeads || 0);
+        const newFresh = activationMode === 'renewal'
+          ? (config?.freshCount || 0) + Math.ceil(carryOver * 0.4)
+          : (config?.freshCount || 0);
+        const newRecycled = activationMode === 'renewal'
+          ? (config?.recycledCount || 0) + Math.floor(carryOver * 0.6)
+          : (config?.recycledCount || 0);
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+
+              {/* Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                    <Zap size={20} className="text-green-600" /> Smart Plan Activation
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{activationUser.name} • {activationUser.email}</p>
+                </div>
+                <button onClick={() => setShowActivationModal(false)} className="p-2 rounded-lg hover:bg-slate-100"><X size={20} /></button>
+              </div>
+
+              <div className="p-5 space-y-4">
+
+                {/* Current State */}
+                <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Current Plan</div>
+                    <div className="font-bold text-slate-900 capitalize">{activationUser.plan_name || 'none'}</div>
+                    <div className={`text-xs mt-0.5 font-medium ${activationUser.payment_status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
+                      {activationUser.payment_status}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Leads Received</div>
+                    <div className="font-bold text-slate-900">{received} / {promised}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Carry-over: <span className="text-blue-600 font-bold">{carryOver}</span></div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Fresh / Recycled</div>
+                    <div className="font-bold text-slate-900">{activationUser.fresh_leads_received || 0}/{activationUser.recycled_leads_received || 0}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Quota: {activationUser.fresh_leads_quota || 0}/{activationUser.recycled_leads_quota || 0}</div>
+                  </div>
+                </div>
+
+                {/* Mode */}
+                <div>
+                  <label className="text-sm font-bold text-slate-700 block mb-2">Activation Mode</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setActivationMode('renewal')}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${activationMode === 'renewal' ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-green-300'}`}
+                    >
+                      <div className="font-bold text-sm text-slate-900">Renewal / Carry-over</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Adds new plan on top of {carryOver} pending leads</div>
+                    </button>
+                    <button
+                      onClick={() => setActivationMode('fresh')}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${activationMode === 'fresh' ? 'border-orange-500 bg-orange-50' : 'border-slate-200 hover:border-orange-300'}`}
+                    >
+                      <div className="font-bold text-sm text-slate-900">Fresh Start</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Resets all counters. Only new plan leads.</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Plan Select */}
+                <div>
+                  <label className="text-sm font-bold text-slate-700 block mb-2">Select New Plan</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {Object.entries(FULL_PLAN_CONFIG).map(([id, cfg]) => (
+                      <button
+                        key={id}
+                        onClick={() => setActivationPlan(id)}
+                        className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${activationPlan === id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`}
+                      >
+                        <div className="text-left">
+                          <span className="font-bold text-slate-900 capitalize">{id.replace('_', ' ')}</span>
+                          <span className="text-xs text-slate-500 ml-2">₹{cfg.price} • {cfg.dailyLeads}/day • {cfg.totalLeads} leads</span>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          Fresh:{cfg.freshCount} Recycled:{cfg.recycledCount}
+                        </div>
+                        {activationPlan === id && <CheckCircle size={18} className="text-blue-600 ml-2 flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment ID */}
+                <div>
+                  <label className="text-sm font-bold text-slate-700 block mb-1">
+                    Razorpay Payment ID <span className="text-slate-400 font-normal">(optional — auto-generates if blank)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={activationPaymentId}
+                    onChange={(e) => setActivationPaymentId(e.target.value)}
+                    placeholder="pay_XXXXXXXXXX (leave blank to auto-generate)"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                {/* Preview */}
+                {config && (
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <div className="text-xs font-bold text-blue-700 mb-2 uppercase tracking-wide">After Activation Preview</div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-slate-900">{newTotal}</div>
+                        <div className="text-xs text-slate-500">Total Leads Promised</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-green-700">{newFresh}</div>
+                        <div className="text-xs text-slate-500">Fresh Quota (40% carryover)</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-purple-700">{newRecycled}</div>
+                        <div className="text-xs text-slate-500">Recycled Quota (60% carryover)</div>
+                      </div>
+                    </div>
+                    {activationMode === 'renewal' && carryOver > 0 && (
+                      <div className="text-xs text-blue-600 mt-2 text-center">
+                        {carryOver} pending from old plan + {config.totalLeads} new plan = {carryOver + config.totalLeads} added
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Success Message */}
+                {activationSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700">{activationSuccess}</div>
+                )}
+
+                {/* Confirm Button */}
+                <button
+                  onClick={smartActivateUser}
+                  disabled={!activationPlan || activationLoading}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {activationLoading ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Zap size={18} />
+                  )}
+                  {activationLoading ? 'Activating...' : `Activate ${activationPlan.replace('_', ' ')} — ${activationMode === 'renewal' ? 'Renewal' : 'Fresh Start'}`}
+                </button>
+
+                {/* Payment History */}
+                {paymentHistory.length > 0 && (
+                  <div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Payment History</div>
+                    <div className="space-y-1.5">
+                      {paymentHistory.map(p => (
+                        <div key={p.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2">
+                          <span className="font-mono text-slate-500">{p.razorpay_payment_id}</span>
+                          <span className="font-medium text-slate-700 capitalize">{p.plan_name}</span>
+                          <span className="text-green-700 font-bold">₹{p.amount}</span>
+                          <span className="text-slate-400">{new Date(p.created_at).toLocaleDateString('en-IN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============================================================
+          MISSED WEBHOOKS MODAL
+      ============================================================ */}
+      {showMissedPayments && (
+        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                  <Zap size={20} className="text-amber-600" /> Missed Webhooks
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Payments captured in last 30 days where user plan may not be active</p>
+              </div>
+              <button onClick={() => setShowMissedPayments(false)} className="p-2 rounded-lg hover:bg-slate-100"><X size={20} /></button>
+            </div>
+
+            <div className="p-4">
+              {missedPayments.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <CheckCircle size={40} className="mx-auto text-green-500 mb-2" />
+                  <p className="font-medium">All payments activated correctly!</p>
+                  <p className="text-xs mt-1">No missed webhooks in last 30 days.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {missedPayments.map(mp => (
+                    <div key={mp.payment_id} className="border border-amber-200 rounded-xl p-4 bg-amber-50">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-bold text-slate-900">{mp.user_name}</div>
+                          <div className="text-xs text-slate-500">{mp.user_email}</div>
+                          <div className="text-xs font-mono text-slate-400 mt-1">{mp.razorpay_payment_id}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-green-700">₹{mp.amount}</div>
+                          <div className="text-xs text-slate-500 capitalize">{mp.plan_name}</div>
+                          <div className="text-xs text-slate-400">{new Date(mp.payment_date).toLocaleDateString('en-IN')}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="text-xs">
+                          Current: <span className={`font-bold ${mp.user_status === 'active' ? 'text-green-600' : 'text-red-500'}`}>{mp.user_status}</span>
+                          {' '}• Plan: <span className="font-bold capitalize">{mp.user_plan || 'none'}</span>
+                          {mp.plan_name !== mp.user_plan && (
+                            <span className="ml-2 text-amber-700 font-bold">⚠ Plan mismatch!</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setShowMissedPayments(false);
+                            await openActivationModal(mp.user_id);
+                          }}
+                          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg font-bold hover:bg-green-700 flex items-center gap-1"
+                        >
+                          <Zap size={12} /> Activate Now
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div >
   );
