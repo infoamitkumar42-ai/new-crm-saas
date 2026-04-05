@@ -10,10 +10,46 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  console.log(`[Recycler] Starting ${batchLabel} batch...`)
+  // CHECK 1: Working hours only (8 AM - 10 PM IST)
+  const istTime = new Date(new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Kolkata'
+  }))
+  const hourIST = istTime.getHours()
+
+  if (hourIST < 8 || hourIST >= 22) {
+    console.log(`[Recycler] Outside working hours (8AM-10PM IST), current hour: ${hourIST}`)
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Recycling only during working hours (8AM-10PM IST)',
+      hour: hourIST
+    }), { headers: { 'Content-Type': 'application/json' } })
+  }
+
+  console.log(`[Recycler] Starting ${batchLabel} batch... (IST hour: ${hourIST})`)
 
   try {
-    // Get active online users
+    // CHECK 2: Fresh leads must exist today before recycling
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const { data: freshToday } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('lead_type', 'fresh')
+      .gte('created_at', todayStart.toISOString())
+      .limit(1)
+
+    if (!freshToday || freshToday.length === 0) {
+      console.log('[Recycler] No fresh leads today yet - skipping recycling')
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Waiting for meta webhook fresh leads first',
+        fresh_today: 0
+      }), { headers: { 'Content-Type': 'application/json' } })
+    }
+
+    console.log('[Recycler] Fresh leads detected today - proceeding')
+
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select(`
