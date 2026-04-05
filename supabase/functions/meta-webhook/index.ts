@@ -319,7 +319,9 @@ serve(async (req) => {
                             status: 'Assigned',
                             assigned_to: finalUserId,
                             user_id: finalUserId,
-                            assigned_at: new Date().toISOString()
+                            assigned_at: new Date().toISOString(),
+                            lead_type: 'fresh',
+                            recycle_count: 0
                         })
                         .select('id')
                         .single();
