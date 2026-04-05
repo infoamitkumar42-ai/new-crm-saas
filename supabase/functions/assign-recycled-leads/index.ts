@@ -25,6 +25,7 @@ serve(async (req) => {
       .eq('is_active', true)
       .eq('is_online', true)
       .eq('payment_status', 'active')
+      .eq('is_new_system', true)
       .not('plan_name', 'eq', 'none')
       .not('plan_name', 'is', null)
 
