@@ -1061,89 +1061,132 @@ export const MemberDashboard = () => {
         </div>
 
         {/* 📊 PLAN USAGE CARD */}
-        {totalPromised > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-4 sm:mb-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-bold text-slate-800">📊 Aapka Plan Usage</span>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-medium">{getPlanDisplayName(profile?.plan_name || '')}</span>
-                <span className={`flex items-center gap-1 font-semibold ${profile?.payment_status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${profile?.payment_status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  {profile?.payment_status === 'active' ? 'Active' : 'Inactive'}
-                </span>
+        {totalPromised > 0 && (() => {
+          const payStatus = profile?.payment_status;
+          const isInactive = payStatus === 'inactive' || payStatus === 'expired' || profile?.is_active === false;
+          const isPending = payStatus === 'pending' || profile?.is_plan_pending;
+
+          return (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-4 sm:mb-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-slate-800">📊 Aapka Plan Usage</span>
+                <span className="text-xs text-slate-500 font-medium">{getPlanDisplayName(profile?.plan_name || '')}</span>
               </div>
-            </div>
 
-            {profile?.payment_status !== 'active' ? (
-              <p className="text-sm text-red-500 font-medium">Plan inactive hai. Activate karo leads milte rahe!</p>
-            ) : (
-              <>
-                {/* Main Progress Bar */}
-                <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                  <span>{totalReceived} leads mile</span>
-                  <span className="font-semibold text-slate-700">{totalProgress}%</span>
-                  <span>{remainingLeads} bache • {totalPromised} total</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      remainingLeads <= 0 ? 'bg-red-500 animate-pulse'
-                      : totalProgress >= 95 ? 'bg-red-500'
-                      : totalProgress >= 80 ? 'bg-yellow-500'
-                      : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(100, totalProgress)}%` }}
-                  />
-                </div>
-
-                {/* Status Message */}
-                <p className={`text-xs font-semibold mt-2 ${
-                  remainingLeads <= 0 || totalProgress >= 95 ? 'text-red-600'
-                  : totalProgress >= 80 ? 'text-yellow-700'
-                  : 'text-green-700'
-                }`}>
-                  {remainingLeads <= 0
-                    ? '❌ Plan khatam ho gaya. Renew karo leads milte rahe!'
-                    : totalProgress >= 95
-                    ? `🚨 Sirf ${remainingLeads} leads bache hain! Abhi renew karo!`
-                    : totalProgress >= 80
-                    ? '⚠️ Plan jaldi khatam hoga — renew karne ka sahi waqt!'
-                    : 'Aapka plan safe hai ✅'}
-                </p>
-
-                {/* Daily Progress */}
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>Aaj: <span className="font-semibold text-slate-700">{leadsToday} / {dailyLimit}</span> leads mile</span>
-                    <span>{dailyProgress}%</span>
+              {/* CASE 1: Inactive / Expired */}
+              {isInactive ? (
+                <>
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
+                    <div className="h-full w-full bg-red-400 rounded-full" />
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="h-full bg-slate-400 rounded-full transition-all duration-500"
-                      style={{ width: `${dailyProgress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Renew Button — only at 80%+ */}
-                {totalProgress >= 80 && (
+                  <p className="text-sm font-bold text-red-600 mb-0.5">❌ Aapka Plan Inactive Hai</p>
+                  <p className="text-xs text-slate-500 mb-3">Nayi leads milna band ho gayi hain. Plan renew karo aur leads milne shuru karo!</p>
                   <button
                     onClick={() => setShowSubscription(true)}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                      totalProgress >= 95 || remainingLeads <= 0
-                        ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                        : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                    }`}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white transition-all active:scale-95"
                   >
                     <RefreshCw size={15} />
-                    Plan Renew Karo →
+                    Abhi Renew Karo
                   </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
+                </>
+
+              /* CASE 6: Pending activation */
+              ) : isPending ? (
+                <>
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
+                    <div className="h-full w-1/2 bg-blue-400 rounded-full animate-pulse" />
+                  </div>
+                  <p className="text-sm font-bold text-blue-600 mb-0.5">⏳ Plan Activation Pending</p>
+                  <p className="text-xs text-slate-500">Aapka payment received. Plan jald activate hoga!</p>
+                </>
+
+              /* CASE 2–5: Active — show quota */
+              ) : (
+                <>
+                  {/* CASE 2: Khatam */}
+                  {remainingLeads <= 0 ? (
+                    <>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
+                        <div className="h-full w-full bg-red-500 rounded-full animate-pulse" />
+                      </div>
+                      <p className="text-sm font-bold text-red-600 mb-0.5">❌ Plan Khatam Ho Gaya!</p>
+                      <p className="text-xs text-slate-500 mb-3">Aapke saare leads deliver ho gaye. Renew karo aur continue karo!</p>
+                      <button
+                        onClick={() => setShowSubscription(true)}
+                        className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white animate-pulse transition-all active:scale-95"
+                      >
+                        <RefreshCw size={15} />
+                        Abhi Renew Karo
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Progress bar + stats */}
+                      <div className="flex justify-between text-xs text-slate-500 mb-1.5">
+                        <span>{totalReceived} leads mile</span>
+                        <span className="font-semibold text-slate-700">{totalProgress}%</span>
+                        <span>{remainingLeads} bache • {totalPromised} total</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            totalProgress >= 95 ? 'bg-red-500'
+                            : totalProgress >= 80 ? 'bg-yellow-500'
+                            : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(100, totalProgress)}%` }}
+                        />
+                      </div>
+
+                      {/* Status message */}
+                      <p className={`text-xs font-semibold mt-2 ${
+                        totalProgress >= 95 ? 'text-red-600'
+                        : totalProgress >= 80 ? 'text-yellow-700'
+                        : 'text-green-700'
+                      }`}>
+                        {totalProgress >= 95
+                          ? `🚨 Sirf ${remainingLeads} Leads Bache! Abhi renew karo!`
+                          : totalProgress >= 80
+                          ? '⚠️ Plan Jaldi Khatam Hoga — renew karne ka sahi waqt!'
+                          : '✅ Aapka Plan Safe Hai'}
+                      </p>
+
+                      {/* Daily progress */}
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <div className="flex justify-between text-xs text-slate-500 mb-1">
+                          <span>Aaj: <span className="font-semibold text-slate-700">{leadsToday} / {dailyLimit}</span> leads mile</span>
+                          <span>{dailyProgress}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="h-full bg-slate-400 rounded-full transition-all duration-500"
+                            style={{ width: `${dailyProgress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* CASE 3 & 4: Renew button at 80%+ */}
+                      {totalProgress >= 80 && (
+                        <button
+                          onClick={() => setShowSubscription(true)}
+                          className={`mt-3 w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                            totalProgress >= 95
+                              ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                              : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                          }`}
+                        >
+                          <RefreshCw size={15} />
+                          Plan Renew Karo →
+                        </button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Filters */}
         <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm flex gap-2 sm:gap-3">
