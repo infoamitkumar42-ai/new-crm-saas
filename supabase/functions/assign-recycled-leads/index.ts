@@ -79,16 +79,38 @@ serve(async (req) => {
 
         if (totalRemaining <= 0) continue
 
+        // Smart daily limit logic for recycled leads
+        const dailyLimit = user.daily_limit_override || user.daily_limit || 0
+        const leadsToday = user.leads_today || 0
+        const dailyRemaining = dailyLimit - leadsToday
+
+        // Abuse prevention: skip if user already got 150% of daily limit
+        if (dailyLimit > 0 && leadsToday >= dailyLimit * 1.5) {
+          console.log(`[Recycler] ${user.email} exceeded 150% daily limit (${leadsToday}/${dailyLimit}) - skipping`)
+          continue
+        }
+
         // Half of daily recycled per batch
-        // Daily limit NOT checked — recycled leads are bonus (₹0 cost)
-        // Fresh leads daily_limit enforced by meta-webhook separately
         const batchTarget = Math.ceil((config.recycled_daily || 0) / 2)
 
-        const canAssign = Math.min(
-          batchTarget,
-          recycledRemaining,
-          totalRemaining
-        )
+        let canAssign: number
+
+        if (dailyRemaining > 0) {
+          // User hasn't hit daily limit yet — respect it
+          canAssign = Math.min(
+            batchTarget,
+            recycledRemaining,
+            totalRemaining,
+            dailyRemaining
+          )
+        } else {
+          // User already hit daily limit — allow max 5 bonus recycled/day
+          const bonusAllowed = Math.min(5, batchTarget)
+          canAssign = Math.min(bonusAllowed, recycledRemaining, totalRemaining)
+          if (canAssign > 0) {
+            console.log(`[Recycler] ${user.email} bonus recycled: up to ${canAssign} (daily limit reached)`)
+          }
+        }
 
         if (canAssign <= 0) continue
 
