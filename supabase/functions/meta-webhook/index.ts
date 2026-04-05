@@ -407,13 +407,22 @@ serve(async (req) => {
                                     .join('');
                             };
 
+                            // ✅ FIX: Format phone to 91XXXXXXXXXX before hashing
+                            const formatPhone = (p: string): string => {
+                                const digits = (p || '').replace(/\D/g, '');
+                                if (digits.startsWith('91') && digits.length === 12) return digits;
+                                if (digits.length === 10) return '91' + digits;
+                                return digits;
+                            };
+
                             const capiPayload = {
                                 data: [{
                                     event_name: 'Lead',
+                                    event_id: `lead_${leadId}_${Math.floor(Date.now() / 1000)}`,
                                     event_time: Math.floor(Date.now() / 1000),
-                                    action_source: 'system_generated',
+                                    action_source: 'crm',
                                     user_data: {
-                                        ph: [await hashValue(phone || '')],
+                                        ph: [await hashValue(formatPhone(phone))],
                                         fn: [await hashValue(name || '')],
                                         ct: [await hashValue(city || '')],
                                         country: [await hashValue('in')],
