@@ -79,20 +79,15 @@ serve(async (req) => {
 
         if (totalRemaining <= 0) continue
 
-        const dailyLimit =
-          user.daily_limit_override || user.daily_limit || 0
-        const leadsToday = user.leads_today || 0
-
-        if (leadsToday >= dailyLimit) continue
-
         // Half of daily recycled per batch
+        // Daily limit NOT checked — recycled leads are bonus (₹0 cost)
+        // Fresh leads daily_limit enforced by meta-webhook separately
         const batchTarget = Math.ceil((config.recycled_daily || 0) / 2)
 
         const canAssign = Math.min(
           batchTarget,
           recycledRemaining,
-          totalRemaining,
-          dailyLimit - leadsToday
+          totalRemaining
         )
 
         if (canAssign <= 0) continue
