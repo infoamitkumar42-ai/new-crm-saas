@@ -28,27 +28,8 @@ serve(async (req) => {
   console.log(`[Recycler] Starting ${batchLabel} batch... (IST hour: ${hourIST})`)
 
   try {
-    // CHECK 2: Fresh leads must exist today before recycling
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    const { data: freshToday } = await supabase
-      .from('leads')
-      .select('id')
-      .eq('lead_type', 'fresh')
-      .gte('created_at', todayStart.toISOString())
-      .limit(1)
-
-    if (!freshToday || freshToday.length === 0) {
-      console.log('[Recycler] No fresh leads today yet - skipping recycling')
-      return new Response(JSON.stringify({
-        success: false,
-        message: 'Waiting for meta webhook fresh leads first',
-        fresh_today: 0
-      }), { headers: { 'Content-Type': 'application/json' } })
-    }
-
-    console.log('[Recycler] Fresh leads detected today - proceeding')
+    // Note: Fresh leads check removed - recycling independent
+    console.log('[Recycler] Proceeding with recycling assignment')
 
     const { data: users, error: usersError } = await supabase
       .from('users')
