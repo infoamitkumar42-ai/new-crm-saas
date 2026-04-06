@@ -636,13 +636,14 @@ export const AdminDashboard: React.FC = () => {
       let resetCounters: Record<string, number> = {};
 
       if (activationMode === 'renewal') {
-        // Add new plan on top of existing promise — don't split carryover
-        newTotalPromised = promised + config.totalLeads;
-        // Add new plan's fresh/recycled to existing quotas
-        newFreshQuota = (activationUser.fresh_leads_quota || 0) + config.freshCount;
-        newRecycledQuota = (activationUser.recycled_leads_quota || 0) + config.recycledCount;
+        // Renewal: received stays, new plan added on top — no carryover of old pending
+        newTotalPromised = received + config.totalLeads;
+        newFreshQuota = config.freshCount;
+        newRecycledQuota = config.recycledCount;
+        // Reset sub-counters so new plan tracking starts fresh
+        resetCounters = { fresh_leads_received: 0, recycled_leads_received: 0 };
       } else {
-        // Fresh start — reset everything
+        // Fresh start — full reset
         newTotalPromised = config.totalLeads;
         newFreshQuota = config.freshCount;
         newRecycledQuota = config.recycledCount;
@@ -1987,14 +1988,10 @@ export const AdminDashboard: React.FC = () => {
         const promised = activationUser.total_leads_promised || 0;
         const carryOver = Math.max(0, promised - received);
         const newTotal = activationMode === 'renewal'
-          ? promised + (config?.totalLeads || 0)
+          ? received + (config?.totalLeads || 0)
           : (config?.totalLeads || 0);
-        const newFresh = activationMode === 'renewal'
-          ? (activationUser.fresh_leads_quota || 0) + (config?.freshCount || 0)
-          : (config?.freshCount || 0);
-        const newRecycled = activationMode === 'renewal'
-          ? (activationUser.recycled_leads_quota || 0) + (config?.recycledCount || 0)
-          : (config?.recycledCount || 0);
+        const newFresh = config?.freshCount || 0;
+        const newRecycled = config?.recycledCount || 0;
 
         return (
           <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
@@ -2110,9 +2107,9 @@ export const AdminDashboard: React.FC = () => {
                         <div className="text-xs text-slate-500">Recycled Quota (60% carryover)</div>
                       </div>
                     </div>
-                    {activationMode === 'renewal' && carryOver > 0 && (
+                    {activationMode === 'renewal' && (
                       <div className="text-xs text-blue-600 mt-2 text-center">
-                        {carryOver} pending carry-over + {config.totalLeads} new plan = {carryOver + config.totalLeads} total added
+                        {received} received so far + {config.totalLeads} new plan = {received + config.totalLeads} total promised
                       </div>
                     )}
                   </div>
