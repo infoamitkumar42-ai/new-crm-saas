@@ -636,11 +636,11 @@ export const AdminDashboard: React.FC = () => {
       let resetCounters: Record<string, number> = {};
 
       if (activationMode === 'renewal') {
-        // Keep existing received + carry-over remaining + new plan
-        newTotalPromised = received + carryOver + config.totalLeads;
-        // 40% of carry-over = fresh, 60% = recycled
-        newFreshQuota = config.freshCount + Math.ceil(carryOver * 0.4);
-        newRecycledQuota = config.recycledCount + Math.floor(carryOver * 0.6);
+        // Add new plan on top of existing promise — don't split carryover
+        newTotalPromised = promised + config.totalLeads;
+        // Add new plan's fresh/recycled to existing quotas
+        newFreshQuota = (activationUser.fresh_leads_quota || 0) + config.freshCount;
+        newRecycledQuota = (activationUser.recycled_leads_quota || 0) + config.recycledCount;
       } else {
         // Fresh start — reset everything
         newTotalPromised = config.totalLeads;
@@ -1987,13 +1987,13 @@ export const AdminDashboard: React.FC = () => {
         const promised = activationUser.total_leads_promised || 0;
         const carryOver = Math.max(0, promised - received);
         const newTotal = activationMode === 'renewal'
-          ? received + carryOver + (config?.totalLeads || 0)
+          ? promised + (config?.totalLeads || 0)
           : (config?.totalLeads || 0);
         const newFresh = activationMode === 'renewal'
-          ? (config?.freshCount || 0) + Math.ceil(carryOver * 0.4)
+          ? (activationUser.fresh_leads_quota || 0) + (config?.freshCount || 0)
           : (config?.freshCount || 0);
         const newRecycled = activationMode === 'renewal'
-          ? (config?.recycledCount || 0) + Math.floor(carryOver * 0.6)
+          ? (activationUser.recycled_leads_quota || 0) + (config?.recycledCount || 0)
           : (config?.recycledCount || 0);
 
         return (
@@ -2112,7 +2112,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     {activationMode === 'renewal' && carryOver > 0 && (
                       <div className="text-xs text-blue-600 mt-2 text-center">
-                        {carryOver} pending from old plan + {config.totalLeads} new plan = {carryOver + config.totalLeads} added
+                        {carryOver} pending carry-over + {config.totalLeads} new plan = {carryOver + config.totalLeads} total added
                       </div>
                     )}
                   </div>
