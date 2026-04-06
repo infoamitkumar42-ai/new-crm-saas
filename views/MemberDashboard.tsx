@@ -62,6 +62,7 @@ interface Lead {
   city: string;
   status: string;
   source: string; // 'Night_Backlog', 'Fresh', etc.
+  lead_type: string; // 'fresh' | 'recycled'
   quality_score: number;
   distribution_score: number;
   notes: string;
@@ -441,7 +442,7 @@ export const MemberDashboard = () => {
 
   // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
-  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to';
+  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type';
 
   const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
@@ -471,10 +472,12 @@ export const MemberDashboard = () => {
           : Promise.resolve({ data: null, error: null }),
 
         // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
+        // ORDER: assigned_at DESC first (shows recycled leads at top), then created_at DESC
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+          .order('assigned_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1),
 
@@ -1252,6 +1255,7 @@ export const MemberDashboard = () => {
               {filteredLeads.map((lead) => {
                 // 🔥 NIGHT LEAD DETECTION LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
+                const isRecycled = lead.lead_type === 'recycled';
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
@@ -1270,8 +1274,15 @@ export const MemberDashboard = () => {
                         }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
-                        <span>{formatSmartTime(lead.created_at)}</span>
+                        <span>{formatSmartTime(lead.assigned_at || lead.created_at)}</span>
                       </div>
+                      {/* ♻️ RECYCLED LEAD BADGE */}
+                      {isRecycled && (
+                        <div className="px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-1 flex items-center gap-1 bg-amber-50 border-amber-200 text-amber-700">
+                          <span>♻️</span>
+                          <span>Recycled</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* 🔥 THE MOOD PROTECTION TIP (Blue Box) */}
