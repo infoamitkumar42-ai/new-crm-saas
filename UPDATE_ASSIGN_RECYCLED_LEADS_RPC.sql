@@ -2,6 +2,8 @@
 -- UPDATE: assign_recycled_leads RPC — Week 1 Test Config
 -- Run this in Supabase SQL Editor
 -- Date: 2026-04-05
+-- Updated: 2026-04-06 — Added daily_limit check (CRITICAL FIX)
+--   leads_today >= daily_limit → skip user for today (resume tomorrow)
 -- ============================================================
 
 -- STEP 1: Update assign_recycled_leads RPC
