@@ -1255,7 +1255,6 @@ export const MemberDashboard = () => {
               {filteredLeads.map((lead) => {
                 // 🔥 NIGHT LEAD DETECTION LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
-                const isRecycled = lead.lead_type === 'recycled';
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
@@ -1269,20 +1268,13 @@ export const MemberDashboard = () => {
                         </div>
                       </div>
 
-                      {/* 🔥 SMART TIME DISPLAY */}
+                      {/* 🔥 SMART TIME DISPLAY — shows assigned_at so recycled leads show current time */}
                       <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
                         }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
                         <span>{formatSmartTime(lead.assigned_at || lead.created_at)}</span>
                       </div>
-                      {/* ♻️ RECYCLED LEAD BADGE */}
-                      {isRecycled && (
-                        <div className="px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-1 flex items-center gap-1 bg-amber-50 border-amber-200 text-amber-700">
-                          <span>♻️</span>
-                          <span>Recycled</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* 🔥 THE MOOD PROTECTION TIP (Blue Box) */}
