@@ -62,12 +62,12 @@ interface Lead {
   city: string;
   status: string;
   source: string; // 'Night_Backlog', 'Fresh', etc.
-  lead_type: string; // 'fresh' | 'recycled'
   quality_score: number;
   distribution_score: number;
   notes: string;
   created_at: string;
   assigned_at: string;
+  lead_type?: string;
 }
 
 interface DeliveryStatusInfo {
@@ -276,10 +276,14 @@ export const MemberDashboard = () => {
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
+  // Use assigned_at for recycled leads (created_at is months old for recycled leads)
   const todayLeadsCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return leads.filter(l => new Date(l.created_at) >= today).length;
+    return leads.filter(l => {
+      const d = l.assigned_at ? new Date(l.assigned_at) : new Date(l.created_at);
+      return d >= today;
+    }).length;
   }, [leads]);
 
   // 🔥 FIXED: Use profile.total_leads_received from users table (NOT paginated leads.length!)
@@ -423,7 +427,8 @@ export const MemberDashboard = () => {
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
 
       if (dateFilter !== 'all') {
-        const leadDate = new Date(lead.created_at);
+        // Use assigned_at for recycled leads (created_at is months old, assigned_at is recent)
+        const leadDate = lead.assigned_at ? new Date(lead.assigned_at) : new Date(lead.created_at);
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -472,7 +477,7 @@ export const MemberDashboard = () => {
           : Promise.resolve({ data: null, error: null }),
 
         // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
-        // ORDER: assigned_at DESC first (shows recycled leads at top), then created_at DESC
+        // Sort by assigned_at DESC so recycled leads (old created_at but recent assigned_at) appear at top
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
@@ -1063,134 +1068,6 @@ export const MemberDashboard = () => {
           <StatCard label="This Week" value={weeklyLeads} color="blue" icon={<Calendar size={14} />} />
         </div>
 
-        {/* 📊 PLAN USAGE CARD */}
-        {totalPromised > 0 && (() => {
-          const payStatus = profile?.payment_status;
-          const isInactive = payStatus === 'inactive' || payStatus === 'expired' || profile?.is_active === false;
-          const isPending = payStatus === 'pending' || profile?.is_plan_pending;
-
-          return (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-4 sm:mb-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-bold text-slate-800">📊 Aapka Plan Usage</span>
-                <span className="text-xs text-slate-500 font-medium">{getPlanDisplayName(profile?.plan_name || '')}</span>
-              </div>
-
-              {/* CASE 1: Inactive / Expired */}
-              {isInactive ? (
-                <>
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
-                    <div className="h-full w-full bg-red-400 rounded-full" />
-                  </div>
-                  <p className="text-sm font-bold text-red-600 mb-0.5">❌ Aapka Plan Inactive Hai</p>
-                  <p className="text-xs text-slate-500 mb-3">Nayi leads milna band ho gayi hain. Plan renew karo aur leads milne shuru karo!</p>
-                  <button
-                    onClick={() => setShowSubscription(true)}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white transition-all active:scale-95"
-                  >
-                    <RefreshCw size={15} />
-                    Abhi Renew Karo
-                  </button>
-                </>
-
-              /* CASE 6: Pending activation */
-              ) : isPending ? (
-                <>
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
-                    <div className="h-full w-1/2 bg-blue-400 rounded-full animate-pulse" />
-                  </div>
-                  <p className="text-sm font-bold text-blue-600 mb-0.5">⏳ Plan Activation Pending</p>
-                  <p className="text-xs text-slate-500">Aapka payment received. Plan jald activate hoga!</p>
-                </>
-
-              /* CASE 2–5: Active — show quota */
-              ) : (
-                <>
-                  {/* CASE 2: Khatam */}
-                  {remainingLeads <= 0 ? (
-                    <>
-                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
-                        <div className="h-full w-full bg-red-500 rounded-full animate-pulse" />
-                      </div>
-                      <p className="text-sm font-bold text-red-600 mb-0.5">❌ Plan Khatam Ho Gaya!</p>
-                      <p className="text-xs text-slate-500 mb-3">Aapke saare leads deliver ho gaye. Renew karo aur continue karo!</p>
-                      <button
-                        onClick={() => setShowSubscription(true)}
-                        className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white animate-pulse transition-all active:scale-95"
-                      >
-                        <RefreshCw size={15} />
-                        Abhi Renew Karo
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Progress bar + stats */}
-                      <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                        <span>{totalReceived} leads mile</span>
-                        <span className="font-semibold text-slate-700">{totalProgress}%</span>
-                        <span>{remainingLeads} bache • {totalPromised} total</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            totalProgress >= 95 ? 'bg-red-500'
-                            : totalProgress >= 80 ? 'bg-yellow-500'
-                            : 'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min(100, totalProgress)}%` }}
-                        />
-                      </div>
-
-                      {/* Status message */}
-                      <p className={`text-xs font-semibold mt-2 ${
-                        totalProgress >= 95 ? 'text-red-600'
-                        : totalProgress >= 80 ? 'text-yellow-700'
-                        : 'text-green-700'
-                      }`}>
-                        {totalProgress >= 95
-                          ? `🚨 Sirf ${remainingLeads} Leads Bache! Abhi renew karo!`
-                          : totalProgress >= 80
-                          ? '⚠️ Plan Jaldi Khatam Hoga — renew karne ka sahi waqt!'
-                          : '✅ Aapka Plan Safe Hai'}
-                      </p>
-
-                      {/* Daily progress */}
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        <div className="flex justify-between text-xs text-slate-500 mb-1">
-                          <span>Aaj: <span className="font-semibold text-slate-700">{leadsToday} / {dailyLimit}</span> leads mile</span>
-                          <span>{dailyProgress}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="h-full bg-slate-400 rounded-full transition-all duration-500"
-                            style={{ width: `${dailyProgress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* CASE 3 & 4: Renew button at 80%+ */}
-                      {totalProgress >= 80 && (
-                        <button
-                          onClick={() => setShowSubscription(true)}
-                          className={`mt-3 w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                            totalProgress >= 95
-                              ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-                              : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                          }`}
-                        >
-                          <RefreshCw size={15} />
-                          Plan Renew Karo →
-                        </button>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })()}
-
         {/* Filters */}
         <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm flex gap-2 sm:gap-3">
           <div className="relative flex-1">
@@ -1255,6 +1132,9 @@ export const MemberDashboard = () => {
               {filteredLeads.map((lead) => {
                 // 🔥 NIGHT LEAD DETECTION LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
+                // For recycled leads use assigned_at (recently assigned), not created_at (months old)
+                // This ensures recycled leads show correct "just now" time instead of "2 months ago"
+                const displayTime = lead.assigned_at || lead.created_at;
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
@@ -1268,12 +1148,12 @@ export const MemberDashboard = () => {
                         </div>
                       </div>
 
-                      {/* 🔥 SMART TIME DISPLAY — shows assigned_at so recycled leads show current time */}
+                      {/* 🔥 SMART TIME DISPLAY */}
                       <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
                         }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
-                        <span>{formatSmartTime(lead.assigned_at || lead.created_at)}</span>
+                        <span>{formatSmartTime(displayTime)}</span>
                       </div>
                     </div>
 
