@@ -275,10 +275,14 @@ export const MemberDashboard = () => {
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
+  // Use assigned_at for recycled leads (created_at is months old for recycled leads)
   const todayLeadsCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return leads.filter(l => new Date(l.created_at) >= today).length;
+    return leads.filter(l => {
+      const d = l.assigned_at ? new Date(l.assigned_at) : new Date(l.created_at);
+      return d >= today;
+    }).length;
   }, [leads]);
 
   // 🔥 FIXED: Use profile.total_leads_received from users table (NOT paginated leads.length!)
@@ -422,7 +426,8 @@ export const MemberDashboard = () => {
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
 
       if (dateFilter !== 'all') {
-        const leadDate = new Date(lead.created_at);
+        // Use assigned_at for recycled leads (created_at is months old, assigned_at is recent)
+        const leadDate = lead.assigned_at ? new Date(lead.assigned_at) : new Date(lead.created_at);
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -471,10 +476,12 @@ export const MemberDashboard = () => {
           : Promise.resolve({ data: null, error: null }),
 
         // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
+        // Sort by assigned_at DESC so recycled leads (old created_at but recent assigned_at) appear at top
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+          .order('assigned_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1),
 
