@@ -1132,26 +1132,16 @@ export const MemberDashboard = () => {
               {filteredLeads.map((lead) => {
                 // 🔥 NIGHT LEAD DETECTION LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
-                // 🔥 RECYCLED LEAD DETECTION — use lead_type field
-                const isRecycledLead = lead.lead_type === 'recycled';
                 // For recycled leads use assigned_at (recently assigned), not created_at (months old)
-                const displayTime = isRecycledLead
-                  ? (lead.assigned_at || lead.created_at)
-                  : lead.created_at;
+                // This ensures recycled leads show correct "just now" time instead of "2 months ago"
+                const displayTime = lead.assigned_at || lead.created_at;
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                     {/* Lead Header */}
                     <div className="flex justify-between items-start mb-2 sm:mb-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</span>
-                          {isRecycledLead && (
-                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 border border-amber-200 text-amber-700">
-                              Recycled
-                            </span>
-                          )}
-                        </div>
+                        <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
                         <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                           <MapPin size={10} />
                           <span className="truncate">{lead.city || 'N/A'}</span>
@@ -1159,7 +1149,7 @@ export const MemberDashboard = () => {
                       </div>
 
                       {/* 🔥 SMART TIME DISPLAY */}
-                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : isRecycledLead ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+                      <div className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border ml-2 flex items-center gap-1 ${isNightLead ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'
                         }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
