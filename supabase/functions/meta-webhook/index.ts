@@ -330,8 +330,7 @@ serve(async (req) => {
                         console.log(`⚠️ Direct assign failed for ${targetUser.user_name}, inserting as Queued:`, assignError.message);
                         await supabase.from('leads').insert({
                             name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Queued',
-                            notes: `Assignment failed: ${assignError.message}`
+                            source: `Meta - ${pageName}`, status: 'Queued'
                         });
                         continue;
                     }
