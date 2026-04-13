@@ -235,7 +235,44 @@ serve(async (req) => {
                         continue;
                     }
 
-                    if (requiredTeamCode.includes(',')) {
+                    // ════════════════════════════════════════════════════════
+                    // G1. 🌟 PRIORITY USER: Himanshu gets fresh leads FIRST
+                    //     Before any RPC call, check if Himanshu is eligible.
+                    //     Only after his daily limit (14) is full do other
+                    //     users receive fresh leads from TEAMFIRE.
+                    // ════════════════════════════════════════════════════════
+                    const PRIORITY_EMAIL = 'sharmahimanshu9797@gmail.com';
+                    const PRIORITY_DAILY_LIMIT = 14;
+
+                    if (requiredTeamCode === 'TEAMFIRE' || requiredTeamCode.split(',').map((c: string) => c.trim()).includes('TEAMFIRE')) {
+                        const { data: priorityUser } = await supabase
+                            .from('users')
+                            .select('id, leads_today, total_leads_received, total_leads_promised, is_active, is_online, payment_status')
+                            .eq('email', PRIORITY_EMAIL)
+                            .single();
+
+                        if (
+                            priorityUser &&
+                            priorityUser.is_active &&
+                            priorityUser.is_online &&
+                            priorityUser.payment_status === 'active' &&
+                            (priorityUser.total_leads_received < priorityUser.total_leads_promised) &&
+                            (priorityUser.leads_today < PRIORITY_DAILY_LIMIT)
+                        ) {
+                            console.log(`🌟 PRIORITY: Assigning to Himanshu (${priorityUser.leads_today + 1}/${PRIORITY_DAILY_LIMIT} today)`);
+                            bestUser = [{
+                                user_id: priorityUser.id,
+                                out_user_id: priorityUser.id,
+                                user_name: 'Himanshu Sharma',
+                                daily_limit: PRIORITY_DAILY_LIMIT,
+                                out_daily_limit: PRIORITY_DAILY_LIMIT
+                            }];
+                        } else {
+                            console.log(`ℹ️ Priority user Himanshu not eligible (today: ${priorityUser?.leads_today}/${PRIORITY_DAILY_LIMIT}, remaining: ${(priorityUser?.total_leads_promised ?? 0) - (priorityUser?.total_leads_received ?? 0)})`);
+                        }
+                    }
+
+                    if (!bestUser && requiredTeamCode.includes(',')) {
                         // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
                         const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
                         console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
@@ -267,7 +304,7 @@ serve(async (req) => {
                         } else {
                             bestUser = [];
                         }
-                    } else {
+                    } else if (!bestUser) {
                         // 🔵 SINGLE TEAM LOGIC
                         const result = await supabase
                             .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
