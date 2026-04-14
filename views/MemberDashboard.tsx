@@ -1157,20 +1157,6 @@ export const MemberDashboard = () => {
                       </div>
                     </div>
 
-                    {/* 🔥 THE MOOD PROTECTION TIP (Blue Box) */}
-                    {isNightLead && (
-                      <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex gap-2.5 items-start animate-in fade-in duration-500">
-                        <Lightbulb size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                            <span className="font-bold">Pro Tip:</span> Night Lead! Call pick hone ke chances kam ho sakte hain.
-                          </p>
-                          <p className="text-[10px] text-blue-600 mt-0.5 font-bold">
-                            Agar Call na uthe to turant WhatsApp karna! 🚀
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Notes Display */}
                     {lead.notes && (
