@@ -313,11 +313,24 @@ After ANY code change, verify these work:
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+**IMPORTANT: This project has a knowledge graph (881+ nodes, 7700+ edges, 205 files).
+ALWAYS use the code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
 the codebase.** The graph is faster, cheaper (fewer tokens), and gives
 you structural context (callers, dependents, test coverage) that file
 scanning cannot.
+
+### Graph Tools Priority (MANDATORY)
+
+Before ANY file read/grep/glob operation:
+1. Call `detect_changes_tool` (for change review)
+2. OR `get_impact_radius_tool` (for modification impact)
+3. OR `semantic_search_nodes_tool` (for code discovery)
+4. OR `get_architecture_overview_tool` (for structural questions)
+
+Only use Read/Grep/Glob on files the graph output specifically suggests.
+
+If graph returns empty/stale, run: `code-review-graph build --repo <repo_root>`
+Never assume graph is empty without verifying with `list_graph_stats_tool` first.
 
 ### When to use graph tools FIRST
 
@@ -344,7 +357,14 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
 ### Workflow
 
-1. The graph auto-updates on file changes (via hooks).
+1. The graph auto-updates on session start (via `.claude/hooks/session-start.sh`).
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+### Graph Maintenance
+
+- **Auto-update**: Session-start hook runs incremental update automatically.
+- **Full rebuild** (if corrupt/missing): `rm -rf .code-review-graph/ && code-review-graph build --repo .`
+- **CLI location**: `/root/.cache/uv/archive-v0/-gSBb1nTsdSZGbMYd1r21/bin/code-review-graph`
+- **Stats check**: `list_graph_stats_tool` — should show 800+ nodes if healthy.
