@@ -518,17 +518,23 @@ export const MemberDashboard = () => {
       }
 
       if (leadsResult.data) {
+        // Sort: fresh leads (recent created_at) first, old recycled leads last
+        const sortByFreshFirst = (arr: Lead[]) =>
+          [...arr].sort((a, b) =>
+            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          );
+
         const fetchedLeads = leadsResult.data as unknown as Lead[];
 
         if (offset === 0) {
           // Initial load or refresh — replace leads
-          setLeads(fetchedLeads);
+          setLeads(sortByFreshFirst(fetchedLeads));
         } else {
           // Load More — APPEND to existing leads (deduplicated)
           setLeads(prev => {
             const existingIds = new Set(prev.map(l => l.id));
             const newLeads = fetchedLeads.filter(l => !existingIds.has(l.id));
-            return [...prev, ...newLeads];
+            return sortByFreshFirst([...prev, ...newLeads]);
           });
         }
 
