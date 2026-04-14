@@ -518,11 +518,23 @@ export const MemberDashboard = () => {
       }
 
       if (leadsResult.data) {
-        // Sort: fresh leads (recent created_at) first, old recycled leads last
+        // Sort: today's leads first (by assigned_at date), within today fresh before recycled (created_at DESC), older leads last
+        const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
         const sortByFreshFirst = (arr: Lead[]) =>
-          [...arr].sort((a, b) =>
-            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-          );
+          [...arr].sort((a, b) => {
+            const aDate = a.assigned_at ? new Date(a.assigned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+            const bDate = b.assigned_at ? new Date(b.assigned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+            const aToday = aDate === todayIST;
+            const bToday = bDate === todayIST;
+            // Today's leads come before older leads
+            if (aToday && !bToday) return -1;
+            if (!aToday && bToday) return 1;
+            // Both today: fresh (recent created_at) before recycled (old created_at)
+            if (aToday && bToday)
+              return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            // Both older: most recently assigned first
+            return new Date(b.assigned_at || 0).getTime() - new Date(a.assigned_at || 0).getTime();
+          });
 
         const fetchedLeads = leadsResult.data as unknown as Lead[];
 
