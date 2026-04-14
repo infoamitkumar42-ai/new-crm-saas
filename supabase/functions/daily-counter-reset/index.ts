@@ -47,11 +47,29 @@ serve(async (req) => {
 
         if (resetError) throw resetError;
 
-        // 4. Log success
+        // 4. Verify reset worked — retry once if any user still has leads_today > 0
+        const { data: stillDirty } = await supabase
+            .from('users')
+            .select('id, email, leads_today')
+            .gt('leads_today', 0);
+
+        if (stillDirty && stillDirty.length > 0) {
+            console.warn(`⚠️ Reset verification: ${stillDirty.length} users still dirty, retrying...`);
+            await supabase
+                .from('users')
+                .update({ leads_today: 0 })
+                .gt('leads_today', 0);
+            console.log('✅ Retry reset complete');
+        } else {
+            console.log('✅ Reset verified: all leads_today = 0');
+        }
+
+        // 5. Log success
         const summary = {
             timestamp: now,
             usersReset: users?.length || 0,
             totalLeadsYesterday: totalLeadsToday,
+            verificationDirty: stillDirty?.length || 0,
             status: 'SUCCESS'
         };
 
