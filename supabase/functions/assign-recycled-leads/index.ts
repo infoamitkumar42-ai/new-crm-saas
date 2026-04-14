@@ -131,15 +131,23 @@ serve(async (req) => {
           totalAssigned += count
           results.push({ user: user.email, plan: user.plan_name, assigned: count })
 
-          // Push notification
+          // Push notification — use explicit fetch with Authorization header
+          // (supabase.functions.invoke() does not reliably pass auth in server-side Deno context)
           try {
-            await supabase.functions.invoke('send-push-notification', {
-              body: {
-                userId: user.id,
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+            await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                user_id: user.id,
                 title: '🔔 Naya Lead Aaya!',
                 body: `${count} naye lead${count > 1 ? 's' : ''} assign hue hain!`,
                 url: '/dashboard'
-              }
+              })
             })
           } catch (_) { /* non-critical */ }
         }
