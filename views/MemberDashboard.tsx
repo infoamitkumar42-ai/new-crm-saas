@@ -477,13 +477,14 @@ export const MemberDashboard = () => {
           : Promise.resolve({ data: null, error: null }),
 
         // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
-        // Sort by created_at DESC so fresh/new leads appear at top, old recycled leads at bottom
+        // Sort by assigned_at DESC so today's leads (fresh + recycled) always appear on page 1.
+        // Client-side sort then puts fresh before recycled within today.
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
-          .order('created_at', { ascending: false })
           .order('assigned_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1),
 
         // 3. 🔥 LIVE PROFILE SYNC: Fetch latest plan, limit, and status
