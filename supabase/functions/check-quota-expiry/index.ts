@@ -92,7 +92,7 @@ serve(async (req) => {
             is_active: false,
             is_online: false,
             daily_limit: 0,
-            payment_status: "expired",
+            payment_status: "inactive",
             plan_name: "none",
             updated_at: new Date().toISOString()
           })
