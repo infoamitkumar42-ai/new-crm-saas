@@ -636,8 +636,8 @@ export const AdminDashboard: React.FC = () => {
       let resetCounters: Record<string, number> = {};
 
       if (activationMode === 'renewal') {
-        // Renewal: received stays, new plan added on top — no carryover of old pending
-        newTotalPromised = received + config.totalLeads;
+        // Renewal: add new plan quota on top of existing promised (same as razorpay webhook)
+        newTotalPromised = promised + config.totalLeads;
         newFreshQuota = config.freshCount;
         newRecycledQuota = config.recycledCount;
         // Reset sub-counters so new plan tracking starts fresh
