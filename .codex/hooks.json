@@ -1,16 +1,8 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "bash .claude/hooks/session-start.sh",
-        "timeout": 30,
-        "statusMessage": "Updating code-review-graph..."
-      }
-    ],
     "PreToolUse": [
       {
-        "matcher": "Glob|Grep",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
