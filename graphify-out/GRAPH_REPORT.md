@@ -1,7 +1,7 @@
 # Graph Report - C:\Users\HP\Downloads\new-crm-saas  (2026-04-20)
 
 ## Corpus Check
-- 209 files · ~313,482 words
+- 209 files · ~350,069 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -219,10 +219,10 @@
   C:\Users\HP\Downloads\new-crm-saas\api\create-sheet.ts → C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js
 - `handler()` --calls--> `fetch()`  [INFERRED]
   C:\Users\HP\Downloads\new-crm-saas\api\razorpay-webhook.ts → C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js
-- `onRequestPost()` --calls--> `fetch()`  [INFERRED]
-  C:\Users\HP\Downloads\new-crm-saas\functions\api\razorpay-webhook.ts → C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js
-- `onRequest()` --calls--> `fetch()`  [INFERRED]
-  C:\Users\HP\Downloads\new-crm-saas\functions\api\[[path]].ts → C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js
+- `fetch()` --calls--> `onRequestPost()`  [INFERRED]
+  C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js → C:\Users\HP\Downloads\new-crm-saas\functions\api\razorpay-webhook.ts
+- `fetch()` --calls--> `onRequest()`  [INFERRED]
+  C:\Users\HP\Downloads\new-crm-saas\cloudflare-worker\worker.js → C:\Users\HP\Downloads\new-crm-saas\functions\api\[[path]].ts
 
 ## Communities
 
