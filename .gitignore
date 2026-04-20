@@ -90,3 +90,10 @@ get-shit-done-for-antigravity/
 .cursor/
 .vscode/
 .idea/
+
+# ═══════════════════════════════════════════════════════════
+# 📊 GRAPHIFY — Knowledge Graph
+# ═══════════════════════════════════════════════════════════
+# Cache excluded — graph.json + GRAPH_REPORT.md committed for all devs
+graphify-out/cache/
+raw/personal/
