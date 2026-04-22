@@ -18,6 +18,34 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // ─────────────────────────────────────────────────────────────────
+    // MIDNIGHT RESET SAFEGUARD (only before 8 AM IST — working hours not started yet)
+    // Any user with leads_today > 0 before 8 AM MUST have a stale counter from yesterday.
+    // CRITICAL: This guard MUST only run before working hours begin.
+    //           If it runs during the day it will wipe real leads_today counters.
+    // ─────────────────────────────────────────────────────────────────
+    const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const istHour = istNow.getHours();
+
+    if (istHour < 8) {
+      const { data: staleUsers, error: resetErr } = await supabase
+        .from("users")
+        .update({ leads_today: 0 })
+        .gt("leads_today", 0)
+        .select("id, email, leads_today");
+
+      if (resetErr) {
+        console.warn("⚠️ Safeguard reset warning:", resetErr.message);
+      } else {
+        const staleCount = staleUsers?.length || 0;
+        if (staleCount > 0) {
+          console.warn(`🚨 MIDNIGHT RESET HAD FAILED! Safeguard fixed ${staleCount} stale leads_today counters:`,
+            staleUsers?.map(u => `${u.email}(was:${u.leads_today})`).join(', '));
+        } else {
+          console.log("✅ Safeguard check: all leads_today = 0 (midnight reset worked correctly)");
+        }
+      }
+    } else {
+      console.log(`✅ Safeguard skipped: IST hour ${istHour} — working hours active, not touching leads_today`);
     // MIDNIGHT RESET SAFEGUARD (runs at 7 AM IST, before webhook starts at 8 AM)
     // Any user with leads_today > 0 at 7 AM MUST have a stale counter
     // from yesterday — working hours start at 8 AM so nothing is assigned yet.
@@ -85,7 +113,7 @@ serve(async (req) => {
             is_active: false,
             is_online: false,
             daily_limit: 0,
-            payment_status: "expired",
+            payment_status: "inactive",
             plan_name: "none",
             updated_at: new Date().toISOString()
           })
