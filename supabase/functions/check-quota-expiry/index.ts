@@ -46,6 +46,27 @@ serve(async (req) => {
       }
     } else {
       console.log(`✅ Safeguard skipped: IST hour ${istHour} — working hours active, not touching leads_today`);
+    // MIDNIGHT RESET SAFEGUARD (runs at 7 AM IST, before webhook starts at 8 AM)
+    // Any user with leads_today > 0 at 7 AM MUST have a stale counter
+    // from yesterday — working hours start at 8 AM so nothing is assigned yet.
+    // If the midnight reset cron failed, this catches it before the day begins.
+    // ─────────────────────────────────────────────────────────────────
+    const { data: staleUsers, error: resetErr } = await supabase
+      .from("users")
+      .update({ leads_today: 0 })
+      .gt("leads_today", 0)
+      .select("id, email, leads_today");
+
+    if (resetErr) {
+      console.warn("⚠️ Safeguard reset warning:", resetErr.message);
+    } else {
+      const staleCount = staleUsers?.length || 0;
+      if (staleCount > 0) {
+        console.warn(`🚨 MIDNIGHT RESET HAD FAILED! Safeguard fixed ${staleCount} stale leads_today counters:`,
+          staleUsers?.map(u => `${u.email}(was:${u.leads_today})`).join(', '));
+      } else {
+        console.log("✅ Safeguard check: all leads_today = 0 (midnight reset worked correctly)");
+      }
     }
     // ─────────────────────────────────────────────────────────────────
 
