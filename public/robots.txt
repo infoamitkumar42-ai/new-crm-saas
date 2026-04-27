@@ -9,10 +9,9 @@ Disallow: /dashboard/
 Disallow: /member/
 Disallow: /manager/
 Disallow: /settings/
-Disallow: /*.json$
+Disallow: /*.json
 
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 2
 
 Sitemap: https://www.leadflowcrm.in/sitemap.xml
