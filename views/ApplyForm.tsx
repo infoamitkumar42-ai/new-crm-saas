@@ -62,6 +62,7 @@ export default function ApplyForm() {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
+        email: '',
         city: '',
         profession: 'Job',
         age: '',
@@ -184,10 +185,56 @@ export default function ApplyForm() {
 
             if (error) throw error;
 
-            // ✅ FIRE PIXEL IMMEDIATELY
+            // ✅ FIRE BROWSER PIXEL
             if (PIXEL_ID && (window as any).fbq) {
                 (window as any).fbq('track', 'Lead');
                 console.log("🔥 PIXEL LEAD FIRED!");
+            }
+
+            // ✅ SERVER-SIDE CAPI (for better match quality)
+            try {
+                const META_ACCESS_TOKEN = import.meta.env.VITE_META_ACCESS_TOKEN;
+                if (META_ACCESS_TOKEN && PIXEL_ID) {
+                    const sha256 = async (val: string): Promise<string> => {
+                        const buf = await crypto.subtle.digest(
+                            'SHA-256',
+                            new TextEncoder().encode((val || '').toLowerCase().trim())
+                        );
+                        return Array.from(new Uint8Array(buf))
+                            .map(b => b.toString(16).padStart(2, '0'))
+                            .join('');
+                    };
+                    const cleanPhone = formData.phone.replace(/\D/g, '').slice(-10);
+                    const capiPayload = {
+                        data: [{
+                            event_name: 'Lead',
+                            event_id: `apply_${cleanPhone}_${Date.now()}`,
+                            event_time: Math.floor(Date.now() / 1000),
+                            action_source: 'website',
+                            event_source_url: window.location.href,
+                            user_data: {
+                                ph: [await sha256('91' + cleanPhone)],
+                                fn: [await sha256(formData.name)],
+                                ...(formData.email ? { em: [await sha256(formData.email)] } : {}),
+                                ct: [await sha256(formData.city)],
+                                country: [await sha256('in')],
+                            },
+                            custom_data: {
+                                lead_source: 'apply_form',
+                                manager_ref: managerRef || '',
+                                currency: 'INR',
+                                value: 0,
+                            },
+                        }],
+                    };
+                    await fetch(
+                        `https://graph.facebook.com/v18.0/${PIXEL_ID}/events?access_token=${META_ACCESS_TOKEN}`,
+                        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(capiPayload) }
+                    );
+                    console.log("🔥 CAPI Lead event sent from ApplyForm");
+                }
+            } catch (capiErr) {
+                console.warn("CAPI send failed (non-critical):", capiErr);
             }
 
             // Success Updates
@@ -374,6 +421,19 @@ export default function ApplyForm() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Email (optional) */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Email <span className="font-normal text-slate-400">(optional)</span></label>
+                                <input
+                                    type="email"
+                                    autoComplete="email"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium text-sm outline-none"
+                                    placeholder="yourname@email.com"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

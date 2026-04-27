@@ -235,7 +235,44 @@ serve(async (req) => {
                         continue;
                     }
 
-                    if (requiredTeamCode.includes(',')) {
+                    // ════════════════════════════════════════════════════════
+                    // G1. 🌟 PRIORITY USER: Himanshu gets fresh leads FIRST
+                    //     Before any RPC call, check if Himanshu is eligible.
+                    //     Only after his daily limit (14) is full do other
+                    //     users receive fresh leads from TEAMFIRE.
+                    // ════════════════════════════════════════════════════════
+                    const PRIORITY_EMAIL = 'sharmahimanshu9797@gmail.com';
+                    const PRIORITY_DAILY_LIMIT = 14;
+
+                    if (requiredTeamCode === 'TEAMFIRE' || requiredTeamCode.split(',').map((c: string) => c.trim()).includes('TEAMFIRE')) {
+                        const { data: priorityUser } = await supabase
+                            .from('users')
+                            .select('id, leads_today, total_leads_received, total_leads_promised, is_active, is_online, payment_status')
+                            .eq('email', PRIORITY_EMAIL)
+                            .single();
+
+                        if (
+                            priorityUser &&
+                            priorityUser.is_active &&
+                            priorityUser.is_online &&
+                            priorityUser.payment_status === 'active' &&
+                            (priorityUser.total_leads_received < priorityUser.total_leads_promised) &&
+                            (priorityUser.leads_today < PRIORITY_DAILY_LIMIT)
+                        ) {
+                            console.log(`🌟 PRIORITY: Assigning to Himanshu (${priorityUser.leads_today + 1}/${PRIORITY_DAILY_LIMIT} today)`);
+                            bestUser = [{
+                                user_id: priorityUser.id,
+                                out_user_id: priorityUser.id,
+                                user_name: 'Himanshu Sharma',
+                                daily_limit: PRIORITY_DAILY_LIMIT,
+                                out_daily_limit: PRIORITY_DAILY_LIMIT
+                            }];
+                        } else {
+                            console.log(`ℹ️ Priority user Himanshu not eligible (today: ${priorityUser?.leads_today}/${PRIORITY_DAILY_LIMIT}, remaining: ${(priorityUser?.total_leads_promised ?? 0) - (priorityUser?.total_leads_received ?? 0)})`);
+                        }
+                    }
+
+                    if (!bestUser && requiredTeamCode.includes(',')) {
                         // 🟢 MULTI-TEAM LOGIC: Query all teams and pick absolute best
                         const teamCodes = requiredTeamCode.split(',').map((c: string) => c.trim()).filter((c: string) => c);
                         console.log(`🔀 Multi-Team Assignment for: ${teamCodes.join(' & ')}`);
@@ -267,7 +304,7 @@ serve(async (req) => {
                         } else {
                             bestUser = [];
                         }
-                    } else {
+                    } else if (!bestUser) {
                         // 🔵 SINGLE TEAM LOGIC
                         const result = await supabase
                             .rpc('get_best_assignee_for_team', { p_team_code: requiredTeamCode });
@@ -319,7 +356,9 @@ serve(async (req) => {
                             status: 'Assigned',
                             assigned_to: finalUserId,
                             user_id: finalUserId,
-                            assigned_at: new Date().toISOString()
+                            assigned_at: new Date().toISOString(),
+                            lead_type: 'fresh',
+                            recycle_count: 0
                         })
                         .select('id')
                         .single();
@@ -328,20 +367,9 @@ serve(async (req) => {
                         console.log(`⚠️ Direct assign failed for ${targetUser.user_name}, inserting as Queued:`, assignError.message);
                         await supabase.from('leads').insert({
                             name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Queued',
-                            notes: `Assignment failed: ${assignError.message}`
+                            source: `Meta - ${pageName}`, status: 'Queued'
                         });
                         continue;
-                    }
-
-                    // Increment user's leads_today AND total_leads_received
-                    try {
-                        await supabase.rpc('increment_user_lead_counters', {
-                            p_user_id: finalUserId
-                        });
-                        console.log('📊 Counters incremented for user:', finalUserId);
-                    } catch (counterErr) {
-                        console.error('⚠️ Counter increment failed (non-critical):', counterErr);
                     }
 
                     leadsAssigned++;
@@ -372,6 +400,96 @@ serve(async (req) => {
                     } catch (notifErr) {
                         // Non-critical - don't fail the webhook if notification fails
                         console.log('⚠️ Notification error (ignored):', notifErr);
+                    }
+
+                    // ═══════════════════════════════════════════════════════════
+                    // 📊 FACEBOOK CONVERSION API (CAPI) — Send event back
+                    // Helps Facebook optimize ad delivery for better leads
+                    // ═══════════════════════════════════════════════════════════
+                    try {
+                        // 1. Lookup pixel config from DB
+                        const { data: pixelConfigs } = await supabase
+                            .from('pixel_config')
+                            .select('pixel_id, capi_access_token, page_name, team_code')
+                            .eq('is_active', true);
+
+                        // 2. Match lead source to pixel config
+                        let matchedPixel = null;
+                        if (pixelConfigs && pixelConfigs.length > 0) {
+                            for (const config of pixelConfigs) {
+                                const configPage = (config.page_name || '').toLowerCase().substring(0, 25);
+                                const sourcePage = (pageName || '').toLowerCase();
+                                if (sourcePage.includes(configPage) || configPage.includes(sourcePage.substring(0, 25))) {
+                                    matchedPixel = config;
+                                    break;
+                                }
+                            }
+                            // Fallback: match by team_code
+                            if (!matchedPixel) {
+                                matchedPixel = pixelConfigs.find(
+                                    (c: any) => c.team_code === requiredTeamCode
+                                ) || null;
+                            }
+                        }
+
+                        // 3. Send CAPI event if valid pixel found
+                        if (matchedPixel && matchedPixel.capi_access_token !== 'PENDING_TOKEN') {
+                            const hashValue = async (val: string): Promise<string> => {
+                                const encoder = new TextEncoder();
+                                const data = encoder.encode((val || '').toLowerCase().trim());
+                                const hash = await crypto.subtle.digest('SHA-256', data);
+                                return Array.from(new Uint8Array(hash))
+                                    .map(b => b.toString(16).padStart(2, '0'))
+                                    .join('');
+                            };
+
+                            // ✅ FIX: Format phone to 91XXXXXXXXXX before hashing
+                            const formatPhone = (p: string): string => {
+                                const digits = (p || '').replace(/\D/g, '');
+                                if (digits.startsWith('91') && digits.length === 12) return digits;
+                                if (digits.length === 10) return '91' + digits;
+                                return digits;
+                            };
+
+                            const capiPayload = {
+                                data: [{
+                                    event_name: 'Lead',
+                                    event_id: `lead_${leadId}_${Math.floor(Date.now() / 1000)}`,
+                                    event_time: Math.floor(Date.now() / 1000),
+                                    action_source: 'crm',
+                                    user_data: {
+                                        ph: [await hashValue(formatPhone(phone))],
+                                        fn: [await hashValue(name || '')],
+                                        ct: [await hashValue(city || '')],
+                                        country: [await hashValue('in')],
+                                        lead_id: leadId ? Number(leadId) : undefined,
+                                    },
+                                    custom_data: {
+                                        event_source: 'crm',
+                                        lead_event_source: 'LeadFlow CRM',
+                                        currency: 'INR',
+                                        value: 0,
+                                    },
+                                }],
+                            };
+
+                            const capiResp = await fetch(
+                                `https://graph.facebook.com/v18.0/${matchedPixel.pixel_id}/events?access_token=${matchedPixel.capi_access_token}`,
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(capiPayload),
+                                }
+                            );
+
+                            const capiResult = await capiResp.json();
+                            console.log(`[CAPI] ✅ Pixel ${matchedPixel.pixel_id} | Page: ${pageName} | Result:`, JSON.stringify(capiResult));
+                        } else {
+                            console.log(`[CAPI] ⏭️ Skipped — ${!matchedPixel ? 'no config' : 'PENDING_TOKEN'} | Page: ${pageName}`);
+                        }
+                    } catch (capiError: any) {
+                        // NEVER fail the main webhook because of CAPI
+                        console.error('[CAPI] ❌ Error (non-fatal):', capiError.message);
                     }
                 }
             }

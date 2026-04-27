@@ -1,477 +1,379 @@
 # CLAUDE.md — LeadFlow CRM
 
-This file is the primary reference for AI assistants (Claude, etc.) working on this repository. Read it fully before making any changes.
+> **READ THIS ENTIRE FILE BEFORE TOUCHING ANY CODE. If you skip this, you WILL break something.**
 
 ---
 
-## Project Overview
+## ⛔ HARD RULES — VIOLATING ANY OF THESE = INSTANT ROLLBACK
 
-**LeadFlow CRM** is a SaaS CRM built for Network Marketing / MLM professionals and Direct Selling agents (e.g., Forever Living distributors). It automatically ingests leads from Meta (Facebook/Instagram) Ads and distributes them fairly to subscribed users using a Round Robin / Weighted Priority algorithm.
+1. **NEVER modify LOCKED files** without explicit user instruction:
+   - `auth/useAuth.tsx` (v6.4) — Auth logic, session management
+   - `supabaseClient.ts` (v4.0) — Supabase client with Cloudflare proxy
+   - `App.tsx` — PWA cleanup logic is fragile
+   - `vite.config.ts` — `injectionPoint: undefined` is intentional
+   - `src/sw.ts` — Service worker, affects push notifications
 
-- **Live domain:** `https://leadflowcrm.in`
-- **Supabase proxy:** `https://api.leadflowcrm.in` (Cloudflare worker proxying Supabase to bypass ISP blocks on Jio/Airtel)
-- **Supabase project ID:** `vewqzsqddgmkslnuctvb`
+2. **NEVER delete .sql, .csv, .json, .txt files from project root** — these are operational data/scripts, NOT trash.
 
----
+3. **NEVER change database schema** (add/remove columns, alter tables) without showing the SQL first and getting approval.
 
-## Tech Stack
+4. **NEVER change RPC functions** without showing the full CREATE OR REPLACE and getting approval.
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Frontend | React | ^18.3.1 |
-| Build tool | Vite | ^5.1.4 |
-| Language | TypeScript | ^5.2.2 |
-| Routing | React Router DOM | ^6.22.3 |
-| Styling | Tailwind CSS | ^3.4.1 |
-| Backend API | Vercel Serverless Functions (`api/` dir) using Next.js types | ^14.2.3 |
-| Database / Auth | Supabase (PostgreSQL + RLS + Auth) | ^2.39.0 |
-| Payments | Razorpay | ^2.9.2 |
-| Error tracking | Sentry | ^10.40.0 |
-| PWA | vite-plugin-pwa (injectManifest strategy) | ^1.2.0 |
-| Icons | lucide-react | ^0.344.0 |
-| HTTP client | axios (used alongside native fetch) | ^1.13.4 |
+5. **NEVER remove or modify RLS policies** — they protect user data isolation.
+
+6. **NEVER use `supabase.from('users').update()` for lead counters** — ALWAYS use `increment_user_lead_counters` RPC.
+
+7. **NEVER hardcode Supabase URLs** — always use environment variables. Auth requests go DIRECT to Supabase, data requests go through `api.leadflowcrm.in` proxy.
+
+8. **ONE CHANGE AT A TIME** — never modify more than one feature/fix per commit. If asked to do multiple things, do them sequentially with separate commits.
 
 ---
 
-## Directory Structure
+## 🔍 BEFORE YOU WRITE ANY CODE — MANDATORY CHECKLIST
+
+```
+□ Read this ENTIRE file
+□ Identify which files you need to change
+□ Check if any are LOCKED (see rule #1)
+□ Check CHANGELOG section below for recent changes
+□ Run: git status (check current state)
+□ Run: git log --oneline -5 (check recent commits)
+□ Show your plan to the user BEFORE writing code
+□ Get explicit approval BEFORE modifying any file
+```
+
+---
+
+## 📋 Project Overview
+
+**LeadFlow CRM** — SaaS lead distribution platform for Network Marketing professionals.
+- Receives leads from Meta (Facebook) Ads via webhook
+- Distributes leads to paid subscribers using round-robin algorithm
+- Plans are LEADS-BASED (not time-based): quota exhausted = plan expired
+
+| Key | Value |
+|-----|-------|
+| Domain | https://leadflowcrm.in |
+| API Proxy | https://api.leadflowcrm.in (Cloudflare Worker) |
+| Supabase ID | vewqzsqddgmkslnuctvb |
+| Frontend | React 18 + Vite + TypeScript + Tailwind CSS |
+| Hosting | Cloudflare Pages |
+| Backend | Supabase (PostgreSQL + Edge Functions + Auth) |
+| Payments | Razorpay |
+| GitHub | github.com/infoamitkumar42-ai/new-crm-saas (branch: main) |
+
+---
+
+## 🏗️ Architecture — How Leads Flow
+
+```
+Meta Ads → Facebook Lead Form
+    ↓
+meta-webhook (Supabase Edge Function)
+    ↓
+Working Hours (8AM-10PM IST):
+    → get_best_assignee_for_team() RPC
+    → Assigns to eligible user (is_active, is_online, within quota)
+    → Push notification via send-push-notification Edge Function
+    ↓
+Night Hours (10PM-8AM IST):
+    → Status = 'Night_Backlog' (unassigned)
+    ↓
+10:00 AM IST (Cron Job #13):
+    → process-backlog Edge Function
+    → Assigns Night_Backlog leads to eligible users
+```
+
+---
+
+## 📁 Directory Structure — WHAT EACH FOLDER DOES
 
 ```
 new-crm-saas/
-├── api/                      # Vercel Serverless Functions (Next.js API style)
-│   ├── check-renewals.ts     # Validates subscription expiry
-│   ├── confirm-user.ts       # Admin endpoint to manually activate users
-│   ├── create-order.ts       # ⚠️ BROKEN — Razorpay order creation (MAINTENANCE_MODE=true)
-│   ├── create-sheet.ts       # Google Sheets export integration
-│   ├── init-user.ts          # Initializes user record post-signup
-│   └── razorpay-webhook.ts   # Listens for Razorpay payment events
+├── auth/useAuth.tsx              # 🔒 LOCKED — Auth provider + session management
+├── supabaseClient.ts             # 🔒 LOCKED — Supabase client + Cloudflare proxy
+├── App.tsx                       # 🔒 FRAGILE — Router + PWA cleanup
+├── vite.config.ts                # 🔒 FRAGILE — PWA config (injectionPoint: undefined)
+├── src/sw.ts                     # 🔒 FRAGILE — Service worker for push notifications
 │
-├── auth/
-│   └── useAuth.tsx           # 🔒 LOCKED v6.4 — AuthProvider + useAuth hook (DO NOT REFACTOR)
+├── views/
+│   ├── AdminDashboard.tsx        # Admin panel — ALL admin features
+│   ├── MemberDashboard.tsx       # User dashboard — leads view
+│   ├── ManagerDashboard.tsx      # Manager dashboard
+│   ├── Dashboard.tsx             # Smart router by role
+│   ├── Landing.tsx               # Public landing page
+│   ├── Auth.tsx                  # Login/Signup page
+│   └── Settings.tsx              # User settings
 │
-├── backend/                  # Internal admin tools / backend logic
-│
-├── cloudflare-worker/        # Cloudflare Worker code for the api.leadflowcrm.in proxy
-│
-├── components/               # Reusable React UI components
-│   ├── FilterSettings.tsx
-│   ├── Layout.tsx
-│   ├── LeadAlert.tsx
-│   ├── NotificationBanner.tsx
-│   ├── Sidebar.tsx
-│   ├── SmartRenewalBanner.tsx
-│   ├── Subscription.tsx
-│   ├── TargetAudience.tsx
-│   ├── UI.tsx                # Shared UI primitives
-│   ├── UpsellModal.tsx
-│   └── UserQuickEdit.tsx
-│
-├── config/
-│   ├── env.ts                # ENV config object (VITE_ vars + hardcoded fallbacks)
-│   └── example.env.txt       # Template for required environment variables
-│
-├── gas-v15/                  # Legacy Google Apps Script files (Gmail/Sheets automation)
+├── components/
+│   ├── LeadAlert.tsx             # Foreground lead notification + Mixkit sound
+│   ├── Sidebar.tsx               # Navigation sidebar
+│   ├── Subscription.tsx          # Plan/subscription UI
+│   └── SmartRenewalBanner.tsx    # Renewal prompt
 │
 ├── hooks/
-│   ├── useNotification.ts
-│   └── usePushNotification.ts
+│   ├── usePushNotification.ts    # Push notification hook (v7)
+│   └── useNotification.ts       # In-app notification hook
 │
-├── lib/
-│   └── leadStats.ts          # Lead statistics helpers
+├── config/env.ts                 # Environment config (VITE_ vars)
+├── types.ts                      # TypeScript interfaces
+├── index.tsx                     # React DOM entry
+├── index.css                     # Global styles
 │
-├── migrations/               # Root-level SQL migration files (manual)
+├── supabase/functions/           # Edge Functions (Deno runtime)
+│   ├── meta-webhook/             # Lead intake from Meta Ads
+│   ├── process-backlog/          # Night backlog processor
+│   ├── send-push-notification/   # Push notification sender
+│   ├── check-quota-expiry/       # Daily quota check (cron)
+│   ├── daily-counter-reset/      # Reset leads_today (cron)
+│   └── sync-counters/            # Counter sync utility
 │
-├── public/                   # Static assets (icons, screenshots for PWA manifest)
+├── functions/api/                # Cloudflare Pages Functions
+│   ├── razorpay-webhook.ts       # Payment webhook handler
+│   └── [[path]].ts               # Catch-all proxy (legacy)
 │
-├── scripts/                  # Utility Node.js scripts for data operations
-│
-├── src/
-│   ├── pages/
-│   │   └── ResetPassword.tsx
-│   └── sw.ts                 # Service Worker source (compiled by vite-plugin-pwa)
-│
-├── supabase/
-│   ├── functions/            # Supabase Edge Functions (Deno runtime)
-│   │   ├── daily-counter-reset/
-│   │   ├── meta-webhook/     # Primary Meta Ads lead ingestion webhook
-│   │   ├── meta-webhook-v24/
-│   │   ├── process-backlog/
-│   │   ├── process-direct-lead/
-│   │   ├── send-push-notification/
-│   │   └── sync-counters/
-│   └── migrations/           # Supabase SQL migration files
-│       ├── 20260207010000_fix_assignment_logic.sql
-│       └── 20260207013800_fix_quota_logic.sql
-│
-├── views/                    # Full-page React components
-│   ├── AdminDashboard.tsx
-│   ├── ApplyForm.tsx
-│   ├── Auth.tsx
-│   ├── Dashboard.tsx
-│   ├── FilterSettings.tsx
-│   ├── Landing.tsx
-│   ├── ManagerDashboard.tsx
-│   ├── MemberDashboard.tsx
-│   ├── ResetPassword.tsx
-│   ├── Settings.tsx
-│   ├── Subscription.tsx
-│   ├── admin/
-│   │   └── Revenue.tsx
-│   ├── legal/                # Public legal pages (Terms, Privacy, Refund, Shipping, Contact)
-│   └── member/
-│
-├── App.tsx                   # Main React Router + auth wiring
-├── index.tsx                 # React DOM entry point
-├── supabaseClient.ts         # 🔒 LOCKED v4.0 — Supabase client with Cloudflare proxy override
-├── types.ts                  # Global TypeScript interfaces (UserProfile, Lead, Payment, etc.)
-├── vite.config.ts            # Vite + PWA configuration
-├── tailwind.config.js        # Tailwind CSS configuration
-├── vercel.json               # Vercel deployment config (rewrites, cache headers)
-├── package.json
-└── tsconfig.json
-```
-
-> **Note:** The project root also contains many loose `.sql`, `.cjs`, `.json`, and `.md` files that are manual data-repair scripts from historical incidents. These are NOT part of the application build and should be ignored unless explicitly needed for database operations.
-
----
-
-## Environment Variables
-
-Copy `config/example.env.txt` to `.env` at the project root.
-
-### Frontend (Vite — must be prefixed `VITE_`)
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase public anonymous key |
-| `VITE_RAZORPAY_KEY_ID` | Razorpay public key (frontend checkout) |
-| `VITE_APPS_SCRIPT_URL` | Google Apps Script webhook URL |
-
-### Backend / Serverless (Vercel env — NOT prefixed)
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (bypasses RLS) |
-| `RAZORPAY_KEY_ID` | Razorpay key ID |
-| `RAZORPAY_KEY_SECRET` | Razorpay secret (signs orders, verifies webhooks) |
-
-> **Important:** `config/env.ts` contains hardcoded fallback values for development convenience. For production, always set the real `VITE_` environment variables in Vercel. Do not commit real secrets.
-
----
-
-## Development Workflow
-
-### Local Development
-```bash
-npm install
-npm run dev        # Starts Vite dev server on port 3000
-```
-
-### Build
-```bash
-npm run build      # Vite production build → dist/
-npm run preview    # Preview built dist locally
-```
-
-### No test suite is currently configured. There is no `test` script.
-
----
-
-## Routing Architecture (`App.tsx`)
-
-The app uses `react-router-dom` v6 with `BrowserRouter`. Key route patterns:
-
-| Path | Component | Access |
-|------|-----------|--------|
-| `/` | `RootRoute` → `DashboardRouter` or `Landing` | Public (smart redirect) |
-| `/login`, `/signup` | `Auth` | Public only (redirects if authenticated) |
-| `/reset-password` | `ResetPassword` | Public |
-| `/apply` | `ApplyForm` | Public |
-| `/dashboard` | `DashboardRouter` | Protected |
-| `/admin/*` | `AdminDashboard` | Protected — role: `admin` |
-| `/manager/*` | `ManagerDashboard` | Protected — role: `manager` or `admin` |
-| `/terms`, `/privacy`, `/refund`, `/shipping`, `/contact` | Legal pages | Public |
-| `*` | Redirect to `/` | — |
-
-**`DashboardRouter`** reads `profile.role` and renders the correct dashboard:
-- `admin` → `AdminDashboard`
-- `manager` → `ManagerDashboard`
-- `member` (default) → `Layout` + `MemberDashboard`
-
----
-
-## Authentication (`auth/useAuth.tsx`)
-
-> **LOCKED at v6.4 (March 10, 2026). Do not refactor this file without explicit instruction.**
-
-- Uses `React.Context` (`AuthContext`) + `AuthProvider` wrapping the entire app.
-- Supabase Auth with Email/Password.
-- Profile data fetched from the `users` table in Supabase after session is established.
-- Profile cached in `localStorage` under key `leadflow-profile-cache` (10 min TTL for fresh, stale used as fallback on network failure).
-- Session stored under `leadflow-auth-v2` localStorage key.
-- Network-aware timeouts: 2G=45s, 3G=30s, 4G=15s, default=20s.
-- Circuit breaker: 3 consecutive profile failures → 5-minute pause.
-- `isAuthenticated = !!session && !!profile` (both must be non-null).
-- Hard-coded admin emails: `info.amitkumar42@gmail.com`, `amitdemo1@gmail.com`.
-
-### Auth Context API
-```typescript
-{
-  session: Session | null;
-  profile: User | null;
-  loading: boolean;
-  isInitialized: boolean;
-  isAuthenticated: boolean;
-  isNetworkError: boolean;
-  signUp(params): Promise<void>;
-  signIn(params): Promise<void>;
-  signOut(): Promise<void>;
-  refreshProfile(): Promise<void>;
-}
+├── cloudflare-worker/            # Supabase proxy worker code
+├── api/                          # Legacy Vercel functions (NOT active)
+├── public/                       # Static assets, PWA icons
+└── *.sql, *.csv, *.json, *.txt   # Operational scripts — DO NOT DELETE
 ```
 
 ---
 
-## Supabase Client (`supabaseClient.ts`)
+## 🗄️ Database Schema
 
-> **LOCKED at v4.0. Do not refactor without explicit instruction.**
+### users (main table)
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | UUID PK | Supabase Auth UID |
+| email, name | TEXT | Identity |
+| role | TEXT | admin / manager / member |
+| team_code | TEXT | TEAMFIRE / TEAMSIMRAN / GJ01TEAMFIRE |
+| plan_name | TEXT | starter / supervisor / weekly_boost / turbo_boost / manager / none |
+| payment_status | TEXT | active / inactive / expired |
+| is_active | BOOLEAN | Can receive leads |
+| is_online | BOOLEAN | Currently accepting leads |
+| daily_limit | INTEGER | Max leads per day for this plan |
+| leads_today | INTEGER | Leads received today (resets at midnight) |
+| total_leads_promised | INTEGER | Total quota from all payments |
+| total_leads_received | INTEGER | Total leads delivered so far |
+| valid_until | TIMESTAMPTZ | Set to 2099 (placeholder, IGNORED — use quota instead) |
+| is_plan_pending | BOOLEAN | Payment done, plan not yet active |
+| plan_activation_time | TIMESTAMPTZ | When pending plan activates |
+| filters | JSONB | City/source targeting filters |
 
-Key design decisions:
-- **Global `window.fetch` override**: All requests to `vewqzsqddgmkslnuctvb.supabase.co` are transparently proxied to `api.leadflowcrm.in` (Cloudflare), EXCEPT `/auth/v1/` calls which go direct.
-- `autoRefreshToken: false` — token refresh is handled manually in `useAuth.tsx`.
-- Realtime/WebSocket is disabled (`eventsPerSecond: -1`) to prevent mobile connection errors.
-- Storage key: `leadflow-auth-v2`.
-- `supabaseRealtime` is an alias for `supabase` (no separate WS client).
+### leads
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | UUID PK | Lead ID |
+| name, phone, city, state | TEXT | Lead info |
+| status | TEXT | New / Fresh / Night_Backlog / Queued / Assigned |
+| source | TEXT | Facebook page/campaign name |
+| user_id | UUID FK | Original owner (legacy) |
+| assigned_to | UUID FK | Currently assigned user |
+| notes | TEXT | User's notes on lead |
+| created_at, assigned_at | TIMESTAMPTZ | Timestamps |
 
-Exports:
-- `supabase` — main Supabase client
-- `supabaseRealtime` — alias for `supabase`
-- `logEvent(event, payload, userId?, client?)` — logs to `logs` table
-- `isAuthenticated()` — checks session async
-- `getCurrentUser()` — fetches current Supabase user
+> ⚠️ **DUAL FK BUG**: `leads` has BOTH `user_id` and `assigned_to` pointing to `users`. Always disambiguate:
+> ```typescript
+> supabase.from('leads').select('*, assigned_user:users!assigned_to(name, email)')
+> ```
 
----
+### payments
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | UUID PK | Payment record |
+| user_id | UUID FK | Who paid |
+| amount | NUMERIC | Amount in ₹ |
+| status | TEXT | captured / pending / failed |
+| plan_name | VARCHAR | Plan purchased |
+| razorpay_payment_id | VARCHAR | Razorpay reference |
+| raw_payload | JSONB | Full webhook data |
 
-## Database Schema
-
-All tables live in the Supabase PostgreSQL `public` schema with Row Level Security (RLS).
-
-### `users`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID PK | Matches Supabase Auth UID |
-| `email` | text | |
-| `name` | text | |
-| `role` | text | `'admin'`, `'manager'`, `'member'` |
-| `team_code` | text | Unique per manager |
-| `manager_id` | UUID FK → `users(id)` | For members |
-| `plan_name` | text | Subscription plan |
-| `daily_limit` | int | Leads per day |
-| `total_leads_promised` | int | Total leads in subscription |
-| `total_leads_received` | int | Running count |
-| `leads_today` | int | Resets daily |
-| `is_active` | bool | Subscription active flag |
-| `payment_status` | text | `'active'` / `'inactive'` |
-| `valid_until` | timestamp | Subscription expiry |
-| `filters` | jsonb | Target audience filters |
-| `sheet_url` | text | Google Sheet URL for user |
-| `days_extended` | int | Manual extension days |
-| `created_at` | timestamp | |
-
-### `leads`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID PK | |
-| `assigned_to` | UUID FK → `users(id)` | Primary assignment FK |
-| `user_id` | UUID FK → `users(id)` | Legacy FK — causes PGRST201 if both queried |
-| `manager_id` | UUID FK → `users(id)` | |
-| `name` | text | |
-| `phone` | text | |
-| `city` | text | |
-| `state` | text | |
-| `category` | text | |
-| `status` | text | `'Fresh'`, `'Call Back'`, `'Interested'`, `'Closed'`, `'Rejected'` |
-| `notes` | text | |
-| `source` | text | e.g. `'meta'` |
-| `created_at` | timestamp | |
-
-> **Known bug:** `leads` has two FKs to `users` (`user_id` and `assigned_to`). Always use `.select('*, assigned_to_user:users!assigned_to(*)')` style disambiguated queries to avoid Supabase PGRST201 errors.
-
-### `payments`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID PK | |
-| `user_id` | UUID FK → `users(id)` | |
-| `amount` | numeric | |
-| `status` | text | |
-| `plan_name` | text | |
-| `razorpay_payment_id` | text | |
-| `created_at` | timestamp | |
-
-### `orphan_leads`
-Leads that failed to be assigned to any user.
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID PK | |
-| `name` | text | |
-| `phone` | text | |
-| `miss_reason` | text | Why assignment failed |
-| `status` | text | |
-
-### `logs`
-Application event log inserted via `logEvent()`.
-| Column | Notes |
-|--------|-------|
-| `user_id` | |
-| `action` | Event name |
-| `details` | JSONB payload |
-| `created_at` | |
+### push_subscriptions
+| Column | Type | Purpose |
+|--------|------|---------|
+| user_id | UUID FK | Subscriber |
+| endpoint | TEXT | FCM push URL |
+| p256dh, auth | TEXT | Encryption keys |
 
 ---
 
-## API Endpoints (Vercel Serverless — `api/` directory)
+## 🔧 Key RPC Functions — DO NOT MODIFY WITHOUT APPROVAL
 
-All use Next.js `NextApiRequest` / `NextApiResponse` types.
-
-| Method | Path | Description | Status |
-|--------|------|-------------|--------|
-| POST | `/api/create-order` | Creates Razorpay order | **BROKEN** — `MAINTENANCE_MODE = true` returns 503 |
-| POST | `/api/razorpay-webhook` | Processes Razorpay payment success | Working (blocked by create-order) |
-| POST | `/api/check-renewals` | Checks/flags expired subscriptions | Working |
-| POST | `/api/confirm-user` | Admin: manually activate user | Working |
-| POST | `/api/create-sheet` | Creates Google Sheet for user | Working |
-| POST | `/api/init-user` | Initializes user after signup | Working |
+| Function | Purpose | Critical? |
+|----------|---------|-----------|
+| `get_best_assignee_for_team(team_code)` | Finds next eligible user for lead assignment | ⛔ YES |
+| `get_admin_dashboard_data()` | Admin stats (secured with auth check) | ⛔ YES |
+| `increment_user_lead_counters(p_user_id)` | Atomically updates leads_today + total_leads_received | ⛔ YES |
+| `upsert_push_subscription()` | Save/update push subscription | Medium |
+| `assign_lead_atomically()` | Atomic lead insert + counter update | ⛔ YES |
 
 ---
 
-## Supabase Edge Functions (`supabase/functions/`)
+## ⏰ Cron Jobs
 
-Deployed to Supabase, run on Deno runtime.
-
-| Function | Purpose |
-|----------|---------|
-| `meta-webhook` | Primary Meta Ads lead ingestion and Round Robin distribution |
-| `meta-webhook-v24` | Older version — kept for reference |
-| `process-backlog` | Processes leads stuck in queue |
-| `process-direct-lead` | Direct lead assignment |
-| `daily-counter-reset` | Resets `leads_today` counters daily (cron) |
-| `sync-counters` | Syncs lead count aggregates |
-| `send-push-notification` | Sends browser push notifications to users |
+| Job | Schedule (IST) | Purpose |
+|-----|---------------|---------|
+| reset-leads-daily | 12:00 AM | Reset leads_today to 0 for all users |
+| daily-quota-check | 7:00 AM | Auto-deactivate users who exhausted quota |
+| morning-backlog | 10:00 AM | Assign Night_Backlog leads |
+| backlog-sweeper | Every 10 min | Catch leftover unassigned leads |
 
 ---
 
-## TypeScript Interfaces (`types.ts`)
+## 💰 Plan Configuration
 
-```typescript
-type UserRole = 'admin' | 'manager' | 'member';
+| Plan | Price | Daily Limit | Total Leads | daily_limit value |
+|------|-------|-------------|-------------|-------------------|
+| starter | ₹999 | 5 | 55 | 55 |
+| supervisor | ₹1,999 | 7 | 115 | 115 |
+| weekly_boost | ₹1,999 | 14 | 92-100 | 92 |
+| turbo_boost | ₹2,499 | 14 | 108 | 108 |
+| manager | ₹2,999 | 7 | 176 | 176 |
 
-interface UserProfile { id, email, name, role, team_code?, manager_id?, created_at }
+> **CRITICAL**: `daily_limit` in the users table stores the **per-day cap** (e.g. 12 for weekly_boost). `total_leads_promised` stores the full plan quota (e.g. 92 for weekly_boost = 84 leads + 8 replacements).
 
-interface Lead {
-  id, name, phone, city, category,
-  status: 'Fresh' | 'Call Back' | 'Interested' | 'Closed' | 'Rejected',
-  notes, assigned_to, manager_id, created_at
-}
+---
 
-interface Payment { id, user_id, amount, status, plan_name, razorpay_payment_id, created_at }
+## 🔑 Business Logic Rules
+
+1. **Plan Expiry**: `total_leads_received >= total_leads_promised` → Expire. NOT time-based.
+2. **Pause/Resume**: `is_active` + `is_online` both must be true to receive leads.
+3. **Night Hours**: 10PM-8AM IST → leads saved as Night_Backlog, assigned at 10AM.
+4. **ISP Bypass**: All data requests go through `api.leadflowcrm.in` Cloudflare proxy because Jio/Airtel block Supabase.
+5. **Counters**: ALWAYS use RPC `increment_user_lead_counters`, never direct UPDATE.
+
+---
+
+## 🔒 Security Notes
+
+- `get_admin_dashboard_data()` requires authenticated admin user
+- RLS enabled on leads, users tables
+- Anon key returns empty results (by design)
+- Service role key required for full access
+- Auth requests bypass proxy → go direct to Supabase
+
+---
+
+## 📝 CHANGELOG — Recent Changes (Update this after every change)
+
+### 2026-03-25
+- Duplicate check on 69 new leads: 45 duplicates found, 24 clean
+
+### 2026-03-13
+- Push notifications complete overhaul (VAPID keys regenerated)
+- Admin RPC security hole patched (auth check added)
+- Counter mismatch fix (increment_user_lead_counters RPC)
+- Night backlog fix (status mismatch + cron schedule)
+- Razorpay webhook URL fix (direct Supabase URL)
+- Daily quota expiry cron created (Job #14)
+- 5 users manually activated (UPI payments)
+- plan_analytics populated in admin dashboard RPC
+
+---
+
+## ⚠️ Known Issues — DO NOT TRY TO FIX UNLESS ASKED
+
+1. `autoRefreshToken: false` in useAuth — admin session expires after ~1hr (workaround: reload)
+2. Dashboard polls 30+ times in console — intentional 20s polling, NOT a bug
+3. Auth lock "5000ms" warnings — React Strict Mode + polling, cosmetic only
+4. ERR_NETWORK_CHANGED — mobile network switching, unfixable without changing locked files
+5. Orphan leads modal shows empty — stats card queries leads table, modal queries orphan_leads table (mismatch)
+
+---
+
+## 🚫 COMMON MISTAKES LLMs MAKE — AVOID THESE
+
+1. **Adding `import` for packages not in package.json** — check package.json first
+2. **Using `localStorage` in service worker** — SW has no localStorage access
+3. **Calling `supabase.auth.getUser()` instead of `getSession()`** — getUser() causes 403 on expired tokens
+4. **Forgetting `AT TIME ZONE 'Asia/Kolkata'`** in SQL date comparisons — all IST logic must use timezone
+5. **Writing `supabase.from('leads').select('*, users(*)')` without disambiguating FK** — causes PGRST201
+6. **Modifying env.ts to add hardcoded URLs** — use VITE_ environment variables
+7. **Creating new Edge Functions without proper CORS headers** — all functions need OPTIONS handler
+8. **Using `NOW()` in cron jobs without timezone conversion** — Supabase runs in UTC
+
+---
+
+## 🧪 Post-Change Verification Checklist
+
+After ANY code change, verify these work:
+```
+□ Admin dashboard loads without errors
+□ Member dashboard shows assigned leads
+□ New webhook lead gets assigned correctly
+□ Push notification fires on lead assignment
+□ Payment webhook activates user plan
+□ leads_today counter increments correctly
+□ total_leads_received counter increments correctly
+□ Night backlog leads get assigned at 10AM
 ```
 
-The `User` interface in `auth/useAuth.tsx` and `types.ts` extends `UserProfile` with subscription fields (`daily_limit`, `leads_today`, `is_active`, `payment_status`, `valid_until`, `total_leads_promised`, `total_leads_received`, `filters`, `sheet_url`, `days_extended`).
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
 
----
+**IMPORTANT: This project has a knowledge graph (881+ nodes, 7700+ edges, 205 files).
+ALWAYS use the code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
 
-## Known Issues & Workarounds
+### Graph Tools Priority (MANDATORY)
 
-### 1. Payment System Disabled
-`api/create-order.ts` has `MAINTENANCE_MODE = true` hardcoded, returning HTTP 503. New subscriptions cannot be purchased. Admin must manually activate users via `api/confirm-user.ts` or the Admin Dashboard.
+Before ANY file read/grep/glob operation:
+1. Call `detect_changes_tool` (for change review)
+2. OR `get_impact_radius_tool` (for modification impact)
+3. OR `semantic_search_nodes_tool` (for code discovery)
+4. OR `get_architecture_overview_tool` (for structural questions)
 
-### 2. PWA Loading Hang
-`vite-plugin-pwa` with `injectManifest` strategy sometimes gets stuck on mobile. `App.tsx` implements `cleanupServiceWorkers()` (in DEV mode only) and exposes a "Force Refresh App" button after 8 seconds of loading. Do not add Workbox precaching — it exacerbates the issue.
+Only use Read/Grep/Glob on files the graph output specifically suggests.
 
-### 3. Supabase PGRST201 Dual FK
-The `leads` table has both `user_id` and `assigned_to` as FKs to `users`. When writing Supabase queries that join users, always disambiguate with the hint syntax:
-```typescript
-supabase.from('leads').select('*, assigned_user:users!assigned_to(name, email)')
-```
+If graph returns empty/stale, run: `code-review-graph build --repo <repo_root>`
+Never assume graph is empty without verifying with `list_graph_stats_tool` first.
 
-### 4. Root Directory Clutter
-Dozens of `.cjs`, `.sql`, `.json`, and `.md` files exist at the project root. These are operational scripts used by the team for manual lead distribution fixes. Do not delete them without confirming with the user. They are excluded from the Vite build.
+### When to use graph tools FIRST
 
-### 5. Cloudflare Proxy for ISP Bypass
-Many Indian ISPs (Jio, Airtel) block direct Supabase connections. `supabaseClient.ts` overrides `window.fetch` globally to route all non-auth requests through `api.leadflowcrm.in`. Do not remove this proxy logic.
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
 
----
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
-## Code Conventions
+### Key Tools
 
-### File Naming
-- React components: `PascalCase.tsx` (e.g., `MemberDashboard.tsx`)
-- Hooks: `camelCase.ts` with `use` prefix (e.g., `useAuth.tsx`, `usePushNotification.ts`)
-- Utilities / helpers: `camelCase.ts`
-- Vercel API routes: `kebab-case.ts`
+| Tool | Use when |
+|------|----------|
+| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review — token-efficient |
+| `get_impact_radius` | Understanding blast radius of a change |
+| `get_affected_flows` | Finding which execution paths are impacted |
+| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes` | Finding functions/classes by name or keyword |
+| `get_architecture_overview` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
 
-### Component Style
-- Functional components with `React.FC` type annotation.
-- Tailwind CSS utility classes for all styling — no CSS modules or styled-components.
-- `lucide-react` for icons.
-- No testing framework is configured.
+### Workflow
 
-### Imports
-- All views import `useAuth` from `../auth/useAuth`.
-- All Supabase queries use the `supabase` client from `../supabaseClient`.
-- Environment variables accessed via `ENV` object from `../config/env` — never directly from `import.meta.env`.
+1. The graph auto-updates on session start (via `.claude/hooks/session-start.sh`).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.
 
-### State Management
-- No global state library (no Redux, Zustand). State is managed via React Context (`AuthContext`) and local `useState`.
-- Profile data is the only global shared state; all other state is local to components.
+### Graph Maintenance
 
-### Error Handling
-- Sentry is integrated via `<Sentry.ErrorBoundary>` at the app root and `Sentry.captureException()` in `useAuth.tsx`.
-- Network errors trigger `isNetworkError` state which renders `ConnectionIssueScreen`.
+- **Auto-update**: Session-start hook runs incremental update automatically.
+- **Full rebuild** (if corrupt/missing): `rm -rf .code-review-graph/ && code-review-graph build --repo .`
+- **CLI location**: `/root/.cache/uv/archive-v0/-gSBb1nTsdSZGbMYd1r21/bin/code-review-graph`
+- **Stats check**: `list_graph_stats_tool` — should show 800+ nodes if healthy.
 
----
+## graphify
 
-## Deployment
+This project has a graphify knowledge graph at graphify-out/.
 
-- **Frontend:** Vercel. Push to `master` triggers auto-deploy.
-- **Supabase Edge Functions:** Deploy via Supabase CLI (`supabase functions deploy <name>`).
-- **`vercel.json`:** Configures SPA rewrites (all paths → `index.html`) and `no-cache` headers.
-- **Cloudflare:** The `cloudflare-worker/` directory contains the worker proxying `api.leadflowcrm.in` → Supabase.
-
----
-
-## Files to Treat as Locked / Fragile
-
-These files have been stabilized after extensive debugging. Avoid modifying them unless there is a specific bug to fix:
-
-| File | Lock Version | Reason |
-|------|-------------|--------|
-| `auth/useAuth.tsx` | v6.4 (2026-03-10) | Fixed infinite auth loop — dependency on `profileRef` vs `profile` state |
-| `supabaseClient.ts` | v4.0 (2025-01-06) | Fixed 406 errors — `window.fetch` override + split auth/data routing |
-| `App.tsx` | — | PWA cleanup logic is fragile; don't modify SW cleanup without testing on mobile |
-| `vite.config.ts` | — | `injectionPoint: undefined` is intentional — prevents Workbox precache |
-| `src/sw.ts` | — | Service worker — changes affect PWA and push notifications |
-
----
-
-## User Roles Summary
-
-| Role | Access | Dashboard |
-|------|--------|-----------|
-| `admin` | Full system access | `AdminDashboard` |
-| `manager` | Team management | `ManagerDashboard` |
-| `member` | Own leads only | `MemberDashboard` |
-
-Role is stored in both `users.role` (Supabase DB) and `user.user_metadata.role` (Supabase Auth metadata). The DB value takes precedence.
-
----
-
-## External Services
-
-| Service | Usage |
-|---------|-------|
-| Supabase | Database, Auth, Edge Functions |
-| Vercel | Frontend hosting + Serverless API |
-| Razorpay | Payment gateway (currently disabled) |
-| Meta Graph API | Lead Ads webhook source |
-| Cloudflare Workers | Reverse proxy (`api.leadflowcrm.in`) |
-| Sentry | Error monitoring |
-| Google Apps Script | Legacy renewal reminders, Sheet creation |
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

@@ -1,0 +1,59 @@
+# .graphifyignore — LeadFlow CRM
+
+# Dependencies aur build artifacts
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+.wrangler/
+.turbo/
+
+# Existing graphs (conflict avoid karo)
+.code-review-graph/
+graphify-out/cache/
+
+# Lock files
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Minified files
+*.min.js
+*.min.css
+*.map
+
+# Supabase temp aur generated
+supabase/.temp/
+supabase/functions/.deno/
+supabase/.branches/
+
+# Static assets (binary files)
+public/assets/
+public/*.png
+public/*.jpg
+public/*.jpeg
+public/*.ico
+public/*.svg
+public/*.webp
+
+# Environment aur secrets (CRITICAL — sensitive data)
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+
+# Coverage aur logs
+coverage/
+*.log
+logs/
+
+# Personal raw notes (agar private rakhni hain)
+raw/personal/

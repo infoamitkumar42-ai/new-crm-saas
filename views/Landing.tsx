@@ -128,10 +128,11 @@ export const Landing = () => {
   return (
     <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
       <Helmet>
-        <title>Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM</title>
-        <meta name="description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
-        <meta property="og:title" content="Forever Living Team Lead System | Apni Poori Team ko Daily Leads Do | LeadFlow CRM" />
-        <meta property="og:description" content="India ka #1 MLM Team Lead Distribution CRM. Forever Living, Modicare, Vestige Managers - Apni 200-300 agents ki puri team ko daily fresh leads automatically distribute karo. ₹11/lead. Bulk plans available." />
+        <link rel="canonical" href="https://www.leadflowcrm.in/" />
+        <title>LeadFlow CRM — Facebook Lead Distribution Software India</title>
+        <meta name="description" content="Automatically distribute Facebook leads to your sales team. Koi missed lead nahi, koi WhatsApp chaos nahi. India ka #1 lead distribution CRM. Free trial karo." />
+        <meta property="og:title" content="LeadFlow CRM — Facebook Lead Distribution Software India" />
+        <meta property="og:description" content="Automatically distribute Facebook leads to your sales team. Koi missed lead nahi, koi WhatsApp chaos nahi. India ka #1 lead distribution CRM. Free trial karo." />
       </Helmet>
 
       <div

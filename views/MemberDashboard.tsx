@@ -67,6 +67,7 @@ interface Lead {
   notes: string;
   created_at: string;
   assigned_at: string;
+  lead_type?: string;
 }
 
 interface DeliveryStatusInfo {
@@ -82,7 +83,7 @@ interface DeliveryStatusInfo {
 // HELPER FUNCTIONS
 // ============================================================
 
-// 🔥 SMART TIME FORMATTER (Date + Time)
+// 🔥 SMART TIME FORMATTER (Date + Time)h
 const formatSmartTime = (dateString: string): string => {
   if (!dateString) return '';
   try {
@@ -200,6 +201,7 @@ export const MemberDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [managerName, setManagerName] = useState('Loading...');
   const isFetchingRef = useRef(false); // 🔥 Prevent parallel fetches
+  const leadsCountRef = useRef(0); // 🔥 Track current leads count for polling (avoids stale closure)
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
   const [hasMoreLeads, setHasMoreLeads] = useState(true);
   const [totalLeadCount, setTotalLeadCount] = useState<number | null>(null);
@@ -213,6 +215,11 @@ export const MemberDashboard = () => {
       setProfile(authProfile);
     }
   }, [authProfile]);
+
+  // Keep leadsCountRef in sync so polling interval doesn't use stale closure
+  useEffect(() => {
+    leadsCountRef.current = leads.length;
+  }, [leads.length]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -269,10 +276,14 @@ export const MemberDashboard = () => {
   const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 5;
 
   // 🔥 FIX: Calculate leadsToday from actual leads array (not profile which may be stale)
+  // Use assigned_at for recycled leads (created_at is months old for recycled leads)
   const todayLeadsCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return leads.filter(l => new Date(l.created_at) >= today).length;
+    return leads.filter(l => {
+      const d = l.assigned_at ? new Date(l.assigned_at) : new Date(l.created_at);
+      return d >= today;
+    }).length;
   }, [leads]);
 
   // 🔥 FIXED: Use profile.total_leads_received from users table (NOT paginated leads.length!)
@@ -291,13 +302,36 @@ export const MemberDashboard = () => {
   const remainingLeads = Math.max(0, totalPromised - totalReceived);
   const totalProgress = totalPromised > 0 ? Math.min(100, Math.round((totalReceived / totalPromised) * 100)) : 0;
 
+  // 🔥 DYNAMIC PLAN DISPLAY NAME
+  const getPlanDisplayName = (name: string): string => {
+    if (!name) return 'NONE';
+    const mappings: Record<string, string> = {
+      'starter': 'STARTER',
+      'supervisor': 'SUPERVISOR',
+      'weekly_boost': 'WEEKLY BOOST',
+      'turbo_boost': 'TURBO BOOST',
+      'manager': 'MANAGER',
+      'none': 'EXPIRED'
+    };
+    return mappings[name.toLowerCase()] || name.toUpperCase().replace(/_/g, ' ');
+  };
+
   const priorityBadge = useMemo(() => {
     const w = profile?.plan_weight || 1;
+    const pName = profile?.plan_name || 'none';
+
+    // 1. Check for specific Tier Labels based on Weight (Override labels)
     if (w >= 50) return { text: 'MANAGER', color: 'bg-red-600 text-white', icon: Crown as LucideIcon };
     if (w >= 40) return { text: 'VIP BOOST', color: 'bg-purple-600 text-white', icon: Flame as LucideIcon };
     if (w >= 30) return { text: 'SUPERVISOR', color: 'bg-blue-600 text-white', icon: Shield as LucideIcon };
-    return { text: 'STARTER', color: 'bg-slate-600 text-white', icon: User as LucideIcon };
-  }, [profile?.plan_weight]);
+
+    // 2. Default to actual Plan Name (Mapped to Display)
+    return {
+      text: getPlanDisplayName(pName),
+      color: 'bg-slate-600 text-white',
+      icon: User as LucideIcon
+    };
+  }, [profile?.plan_weight, profile?.plan_name]);
 
   const deliveryStatus: DeliveryStatusInfo = useMemo(() => {
     if (!profile) {
@@ -361,7 +395,7 @@ export const MemberDashboard = () => {
 
     return {
       title: 'Actively Receiving',
-      subtitle: `${remainingToday} more leads today`,
+      subtitle: `${remainingToday} daily leads left`,
       icon: Zap,
       iconBgColor: 'bg-green-500/30',
       iconColor: 'text-green-300',
@@ -393,7 +427,8 @@ export const MemberDashboard = () => {
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
 
       if (dateFilter !== 'all') {
-        const leadDate = new Date(lead.created_at);
+        // Use assigned_at for recycled leads (created_at is months old, assigned_at is recent)
+        const leadDate = lead.assigned_at ? new Date(lead.assigned_at) : new Date(lead.created_at);
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -412,7 +447,7 @@ export const MemberDashboard = () => {
 
   // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
-  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to';
+  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type';
 
   const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
@@ -442,10 +477,13 @@ export const MemberDashboard = () => {
           : Promise.resolve({ data: null, error: null }),
 
         // 2. Fetch Leads — selective columns, OFFSET-BASED for pagination
+        // Sort by assigned_at DESC so today's leads (fresh + recycled) always appear on page 1.
+        // Client-side sort then puts fresh before recycled within today.
         supabase
           .from('leads')
           .select(LEAD_COLUMNS)
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+          .order('assigned_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1),
 
@@ -481,17 +519,40 @@ export const MemberDashboard = () => {
       }
 
       if (leadsResult.data) {
+        // Sort: today's leads first (by assigned_at date), within today fresh before recycled (created_at DESC), older leads last
+        const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+        // Sort: today's leads first, within today fresh (recent created_at) before recycled, older leads last
+        const sortByFreshFirst = (arr: Lead[]) =>
+          [...arr].sort((a, b) => {
+            const aDate = a.assigned_at ? new Date(a.assigned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+            const bDate = b.assigned_at ? new Date(b.assigned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
+            const aToday = aDate === todayIST;
+            const bToday = bDate === todayIST;
+            // Today's leads come before older leads
+            if (aToday && !bToday) return -1;
+            if (!aToday && bToday) return 1;
+            // Both today: fresh (recent created_at) before recycled (old created_at)
+            if (aToday && bToday)
+              return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            // Both older: most recently assigned first
+            if (aToday && !bToday) return -1;
+            if (!aToday && bToday) return 1;
+            if (aToday && bToday)
+              return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            return new Date(b.assigned_at || 0).getTime() - new Date(a.assigned_at || 0).getTime();
+          });
+
         const fetchedLeads = leadsResult.data as unknown as Lead[];
 
         if (offset === 0) {
           // Initial load or refresh — replace leads
-          setLeads(fetchedLeads);
+          setLeads(sortByFreshFirst(fetchedLeads));
         } else {
           // Load More — APPEND to existing leads (deduplicated)
           setLeads(prev => {
             const existingIds = new Set(prev.map(l => l.id));
             const newLeads = fetchedLeads.filter(l => !existingIds.has(l.id));
-            return [...prev, ...newLeads];
+            return sortByFreshFirst([...prev, ...newLeads]);
           });
         }
 
@@ -583,7 +644,8 @@ export const MemberDashboard = () => {
 
     const interval = setInterval(() => {
       // Background: Refresh currently loaded range (preserve expanded list)
-      const currentCount = Math.max(leads.length, 50);
+      // Use ref instead of leads.length to avoid stale closure after "Load More"
+      const currentCount = Math.max(leadsCountRef.current, 50);
       fetchData(0, currentCount);
     }, 20000); // 20 Seconds
 
@@ -608,7 +670,7 @@ export const MemberDashboard = () => {
     const currentlyPaused = profile.is_active === false;
     const newActiveStatus = !currentlyPaused ? false : true;
 
-    setProfile(prev => prev ? { ...prev, is_active: newActiveStatus } : null);
+    setProfile((prev: any) => prev ? { ...prev, is_active: newActiveStatus } : null);
 
     try {
       // 🔥 FIX: Update BOTH is_active AND is_online
@@ -626,13 +688,13 @@ export const MemberDashboard = () => {
       await fetchData();
 
     } catch (err: any) {
-      setProfile(prev => prev ? { ...prev, is_active: !newActiveStatus } : null);
+      setProfile((prev: any) => prev ? { ...prev, is_active: !newActiveStatus } : null);
       alert(`Error: ${err.message || 'Unknown error'}`);
     }
   };
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
-    setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
+    setLeads((prev: Lead[]) => prev.map(l => (l.id === leadId ? { ...l, status: newStatus } : l)));
     const { error } = await supabase
       .from('leads')
       .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -948,8 +1010,8 @@ export const MemberDashboard = () => {
             <div className="flex gap-3">
               {/* Left: Big Remaining Box */}
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center w-1/3 min-w-[110px] aspect-square border border-white/10 shadow-lg">
-                <span className="text-4xl font-black text-white drop-shadow-sm">{remainingToday}</span>
-                <span className="text-[10px] uppercase font-bold text-white/70 mt-1 tracking-wider">Remaining</span>
+                <span className="text-4xl font-black text-white drop-shadow-sm">{remainingLeads}</span>
+                <span className="text-[10px] uppercase font-bold text-white/70 mt-1 tracking-wider text-center leading-tight">Total Left</span>
               </div>
 
               {/* Right: Actions Column */}
@@ -1094,6 +1156,9 @@ export const MemberDashboard = () => {
               {filteredLeads.map((lead) => {
                 // 🔥 NIGHT LEAD DETECTION LOGIC
                 const isNightLead = lead.source === 'Night_Backlog' || lead.source === 'Night_Queue';
+                // For recycled leads use assigned_at (recently assigned), not created_at (months old)
+                // This ensures recycled leads show correct "just now" time instead of "2 months ago"
+                const displayTime = lead.assigned_at || lead.created_at;
 
                 return (
                   <div key={lead.id} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
@@ -1112,24 +1177,10 @@ export const MemberDashboard = () => {
                         }`}>
                         {isNightLead && <Moon size={10} className="fill-current" />}
                         {!isNightLead && <Clock size={10} />}
-                        <span>{formatSmartTime(lead.created_at)}</span>
+                        <span>{formatSmartTime(displayTime)}</span>
                       </div>
                     </div>
 
-                    {/* 🔥 THE MOOD PROTECTION TIP (Blue Box) */}
-                    {isNightLead && (
-                      <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex gap-2.5 items-start animate-in fade-in duration-500">
-                        <Lightbulb size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                            <span className="font-bold">Pro Tip:</span> Night Lead! Call pick hone ke chances kam ho sakte hain.
-                          </p>
-                          <p className="text-[10px] text-blue-600 mt-0.5 font-bold">
-                            Agar Call na uthe to turant WhatsApp karna! 🚀
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Notes Display */}
                     {lead.notes && (

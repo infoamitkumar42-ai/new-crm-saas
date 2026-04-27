@@ -16,6 +16,7 @@ import { LeadAlert } from './components/LeadAlert';
 import { AuthProvider, useAuth } from './auth/useAuth';
 import { ResetPassword } from './views/ResetPassword';
 import ApplyForm from './views/ApplyForm';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { Loader2, WifiOff } from 'lucide-react';
 import { ENV } from './config/env';
 
@@ -245,6 +246,7 @@ const AppRoutes: React.FC = () => {
   return (
     <>
       <LeadAlert />
+      <PwaInstallPrompt />
 
       {/* Only show these when verified session exists */}
       {!loading && isAuthenticated && (
