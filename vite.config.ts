@@ -82,6 +82,16 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env': env // Safe env access
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            supabase: ['@supabase/supabase-js']
+          }
+        }
+      }
+    },
     server: {
       port: 3000,
       proxy: {
