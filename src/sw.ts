@@ -3,14 +3,15 @@
 declare const self: ServiceWorkerGlobalScope;
 
 // ╔════════════════════════════════════════════════════════════╗
-// ║  🚀 LeadFlow CRM Service Worker v5.2 (SOUND FIX)          ║
+// ║  🚀 LeadFlow CRM Service Worker v5.1 (NOTIFICATION FIX)   ║
 // ║  ZERO caching. ZERO fetch interception.                    ║
 // ║  Only: Push Notifications + Notification Click             ║
 // ║                                                            ║
-// ║  v5.2 Changes:                                             ║
-// ║  - ✅ silent: false — forces notification sound             ║
-// ║  - ✅ vibrate pattern extended for better alert             ║
-// ║  - ✅ unique tag per notification (no merge/replace)        ║
+// ║  v5.1 Changes:                                             ║
+// ║  - ✅ Fixed URL routing from edge function payload          ║
+// ║  - ✅ requireInteraction: notification stays on screen      ║
+// ║  - ✅ renotify: no missed duplicate notifications           ║
+// ║  - ✅ Full URL construction for notificationclick           ║
 // ╚════════════════════════════════════════════════════════════╝
 
 // 1. Install & Activate — take control immediately
@@ -19,9 +20,11 @@ self.addEventListener('install', () => {
 });
 
 self.addEventListener('activate', (event) => {
+    // Claim all clients AND purge ALL old caches
     event.waitUntil(
         Promise.all([
             self.clients.claim(),
+            // 🧹 NUKE all Workbox/SW caches from previous versions
             caches.keys().then(names =>
                 Promise.all(names.map(name => {
                     console.log(`🧹 [SW] Purging old cache: ${name}`);
@@ -66,11 +69,7 @@ self.addEventListener('push', (event) => {
         event.waitUntil(
             self.registration.showNotification('🔥 LeadFlow Alert', {
                 body: 'You have a new activity on your dashboard.',
-                icon: '/icon-192x192.png',
-                silent: false,
-                requireInteraction: true,
-                renotify: true,
-                tag: 'fallback-' + Date.now()
+                icon: '/icon-192x192.png'
             })
         );
     }
@@ -86,12 +85,15 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // Check if app is already open
             for (const client of windowClients) {
                 if (client.url.includes(baseUrl) && 'focus' in client) {
+                    // App open hai — navigate + focus
                     (client as any).navigate(urlToOpen);
                     return (client as any).focus();
                 }
             }
+            // App band hai — naya window kholo
             if (self.clients.openWindow) {
                 return self.clients.openWindow(urlToOpen);
             }
