@@ -243,7 +243,7 @@ serve(async (req) => {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
 
                 // Update local cache
-                selectedUser.leads_today = freshCurrent + 1;
+                selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
                 distributedCount++;
             }
         }

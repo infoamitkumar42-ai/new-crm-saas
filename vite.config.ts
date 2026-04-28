@@ -82,17 +82,6 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env': env // Safe env access
     },
-    build: {
-      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            supabase: ['@supabase/supabase-js']
-          }
-        }
-      }
-    },
     server: {
       port: 3000,
       proxy: {

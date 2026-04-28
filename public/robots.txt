@@ -1,11 +1,18 @@
-User-agent: Googlebot
+User-agent: *
 Allow: /
+Allow: /blog/
+Allow: /terms
+Allow: /login
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/
 Disallow: /member/
 Disallow: /manager/
 Disallow: /settings/
-Disallow: /*.json
+Disallow: /*.json$
+
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 2
 
 Sitemap: https://www.leadflowcrm.in/sitemap.xml
