@@ -83,6 +83,7 @@ export default defineConfig(({ mode }) => {
       'process.env': env // Safe env access
     },
     build: {
+      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       rollupOptions: {
         output: {
           manualChunks: {
