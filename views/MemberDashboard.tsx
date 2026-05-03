@@ -822,7 +822,7 @@ export const MemberDashboard = () => {
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired && !expiredDismissed ? 'overflow-hidden' : ''}`}>
 
       {/* Subscription Modal */}
-      {showSubscription && <Subscription onClose={() => setShowSubscription(false)} />}
+      {showSubscription && <Subscription onClose={() => setShowSubscription(false)} user={profile} />}
 
       {/* Expired Overlay - Dismissible */}
       {isExpired && !expiredDismissed && (
