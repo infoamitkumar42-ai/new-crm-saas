@@ -159,6 +159,7 @@ const FULL_PLAN_CONFIG: Record<string, {
   starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1 },
   supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3 },
   manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5 },
+  daily_boost:  { price: 999,  dailyLeads: 5,  totalLeads: 40,  freshCount: 21, recycledCount: 14, weight: 1 },
   weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 43, recycledCount: 49, weight: 7 },
   turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 54, recycledCount: 54, weight: 9 },
 };
@@ -308,6 +309,7 @@ export const AdminDashboard: React.FC = () => {
     { id: 'starter', name: 'Starter', daily_limit: 5, days: 10, plan_weight: 1 },
     { id: 'supervisor', name: 'Supervisor', daily_limit: 7, days: 15, plan_weight: 3 },
     { id: 'manager', name: 'Manager', daily_limit: 8, days: 20, plan_weight: 5 },
+    { id: 'daily_boost', name: 'Daily Boost', daily_limit: 5, days: 7, plan_weight: 1 },
     { id: 'weekly_boost', name: 'Weekly Boost', daily_limit: 12, days: 7, plan_weight: 7 },
     { id: 'turbo_boost', name: 'Turbo Boost', daily_limit: 14, days: 7, plan_weight: 9 },
   ] as const;
@@ -1037,6 +1039,7 @@ export const AdminDashboard: React.FC = () => {
       case 'manager': return 'bg-purple-100 text-purple-700';
       case 'supervisor': return 'bg-blue-100 text-blue-700';
       case 'starter': return 'bg-green-100 text-green-700';
+      case 'daily_boost': return 'bg-green-100 text-green-700';
       case 'weekly_boost': return 'bg-orange-100 text-orange-700';
       case 'turbo_boost': return 'bg-red-100 text-red-700';
       default: return 'bg-slate-100 text-slate-600';
