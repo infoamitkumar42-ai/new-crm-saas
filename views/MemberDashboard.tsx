@@ -822,6 +822,7 @@ export const MemberDashboard = () => {
     <div className={`min-h-screen bg-slate-50 font-sans ${isExpired && !expiredDismissed ? 'overflow-hidden' : ''}`}>
 
       {/* Subscription Modal */}
+      {showSubscription && console.log('profile at Subscription render:', JSON.stringify({ is_active: profile?.is_active, plan_name: profile?.plan_name, payment_status: profile?.payment_status }))}
       {showSubscription && <Subscription onClose={() => setShowSubscription(false)} user={profile} />}
 
       {/* Expired Overlay - Dismissible */}
