@@ -34,7 +34,7 @@ declare global {
   }
 }
 
-export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
+export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => {
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
