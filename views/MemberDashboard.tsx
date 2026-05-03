@@ -521,8 +521,6 @@ export const MemberDashboard = () => {
       if (leadsResult.data) {
         // Sort: today's leads first (by assigned_at date), within today fresh before recycled (created_at DESC), older leads last
         const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
-        // Sort: today's leads first, within today fresh (recent created_at) before recycled, older leads last
-        const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         const sortByFreshFirst = (arr: Lead[]) =>
           [...arr].sort((a, b) => {
             const aDate = a.assigned_at ? new Date(a.assigned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : '';
