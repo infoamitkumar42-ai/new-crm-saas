@@ -366,6 +366,12 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
   };
 
   const isOldPlanUser = !!(user?.is_active && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
+  console.log('user state:', {
+    is_active: user?.is_active,
+    plan_name: user?.plan_name,
+    payment_status: user?.payment_status,
+    isOldPlanUser
+  });
   const visibleBoostPlans = isOldPlanUser ? plans.boost.filter(p => p.id !== 'daily_boost') : plans.boost;
   const currentPlans = activeTab === 'boost' ? visibleBoostPlans : plans[activeTab];
 
