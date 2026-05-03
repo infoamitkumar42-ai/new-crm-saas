@@ -154,6 +154,39 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
     ],
     boost: [
       {
+        id: 'daily_boost',
+        name: 'Daily Boost',
+        subtitle: '7-Day Starter Pack',
+        price: 999,
+        originalPrice: 1499,
+        duration: 7,
+        dailyLeads: 5,
+        totalLeads: 35,
+        perDay: 142,
+        weight: 1,
+        priority: 'Standard',
+        priorityColor: 'bg-green-500',
+        replacementLimit: 5,
+        icon: Gift,
+        highlight: false,
+        badge: '🆕 NEW',
+        gradient: 'from-green-500 to-emerald-600',
+        lightGradient: 'from-green-50 via-white to-emerald-50',
+        borderColor: 'border-green-300',
+        accentColor: 'text-green-600',
+        features: [
+          { text: '5 Fresh Leads Daily', icon: Target, highlight: true },
+          { text: '35 Total Leads', icon: TrendingUp, highlight: true },
+          { text: '5 Replacement Leads', icon: RefreshCw, highlight: true },
+          { text: '7 Day Campaign', icon: Clock, highlight: false },
+          { text: 'Real-time Delivery', icon: Zap, highlight: false },
+        ],
+        comparison: [
+          { label: 'Queue Position', value: '10-15', icon: Timer },
+          { label: 'Daily Volume', value: 'Standard', icon: TrendingUp },
+        ]
+      },
+      {
         id: 'weekly_boost',
         name: 'Weekly Boost',
         subtitle: '7-Day Power Pack',
@@ -332,7 +365,9 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose }) => {
     setExpandedPlan(expandedPlan === planId ? null : planId);
   };
 
-  const currentPlans = plans[activeTab];
+  const isOldPlanUser = !!(user?.is_active && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
+  const visibleBoostPlans = isOldPlanUser ? plans.boost.filter(p => p.id !== 'daily_boost') : plans.boost;
+  const currentPlans = activeTab === 'boost' ? visibleBoostPlans : plans[activeTab];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // RENDER
