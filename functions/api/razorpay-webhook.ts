@@ -19,10 +19,10 @@ const PLAN_CONFIG: Record<string, {
     starter:      { price: 999,  duration: 10, dailyLeads: 5,  totalLeads: 55,  weight: 1, maxReplacements: 0,  fresh_count: 21, recycled_count: 34 },
     supervisor:   { price: 1999, duration: 15, dailyLeads: 7,  totalLeads: 115, weight: 3, maxReplacements: 0,  fresh_count: 42, recycled_count: 73 },
     manager:      { price: 3499, duration: 20, dailyLeads: 8,  totalLeads: 150, weight: 5, maxReplacements: 16, fresh_count: 76, recycled_count: 74 },
-    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 12, totalLeads: 92,  weight: 7, maxReplacements: 8,  fresh_count: 43, recycled_count: 49 },
-    turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 8,  fresh_count: 54, recycled_count: 54 },
+    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 12, totalLeads: 92,  weight: 7, maxReplacements: 8,  fresh_count: 80, recycled_count: 12 },
+    turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 8,  fresh_count: 93, recycled_count: 15 },
     test_plan:    { price: 1,    duration: 1,  dailyLeads: 1,  totalLeads: 1,   weight: 1, maxReplacements: 0,  fresh_count: 1,  recycled_count: 0  },
-    daily_boost:  { price: 999,  duration: 7,  dailyLeads: 5,  totalLeads: 40,  weight: 1, maxReplacements: 5,  fresh_count: 21, recycled_count: 14 }
+    daily_boost:  { price: 999,  duration: 7,  dailyLeads: 5,  totalLeads: 40,  weight: 1, maxReplacements: 5,  fresh_count: 34, recycled_count: 6  }
 };
 
 export const onRequestPost = async (context: any) => {

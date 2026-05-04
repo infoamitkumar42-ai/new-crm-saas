@@ -159,9 +159,9 @@ const FULL_PLAN_CONFIG: Record<string, {
   starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1 },
   supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3 },
   manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5 },
-  daily_boost:  { price: 999,  dailyLeads: 5,  totalLeads: 40,  freshCount: 21, recycledCount: 14, weight: 1 },
-  weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 43, recycledCount: 49, weight: 7 },
-  turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 54, recycledCount: 54, weight: 9 },
+  daily_boost:  { price: 999,  dailyLeads: 5,  totalLeads: 40,  freshCount: 34, recycledCount: 6,  weight: 1 },
+  weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 80, recycledCount: 12, weight: 7 },
+  turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 93, recycledCount: 15, weight: 9 },
 };
 
 // API Response Types
