@@ -628,6 +628,13 @@ export const AdminDashboard: React.FC = () => {
     setActivationSuccess('');
 
     try {
+      // Session refresh karo pehle
+      const { error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError) {
+        alert('Session expired. Please logout and login again.');
+        return;
+      }
+
       const received = activationUser.total_leads_received || 0;
       const promised = activationUser.total_leads_promised || 0;
       const carryOver = Math.max(0, promised - received);
@@ -700,7 +707,7 @@ export const AdminDashboard: React.FC = () => {
       await fetchOpsData();
       await fetchAnalytics();
     } catch (err) {
-      alert('Activation failed: ' + (err instanceof Error ? err.message : 'Unknown'));
+      alert('Activation failed: ' + ((err as any)?.message ?? JSON.stringify(err)));
     } finally {
       setActivationLoading(false);
     }
