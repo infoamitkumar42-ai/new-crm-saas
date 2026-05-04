@@ -142,19 +142,46 @@ export function usePushNotification(): UsePushNotificationReturn {
         // Check existing subscription
         const sub = await registration.pushManager.getSubscription();
         if (sub) {
-          console.log('[Push] ✅ Existing subscription found');
+          console.log('[Push] ✅ Browser subscription found');
           setIsSubscribed(true);
-
-          // Silent sync to DB
           syncSubscriptionToDb(sub).catch(() => {});
         } else {
-          console.log('[Push] ℹ️ No subscription yet');
-          setIsSubscribed(false);
+          // Browser subscription missing — check DB before showing button
+          console.log('[Push] ℹ️ No browser subscription, checking DB...');
+          let resubscribed = false;
 
-          // Auto-subscribe if permission already granted (guard prevents double subscribe)
-          if (Notification.permission === 'granted' && !isSyncingRef.current) {
-            console.log('[Push] 🔄 Permission granted, auto-subscribing...');
-            subscribe(true);
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+
+            if (userId) {
+              const { data: dbSubs } = await supabase
+                .from('push_subscriptions')
+                .select('endpoint, created_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+              if (dbSubs && dbSubs.length > 0 && Notification.permission === 'granted') {
+                // DB record exists + permission granted → silently resubscribe
+                console.log('[Push] 🔄 DB record found, auto-resubscribing silently...');
+                resubscribed = true;
+                subscribe(true); // subscribe() will call setIsSubscribed(true)
+              }
+            }
+          } catch (dbErr: any) {
+            console.warn('[Push] DB check failed:', dbErr.message);
+          }
+
+          if (!resubscribed) {
+            console.log('[Push] ℹ️ No DB subscription — showing button');
+            setIsSubscribed(false);
+
+            // Auto-subscribe if permission already granted (guard prevents double subscribe)
+            if (Notification.permission === 'granted' && !isSyncingRef.current) {
+              console.log('[Push] 🔄 Permission granted, auto-subscribing...');
+              subscribe(true);
+            }
           }
         }
       } catch (err: any) {
