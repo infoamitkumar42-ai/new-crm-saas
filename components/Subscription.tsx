@@ -15,6 +15,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../auth/useAuth';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
@@ -34,7 +35,9 @@ declare global {
   }
 }
 
-export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => {
+export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userProp }) => {
+  const { profile: authProfile } = useAuth();
+  const user = userProp || authProfile;
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
@@ -365,7 +368,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
     setExpandedPlan(expandedPlan === planId ? null : planId);
   };
 
-  const isOldPlanUser = !!(user?.is_active && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
+  const isOldPlanUser = !!(user?.payment_status === 'active' && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
   console.log('user state JSON:', JSON.stringify({
     is_active: user?.is_active,
     plan_name: user?.plan_name,
