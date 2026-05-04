@@ -38,7 +38,7 @@ declare global {
 export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userProp }) => {
   const { profile: authProfile } = useAuth();
   const user = userProp || authProfile;
-  const isOldPlanUser = !!(user?.payment_status === 'active' && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
+  const isOldPlanUser = false; // Monthly tab permanently hidden — all users see Boost plans only
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>(isOldPlanUser ? 'monthly' : 'boost');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
