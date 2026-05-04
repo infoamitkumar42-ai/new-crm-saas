@@ -38,7 +38,8 @@ declare global {
 export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userProp }) => {
   const { profile: authProfile } = useAuth();
   const user = userProp || authProfile;
-  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
+  const isOldPlanUser = !!(user?.payment_status === 'active' && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
+  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>(isOldPlanUser ? 'monthly' : 'boost');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
@@ -368,13 +369,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
     setExpandedPlan(expandedPlan === planId ? null : planId);
   };
 
-  const isOldPlanUser = !!(user?.payment_status === 'active' && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
-  console.log('user state JSON:', JSON.stringify({
-    is_active: user?.is_active,
-    plan_name: user?.plan_name,
-    payment_status: user?.payment_status,
-    isOldPlanUser
-  }));
   const visibleBoostPlans = isOldPlanUser ? plans.boost.filter(p => p.id !== 'daily_boost') : plans.boost;
   const currentPlans = activeTab === 'boost' ? visibleBoostPlans : plans[activeTab];
 
@@ -445,16 +439,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
           {/* ━━━ Tab Switcher ━━━ */}
           <div className="flex justify-center mb-8">
             <div className="bg-white/10 backdrop-blur-xl p-1.5 rounded-2xl border border-white/20 inline-flex w-full max-w-sm">
-              <button
-                onClick={() => setActiveTab('monthly')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                <Clock size={18} />
-                Monthly Plans
-              </button>
+              {isOldPlanUser && (
+                <button
+                  onClick={() => setActiveTab('monthly')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  <Clock size={18} />
+                  Monthly Plans
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('boost')}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'boost'
