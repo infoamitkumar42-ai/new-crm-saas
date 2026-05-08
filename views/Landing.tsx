@@ -896,7 +896,7 @@ export const Landing = () => {
           </div>
 
           <div className="pt-8 border-t border-slate-800 text-center text-sm">
-            © 2024 LeadFlow CRM. All rights reserved.
+            © 2026 LeadFlow CRM. All rights reserved.
           </div>
         </div>
       </footer>
