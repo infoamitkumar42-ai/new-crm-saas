@@ -130,9 +130,9 @@ export const Landing = () => {
       <Helmet>
         <link rel="canonical" href="https://www.leadflowcrm.in/" />
         <title>LeadFlow CRM — Facebook Lead Distribution Software India</title>
-        <meta name="description" content="Automatically distribute Facebook leads to your sales team. Koi missed lead nahi, koi WhatsApp chaos nahi. India ka #1 lead distribution CRM. Free trial karo." />
+        <meta name="description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. India's #1 lead distribution CRM for network marketing teams. Start today." />
         <meta property="og:title" content="LeadFlow CRM — Facebook Lead Distribution Software India" />
-        <meta property="og:description" content="Automatically distribute Facebook leads to your sales team. Koi missed lead nahi, koi WhatsApp chaos nahi. India ka #1 lead distribution CRM. Free trial karo." />
+        <meta property="og:description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. India's #1 lead distribution CRM for network marketing teams. Start today." />
       </Helmet>
 
       <div
