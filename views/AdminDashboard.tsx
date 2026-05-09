@@ -154,14 +154,14 @@ interface MissedPayment {
 // Full plan config (mirrors razorpay-webhook.ts)
 const FULL_PLAN_CONFIG: Record<string, {
   price: number; dailyLeads: number; totalLeads: number;
-  freshCount: number; recycledCount: number; weight: number;
+  freshCount: number; recycledCount: number; weight: number; maxReplacements: number;
 }> = {
-  starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1 },
-  supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3 },
-  manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5 },
-  daily_boost:  { price: 999,  dailyLeads: 5,  totalLeads: 40,  freshCount: 34, recycledCount: 6,  weight: 1 },
-  weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 80, recycledCount: 12, weight: 7 },
-  turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 93, recycledCount: 15, weight: 9 },
+  starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1, maxReplacements: 0  },
+  supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3, maxReplacements: 0  },
+  manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5, maxReplacements: 16 },
+  daily_boost:  { price: 999,  dailyLeads: 6,  totalLeads: 50,  freshCount: 36, recycledCount: 14, weight: 1, maxReplacements: 8  },
+  weekly_boost: { price: 1999, dailyLeads: 14, totalLeads: 110, freshCount: 72, recycledCount: 38, weight: 3, maxReplacements: 12 },
+  turbo_boost:  { price: 2499, dailyLeads: 16, totalLeads: 140, freshCount: 85, recycledCount: 55, weight: 5, maxReplacements: 16 },
 };
 
 // API Response Types
