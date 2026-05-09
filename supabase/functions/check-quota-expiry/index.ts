@@ -17,6 +17,37 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ── PENDING PLAN ACTIVATION ───────────────────────────────────────
+    // Activate plans whose plan_activation_time has passed.
+    // Razorpay webhook sets activation_time = next day 7 AM IST (01:30 UTC).
+    // This cron fires at 7 AM IST so the condition fires on time.
+    const nowIso = new Date().toISOString();
+    const { data: activatedPlans, error: activateErr } = await supabase
+      .from("users")
+      .update({
+        is_active: true,
+        is_online: true,
+        is_plan_pending: false,
+        plan_activation_time: null,
+        updated_at: nowIso,
+      })
+      .eq("is_plan_pending", true)
+      .lte("plan_activation_time", nowIso)
+      .select("id, email, plan_name");
+
+    if (activateErr) {
+      console.warn("⚠️ Pending plan activation error:", activateErr.message);
+    } else {
+      const activatedCount = activatedPlans?.length || 0;
+      if (activatedCount > 0) {
+        console.log(`✅ Activated ${activatedCount} pending plans:`,
+          activatedPlans?.map((u: any) => `${u.email}(${u.plan_name})`).join(", "));
+      } else {
+        console.log("ℹ️ No pending plans to activate");
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     // ─────────────────────────────────────────────────────────────────
     // MIDNIGHT RESET SAFEGUARD (only before 8 AM IST — working hours not started yet)
     // Any user with leads_today > 0 before 8 AM MUST have a stale counter from yesterday.
