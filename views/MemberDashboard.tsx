@@ -76,7 +76,7 @@ interface DeliveryStatusInfo {
   icon: any; // 🔥 Fix: Use 'any' to avoid Lucide version mismatch errors
   iconBgColor: string;
   iconColor: string;
-  statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired';
+  statusType: 'active' | 'off_hours' | 'limit_reached' | 'paused' | 'inactive' | 'expired' | 'pending';
 }
 
 // ============================================================
@@ -294,7 +294,8 @@ export const MemberDashboard = () => {
   const remainingToday = Math.max(0, dailyLimit - leadsToday);
   const dailyProgress = dailyLimit > 0 ? Math.min(100, Math.round((leadsToday / dailyLimit) * 100)) : 0;
   const isLimitReached = dailyLimit > 0 && leadsToday >= dailyLimit;
-  const isPaused = profile?.is_active === false;
+  const isPlanPending = profile?.is_plan_pending === true;
+  const isPaused = profile?.is_active === false && !isPlanPending;
 
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 0;
@@ -360,6 +361,17 @@ export const MemberDashboard = () => {
       };
     }
 
+    if (isPlanPending) {
+      return {
+        title: 'Plan Activating...',
+        subtitle: 'Kal subah 8:00 AM pe leads milna shuru',
+        icon: Clock,
+        iconBgColor: 'bg-yellow-500/30',
+        iconColor: 'text-yellow-100',
+        statusType: 'pending'
+      };
+    }
+
     if (isPaused) {
       return {
         title: 'Delivery Paused',
@@ -401,7 +413,7 @@ export const MemberDashboard = () => {
       iconColor: 'text-green-300',
       statusType: 'active'
     };
-  }, [profile, isExpired, isPaused, isLimitReached, remainingToday, dailyLimit]);
+  }, [profile, isExpired, isPlanPending, isPaused, isLimitReached, remainingToday, dailyLimit]);
 
   const stats = useMemo(() => ({
     total: leads.length,
@@ -900,22 +912,24 @@ export const MemberDashboard = () => {
           </div>
         )}
 
-        {/* 🆕 Pending Plan Banner - 30 min activation */}
+        {/* Pending Plan Banner — shows until plan activates at 7 AM IST */}
         {profile?.is_plan_pending && profile?.plan_activation_time && (() => {
           const activationTime = new Date(profile.plan_activation_time);
           const now = new Date();
-          const minutesLeft = Math.max(0, Math.ceil((activationTime.getTime() - now.getTime()) / 60000));
+          const msLeft = Math.max(0, activationTime.getTime() - now.getTime());
+          const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
+          const minutesLeft = Math.floor((msLeft % (1000 * 60 * 60)) / 60000);
 
           return (
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4">
+            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-3 px-4">
               <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
-                <Clock size={18} className="animate-pulse" />
+                <Clock size={18} className="animate-pulse flex-shrink-0" />
                 <span className="text-sm font-medium">
-                  ⏰ Aapka plan <span className="font-bold">{profile?.plan_name || 'Processing...'}</span>
-                  {minutesLeft > 0 ? (
-                    <> {minutesLeft} minute mein active hoga. Thoda wait karein!</>
+                  ⏳ Aapka plan kal <span className="font-bold">8:00 AM</span> pe activate hoga
+                  {msLeft > 0 ? (
+                    <> — <span className="font-bold">{hoursLeft > 0 ? `${hoursLeft} ghante ` : ''}{minutesLeft} minute</span> baaki hain</>
                   ) : (
-                    <> activate ho raha hai. Page refresh karein!</>
+                    <> — activate ho raha hai! Page refresh karein 🎉</>
                   )}
                 </span>
               </div>
@@ -988,7 +1002,7 @@ export const MemberDashboard = () => {
         />
 
         {/* 🔥 MOBILE-OPTIMIZED STATUS CARD (Vertical & Boxy) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-3xl p-5 mb-6 shadow-2xl">
+        <div className={`relative overflow-hidden text-white rounded-3xl p-5 mb-6 shadow-2xl ${deliveryStatus.statusType === 'pending' ? 'bg-gradient-to-br from-amber-500 via-yellow-500 to-orange-500' : 'bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700'}`}>
           {/* Background Elements */}
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20 blur-2xl" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16 blur-2xl" />
@@ -1017,7 +1031,7 @@ export const MemberDashboard = () => {
               {/* Right: Actions Column */}
               <div className="flex-1 flex flex-col gap-2">
                 {/* Big Pause/Resume Button */}
-                {profile.payment_status === 'active' && !isExpired && (
+                {profile.payment_status === 'active' && !isExpired && !isPlanPending && (
                   <button
                     onClick={toggleDeliveryPause}
                     disabled={refreshing}
