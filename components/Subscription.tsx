@@ -15,6 +15,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../auth/useAuth';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
   Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
@@ -34,8 +35,11 @@ declare global {
   }
 }
 
-export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => {
-  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
+export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userProp }) => {
+  const { profile: authProfile } = useAuth();
+  const user = userProp || authProfile;
+  const isOldPlanUser = false; // Monthly tab permanently hidden — all users see Boost plans only
+  const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>(isOldPlanUser ? 'monthly' : 'boost');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
@@ -161,7 +165,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
         originalPrice: 1499,
         duration: 7,
         dailyLeads: 5,
-        totalLeads: 35,
+        totalLeads: 50,
         perDay: 142,
         weight: 1,
         priority: 'Standard',
@@ -176,7 +180,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
         accentColor: 'text-green-600',
         features: [
           { text: '5 Fresh Leads Daily', icon: Target, highlight: true },
-          { text: '35 Total Leads', icon: TrendingUp, highlight: true },
+          { text: '50 Total Leads', icon: TrendingUp, highlight: true },
           { text: '5 Replacement Leads', icon: RefreshCw, highlight: true },
           { text: '7 Day Campaign', icon: Clock, highlight: false },
           { text: 'Real-time Delivery', icon: Zap, highlight: false },
@@ -194,7 +198,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
         originalPrice: 2499,
         duration: 7,
         dailyLeads: 12,
-        totalLeads: 84,
+        totalLeads: 110,
         perDay: 285,
         weight: 7,
         priority: 'Turbo',
@@ -228,7 +232,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
         originalPrice: 3499,
         duration: 7,
         dailyLeads: 14,
-        totalLeads: 98,
+        totalLeads: 128,
         perDay: 357,
         weight: 9,
         priority: 'Ultra',
@@ -365,7 +369,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
     setExpandedPlan(expandedPlan === planId ? null : planId);
   };
 
-  const isOldPlanUser = !!(user?.is_active && ['starter', 'supervisor', 'manager'].includes(user?.plan_name || ''));
   const visibleBoostPlans = isOldPlanUser ? plans.boost.filter(p => p.id !== 'daily_boost') : plans.boost;
   const currentPlans = activeTab === 'boost' ? visibleBoostPlans : plans[activeTab];
 
@@ -436,16 +439,18 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user }) => 
           {/* ━━━ Tab Switcher ━━━ */}
           <div className="flex justify-center mb-8">
             <div className="bg-white/10 backdrop-blur-xl p-1.5 rounded-2xl border border-white/20 inline-flex w-full max-w-sm">
-              <button
-                onClick={() => setActiveTab('monthly')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                <Clock size={18} />
-                Monthly Plans
-              </button>
+              {isOldPlanUser && (
+                <button
+                  onClick={() => setActiveTab('monthly')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'monthly'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  <Clock size={18} />
+                  Monthly Plans
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('boost')}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'boost'
