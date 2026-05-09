@@ -177,6 +177,14 @@ export const onRequestPost = async (context: any) => {
             const infiniteValidity = '2099-01-01T00:00:00.000Z';
             const now = new Date();
 
+            // Activation: tomorrow 7:00 AM IST = 01:30 AM UTC
+            // check-quota-expiry cron fires at 7 AM IST (01:30 UTC) and activates pending plans
+            const istOffsetMs = 5.5 * 60 * 60 * 1000;
+            const tomorrowIST = new Date(now.getTime() + istOffsetMs);
+            tomorrowIST.setUTCDate(tomorrowIST.getUTCDate() + 1);
+            tomorrowIST.setUTCHours(1, 30, 0, 0); // 01:30 UTC = 07:00 IST
+            const activationTime = tomorrowIST.toISOString();
+
             const userUpdateRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
                 method: 'PATCH',
                 headers: {
@@ -188,7 +196,10 @@ export const onRequestPost = async (context: any) => {
                 body: JSON.stringify({
                     plan_name: normalizedPlan,
                     payment_status: 'active',
-                    is_active: true,
+                    is_active: false,
+                    is_online: false,
+                    is_plan_pending: true,
+                    plan_activation_time: activationTime,
                     is_new_system: true,
                     daily_limit: config.dailyLeads,              // per-day cap (e.g. 12 for weekly_boost)
                     total_leads_promised: newTotalLeadsPromised, // cumulative += per renewal
@@ -197,9 +208,6 @@ export const onRequestPost = async (context: any) => {
                     valid_until: infiniteValidity,
                     leads_today: 0,
                     plan_start_date: now.toISOString(),
-                    plan_activation_time: null,
-                    is_plan_pending: false,
-                    is_online: true,
                     updated_at: now.toISOString(),
                     fresh_leads_quota: config.fresh_count,
                     recycled_leads_quota: config.recycled_count,
