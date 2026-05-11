@@ -122,6 +122,7 @@ export const onRequestPost = async (context: any) => {
             // Support both key formats (old: userId/planId, new: user_id/plan_name)
             const userId = payload.notes?.user_id || payload.notes?.userId;
             const planName = payload.notes?.plan_name || payload.notes?.planId;
+            const teamCode = payload.notes?.team_code || null;
 
             if (!userId || !planName) return new Response(JSON.stringify({ error: 'Missing notes' }), { status: 400, headers: corsHeaders });
 
@@ -163,13 +164,16 @@ export const onRequestPost = async (context: any) => {
             // Activate User Plan
             console.log('[Webhook] Activating user:', userId, 'Plan:', normalizedPlan);
 
-            // Fetch current total_leads_promised to accumulate correctly on renewal
+            // Fetch current total_leads_promised and team_code to preserve on renewal
             const userFetchRes = await fetch(
-                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised`,
+                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,team_code`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
             const userData = await userFetchRes.json();
             const currentTotalLeadsPromised = userData?.[0]?.total_leads_promised || 0;
+            const existingTeamCode = userData?.[0]?.team_code || null;
+            // Set team_code from notes only if user doesn't already have one
+            const resolvedTeamCode = existingTeamCode || teamCode;
 
             // Cumulative: add new plan quota to existing promised leads
             const newTotalLeadsPromised = currentTotalLeadsPromised + config.totalLeads;
@@ -211,7 +215,8 @@ export const onRequestPost = async (context: any) => {
                     fresh_leads_quota: config.fresh_count,
                     recycled_leads_quota: config.recycled_count,
                     fresh_leads_received: 0,
-                    recycled_leads_received: 0
+                    recycled_leads_received: 0,
+                    ...(resolvedTeamCode ? { team_code: resolvedTeamCode } : {})
                 })
             });
 
