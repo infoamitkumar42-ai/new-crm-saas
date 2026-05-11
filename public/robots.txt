@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://www.leadflowcrm.in/sitemap.xml

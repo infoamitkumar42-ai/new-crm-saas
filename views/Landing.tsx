@@ -149,6 +149,7 @@ export const Landing = () => {
         .animate-marquee { animation: marquee 30s linear infinite; }
         .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
         @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
+        .section-cv { content-visibility: auto; contain-intrinsic-size: 1px 1000px; }
       `}</style>
 
       {/* TOP BAR - With Countdown Timer (Darker colors for 100% Accessibility contrast) */}
@@ -380,7 +381,7 @@ export const Landing = () => {
       </section>
 
       {/* COMPARISON - THE OLD WAY VS NEW WAY */}
-      <section className="py-20 bg-slate-50">
+      <section className="py-20 bg-slate-50 section-cv">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
@@ -449,19 +450,19 @@ export const Landing = () => {
       </section>
 
       {/* MANAGER DASHBOARD FEATURES */}
-      <section className="py-20 bg-slate-900 text-white overflow-hidden relative">
+      <section className="py-20 bg-slate-900 text-white overflow-hidden relative section-cv">
         <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 blur-3xl rounded-full"></div>
         <div className="absolute bottom-0 left-0 w-1/2 h-full bg-indigo-600/10 blur-3xl rounded-full"></div>
 
         <div className="max-w-6xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <span className="inline-block px-4 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm font-bold mb-4 border border-blue-500/30">
+            <span className="inline-block px-4 py-1 bg-blue-500/20 text-white rounded-full text-sm font-bold mb-4 border border-blue-500/30">
               👑 FOR TEAM LEADERS
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Manager Dashboard Features
             </h2>
-            <p className="text-slate-300 text-lg">Control everything. Distribute automatically. Grow your team.</p>
+            <p className="text-slate-200 text-lg">Control everything. Distribute automatically. Grow your team.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -470,7 +471,7 @@ export const Landing = () => {
                 <Users size={24} className="text-blue-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Team Overview</h3>
-              <p className="text-slate-300 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
+              <p className="text-slate-200 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -478,7 +479,7 @@ export const Landing = () => {
                 <CheckCircle size={24} className="text-green-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Track Every Agent</h3>
-              <p className="text-slate-300 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
+              <p className="text-slate-200 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -486,7 +487,7 @@ export const Landing = () => {
                 <Shield size={24} className="text-purple-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Set Daily Quotas</h3>
-              <p className="text-slate-300 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
+              <p className="text-slate-200 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -494,7 +495,7 @@ export const Landing = () => {
                 <Star size={24} className="text-orange-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Performance Leaderboard</h3>
-              <p className="text-slate-300 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
+              <p className="text-slate-200 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -502,7 +503,7 @@ export const Landing = () => {
                 <ArrowRight size={24} className="text-pink-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Bulk Lead Upload</h3>
-              <p className="text-slate-300 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
+              <p className="text-slate-200 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -510,14 +511,14 @@ export const Landing = () => {
                 <Zap size={24} className="text-amber-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Auto Rules</h3>
-              <p className="text-slate-300 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
+              <p className="text-slate-200 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* LEAD SOURCES - Where We Get Leads From */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white section-cv">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-bold mb-4">
@@ -596,7 +597,7 @@ export const Landing = () => {
           </div>
         </div>
       </section >
-      <section id="how-it-works" className="py-20 bg-slate-50">
+      <section id="how-it-works" className="py-20 bg-slate-50 section-cv">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">
@@ -643,7 +644,7 @@ export const Landing = () => {
       </section>
 
       {/* TESTIMONIALS */}
-      <section id="testimonials" className="py-20 bg-white overflow-hidden">
+      <section id="testimonials" className="py-20 bg-white overflow-hidden section-cv">
         <div className="text-center mb-12 px-4">
           <span className="inline-block px-4 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold mb-4">
             ⭐ SUCCESS STORIES
@@ -681,10 +682,10 @@ export const Landing = () => {
       </section>
 
       {/* PRICING - MATCHES SUBSCRIPTION.TSX */}
-      <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      <section id="pricing" className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 text-white section-cv">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <span className="inline-block px-4 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm font-bold mb-4">
+            <span className="inline-block px-4 py-1 bg-blue-500/20 text-white rounded-full text-sm font-bold mb-4 border border-blue-500/30">
               💰 SIMPLE PRICING
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -698,14 +699,14 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-300">Perfect to Begin</p>
+                <p className="text-sm text-slate-200">Perfect to Begin</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-slate-400 line-through">₹1,499</span>
+                <span className="text-sm text-slate-300 line-through">₹1,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
-                <span className="text-slate-300">/10 days</span>
+                <span className="text-slate-200">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
@@ -758,7 +759,7 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-300">For Serious Closers</p>
+                <p className="text-sm text-slate-200">For Serious Closers</p>
               </div>
               <div className="mb-2">
                 <span className="text-sm text-slate-400 line-through">₹4,499</span>
@@ -790,7 +791,7 @@ export const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-20 bg-slate-50">
+      <section className="py-20 bg-slate-50 section-cv">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-12">
             <span className="inline-block px-4 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold mb-4">
