@@ -579,19 +579,19 @@ export const Landing = () => {
             <div className="grid md:grid-cols-4 gap-6 text-center">
               <div>
                 <p className="text-3xl font-black">100%</p>
-                <p className="text-blue-200 text-sm">Verified Leads</p>
+                <p className="text-white text-sm font-medium">Verified Leads</p>
               </div>
               <div>
                 <p className="text-3xl font-black">Pan India</p>
-                <p className="text-blue-200 text-sm">Target Audience</p>
+                <p className="text-white text-sm font-medium">Target Audience</p>
               </div>
               <div>
                 <p className="text-3xl font-black">Active</p>
-                <p className="text-blue-200 text-sm">Business Seekers</p>
+                <p className="text-white text-sm font-medium">Business Seekers</p>
               </div>
               <div>
                 <p className="text-3xl font-black">Quality</p>
-                <p className="text-blue-200 text-sm">High Intent</p>
+                <p className="text-white text-sm font-medium">High Intent</p>
               </div>
             </div>
           </div>
@@ -766,7 +766,7 @@ export const Landing = () => {
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹2,999</span>
-                <span className="text-slate-300">/20 days</span>
+                <span className="text-slate-200">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
@@ -833,8 +833,8 @@ export const Landing = () => {
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
             Ready to Get Daily Fresh Leads?
           </h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Join 50+ managers who are growing their teams with LeadFlow
+          <p className="text-slate-100 text-lg mb-10 opacity-100">
+            Join 260+ managers who are growing their teams with automated lead distribution.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -848,9 +848,9 @@ export const Landing = () => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Contact Support on WhatsApp"
-              className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+              className="flex items-center justify-center gap-2 px-8 py-4 bg-green-500 text-slate-900 rounded-full font-bold text-lg hover:bg-green-400 transition-all shadow-lg hover:shadow-green-500/20"
             >
-              <MessageCircle size={20} /> WhatsApp Support
+              <MessageCircle size={24} /> WhatsApp Support
             </a>
           </div>
         </div>
