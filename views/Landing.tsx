@@ -126,7 +126,7 @@ export const Landing = () => {
   ];
 
   return (
-    <div className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
+    <main className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
       <Helmet>
         <link rel="canonical" href="https://www.leadflowcrm.in/" />
         <title>LeadFlow CRM — Facebook Lead Distribution Software India</title>
@@ -184,7 +184,7 @@ export const Landing = () => {
               </Link>
             </div>
 
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-slate-600 p-2">
+            <button aria-label="Toggle Navigation Menu" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-slate-600 p-2">
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -266,12 +266,12 @@ export const Landing = () => {
 
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
-                  {/* Real Indian profile images */}
-                  <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  {/* Real Indian profile images - Eager loaded for LCP */}
+                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 1" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 2" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 3" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 4" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 5" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-1">
@@ -963,7 +963,7 @@ export const Landing = () => {
         )
       }
 
-    </div >
+    </main>
   );
 };
 
