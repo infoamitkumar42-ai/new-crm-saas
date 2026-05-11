@@ -45,6 +45,16 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
 
+  // 🔥 Dynamically Load Razorpay Script (Saves 200kb on Landing Page)
+  useEffect(() => {
+    if (!document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ACTIVATION COUNTDOWN COMPONENT
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
