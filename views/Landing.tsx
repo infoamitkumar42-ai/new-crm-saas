@@ -856,7 +856,7 @@ export const Landing = () => {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+      <footer className="bg-slate-900 text-slate-300 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -868,7 +868,7 @@ export const Landing = () => {
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-4">Product</h4>
+              <h3 className="text-white font-bold mb-4">Product</h3>
               <ul className="space-y-2 text-sm">
                 <li><a href="#how-it-works" className="hover:text-white">How it Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
@@ -877,7 +877,7 @@ export const Landing = () => {
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-4">Legal</h4>
+              <h3 className="text-white font-bold mb-4">Legal</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
                 <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
@@ -887,7 +887,7 @@ export const Landing = () => {
             </div>
 
             <div>
-              <h4 className="text-white font-bold mb-4">Contact</h4>
+              <h3 className="text-white font-bold mb-4">Contact</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
                 <li>support@leadflowcrm.in</li>
@@ -896,7 +896,7 @@ export const Landing = () => {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-sm">
+          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-400">
             © 2026 LeadFlow CRM. All rights reserved.
           </div>
         </div>
