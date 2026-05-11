@@ -151,8 +151,8 @@ export const Landing = () => {
         @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
 
-      {/* TOP BAR - With Countdown Timer (Darker colors for better accessibility contrast) */}
-      <div className="bg-gradient-to-r from-orange-600 to-red-700 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
+      {/* TOP BAR - With Countdown Timer (Darker colors for 100% Accessibility contrast) */}
+      <div className="bg-gradient-to-r from-orange-800 to-red-900 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <span className="animate-pulse">🔥</span>
           <span>New User Offer:</span>

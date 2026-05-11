@@ -1,6 +1,3 @@
 User-agent: *
-Disallow: /dashboard/
 Disallow: /admin/
-Disallow: /api/
-
-Sitemap: https://www.leadflowcrm.in/sitemap.xml
+Disallow: /dashboard/
