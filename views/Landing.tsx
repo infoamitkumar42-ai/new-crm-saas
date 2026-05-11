@@ -151,8 +151,8 @@ export const Landing = () => {
         @keyframes bounce-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
 
-      {/* TOP BAR - With Countdown Timer */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
+      {/* TOP BAR - With Countdown Timer (Darker colors for better accessibility contrast) */}
+      <div className="bg-gradient-to-r from-orange-600 to-red-700 text-white py-2.5 px-4 text-center text-xs sm:text-sm font-medium">
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <span className="animate-pulse">🔥</span>
           <span>New User Offer:</span>
@@ -846,6 +846,7 @@ export const Landing = () => {
               href={`https://wa.me/${WHATSAPP_NUMBER}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Contact Support on WhatsApp"
               className="px-8 py-4 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
             >
               <MessageCircle size={20} /> WhatsApp Support
@@ -913,6 +914,7 @@ export const Landing = () => {
           </Link>
           <a
             href={`https://wa.me/${WHATSAPP_NUMBER}`}
+            aria-label="Chat on WhatsApp"
             className="w-12 h-12 bg-green-500 text-white rounded-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"
           >
             <MessageCircle size={24} />
@@ -929,6 +931,7 @@ export const Landing = () => {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-8 relative animate-bounce-in">
               <button
+                aria-label="Close Promotion Popup"
                 onClick={() => setShowExitPopup(false)}
                 className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
               >
