@@ -223,9 +223,9 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
     setLoading(plan.id);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (!authUser) {
         alert("Please login first to subscribe.");
         setLoading(null);
         return;
@@ -241,7 +241,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         body: JSON.stringify({
           planId: plan.id,
           price: plan.price,
-          userId: user.id
+          userId: authUser.id
         }),
       });
 
@@ -261,13 +261,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         description: `${plan.name} Plan`,
         order_id: orderData.id, // ✅ Critical: Connects to Backend Order
         prefill: {
-          name: user.user_metadata?.full_name || '',
-          email: user.email,
-          contact: user.user_metadata?.phone || ''
+          name: authUser.user_metadata?.full_name || '',
+          email: authUser.email,
+          contact: authUser.user_metadata?.phone || ''
         },
         notes: {
-          user_id: user.id,
-          plan_name: plan.id
+          user_id: authUser.id,
+          plan_name: plan.id,
+          ...(user?.team_code ? { team_code: user.team_code } : {}),
         },
         theme: {
           color: activeTab === 'monthly' ? "#2563EB" : "#EA580C"
