@@ -13,22 +13,44 @@ import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { Loader2, WifiOff } from 'lucide-react';
 import { ENV } from './config/env';
 
-// 🚀 LAZY LOADED ROUTES (Code Splitting to reduce unused JS)
-const Auth = React.lazy(() => import('./views/Auth').then(m => ({ default: m.Auth })));
-const TargetAudience = React.lazy(() => import('./components/TargetAudience').then(m => ({ default: m.TargetAudience })));
-const Subscription = React.lazy(() => import('./components/Subscription').then(m => ({ default: m.Subscription })));
-const MemberDashboard = React.lazy(() => import('./views/MemberDashboard').then(m => ({ default: m.MemberDashboard })));
-const ManagerDashboard = React.lazy(() => import('./views/ManagerDashboard').then(m => ({ default: m.ManagerDashboard })));
-const AdminDashboard = React.lazy(() => import('./views/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const ResetPassword = React.lazy(() => import('./views/ResetPassword').then(m => ({ default: m.ResetPassword })));
-const ApplyForm = React.lazy(() => import('./views/ApplyForm')); // Default export
+/// 🚀 LAZY LOAD RETRY HELPER (Fixes ChunkLoadError after new deploys)
+const lazyWithRetry = (componentImport: () => Promise<any>) =>
+  React.lazy(async () => {
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.localStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+
+    try {
+      const component = await componentImport();
+      window.localStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error: any) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        // 🔄 Automatic retry once
+        window.localStorage.setItem('page-has-been-force-refreshed', 'true');
+        return window.location.reload();
+      }
+      // ❌ If it fails twice, throw the error
+      throw error;
+    }
+  });
+
+// 🚀 LAZY LOADED ROUTES
+const Auth = lazyWithRetry(() => import('./views/Auth').then(m => ({ default: m.Auth })));
+const TargetAudience = lazyWithRetry(() => import('./components/TargetAudience').then(m => ({ default: m.TargetAudience })));
+const Subscription = lazyWithRetry(() => import('./components/Subscription').then(m => ({ default: m.Subscription })));
+const MemberDashboard = lazyWithRetry(() => import('./views/MemberDashboard').then(m => ({ default: m.MemberDashboard })));
+const ManagerDashboard = lazyWithRetry(() => import('./views/ManagerDashboard').then(m => ({ default: m.ManagerDashboard })));
+const AdminDashboard = lazyWithRetry(() => import('./views/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ResetPassword = lazyWithRetry(() => import('./views/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const ApplyForm = lazyWithRetry(() => import('./views/ApplyForm'));
 
 // ✅ LAZY LOADED LEGAL PAGES
-const TermsOfService = React.lazy(() => import('./views/legal/TermsOfService').then(m => ({ default: m.TermsOfService })));
-const PrivacyPolicy = React.lazy(() => import('./views/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
-const RefundPolicy = React.lazy(() => import('./views/legal/RefundPolicy').then(m => ({ default: m.RefundPolicy })));
-const ShippingPolicy = React.lazy(() => import('./views/legal/ShippingPolicy').then(m => ({ default: m.ShippingPolicy })));
-const ContactUs = React.lazy(() => import('./views/legal/ContactUs').then(m => ({ default: m.ContactUs })));
+const TermsOfService = lazyWithRetry(() => import('./views/legal/TermsOfService').then(m => ({ default: m.TermsOfService })));
+const PrivacyPolicy = lazyWithRetry(() => import('./views/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const RefundPolicy = lazyWithRetry(() => import('./views/legal/RefundPolicy').then(m => ({ default: m.RefundPolicy })));
+const ShippingPolicy = lazyWithRetry(() => import('./views/legal/ShippingPolicy').then(m => ({ default: m.ShippingPolicy })));
+const ContactUs = lazyWithRetry(() => import('./views/legal/ContactUs').then(m => ({ default: m.ContactUs })));
 
 // ============================================================
 // 🔄 LOADING SCREEN COMPONENT
