@@ -1,31 +1,34 @@
 // src/App.tsx
 // force redeploy
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Auth } from './views/Auth';
+// ⚡ Landing is NOT lazy loaded so it renders instantly for max speed
 import { Landing } from './views/Landing';
-import { TargetAudience } from './components/TargetAudience';
-import { Subscription } from './components/Subscription';
-import { MemberDashboard } from './views/MemberDashboard';
-import { ManagerDashboard } from './views/ManagerDashboard';
-import { AdminDashboard } from './views/AdminDashboard';
 import { NotificationBanner } from './components/NotificationBanner';
 import { LeadAlert } from './components/LeadAlert';
 import { AuthProvider, useAuth } from './auth/useAuth';
-import { ResetPassword } from './views/ResetPassword';
-import ApplyForm from './views/ApplyForm';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { Loader2, WifiOff } from 'lucide-react';
 import { ENV } from './config/env';
 
-// ✅ LEGAL PAGES
-import { TermsOfService } from './views/legal/TermsOfService';
-import { PrivacyPolicy } from './views/legal/PrivacyPolicy';
-import { RefundPolicy } from './views/legal/RefundPolicy';
-import { ShippingPolicy } from './views/legal/ShippingPolicy';
-import { ContactUs } from './views/legal/ContactUs';
+// 🚀 LAZY LOADED ROUTES (Code Splitting to reduce unused JS)
+const Auth = React.lazy(() => import('./views/Auth').then(m => ({ default: m.Auth })));
+const TargetAudience = React.lazy(() => import('./components/TargetAudience').then(m => ({ default: m.TargetAudience })));
+const Subscription = React.lazy(() => import('./components/Subscription').then(m => ({ default: m.Subscription })));
+const MemberDashboard = React.lazy(() => import('./views/MemberDashboard').then(m => ({ default: m.MemberDashboard })));
+const ManagerDashboard = React.lazy(() => import('./views/ManagerDashboard').then(m => ({ default: m.ManagerDashboard })));
+const AdminDashboard = React.lazy(() => import('./views/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ResetPassword = React.lazy(() => import('./views/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const ApplyForm = React.lazy(() => import('./views/ApplyForm')); // Default export
+
+// ✅ LAZY LOADED LEGAL PAGES
+const TermsOfService = React.lazy(() => import('./views/legal/TermsOfService').then(m => ({ default: m.TermsOfService })));
+const PrivacyPolicy = React.lazy(() => import('./views/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const RefundPolicy = React.lazy(() => import('./views/legal/RefundPolicy').then(m => ({ default: m.RefundPolicy })));
+const ShippingPolicy = React.lazy(() => import('./views/legal/ShippingPolicy').then(m => ({ default: m.ShippingPolicy })));
+const ContactUs = React.lazy(() => import('./views/legal/ContactUs').then(m => ({ default: m.ContactUs })));
 
 // ============================================================
 // 🔄 LOADING SCREEN COMPONENT
@@ -255,60 +258,62 @@ const AppRoutes: React.FC = () => {
         </>
       )}
 
-      <Routes>
-        {/* Public Auth Routes */}
-        <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path="/signup" element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/landing" element={<Landing />} />
-        <Route path="/apply" element={<ApplyForm />} />
+      <Suspense fallback={<LoadingScreen message="Loading page..." />}>
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+          <Route path="/signup" element={<PublicRoute><Auth /></PublicRoute>} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/apply" element={<ApplyForm />} />
 
-        {/* Root Route - Shows Landing or Dashboard based on auth */}
-        <Route path="/" element={<RootRoute />} />
+          {/* Root Route - Shows Landing or Dashboard based on auth */}
+          <Route path="/" element={<RootRoute />} />
 
-        {/* Protected Routes */}
-        <Route path="/target" element={
-          <ProtectedRoute>
-            <Layout><TargetAudience /></Layout>
-          </ProtectedRoute>
-        } />
+          {/* Protected Routes */}
+          <Route path="/target" element={
+            <ProtectedRoute>
+              <Layout><TargetAudience /></Layout>
+            </ProtectedRoute>
+          } />
 
-        <Route path="/subscription" element={
-          <ProtectedRoute>
-            <Subscription onClose={() => window.history.back()} />
-          </ProtectedRoute>
-        } />
+          <Route path="/subscription" element={
+            <ProtectedRoute>
+              <Subscription onClose={() => window.history.back()} />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <DashboardRouter />
-          </ProtectedRoute>
-        } />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardRouter />
+            </ProtectedRoute>
+          } />
 
-        {/* Admin Routes */}
-        <Route path="/admin/*" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } />
+          {/* Admin Routes */}
+          <Route path="/admin/*" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
 
-        {/* Manager Routes */}
-        <Route path="/manager/*" element={
-          <ProtectedRoute allowedRoles={['manager', 'admin']}>
-            <ManagerDashboard />
-          </ProtectedRoute>
-        } />
+          {/* Manager Routes */}
+          <Route path="/manager/*" element={
+            <ProtectedRoute allowedRoles={['manager', 'admin']}>
+              <ManagerDashboard />
+            </ProtectedRoute>
+          } />
 
-        {/* Legal Pages (Public) */}
-        <Route path="/terms" element={<TermsOfService />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/refund" element={<RefundPolicy />} />
-        <Route path="/shipping" element={<ShippingPolicy />} />
-        <Route path="/contact" element={<ContactUs />} />
+          {/* Legal Pages (Public) */}
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/refund" element={<RefundPolicy />} />
+          <Route path="/shipping" element={<ShippingPolicy />} />
+          <Route path="/contact" element={<ContactUs />} />
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </>
   );
 };
