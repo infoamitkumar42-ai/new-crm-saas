@@ -43,27 +43,28 @@ export const onRequestPost = async (context: any) => {
     try {
         const headersObj: Record<string, string> = {};
         request.headers.forEach((value: string, key: string) => { headersObj[key] = value; });
-        console.log('[Webhook] Headers:', JSON.stringify(headersObj));
-
+        
         const rawBody = await request.text();
-        console.log('[Webhook] Body:', rawBody);
+        console.log('[Webhook] Body Length:', rawBody.length);
 
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
         const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
         const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
-        console.log('[Webhook] Supabase URL:', supabaseUrl);
-        console.log('[Webhook] Service Key exists:', !!supabaseKey);
 
         if (!webhookSecret || !supabaseUrl || !supabaseKey) {
+            console.error('[Webhook] CRITICAL: Environment variables missing!');
             return new Response(JSON.stringify({ error: 'Server misconfiguration' }), { status: 500, headers: corsHeaders });
         }
 
         // 1️⃣ Verify Signature
         const signature = request.headers.get('x-razorpay-signature');
+        if (!signature) {
+            console.error('[Webhook] Missing x-razorpay-signature header');
+            return new Response(JSON.stringify({ error: 'Missing signature' }), { status: 401, headers: corsHeaders });
+        }
 
-        // Use standard Web Crypto API for Cloudflare Workers/Pages
         const encoder = new TextEncoder();
-        const key = await globalThis.crypto.subtle.importKey(
+        const hmacKey = await globalThis.crypto.subtle.importKey(
             'raw',
             encoder.encode(webhookSecret),
             { name: 'HMAC', hash: 'SHA-256' },
@@ -73,7 +74,7 @@ export const onRequestPost = async (context: any) => {
         
         const signatureBuffer = await globalThis.crypto.subtle.sign(
             'HMAC',
-            key,
+            hmacKey,
             encoder.encode(rawBody)
         );
         
@@ -81,12 +82,10 @@ export const onRequestPost = async (context: any) => {
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
 
-        console.log('[Webhook] Signature from header:', signature);
-        console.log('[Webhook] Expected Signature:', expectedSignature);
-        console.log('[Webhook] Signature verified:', signature === expectedSignature);
-
         if (signature !== expectedSignature) {
-            console.error('[Webhook] Invalid signature!');
+            console.error('[Webhook] Signature Mismatch!');
+            console.log('[Webhook] Received:', signature.substring(0, 10) + '...');
+            console.log('[Webhook] Expected:', expectedSignature.substring(0, 10) + '...');
             return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: corsHeaders });
         }
 
@@ -94,11 +93,14 @@ export const onRequestPost = async (context: any) => {
         const event = body.event;
         const payload = body.payload?.payment?.entity;
 
+        console.log(`[Webhook] Processing Event: ${event} | Payment ID: ${payload?.id}`);
+
         if (!payload) return new Response(JSON.stringify({ error: 'No payload' }), { status: 400, headers: corsHeaders });
 
         // ── HANDLE FAILED PAYMENTS ──
         if (event === 'payment.failed') {
             const userId = payload.notes?.user_id;
+            console.warn(`[Webhook] Payment Failed for User: ${userId} | Reason: ${payload.error_description}`);
             if (userId) {
                 await fetch(`${supabaseUrl}/rest/v1/payments`, {
                     method: 'POST',
@@ -118,29 +120,38 @@ export const onRequestPost = async (context: any) => {
         }
 
         // ── HANDLE SUCCESSFUL PAYMENTS (Captured) ──
-        if (event === 'payment.captured') {
-            // Support both key formats (old: userId/planId, new: user_id/plan_name)
+        if (event === 'payment.captured' || event === 'payment.authorized') {
             const userId = payload.notes?.user_id || payload.notes?.userId;
             const planName = payload.notes?.plan_name || payload.notes?.planId;
             const teamCode = payload.notes?.team_code || null;
 
-            if (!userId || !planName) return new Response(JSON.stringify({ error: 'Missing notes' }), { status: 400, headers: corsHeaders });
+            console.log(`[Webhook] Success Event: ${event} | User: ${userId} | Plan: ${planName}`);
+
+            if (!userId || !planName) {
+                console.error('[Webhook] Error: Missing user_id or plan_name in notes!');
+                return new Response(JSON.stringify({ error: 'Missing notes' }), { status: 400, headers: corsHeaders });
+            }
 
             const normalizedPlan = planName.toLowerCase().replace(/[\s-]+/g, '_');
             const config = PLAN_CONFIG[normalizedPlan];
 
-            if (!config) return new Response(JSON.stringify({ error: 'Invalid plan' }), { status: 400, headers: corsHeaders });
+            if (!config) {
+                console.error(`[Webhook] Error: Plan "${normalizedPlan}" not found in config!`);
+                return new Response(JSON.stringify({ error: 'Invalid plan' }), { status: 400, headers: corsHeaders });
+            }
 
-            // Idempotency Check
+            // Idempotency Check (Check if already processed)
             const paymentCheck = await fetch(
                 `${supabaseUrl}/rest/v1/payments?razorpay_payment_id=eq.${payload.id}&select=id`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
             const existing: any = await paymentCheck.json();
-            if (existing?.length) return new Response(JSON.stringify({ success: true, duplicate: true }), { status: 200, headers: corsHeaders });
+            if (existing?.length) {
+                console.log(`[Webhook] Skipping: Payment ${payload.id} already processed.`);
+                return new Response(JSON.stringify({ success: true, duplicate: true }), { status: 200, headers: corsHeaders });
+            }
 
-            // Save Payment
-            console.log(`[Webhook] Saving payment for ${userId}, amount: ${payload.amount / 100}, plan: ${normalizedPlan}`);
+            // 1️⃣ Save Payment to DB
             const paymentInsertRes = await fetch(`${supabaseUrl}/rest/v1/payments`, {
                 method: 'POST',
                 headers: { 
@@ -158,30 +169,35 @@ export const onRequestPost = async (context: any) => {
                     raw_payload: payload
                 })
             });
-            const paymentInsertText = await paymentInsertRes.text();
-            console.log('[Webhook] Insert result:', { status: paymentInsertRes.status, data: paymentInsertText, error: !paymentInsertRes.ok });
+            
+            if (!paymentInsertRes.ok) {
+                const errText = await paymentInsertRes.text();
+                console.error('[Webhook] DB Error (Payment Insert):', errText);
+            }
 
-            // Activate User Plan
-            console.log('[Webhook] Activating user:', userId, 'Plan:', normalizedPlan);
+            // 2️⃣ Activate User Plan
+            console.log(`[Webhook] Starting Activation for User ${userId}...`);
 
-            // Fetch current total_leads_promised and team_code to preserve on renewal
+            // Fetch current total_leads_promised and team_code
             const userFetchRes = await fetch(
                 `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,team_code`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
+            
+            if (!userFetchRes.ok) {
+                console.error('[Webhook] DB Error (User Fetch):', await userFetchRes.text());
+            }
+
             const userData = await userFetchRes.json();
             const currentTotalLeadsPromised = userData?.[0]?.total_leads_promised || 0;
             const existingTeamCode = userData?.[0]?.team_code || null;
-            // Set team_code from notes only if user doesn't already have one
             const resolvedTeamCode = existingTeamCode || teamCode;
 
-            // Cumulative: add new plan quota to existing promised leads
             const newTotalLeadsPromised = currentTotalLeadsPromised + config.totalLeads;
             const infiniteValidity = '2099-01-01T00:00:00.000Z';
             const now = new Date();
 
-            // Activation: tomorrow 7:00 AM IST = 01:30 AM UTC
-            // check-quota-expiry cron fires at 7 AM IST (01:30 UTC) and activates pending plans
+            // Tomorrow 7:00 AM IST logic
             const istOffsetMs = 5.5 * 60 * 60 * 1000;
             const tomorrowIST = new Date(now.getTime() + istOffsetMs);
             tomorrowIST.setUTCDate(tomorrowIST.getUTCDate() + 1);
@@ -194,7 +210,6 @@ export const onRequestPost = async (context: any) => {
                     apikey: supabaseKey,
                     Authorization: `Bearer ${supabaseKey}`,
                     'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
                 },
                 body: JSON.stringify({
                     plan_name: normalizedPlan,
@@ -204,8 +219,8 @@ export const onRequestPost = async (context: any) => {
                     is_plan_pending: true,
                     plan_activation_time: activationTime,
                     is_new_system: true,
-                    daily_limit: config.dailyLeads,              // per-day cap (e.g. 12 for weekly_boost)
-                    total_leads_promised: newTotalLeadsPromised, // cumulative += per renewal
+                    daily_limit: config.dailyLeads,
+                    total_leads_promised: newTotalLeadsPromised,
                     plan_weight: config.weight,
                     max_replacements: config.maxReplacements,
                     valid_until: infiniteValidity,
@@ -220,34 +235,36 @@ export const onRequestPost = async (context: any) => {
                 })
             });
 
-            const userUpdateText = await userUpdateRes.text();
-            console.log('[Webhook] User update result:', { status: userUpdateRes.status, data: userUpdateText, error: !userUpdateRes.ok });
-
             if (!userUpdateRes.ok) {
-                console.error('[Webhook] Failed to activate user!', userUpdateText);
+                const updateErr = await userUpdateRes.text();
+                console.error(`[Webhook] CRITICAL: Failed to update user ${userId}:`, updateErr);
+                return new Response(JSON.stringify({ error: 'Activation failed' }), { status: 500, headers: corsHeaders });
             }
 
-            console.log('[Webhook] Sending response:', { success: true });
+            console.log(`[Webhook] ✅ Successfully activated User ${userId} for Plan ${normalizedPlan}`);
             return new Response(JSON.stringify({
                 success: true,
-                status: 'ok',
-                plan: normalizedPlan,
-                activation: 'immediate'
+                status: 'activated',
+                payment_id: payload.id
             }), { status: 200, headers: corsHeaders });
         }
 
-        console.log('[Webhook] Sending response:', { ignored: true });
+        console.log(`[Webhook] Event ${event} ignored.`);
         return new Response(JSON.stringify({ ignored: true }), { status: 200, headers: corsHeaders });
 
     } catch (err: any) {
-        console.error('[Webhook] ERROR:', err.message, err.stack);
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+        console.error('[Webhook] UNEXPECTED SYSTEM ERROR:', err.message);
+        return new Response(JSON.stringify({ error: 'Internal system error' }), { status: 500, headers: corsHeaders });
     }
 };
 
-// Handle GET for health checks (if needed, though Pages uses onRequest for specific methods)
+// Handle GET for health checks
 export const onRequestGet = async (context: any) => {
-    return new Response(JSON.stringify({ status: 'ok', service: 'LeadFlow Webhook v5' }), {
+    return new Response(JSON.stringify({ 
+        status: 'ok', 
+        service: 'LeadFlow Webhook v5.1', 
+        timestamp: new Date().toISOString() 
+    }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
