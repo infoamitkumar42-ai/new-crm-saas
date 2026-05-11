@@ -198,23 +198,34 @@ export function usePushNotification(): UsePushNotificationReturn {
   // ---------------------------------------------------------------
   // SYNC SUBSCRIPTION TO DB
   // ---------------------------------------------------------------
-  const syncSubscriptionToDb = async (sub: PushSubscription) => {
+  const syncSubscriptionToDb = async (sub: PushSubscription, maxRetries = 3) => {
     // 🔧 FIX: getUser() gives 403 when token expired, use getSession instead
     let userId: string | null = null;
+    let retries = 0;
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      userId = session?.user?.id || null;
-    } catch {
-      // Fallback: try getUser
+    while (!userId && retries < maxRetries) {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        userId = user?.id || null;
-      } catch { /* ignore */ }
+        const { data: { session } } = await supabase.auth.getSession();
+        userId = session?.user?.id || null;
+      } catch {
+        // Fallback: try getUser
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          userId = user?.id || null;
+        } catch { /* ignore */ }
+      }
+
+      if (!userId) {
+        retries++;
+        if (retries < maxRetries) {
+          console.log(`[Push] No session found, retrying in 1s (Attempt ${retries}/${maxRetries})...`);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
     }
 
     if (!userId) {
-      console.warn('[Push] No user session, skipping DB sync');
+      console.warn('[Push] No user session after retries, skipping DB sync for now. Will retry on next refresh.');
       return;
     }
 
@@ -303,22 +314,29 @@ export function usePushNotification(): UsePushNotificationReturn {
         }
       }
 
-      // Save to DB
-      let userId: string | null = null;
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        userId = session?.user?.id || null;
-      } catch { /* ignore */ }
+      // We successfully got the browser subscription. We should hide the button.
+      setIsSubscribed(true);
 
-      if (!userId) {
-        console.warn('[Push] No user session for subscribe');
-        return false;
+      // Save to DB with retry logic
+      let userId: string | null = null;
+      let retries = 0;
+      while (!userId && retries < 3) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          userId = session?.user?.id || null;
+        } catch { /* ignore */ }
+        if (!userId) {
+          retries++;
+          if (retries < 3) await new Promise(r => setTimeout(r, 1000));
+        }
       }
 
-      await syncSubscriptionToDb(subscription);
-
-      setIsSubscribed(true);
-      console.log('[Push] ✅ Fully subscribed and synced!');
+      if (!userId) {
+        console.warn('[Push] No user session for subscribe, but browser is subscribed. DB sync will happen later.');
+      } else {
+        await syncSubscriptionToDb(subscription);
+        console.log('[Push] ✅ Fully subscribed and synced!');
+      }
 
       // Send a confirmation test notification
       if (!isSilent) {

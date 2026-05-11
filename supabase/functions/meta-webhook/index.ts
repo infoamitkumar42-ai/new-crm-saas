@@ -386,14 +386,21 @@ serve(async (req) => {
                             type: 'new_lead'
                         };
 
-                        // Call the send-push-notification edge function
-                        const { error: notifError } = await supabase.functions.invoke(
-                            'send-push-notification',
-                            { body: notificationPayload }
-                        );
+                        // Call the send-push-notification edge function safely using explicit fetch
+                        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+                        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-                        if (notifError) {
-                            console.log('⚠️ Push notification failed (non-critical):', notifError.message);
+                        const notifRes = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+                            method: 'POST',
+                            headers: { 
+                                'Authorization': `Bearer ${supabaseKey}`, 
+                                'Content-Type': 'application/json' 
+                            },
+                            body: JSON.stringify(notificationPayload)
+                        });
+
+                        if (!notifRes.ok) {
+                            console.log('⚠️ Push notification failed (non-critical): HTTP', notifRes.status);
                         } else {
                             console.log('🔔 Push notification sent to user');
                         }

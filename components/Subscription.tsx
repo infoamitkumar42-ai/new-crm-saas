@@ -13,7 +13,7 @@
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 import {
@@ -22,6 +22,7 @@ import {
   Phone, MessageCircle, RefreshCw, Sparkles, Users,
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SubscriptionProps {
   onClose?: () => void;
@@ -38,10 +39,64 @@ declare global {
 export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userProp }) => {
   const { profile: authProfile } = useAuth();
   const user = userProp || authProfile;
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'monthly' | 'boost'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ACTIVATION COUNTDOWN COMPONENT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const ActivationCountdown = () => {
+    const [timeLeft, setTimeLeft] = useState('');
+
+    useEffect(() => {
+      const calculateTimeLeft = () => {
+        const now = new Date();
+        const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const istNow = new Date(utcNow + (3600000 * 5.5));
+        
+        const targetIST = new Date(istNow);
+        if (istNow.getHours() >= 7) {
+          targetIST.setDate(targetIST.getDate() + 1);
+        }
+        targetIST.setHours(7, 0, 0, 0);
+
+        const diff = targetIST.getTime() - istNow.getTime();
+        
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      };
+
+      calculateTimeLeft();
+      const timer = setInterval(calculateTimeLeft, 1000);
+      return () => clearInterval(timer);
+    }, []);
+
+    return (
+      <div className="bg-slate-900/60 backdrop-blur-md border border-blue-500/30 rounded-2xl p-4 mb-6 shadow-xl shadow-blue-900/20">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/20 rounded-xl">
+              <Timer className="text-blue-400 animate-pulse" size={24} />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm">Next Activation Window</h3>
+              <p className="text-white/60 text-xs">Plans activate automatically everyday at <strong className="text-blue-300">7:00 AM IST</strong></p>
+            </div>
+          </div>
+          <div className="bg-slate-900 px-5 py-2.5 rounded-xl border border-white/10 text-center min-w-[140px] shadow-inner">
+            <div className="text-[10px] text-white/50 font-bold tracking-wider mb-0.5 uppercase">Time Remaining</div>
+            <div className="text-blue-400 font-mono font-bold text-lg tracking-wider">{timeLeft || '...'}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FINAL PLAN CONFIGURATION
@@ -277,14 +332,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
           console.log('✅ Payment Success:', response);
 
           // Show Feedback with plan activation info
-          alert("🎉 Payment Successful!\\n\\n⏰ Aapka plan 30 MINUTE mein active hoga.\\nLeads milna shuru ho jayengi!\\n\\nPlease wait while we setup your account...");
+          alert("🎉 Payment Successful!\n\nAapka plan NEXT DAY 7:00 AM IST par active hoga.\nLeads uske baad milna shuru ho jayengi!\n\nPlease wait while we setup your account...");
           setLoading(plan.id);
 
           // Wait 5 seconds for Webhook to process
           await new Promise(resolve => setTimeout(resolve, 5000));
 
-          // Force Refresh Dashboard
-          window.location.href = `/?payment_success=true&t=${Date.now()}`;
+          // Safe navigation without hard reload to prevent session loss
+          navigate(`/?payment_success=true&t=${Date.now()}`, { replace: true });
         },
         modal: {
           ondismiss: function () {
@@ -363,6 +418,9 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         </div>
 
         <div className="px-4 py-5 pb-32 relative z-10">
+
+          {/* ━━━ Activation Countdown Timer ━━━ */}
+          <ActivationCountdown />
 
           {/* ━━━ Welcome Offer Banner ━━━ */}
           <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-4 mb-6 shadow-2xl shadow-emerald-500/20">
