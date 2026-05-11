@@ -312,22 +312,22 @@ export const Landing = () => {
                     <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                   </div>
-                  <div className="ml-4 px-3 py-1 bg-white rounded text-xs text-slate-500 font-mono flex items-center gap-2">
+                  <div className="ml-4 px-3 py-1 bg-white rounded text-xs text-slate-700 font-mono flex items-center gap-2">
                     <Lock size={10} className="text-green-500" /> app.leadflowcrm.in
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-b-xl p-6">
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <p className="text-xs text-slate-500 mb-1">Today's Leads</p>
+                      <p className="text-xs text-slate-700 mb-1">Today's Leads</p>
                       <p className="text-2xl font-bold text-blue-600">12</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <p className="text-xs text-slate-500 mb-1">Interested</p>
+                      <p className="text-xs text-slate-700 mb-1">Interested</p>
                       <p className="text-2xl font-bold text-green-600">5</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <p className="text-xs text-slate-500 mb-1">2cc Done</p>
+                      <p className="text-xs text-slate-700 mb-1">2cc Done</p>
                       <p className="text-2xl font-bold text-purple-600">2</p>
                     </div>
                   </div>
@@ -341,7 +341,7 @@ export const Landing = () => {
                           </div>
                           <div>
                             <p className="font-semibold text-sm text-slate-800">{name}</p>
-                            <p className="text-xs text-slate-500">Just now • Facebook Ad</p>
+                            <p className="text-xs text-slate-700">Just now • Facebook Ad</p>
                           </div>
                         </div>
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">Fresh</span>
@@ -386,7 +386,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
               Why Top Managers Switched to LeadFlow?
             </h2>
-            <p className="text-slate-500 text-lg">Stop wasting time on methods that don't work.</p>
+            <p className="text-slate-700 text-lg">Stop wasting time on methods that don't work.</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 md:gap-0">
@@ -461,7 +461,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Manager Dashboard Features
             </h2>
-            <p className="text-slate-400 text-lg">Control everything. Distribute automatically. Grow your team.</p>
+            <p className="text-slate-600 text-lg">Control everything. Distribute automatically. Grow your team.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -470,7 +470,7 @@ export const Landing = () => {
                 <Users size={24} className="text-blue-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Team Overview</h3>
-              <p className="text-slate-400 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
+              <p className="text-slate-600 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -478,7 +478,7 @@ export const Landing = () => {
                 <CheckCircle size={24} className="text-green-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Track Every Agent</h3>
-              <p className="text-slate-400 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
+              <p className="text-slate-600 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -486,7 +486,7 @@ export const Landing = () => {
                 <Shield size={24} className="text-purple-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Set Daily Quotas</h3>
-              <p className="text-slate-400 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
+              <p className="text-slate-600 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -494,7 +494,7 @@ export const Landing = () => {
                 <Star size={24} className="text-orange-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Performance Leaderboard</h3>
-              <p className="text-slate-400 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
+              <p className="text-slate-600 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -502,7 +502,7 @@ export const Landing = () => {
                 <ArrowRight size={24} className="text-pink-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Bulk Lead Upload</h3>
-              <p className="text-slate-400 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
+              <p className="text-slate-600 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -510,7 +510,7 @@ export const Landing = () => {
                 <Zap size={24} className="text-amber-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Auto Rules</h3>
-              <p className="text-slate-400 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
+              <p className="text-slate-600 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
             </div>
           </div>
         </div>
@@ -526,7 +526,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
               Hum Leads Kahan Se Laate Hain?
             </h2>
-            <p className="text-slate-500 text-lg">100% Targeted, Business Interested Audience</p>
+            <p className="text-slate-700 text-lg">100% Targeted, Business Interested Audience</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-12">
@@ -605,7 +605,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
               3 Simple Steps to Get Leads
             </h2>
-            <p className="text-slate-500 text-lg">Setup in 2 minutes. Start receiving leads today.</p>
+            <p className="text-slate-700 text-lg">Setup in 2 minutes. Start receiving leads today.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -651,7 +651,7 @@ export const Landing = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
             Forever Leaders ki Pasand
           </h2>
-          <p className="text-slate-500 text-lg">Top Earners ye system use kar rahe hain</p>
+          <p className="text-slate-700 text-lg">Top Earners ye system use kar rahe hain</p>
         </div>
 
         <div className="relative w-full max-w-[100vw] overflow-hidden">
@@ -690,7 +690,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Choose Your Growth Plan
             </h2>
-            <p className="text-slate-400 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
+            <p className="text-slate-600 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
@@ -698,14 +698,14 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-400">Perfect to Begin</p>
+                <p className="text-sm text-slate-600">Perfect to Begin</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-slate-400 line-through">₹1,499</span>
+                <span className="text-sm text-slate-600 line-through">₹1,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
-                <span className="text-slate-400">/10 days</span>
+                <span className="text-slate-600">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
@@ -758,14 +758,14 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-400">For Serious Closers</p>
+                <p className="text-sm text-slate-600">For Serious Closers</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-slate-400 line-through">₹4,499</span>
+                <span className="text-sm text-slate-600 line-through">₹4,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹2,999</span>
-                <span className="text-slate-400">/20 days</span>
+                <span className="text-slate-600">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
@@ -812,7 +812,7 @@ export const Landing = () => {
                   <span className="font-bold text-slate-800">{faq.q}</span>
                   <ChevronDown
                     size={20}
-                    className={`text-slate-400 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
+                    className={`text-slate-600 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {openFaq === i && (
@@ -896,7 +896,7 @@ export const Landing = () => {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-400">
+          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-600">
             © 2026 LeadFlow CRM. All rights reserved.
           </div>
         </div>
@@ -920,7 +920,7 @@ export const Landing = () => {
             <MessageCircle size={24} />
           </a>
         </div>
-        <p className="text-center text-[10px] text-slate-400 mt-1 font-medium">
+        <p className="text-center text-[10px] text-slate-600 mt-1 font-medium">
           ⚡ Setup in 2 Mins • 100% Secure
         </p>
       </div>
@@ -933,7 +933,7 @@ export const Landing = () => {
               <button
                 aria-label="Close Promotion Popup"
                 onClick={() => setShowExitPopup(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+                className="absolute top-4 right-4 text-slate-600 hover:text-slate-600"
               >
                 <X size={24} />
               </button>
@@ -948,7 +948,7 @@ export const Landing = () => {
                   <br />
                   <strong className="text-green-600 text-xl">Get 3 EXTRA Leads FREE!</strong>
                   <br />
-                  <span className="text-sm text-slate-500">On your first recharge. No extra cost.</span>
+                  <span className="text-sm text-slate-700">On your first recharge. No extra cost.</span>
                 </p>
                 <Link
                   to="/login"
@@ -957,7 +957,7 @@ export const Landing = () => {
                 >
                   Claim My Bonus Leads
                 </Link>
-                <p className="text-xs text-slate-400 mt-4">
+                <p className="text-xs text-slate-600 mt-4">
                   * Limited time offer. Valid for first purchase only.
                 </p>
               </div>
