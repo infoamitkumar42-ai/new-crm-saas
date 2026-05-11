@@ -461,7 +461,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Manager Dashboard Features
             </h2>
-            <p className="text-slate-600 text-lg">Control everything. Distribute automatically. Grow your team.</p>
+            <p className="text-slate-400 text-lg">Control everything. Distribute automatically. Grow your team.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -470,7 +470,7 @@ export const Landing = () => {
                 <Users size={24} className="text-blue-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Team Overview</h3>
-              <p className="text-slate-600 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
+              <p className="text-slate-400 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -478,7 +478,7 @@ export const Landing = () => {
                 <CheckCircle size={24} className="text-green-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Track Every Agent</h3>
-              <p className="text-slate-600 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
+              <p className="text-slate-400 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -486,7 +486,7 @@ export const Landing = () => {
                 <Shield size={24} className="text-purple-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Set Daily Quotas</h3>
-              <p className="text-slate-600 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
+              <p className="text-slate-400 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -494,7 +494,7 @@ export const Landing = () => {
                 <Star size={24} className="text-orange-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Performance Leaderboard</h3>
-              <p className="text-slate-600 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
+              <p className="text-slate-400 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -502,7 +502,7 @@ export const Landing = () => {
                 <ArrowRight size={24} className="text-pink-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Bulk Lead Upload</h3>
-              <p className="text-slate-600 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
+              <p className="text-slate-400 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -510,7 +510,7 @@ export const Landing = () => {
                 <Zap size={24} className="text-amber-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Auto Rules</h3>
-              <p className="text-slate-600 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
+              <p className="text-slate-400 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
             </div>
           </div>
         </div>
@@ -690,7 +690,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Choose Your Growth Plan
             </h2>
-            <p className="text-slate-600 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
+            <p className="text-slate-400 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
@@ -698,14 +698,14 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-600">Perfect to Begin</p>
+                <p className="text-sm text-slate-400">Perfect to Begin</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-slate-600 line-through">₹1,499</span>
+                <span className="text-sm text-slate-400 line-through">₹1,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
-                <span className="text-slate-600">/10 days</span>
+                <span className="text-slate-400">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
@@ -728,14 +728,14 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Supervisor</h3>
-                <p className="text-sm text-blue-200">Most Popular Choice</p>
+                <p className="text-sm text-blue-100">Most Popular Choice</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-blue-200 line-through">₹2,999</span>
+                <span className="text-sm text-blue-100 line-through">₹2,999</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹1,999</span>
-                <span className="text-blue-200">/15 days</span>
+                <span className="text-blue-100">/15 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>7 Fresh Leads/Day</strong></li>
@@ -758,14 +758,14 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-600">For Serious Closers</p>
+                <p className="text-sm text-slate-400">For Serious Closers</p>
               </div>
               <div className="mb-2">
-                <span className="text-sm text-slate-600 line-through">₹4,499</span>
+                <span className="text-sm text-slate-400 line-through">₹4,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹2,999</span>
-                <span className="text-slate-600">/20 days</span>
+                <span className="text-slate-400">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
