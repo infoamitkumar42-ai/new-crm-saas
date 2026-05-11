@@ -175,16 +175,16 @@ export const Landing = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-6">
-              <a href="#how-it-works" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">How it Works</a>
-              <a href="#pricing" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Pricing</a>
-              <a href="#testimonials" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Success Stories</a>
-              <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Login</Link>
+              <a href="#how-it-works" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">How it Works</a>
+              <a href="#pricing" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Pricing</a>
+              <a href="#testimonials" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Success Stories</a>
+              <Link to="/login" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Login</Link>
               <Link to="/login" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-full font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:-translate-y-0.5 flex items-center gap-2">
                 Start Now <ArrowRight size={16} />
               </Link>
             </div>
 
-            <button aria-label="Toggle Navigation Menu" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-slate-600 p-2">
+            <button aria-label="Toggle Navigation Menu" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-slate-700 p-2">
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -192,10 +192,10 @@ export const Landing = () => {
 
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-3 shadow-xl absolute w-full">
-            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">How it Works</a>
-            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Pricing</a>
-            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-600">Success Stories</a>
-            <Link to="/login" className="block py-2 font-semibold text-slate-600">Login</Link>
+            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">How it Works</a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">Pricing</a>
+            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">Success Stories</a>
+            <Link to="/login" className="block py-2 font-semibold text-slate-700">Login</Link>
             <Link to="/login" className="block w-full text-center bg-blue-600 text-white py-3 rounded-xl font-bold mt-2">
               Start Now
             </Link>
@@ -225,24 +225,24 @@ export const Landing = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Daily Fresh Leads Do</span>
               </h1>
 
-              <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
+              <p className="text-lg md:text-xl text-slate-700 mb-8 leading-relaxed">
                 Forever Living Manager ho? 200-300 agents ki team hai? Ab har agent ko automatically fresh leads milegi - bina manually distribute kiye. Aap sirf training pe focus karo.
               </p>
 
               <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-8">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle size={18} className="text-green-500" />
                   <span>Auto Team Distribution</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle size={18} className="text-green-500" />
                   <span>Har Agent ka Alag Dashboard</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle size={18} className="text-green-500" />
                   <span>Manager Control Panel</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle size={18} className="text-green-500" />
                   <span>Bulk Lead Management</span>
                 </div>
@@ -267,11 +267,11 @@ export const Landing = () => {
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
                   {/* Real Indian profile images - Eager loaded for LCP */}
-                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 1" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 2" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 3" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 4" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 5" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 1" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 2" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 3" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 4" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 5" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-1">
@@ -279,7 +279,7 @@ export const Landing = () => {
                       <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
                     ))}
                   </div>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-slate-700">
                     Used by <strong>500+ FLP Distributors</strong>
                   </p>
                 </div>
@@ -361,19 +361,19 @@ export const Landing = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
               <p className="text-4xl md:text-5xl font-black text-blue-600">50+</p>
-              <p className="text-slate-600 font-medium mt-1">Manager Teams</p>
+              <p className="text-slate-700 font-medium mt-1">Manager Teams</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-black text-green-600">50K+</p>
-              <p className="text-slate-600 font-medium mt-1">Leads Distributed</p>
+              <p className="text-slate-700 font-medium mt-1">Leads Distributed</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-black text-purple-600">₹11</p>
-              <p className="text-slate-600 font-medium mt-1">Per Lead Only</p>
+              <p className="text-slate-700 font-medium mt-1">Per Lead Only</p>
             </div>
             <div>
               <p className="text-4xl md:text-5xl font-black text-orange-600">200+</p>
-              <p className="text-slate-600 font-medium mt-1">Avg Team Size</p>
+              <p className="text-slate-700 font-medium mt-1">Avg Team Size</p>
             </div>
           </div>
         </div>
@@ -461,7 +461,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Manager Dashboard Features
             </h2>
-            <p className="text-slate-400 text-lg">Control everything. Distribute automatically. Grow your team.</p>
+            <p className="text-slate-300 text-lg">Control everything. Distribute automatically. Grow your team.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -470,7 +470,7 @@ export const Landing = () => {
                 <Users size={24} className="text-blue-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Team Overview</h3>
-              <p className="text-slate-400 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
+              <p className="text-slate-300 text-sm">See exactly how many leads your entire team received today and overall conversion rates in one dashboard.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -478,7 +478,7 @@ export const Landing = () => {
                 <CheckCircle size={24} className="text-green-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Track Every Agent</h3>
-              <p className="text-slate-400 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
+              <p className="text-slate-300 text-sm">Monitor individual agent performance. See who is calling leads quickly and who is closing the most sponsors.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -486,7 +486,7 @@ export const Landing = () => {
                 <Shield size={24} className="text-purple-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Set Daily Quotas</h3>
-              <p className="text-slate-400 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
+              <p className="text-slate-300 text-sm">Control distribution completely. Set custom daily lead limits (e.g., 5 leads/day) for every specific agent.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -494,7 +494,7 @@ export const Landing = () => {
                 <Star size={24} className="text-orange-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Performance Leaderboard</h3>
-              <p className="text-slate-400 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
+              <p className="text-slate-300 text-sm">Identify your top-performing distributors instantly to reward them and train those who are falling behind.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -502,7 +502,7 @@ export const Landing = () => {
                 <ArrowRight size={24} className="text-pink-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Bulk Lead Upload</h3>
-              <p className="text-slate-400 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
+              <p className="text-slate-300 text-sm">Have your own leads? Upload a CSV file and let LeadFlow automatically distribute them fairly across your team.</p>
             </div>
 
             <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors">
@@ -510,7 +510,7 @@ export const Landing = () => {
                 <Zap size={24} className="text-amber-400" />
               </div>
               <h3 className="text-lg font-bold mb-2">Auto Rules</h3>
-              <p className="text-slate-400 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
+              <p className="text-slate-300 text-sm">Set up smart round-robin distribution so you never have to manually send a WhatsApp message to an agent again.</p>
             </div>
           </div>
         </div>
@@ -538,7 +538,7 @@ export const Landing = () => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">Facebook Ads</h3>
-              <p className="text-slate-600 text-sm">
+              <p className="text-slate-700 text-sm">
                 "Work From Home", "Passive Income", "Business Opportunity" interest targeting
               </p>
             </div>
@@ -551,7 +551,7 @@ export const Landing = () => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">Instagram Ads</h3>
-              <p className="text-slate-600 text-sm">
+              <p className="text-slate-700 text-sm">
                 Reels & Stories ads targeting women 25-45 interested in health & wellness
               </p>
             </div>
@@ -567,7 +567,7 @@ export const Landing = () => {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">Search Intent</h3>
-              <p className="text-slate-600 text-sm">
+              <p className="text-slate-700 text-sm">
                 People actively searching "How to earn from home", "Part time business"
               </p>
             </div>
@@ -614,7 +614,7 @@ export const Landing = () => {
                 <span className="text-3xl font-black text-white">1</span>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Choose Your Plan</h3>
-              <p className="text-slate-600">
+              <p className="text-slate-700">
                 Select based on your daily lead requirement. Start with Starter or go Pro with Manager plan.
               </p>
             </div>
@@ -624,7 +624,7 @@ export const Landing = () => {
                 <span className="text-3xl font-black text-white">2</span>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Get Your Dashboard</h3>
-              <p className="text-slate-600">
+              <p className="text-slate-700">
                 Instant access to your personal lead dashboard + Google Sheet. No technical setup needed.
               </p>
             </div>
@@ -634,7 +634,7 @@ export const Landing = () => {
                 <span className="text-3xl font-black text-white">3</span>
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Receive Daily Leads</h3>
-              <p className="text-slate-600">
+              <p className="text-slate-700">
                 Fresh leads delivered daily between 10 AM - 10 PM. Call them, close them, grow your team!
               </p>
             </div>
@@ -663,7 +663,7 @@ export const Landing = () => {
               <div key={i} className="w-[300px] md:w-[400px] mx-4 flex-shrink-0">
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all h-full">
                   <div className="flex items-center gap-4 mb-4">
-                    <img src={t.image} alt={t.name} width="56" height="56" loading="lazy" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                    <img decoding="async" src={t.image} alt={t.name} width="56" height="56" loading="lazy" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
                     <div>
                       <p className="font-bold text-slate-900">{t.name}</p>
                       <p className="text-xs font-bold text-blue-600 uppercase bg-blue-100 px-2 py-0.5 rounded-full inline-block">{t.role}</p>
@@ -672,7 +672,7 @@ export const Landing = () => {
                   <div className="flex gap-1 mb-3">
                     {[1, 2, 3, 4, 5].map(s => <Star key={s} size={14} className="text-yellow-400 fill-yellow-400" />)}
                   </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">"{t.text}"</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">"{t.text}"</p>
                 </div>
               </div>
             ))}
@@ -690,7 +690,7 @@ export const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Choose Your Growth Plan
             </h2>
-            <p className="text-slate-400 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
+            <p className="text-slate-200 text-lg">Fresh leads daily • 100% Exclusive • Real-time delivery</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
@@ -698,14 +698,14 @@ export const Landing = () => {
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col">
               <div className="mb-6">
                 <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-sm text-slate-400">Perfect to Begin</p>
+                <p className="text-sm text-slate-300">Perfect to Begin</p>
               </div>
               <div className="mb-2">
                 <span className="text-sm text-slate-400 line-through">₹1,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹999</span>
-                <span className="text-slate-400">/10 days</span>
+                <span className="text-slate-300">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
@@ -728,14 +728,14 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Supervisor</h3>
-                <p className="text-sm text-blue-100">Most Popular Choice</p>
+                <p className="text-sm text-white">Most Popular Choice</p>
               </div>
               <div className="mb-2">
                 <span className="text-sm text-blue-100 line-through">₹2,999</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹1,999</span>
-                <span className="text-blue-100">/15 days</span>
+                <span className="text-white">/15 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>7 Fresh Leads/Day</strong></li>
@@ -758,14 +758,14 @@ export const Landing = () => {
               </div>
               <div className="mb-6 mt-2">
                 <h3 className="text-xl font-bold mb-2">Manager</h3>
-                <p className="text-sm text-slate-400">For Serious Closers</p>
+                <p className="text-sm text-slate-300">For Serious Closers</p>
               </div>
               <div className="mb-2">
                 <span className="text-sm text-slate-400 line-through">₹4,499</span>
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹2,999</span>
-                <span className="text-slate-400">/20 days</span>
+                <span className="text-slate-300">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
@@ -783,7 +783,7 @@ export const Landing = () => {
           <div className="mt-12 text-center">
             <div className="inline-flex items-center gap-3 bg-green-500/20 border border-green-500/30 px-6 py-3 rounded-full">
               <RefreshCw size={24} className="text-green-400" />
-              <span className="text-green-300 font-medium">100% Replacement Guarantee for Invalid Numbers.</span>
+              <span className="text-white font-medium">100% Replacement Guarantee for Invalid Numbers.</span>
             </div>
           </div>
         </div>
@@ -812,11 +812,11 @@ export const Landing = () => {
                   <span className="font-bold text-slate-800">{faq.q}</span>
                   <ChevronDown
                     size={20}
-                    className={`text-slate-600 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
+                    className={`text-slate-700 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-5 text-slate-600">
+                  <div className="px-5 pb-5 text-slate-700">
                     {faq.a}
                   </div>
                 )}
@@ -896,7 +896,7 @@ export const Landing = () => {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-600">
+          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-400">
             © 2026 LeadFlow CRM. All rights reserved.
           </div>
         </div>
@@ -920,7 +920,7 @@ export const Landing = () => {
             <MessageCircle size={24} />
           </a>
         </div>
-        <p className="text-center text-[10px] text-slate-600 mt-1 font-medium">
+        <p className="text-center text-[10px] text-slate-700 mt-1 font-medium">
           ⚡ Setup in 2 Mins • 100% Secure
         </p>
       </div>
@@ -933,7 +933,7 @@ export const Landing = () => {
               <button
                 aria-label="Close Promotion Popup"
                 onClick={() => setShowExitPopup(false)}
-                className="absolute top-4 right-4 text-slate-600 hover:text-slate-600"
+                className="absolute top-4 right-4 text-slate-700 hover:text-slate-700"
               >
                 <X size={24} />
               </button>
@@ -943,7 +943,7 @@ export const Landing = () => {
                   <Gift size={32} className="text-red-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 mb-2">Wait! Don't Miss Out 🎁</h3>
-                <p className="text-slate-600 mb-6">
+                <p className="text-slate-700 mb-6">
                   Jane se pehle yeh special offer claim karein:
                   <br />
                   <strong className="text-green-600 text-xl">Get 3 EXTRA Leads FREE!</strong>
@@ -957,7 +957,7 @@ export const Landing = () => {
                 >
                   Claim My Bonus Leads
                 </Link>
-                <p className="text-xs text-slate-600 mt-4">
+                <p className="text-xs text-slate-700 mt-4">
                   * Limited time offer. Valid for first purchase only.
                 </p>
               </div>
