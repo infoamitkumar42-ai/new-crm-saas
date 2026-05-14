@@ -178,9 +178,9 @@ export const onRequestPost = async (context: any) => {
             // 2️⃣ Activate User Plan
             console.log(`[Webhook] Starting Activation for User ${userId}...`);
 
-            // Fetch current total_leads_promised and team_code
+            // Fetch current counters and team_code to preserve on renewal
             const userFetchRes = await fetch(
-                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,team_code`,
+                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,total_leads_received,team_code`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
             
@@ -190,10 +190,15 @@ export const onRequestPost = async (context: any) => {
 
             const userData = await userFetchRes.json();
             const currentTotalLeadsPromised = userData?.[0]?.total_leads_promised || 0;
+            const currentTotalLeadsReceived = userData?.[0]?.total_leads_received || 0;
             const existingTeamCode = userData?.[0]?.team_code || null;
             const resolvedTeamCode = existingTeamCode || teamCode;
 
-            const newTotalLeadsPromised = currentTotalLeadsPromised + config.totalLeads;
+            // Safe cumulative: use max(received, promised) as baseline so any historical
+            // corruption in total_leads_promised never causes instant plan expiry on activation.
+            // e.g. if promised=92 but received=482, baseline=482, new=482+92=574 (correct).
+            const baseline = Math.max(currentTotalLeadsReceived, currentTotalLeadsPromised);
+            const newTotalLeadsPromised = baseline + config.totalLeads;
             const infiniteValidity = '2099-01-01T00:00:00.000Z';
             const now = new Date();
 
