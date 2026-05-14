@@ -82,13 +82,27 @@ serve(async (req) => {
 
     console.log("🔍 Quota Expiry Check Started...");
 
-    // 1. Find quota-full users
-    const { data: users, error } = await supabase
+    // Collect IDs of users just activated above so quota check skips them.
+    // Without this, a user with corrupted historical data (received >= old promised)
+    // would get activated in Step 1 and immediately deactivated in Step 2.
+    const justActivatedIds: string[] = activatedPlans?.map((u: any) => u.id) || [];
+    if (justActivatedIds.length > 0) {
+      console.log(`🛡️ Skipping quota check for ${justActivatedIds.length} just-activated users`);
+    }
+
+    // 1. Find quota-full users (exclude just-activated to avoid race condition)
+    let usersQuery = supabase
       .from("users")
       .select("id, email, plan_name, total_leads_promised, total_leads_received, is_active, payment_status")
       .eq("is_active", true)
       .eq("payment_status", "active")
       .gt("total_leads_promised", 0);
+
+    if (justActivatedIds.length > 0) {
+      usersQuery = usersQuery.not("id", "in", `(${justActivatedIds.join(",")})`);
+    }
+
+    const { data: users, error } = await usersQuery;
 
     if (error) {
       console.error("❌ DB Error:", error.message);
