@@ -127,6 +127,7 @@ interface ActivationUser {
   leads_today: number;
   is_new_system: boolean;
   plan_start_date: string | null;
+  team_code: string | null;
 }
 
 interface PaymentRecord {
@@ -156,12 +157,11 @@ const FULL_PLAN_CONFIG: Record<string, {
   price: number; dailyLeads: number; totalLeads: number;
   freshCount: number; recycledCount: number; weight: number; maxReplacements: number;
 }> = {
-  starter:      { price: 999,  dailyLeads: 5,  totalLeads: 55,  freshCount: 21, recycledCount: 34, weight: 1, maxReplacements: 0  },
-  supervisor:   { price: 1999, dailyLeads: 7,  totalLeads: 115, freshCount: 42, recycledCount: 73, weight: 3, maxReplacements: 0  },
-  manager:      { price: 3499, dailyLeads: 8,  totalLeads: 150, freshCount: 76, recycledCount: 74, weight: 5, maxReplacements: 16 },
-  daily_boost:  { price: 999,  dailyLeads: 6,  totalLeads: 50,  freshCount: 36, recycledCount: 14, weight: 1, maxReplacements: 8  },
-  weekly_boost: { price: 1999, dailyLeads: 14, totalLeads: 110, freshCount: 72, recycledCount: 38, weight: 3, maxReplacements: 12 },
-  turbo_boost:  { price: 2499, dailyLeads: 16, totalLeads: 140, freshCount: 85, recycledCount: 55, weight: 5, maxReplacements: 16 },
+  starter:      { price: 999,  dailyLeads: 5,  totalLeads: 50,  freshCount: 21, recycledCount: 34, weight: 1, maxReplacements: 5  },
+  supervisor:   { price: 1499, dailyLeads: 7,  totalLeads: 80,  freshCount: 42, recycledCount: 73, weight: 3, maxReplacements: 8  },
+  manager:      { price: 2999, dailyLeads: 8,  totalLeads: 160, freshCount: 76, recycledCount: 74, weight: 5, maxReplacements: 16 },
+  weekly_boost: { price: 1999, dailyLeads: 12, totalLeads: 92,  freshCount: 80, recycledCount: 12, weight: 7, maxReplacements: 8  },
+  turbo_boost:  { price: 2499, dailyLeads: 14, totalLeads: 108, freshCount: 93, recycledCount: 15, weight: 9, maxReplacements: 10 },
 };
 
 // API Response Types
@@ -293,6 +293,7 @@ export const AdminDashboard: React.FC = () => {
   const [activationPlan, setActivationPlan] = useState('');
   const [activationMode, setActivationMode] = useState<'renewal' | 'fresh'>('renewal');
   const [activationPaymentId, setActivationPaymentId] = useState('');
+  const [activationTeamCode, setActivationTeamCode] = useState('');
   const [activationLoading, setActivationLoading] = useState(false);
   const [activationSuccess, setActivationSuccess] = useState('');
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
@@ -595,7 +596,7 @@ export const AdminDashboard: React.FC = () => {
     try {
       const { data: user } = await supabase
         .from('users')
-        .select('id, email, name, plan_name, payment_status, total_leads_promised, total_leads_received, fresh_leads_quota, fresh_leads_received, recycled_leads_quota, recycled_leads_received, daily_limit, leads_today, is_new_system, plan_start_date')
+        .select('id, email, name, plan_name, payment_status, total_leads_promised, total_leads_received, fresh_leads_quota, fresh_leads_received, recycled_leads_quota, recycled_leads_received, daily_limit, leads_today, is_new_system, plan_start_date, team_code')
         .eq('id', userId)
         .single();
 
@@ -611,6 +612,7 @@ export const AdminDashboard: React.FC = () => {
       setActivationPlan(user?.plan_name || 'starter');
       setActivationMode('renewal');
       setActivationPaymentId('');
+      setActivationTeamCode(user?.team_code || '');
       setActivationSuccess('');
       setShowActivationModal(true);
     } catch (err) {
@@ -645,11 +647,12 @@ export const AdminDashboard: React.FC = () => {
       let resetCounters: Record<string, number> = {};
 
       if (activationMode === 'renewal') {
-        // Renewal: add new plan quota on top of existing promised (same as razorpay webhook)
-        newTotalPromised = promised + config.totalLeads;
+        // Safe cumulative: use max(received, promised) as baseline so corrupted history
+        // never causes instant plan expiry — matches razorpay-webhook.ts logic exactly.
+        const baseline = Math.max(received, promised);
+        newTotalPromised = baseline + config.totalLeads;
         newFreshQuota = config.freshCount;
         newRecycledQuota = config.recycledCount;
-        // Reset sub-counters so new plan tracking starts fresh
         resetCounters = { fresh_leads_received: 0, recycled_leads_received: 0 };
       } else {
         // Fresh start — full reset
@@ -691,6 +694,7 @@ export const AdminDashboard: React.FC = () => {
         plan_activation_time: null,
         valid_until: '2099-01-01T00:00:00.000Z',
         updated_at: new Date().toISOString(),
+        ...(activationTeamCode.trim() ? { team_code: activationTeamCode.trim().toUpperCase() } : {}),
         ...resetCounters
       }).eq('id', activationUser.id);
       if (userErr) throw userErr;
@@ -711,7 +715,7 @@ export const AdminDashboard: React.FC = () => {
     } finally {
       setActivationLoading(false);
     }
-  }, [activationUser, activationPlan, activationMode, activationPaymentId, fetchOpsData, fetchAnalytics]);
+  }, [activationUser, activationPlan, activationMode, activationPaymentId, activationTeamCode, fetchOpsData, fetchAnalytics]);
 
   // ── MISSED WEBHOOKS / PENDING ACTIVATIONS ──
   const fetchMissedPayments = useCallback(async () => {
@@ -1997,8 +2001,9 @@ export const AdminDashboard: React.FC = () => {
         const received = activationUser.total_leads_received || 0;
         const promised = activationUser.total_leads_promised || 0;
         const carryOver = Math.max(0, promised - received);
+        const baseline = Math.max(received, promised);
         const newTotal = activationMode === 'renewal'
-          ? received + (config?.totalLeads || 0)
+          ? baseline + (config?.totalLeads || 0)
           : (config?.totalLeads || 0);
         const newFresh = config?.freshCount || 0;
         const newRecycled = config?.recycledCount || 0;
@@ -2099,6 +2104,20 @@ export const AdminDashboard: React.FC = () => {
                   />
                 </div>
 
+                {/* Team Code */}
+                <div>
+                  <label className="text-sm font-bold text-slate-700 block mb-1">
+                    Team Code <span className="text-slate-400 font-normal">(for lead webhook assignment)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={activationTeamCode}
+                    onChange={(e) => setActivationTeamCode(e.target.value)}
+                    placeholder="e.g. TEAMFIRE, TEAMSIMRAN, GJ01TEAMFIRE"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+                  />
+                </div>
+
                 {/* Preview */}
                 {config && (
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
@@ -2119,7 +2138,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     {activationMode === 'renewal' && (
                       <div className="text-xs text-blue-600 mt-2 text-center">
-                        {received} received so far + {config.totalLeads} new plan = {received + config.totalLeads} total promised
+                        max({received} received, {promised} promised) + {config.totalLeads} new = {Math.max(received, promised) + config.totalLeads} total promised
                       </div>
                     )}
                   </div>
