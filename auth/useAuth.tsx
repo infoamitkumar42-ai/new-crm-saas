@@ -464,6 +464,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         window.history.replaceState({}, document.title, "/login");
       }
 
+      // ⚡ INSTANT RESTORE: agar session + profile dono localStorage mein hain
+      // toh dashboard immediately dikhao, background mein validate hoga
+      // Agar token invalid nikla → SIGNED_OUT event handle karega → login pe redirect
+      try {
+        const sbKey = Object.keys(localStorage)
+          .find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        if (sbKey && profileRef.current) {
+          const sbSession = JSON.parse(localStorage.getItem(sbKey) || '{}');
+          const nowSec = Math.floor(Date.now() / 1000);
+          if (sbSession?.access_token && sbSession?.expires_at > nowSec + 60) {
+            setSession(sbSession);
+            setLoading(false);
+            setIsInitialized(true);
+            console.log('⚡ Instant restore from localStorage. Background validation running...');
+          }
+        }
+      } catch { /* non-critical — existing flow handles auth below */ }
+
       const timeout = setTimeout(async () => {
         if (mountedRef.current && loading) {
           console.warn("🕒 Auth Init Timeout (12s): Forcing release...");
