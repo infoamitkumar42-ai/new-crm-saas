@@ -74,8 +74,19 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
         }
       }
       // 2. Clear Session & Local Caches
+      // Preserve Supabase auth tokens — only remove app-level cache keys
       sessionStorage.clear();
+      const preserveKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          preserveKeys.push(key);
+        }
+      }
+      const preserved: Record<string, string> = {};
+      preserveKeys.forEach(k => { preserved[k] = localStorage.getItem(k) || ''; });
       localStorage.clear();
+      preserveKeys.forEach(k => localStorage.setItem(k, preserved[k]));
 
       // 3. Clear Cache Storage (PWA Assets like old JS/CSS files)
       if ('caches' in window) {
