@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react';
-import { Download, X, Share2 } from 'lucide-react';
+import { Download, X, Share2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 
 // ── Module-level capture ──────────────────────────────────────────────────────
@@ -35,12 +35,19 @@ function isIOS(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
 }
 
+// CriOS = Chrome on iOS
+function isIOSChrome(): boolean {
+  return isIOS() && /CriOS/.test(navigator.userAgent);
+}
+
+type Platform = 'android' | 'ios-safari' | 'ios-chrome';
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export function PwaInstallPrompt() {
   const { isAuthenticated } = useAuth();
-  const [visible, setVisible] = useState(false);
-  const [platform, setPlatform] = useState<'android' | 'ios' | null>(null);
-  const [show, setShow] = useState(false); // controls slide-in animation
+  const [visible, setVisible]   = useState(false);
+  const [platform, setPlatform] = useState<Platform | null>(null);
+  const [show, setShow]         = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -48,12 +55,10 @@ export function PwaInstallPrompt() {
     if (sessionStorage.getItem(DISMISSED_KEY)) return;
 
     if (isIOS()) {
-      // iOS: always show instructions (no beforeinstallprompt on iOS)
-      setPlatform('ios');
+      setPlatform(isIOSChrome() ? 'ios-chrome' : 'ios-safari');
       setVisible(true);
       setTimeout(() => setShow(true), 50);
     } else {
-      // Android/Chrome: wait briefly for deferredPrompt to be captured
       const check = () => {
         if (deferredPrompt) {
           setPlatform('android');
@@ -61,7 +66,6 @@ export function PwaInstallPrompt() {
           setTimeout(() => setShow(true), 50);
         }
       };
-      // Check immediately (already captured) and also after 2s
       check();
       const timer = setTimeout(check, 2000);
       return () => clearTimeout(timer);
@@ -80,29 +84,23 @@ export function PwaInstallPrompt() {
 
   const dismiss = (permanent = false) => {
     setShow(false);
-    setTimeout(() => setVisible(false), 300); // wait for slide-out
+    setTimeout(() => setVisible(false), 300);
     if (permanent) {
-      // Installed — use localStorage so it never appears again
       localStorage.setItem('pwa-installed', 'true');
     } else {
-      // "Baad mein" — sessionStorage only, reappears next login
       sessionStorage.setItem(DISMISSED_KEY, 'true');
     }
   };
 
   if (!visible) return null;
-  // Also skip if already installed (permanent dismiss)
   if (localStorage.getItem('pwa-installed')) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/30 z-[9998]"
-        onClick={() => dismiss()}
-      />
+      <div className="fixed inset-0 bg-black/30 z-[9998]" onClick={() => dismiss()} />
 
-      {/* Popup */}
+      {/* Sheet */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-[9999] flex justify-center transition-transform duration-300 ease-out ${
           show ? 'translate-y-0' : 'translate-y-full'
@@ -113,7 +111,7 @@ export function PwaInstallPrompt() {
           {/* Drag handle */}
           <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
-          {/* Close button */}
+          {/* Close */}
           <button
             onClick={() => dismiss()}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1"
@@ -122,7 +120,7 @@ export function PwaInstallPrompt() {
             <X size={20} />
           </button>
 
-          {/* App icon + Title */}
+          {/* Header */}
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <Download size={24} className="text-white" />
@@ -135,46 +133,81 @@ export function PwaInstallPrompt() {
             </div>
           </div>
 
-          {/* Subtitle */}
-          <p className="text-sm text-gray-600 mb-4">
-            Faster loading, instant lead notifications, aur better experience ke liye app install karo
-          </p>
-
-          {/* ── Android: one big install button ── */}
+          {/* ──────────── ANDROID ──────────── */}
           {platform === 'android' && (
-            <button
-              onClick={handleInstall}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-base"
-            >
-              <Download size={18} />
-              App Install Karo
-            </button>
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Instant lead notifications ke liye app install karo — WhatsApp ki tarah notification aayegi! 🔔
+              </p>
+              <button
+                onClick={handleInstall}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-base"
+              >
+                <Download size={18} />
+                App Install Karo
+              </button>
+              <button
+                onClick={() => dismiss()}
+                className="w-full text-gray-400 text-sm mt-3 py-1"
+              >
+                Baad Mein
+              </button>
+            </>
           )}
 
-          {/* ── iOS: instructions ── */}
-          {platform === 'ios' && (
-            <div className="mb-4">
-              <div className="bg-indigo-50 rounded-xl p-4 mb-3">
-                <p className="text-sm text-indigo-900 font-medium mb-2">
-                  Install karne ke steps:
+          {/* ──────────── iPHONE + CHROME (wrong browser) ──────────── */}
+          {platform === 'ios-chrome' && (
+            <>
+              {/* Red warning */}
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
+                  <p className="text-sm font-bold text-red-700">
+                    ⚠️ Aap Chrome use kar rahe ho!
+                  </p>
+                </div>
+                <p className="text-xs text-red-600 leading-5">
+                  iPhone pe <strong>Chrome se install karne ke baad bhi lead notifications nahi aayengi.</strong>{' '}
+                  Notifications ke liye <strong>Safari browser zaroori hai.</strong>
                 </p>
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-sm border border-indigo-100">
-                      <Share2 size={18} className="text-indigo-600" />
-                    </div>
-                    <p className="text-[10px] text-indigo-600 font-medium">Share</p>
+              </div>
+
+              {/* Steps to switch to Safari */}
+              <div className="bg-blue-50 rounded-xl p-4 mb-4">
+                <p className="text-sm font-bold text-blue-900 mb-3">
+                  Safari mein kaise kholein:
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <p className="text-xs text-blue-800 leading-5">
+                      Phone mein <strong>Safari app</strong> 🧭 kholo
+                      <span className="block text-blue-500 mt-0.5">(Chrome band karo, Safari alag se kholo)</span>
+                    </p>
                   </div>
-                  <div className="flex-1 text-xs text-indigo-800 leading-5 mt-1">
-                    <span className="font-semibold">1.</span> Neeche Share button{' '}
-                    <span className="inline-flex items-center gap-0.5 bg-indigo-100 px-1 rounded">
-                      <Share2 size={10} className="text-indigo-700" /> ⬆️
-                    </span>{' '}
-                    dabao
-                    <br />
-                    <span className="font-semibold">2.</span> "Add to Home Screen" select karo
-                    <br />
-                    <span className="font-semibold">3.</span> "Add" tap karo — ho gaya! ✅
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <p className="text-xs text-blue-800 leading-5">
+                      Address bar mein type karo:{' '}
+                      <strong className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">leadflowcrm.in</strong>
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <p className="text-xs text-blue-800 leading-5">
+                      Neeche{' '}
+                      <span className="inline-flex items-center gap-0.5 bg-white border border-blue-200 px-1.5 py-0.5 rounded">
+                        <Share2 size={10} className="text-blue-600" />
+                        <span className="font-semibold"> Share ⬆️</span>
+                      </span>{' '}
+                      dabao → <strong>"Add to Home Screen"</strong> → <strong>"Add"</strong>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -185,18 +218,69 @@ export function PwaInstallPrompt() {
               >
                 Samajh Gaya
               </button>
-            </div>
+            </>
           )}
 
-          {/* Baad Mein (common dismiss for both) */}
-          {platform === 'android' && (
-            <button
-              onClick={() => dismiss()}
-              className="w-full text-gray-400 text-sm mt-3 py-1"
-            >
-              Baad Mein
-            </button>
+          {/* ──────────── iPHONE + SAFARI (correct browser) ──────────── */}
+          {platform === 'ios-safari' && (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                3 steps mein install karo — lead notifications WhatsApp ki tarah aayengi! 🔔
+              </p>
+
+              {/* Steps */}
+              <div className="bg-green-50 rounded-xl p-4 mb-3">
+                <p className="text-sm font-bold text-green-900 mb-3">Install karne ke steps:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <p className="text-xs text-green-800 leading-5">
+                      Neeche{' '}
+                      <span className="inline-flex items-center gap-0.5 bg-white border border-green-200 px-1.5 py-0.5 rounded">
+                        <Share2 size={10} className="text-green-700" />
+                        <span className="font-semibold"> Share ⬆️</span>
+                      </span>{' '}
+                      button dabao
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <p className="text-xs text-green-800 leading-5">
+                      Thoda scroll karo aur <strong>"Add to Home Screen" 📱</strong> tap karo
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <p className="text-xs text-green-800 leading-5">
+                      Upar right corner mein <strong>"Add"</strong> tap karo — ho gaya! ✅
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chrome warning */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2.5 mb-4 flex items-start gap-2">
+                <AlertTriangle size={14} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-700 leading-5">
+                  <strong>Chrome se install mat karna</strong> — notifications sirf Safari se install karne pe kaam karengi
+                </p>
+              </div>
+
+              <button
+                onClick={() => dismiss()}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-colors text-sm"
+              >
+                Samajh Gaya
+              </button>
+            </>
           )}
+
         </div>
       </div>
     </>
