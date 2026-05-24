@@ -376,6 +376,49 @@ new-crm-saas/
 
 ---
 
+## 🐛 Bug Fix History — See `bugfix.md`
+
+> **ALL developers and LLMs: Read `bugfix.md` before debugging ANY issue.**
+
+The file `bugfix.md` (project root) is the authoritative log of every bug found and fixed in this system. It contains:
+- Root cause analysis for each bug
+- Exact SQL/code used to fix it
+- Verification queries to re-run and confirm fix is still live
+- Historical over-delivery analysis (why 100+ past users got extra leads)
+
+**Two critical audit queries always available in `bugfix.md`:**
+
+```sql
+-- 1. Counter drift check (run anytime, should always return 0 rows)
+SELECT u.email, u.total_leads_received AS counter, COUNT(l.id) AS actual,
+       u.total_leads_received - COUNT(l.id) AS drift
+FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+WHERE u.role = 'member'
+GROUP BY u.id, u.email, u.name, u.total_leads_received
+HAVING u.total_leads_received != COUNT(l.id);
+
+-- 2. Over-quota active users (run weekly, should always return 0 rows)
+SELECT email, name, total_leads_promised,
+       (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) AS actual_leads
+FROM users u
+WHERE is_active = true AND total_leads_promised > 0
+  AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= total_leads_promised;
+```
+
+**Rule: After fixing any bug, add an entry to `bugfix.md` immediately with date, root cause, fix SQL, and verification query.**
+
+### Bug Fix Index (Quick Reference)
+
+| ID | Date | Summary | Fixed In |
+|----|------|---------|----------|
+| BUG-001 | 2026-05-24 | `total_leads_received` counter drifts from actual lead count | `trigger_update_user_lead_count` + one-time sync |
+| BUG-002 | 2026-05-24 | 10 over-quota users stayed active (business loss) | Manual deactivation query |
+| BUG-003 | 2026-05-24 | Daily limit trigger used stale `leads_today` (IST/UTC gap) | `check_lead_limit_before_insert` → now uses COUNT(*) |
+| BUG-004 | 2026-05-24 | Safety net trigger double-incremented `leads_today` | `process_stuck_lead` — removed manual UPDATE |
+| BUG-005 | 2026-05-24 | `get_best_assignee_for_team` PASS 2 had reversed ordering | RPC PASS 2 `plan_weight DESC` → `ASC` |
+
+---
+
 ## 🧪 Post-Change Verification Checklist
 
 After ANY code change, verify these work:
