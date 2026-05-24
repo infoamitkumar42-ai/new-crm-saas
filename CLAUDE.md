@@ -268,6 +268,12 @@ new-crm-saas/
 - DB: Komal bishnoi (kb817949) — 35 leads credit added (weekly_boost underdelivery fix)
 - DB: Ajay kumar, Reetika, Harmandeep kaur (deeprandhawa1604) re-activated (had quota remaining)
 - CLAUDE.md: Added DATABASE REPORTING RULES section (accuracy mandatory)
+- DB: 57 counter mismatches synced (total_leads_received = actual leads, 0 mismatches now)
+- DB: 10 over-quota active users deactivated (Bug #2 fix)
+- DB: trigger_update_user_lead_count updated — added decrement logic when lead reassigned AWAY from user
+- DB: check_lead_limit_before_insert/update fixed — now uses actual COUNT(*) with IST date instead of stale leads_today counter (Bug #3 fix)
+- DB: process_stuck_lead (trg_safety_net_assign) fixed — removed double-increment of leads_today (Bug #4 fix)
+- DB: get_best_assignee_for_team RPC fixed — PASS 2 plan_weight ordering now ASC (consistent with PASS 1, was DESC) (Bug #5 fix)
 
 ### 2026-03-25
 - Duplicate check on 69 new leads: 45 duplicates found, 24 clean
@@ -352,8 +358,10 @@ new-crm-saas/
 | manager | 7 |
 
 ### Key DB Triggers on `leads` table
-- `trg_check_limit_update` (BEFORE UPDATE) — blocks assignment if user at daily limit. Disable for admin overrides: `ALTER TABLE leads DISABLE TRIGGER trg_check_limit_update;` — **always re-enable immediately after**
-- `trigger_update_user_lead_count` (AFTER UPDATE/INSERT) — auto-increments `leads_today` + `total_leads_received` when `assigned_to` changes. **Do NOT also call `increment_user_lead_counters` — that would double-count**
+- `trg_check_limit_insert` (BEFORE INSERT) — blocks new lead if user at daily limit. Uses actual `COUNT(*)` from leads table with IST date (NOT `leads_today` counter).
+- `trg_check_limit_update` (BEFORE UPDATE) — blocks reassignment if user at daily limit. Uses actual `COUNT(*)`. Disable for admin overrides: `ALTER TABLE leads DISABLE TRIGGER trg_check_limit_update;` — **always re-enable immediately after**
+- `trigger_update_user_lead_count` (AFTER UPDATE/INSERT) — auto-increments `leads_today` + `total_leads_received` when `assigned_to` changes. Also auto-deactivates when `total_leads_received >= total_leads_promised`. **Do NOT also call `increment_user_lead_counters` — that would double-count**
+- `trg_safety_net_assign` (BEFORE INSERT) — safety net for leads inserted with `status='New'`. Does NOT manually update counters — lets AFTER trigger handle it.
 - When manually assigning leads via DO block: update `total_leads_promised` FIRST (before assignment) to prevent auto-deactivation trigger mid-loop
 
 ### Manual Lead Assignment Checklist
