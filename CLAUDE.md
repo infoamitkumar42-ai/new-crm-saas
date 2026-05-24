@@ -258,6 +258,23 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-05-24
+- auth/useAuth.tsx: instant restore from localStorage (loading screen fix for returning users)
+- App.tsx: Force Refresh now preserves Supabase auth tokens (was silently logging users out)
+- PwaInstallPrompt.tsx: 3-platform detection (Android / iOS Safari / iOS Chrome with guidance)
+- DB: 14 non-May-paying users deactivated, quota zeroed
+- DB: 28 May mis-routed leads reassigned round-robin to active users
+- DB: RLS enabled on push_subscriptions_backup_20260502 + notifications_backup_20260502
+- DB: Komal bishnoi (kb817949) — 35 leads credit added (weekly_boost underdelivery fix)
+- DB: Ajay kumar, Reetika, Harmandeep kaur (deeprandhawa1604) re-activated (had quota remaining)
+- CLAUDE.md: Added DATABASE REPORTING RULES section (accuracy mandatory)
+- DB: 57 counter mismatches synced (total_leads_received = actual leads, 0 mismatches now)
+- DB: 10 over-quota active users deactivated (Bug #2 fix)
+- DB: trigger_update_user_lead_count updated — added decrement logic when lead reassigned AWAY from user
+- DB: check_lead_limit_before_insert/update fixed — now uses actual COUNT(*) with IST date instead of stale leads_today counter (Bug #3 fix)
+- DB: process_stuck_lead (trg_safety_net_assign) fixed — removed double-increment of leads_today (Bug #4 fix)
+- DB: get_best_assignee_for_team RPC fixed — PASS 2 plan_weight ordering now ASC (consistent with PASS 1, was DESC) (Bug #5 fix)
+
 ### 2026-03-25
 - Duplicate check on 69 new leads: 45 duplicates found, 24 clean
 
@@ -293,6 +310,112 @@ new-crm-saas/
 6. **Modifying env.ts to add hardcoded URLs** — use VITE_ environment variables
 7. **Creating new Edge Functions without proper CORS headers** — all functions need OPTIONS handler
 8. **Using `NOW()` in cron jobs without timezone conversion** — Supabase runs in UTC
+
+---
+
+## 🗄️ DATABASE REPORTING RULES — ACCURACY MANDATORY
+
+> These rules exist because wrong DB reports cause real business loss. Follow them every single time.
+
+### User Identification
+- **ALWAYS use `email` to identify users, NEVER `name`** — multiple users can have the same name (e.g. two "Harmandeep kaur", two "Kajal", two "Saloni Rajput", two "Komal bishnoi", two "Himanshu Sharma")
+- When showing reports, always include email alongside name
+
+### Counter Verification (MANDATORY before any report)
+- **NEVER trust `total_leads_received` counter alone** — always cross-verify with actual lead count:
+  ```sql
+  SELECT u.total_leads_received as counter, COUNT(l.id) as actual,
+         (u.total_leads_received - COUNT(l.id)) as diff
+  FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+  WHERE u.email = 'x@x.com' GROUP BY u.total_leads_received;
+  ```
+- If `diff != 0` → counter is corrupted, report actual lead count, flag the mismatch
+- The authoritative quota formula is: `total_leads_promised - COUNT(actual leads)`, NOT `total_leads_promised - total_leads_received`
+
+### "Who expired on date X" Queries
+- **NEVER use `CURRENT_DATE` to check who expired on a past date** — that gives today's snapshot
+- To check who expired ON a specific date, filter by `updated_at` or check leads assigned up to that date
+- Correct approach: compare actual lead count at point-in-time, not current counter
+
+### Status Audit Rule
+- Before reporting any user as "expired" or "active", run this check:
+  ```sql
+  CASE
+    WHEN actual_leads >= promised AND is_active = true  THEN '⚠️ SHOULD BE INACTIVE'
+    WHEN actual_leads < promised  AND is_active = false AND payment_status='active' THEN '⚠️ SHOULD BE ACTIVE'
+    ELSE '✅ OK'
+  END
+  ```
+- Fix mismatches immediately before reporting
+
+### Plan daily_limit Values (Actual DB values — NOT plan marketing numbers)
+| Plan | daily_limit in DB |
+|------|------------------|
+| starter | 5 |
+| supervisor | 7 |
+| weekly_boost | 12 |
+| turbo_boost | 14 |
+| manager | 7 |
+
+### Key DB Triggers on `leads` table
+- `trg_check_limit_insert` (BEFORE INSERT) — blocks new lead if user at daily limit. Uses actual `COUNT(*)` from leads table with IST date (NOT `leads_today` counter).
+- `trg_check_limit_update` (BEFORE UPDATE) — blocks reassignment if user at daily limit. Uses actual `COUNT(*)`. Disable for admin overrides: `ALTER TABLE leads DISABLE TRIGGER trg_check_limit_update;` — **always re-enable immediately after**
+- `trigger_update_user_lead_count` (AFTER UPDATE/INSERT) — auto-increments `leads_today` + `total_leads_received` when `assigned_to` changes. Also auto-deactivates when `total_leads_received >= total_leads_promised`. **Do NOT also call `increment_user_lead_counters` — that would double-count**
+- `trg_safety_net_assign` (BEFORE INSERT) — safety net for leads inserted with `status='New'`. Does NOT manually update counters — lets AFTER trigger handle it.
+- When manually assigning leads via DO block: update `total_leads_promised` FIRST (before assignment) to prevent auto-deactivation trigger mid-loop
+
+### Manual Lead Assignment Checklist
+```
+□ Disable trg_check_limit_update
+□ Update total_leads_promised for all target users FIRST (+N per user)
+□ Run round-robin UPDATE on leads (trigger handles counters automatically)
+□ Re-enable trg_check_limit_update immediately
+□ Verify: SELECT actual_leads, counter, quota_remaining for each affected user
+□ Report with email + name + actual count
+```
+
+---
+
+## 🐛 Bug Fix History — See `bugfix.md`
+
+> **ALL developers and LLMs: Read `bugfix.md` before debugging ANY issue.**
+
+The file `bugfix.md` (project root) is the authoritative log of every bug found and fixed in this system. It contains:
+- Root cause analysis for each bug
+- Exact SQL/code used to fix it
+- Verification queries to re-run and confirm fix is still live
+- Historical over-delivery analysis (why 100+ past users got extra leads)
+
+**Two critical audit queries always available in `bugfix.md`:**
+
+```sql
+-- 1. Counter drift check (run anytime, should always return 0 rows)
+SELECT u.email, u.total_leads_received AS counter, COUNT(l.id) AS actual,
+       u.total_leads_received - COUNT(l.id) AS drift
+FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+WHERE u.role = 'member'
+GROUP BY u.id, u.email, u.name, u.total_leads_received
+HAVING u.total_leads_received != COUNT(l.id);
+
+-- 2. Over-quota active users (run weekly, should always return 0 rows)
+SELECT email, name, total_leads_promised,
+       (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) AS actual_leads
+FROM users u
+WHERE is_active = true AND total_leads_promised > 0
+  AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= total_leads_promised;
+```
+
+**Rule: After fixing any bug, add an entry to `bugfix.md` immediately with date, root cause, fix SQL, and verification query.**
+
+### Bug Fix Index (Quick Reference)
+
+| ID | Date | Summary | Fixed In |
+|----|------|---------|----------|
+| BUG-001 | 2026-05-24 | `total_leads_received` counter drifts from actual lead count | `trigger_update_user_lead_count` + one-time sync |
+| BUG-002 | 2026-05-24 | 10 over-quota users stayed active (business loss) | Manual deactivation query |
+| BUG-003 | 2026-05-24 | Daily limit trigger used stale `leads_today` (IST/UTC gap) | `check_lead_limit_before_insert` → now uses COUNT(*) |
+| BUG-004 | 2026-05-24 | Safety net trigger double-incremented `leads_today` | `process_stuck_lead` — removed manual UPDATE |
+| BUG-005 | 2026-05-24 | `get_best_assignee_for_team` PASS 2 had reversed ordering | RPC PASS 2 `plan_weight DESC` → `ASC` |
 
 ---
 

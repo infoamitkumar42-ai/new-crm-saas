@@ -1,0 +1,380 @@
+# LeadFlow CRM — Bug Fix Log
+
+> **Purpose:** Running log of every bug found and fixed. Read this before debugging anything new — the root cause may already be documented.
+>
+> **Format per entry:**
+> - **What was the bug** (symptoms + root cause)
+> - **What broke** (real-world impact)
+> - **How it was fixed** (exact SQL / code change)
+> - **Verification** (how we confirmed the fix worked)
+> - **Date**
+
+---
+
+## 2026-05-24
+
+---
+
+### BUG-001 — Counter Mismatch: `total_leads_received` ≠ Actual Lead Count
+
+**Status:** ✅ Fixed  
+**Severity:** Critical  
+**Affected:** 57 users had wrong counters  
+
+#### What was the bug
+`total_leads_received` in the `users` table did not match the actual count of leads assigned (`COUNT(*) FROM leads WHERE assigned_to = user.id`). Counters were inflated (showed more than reality) for many users.
+
+**Root cause:** The `trigger_update_user_lead_count` (AFTER INSERT/UPDATE) only incremented counters, never decremented. When leads were reassigned by admin (manual round-robin operations, duplicate cleanup, recycle assignments), the old user's counter was never reduced. Over time this caused drift — counter kept climbing even when leads were taken away.
+
+#### What broke
+- Auto-deactivate failed: system thought user had used all quota when they hadn't (counter inflated → checked against `total_leads_promised` → triggered false expiry)
+- Admin reports were wrong: showing wrong "leads remaining" figures
+- RPC `get_best_assignee_for_team` quota check uses `total_leads_received < total_leads_promised` — if counter was inflated, users were wrongly excluded from assignment even though they had quota
+
+#### How it was fixed
+
+**Step 1 — One-time sync:** Set `total_leads_received = actual lead count` for all 57 affected users:
+```sql
+UPDATE users u
+SET total_leads_received = (
+  SELECT COUNT(*) FROM leads WHERE assigned_to = u.id
+)
+WHERE u.id IN (
+  SELECT u2.id FROM users u2
+  WHERE (SELECT COUNT(*) FROM leads WHERE assigned_to = u2.id) != u2.total_leads_received
+);
+```
+
+**Step 2 — Trigger fix:** Updated `trigger_update_user_lead_count` to also DECREMENT counters when a lead is reassigned AWAY from a user:
+```sql
+CREATE OR REPLACE FUNCTION public.update_user_lead_count()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  -- INCREMENT when lead assigned to a user
+  IF (TG_OP = 'INSERT' AND NEW.assigned_to IS NOT NULL) OR
+     (TG_OP = 'UPDATE' AND NEW.assigned_to IS NOT NULL AND OLD.assigned_to IS DISTINCT FROM NEW.assigned_to)
+  THEN
+    UPDATE users SET
+      total_leads_received = COALESCE(total_leads_received, 0) + 1,
+      leads_today          = COALESCE(leads_today, 0) + 1,
+      is_active = CASE
+        WHEN COALESCE(total_leads_received, 0) + 1 >= COALESCE(total_leads_promised, 0)
+             AND COALESCE(total_leads_promised, 0) > 0 THEN false
+        ELSE is_active END,
+      updated_at = NOW()
+    WHERE id = NEW.assigned_to;
+  END IF;
+
+  -- DECREMENT when lead reassigned AWAY from old user (recycle / admin reassign)
+  IF TG_OP = 'UPDATE'
+     AND OLD.assigned_to IS NOT NULL
+     AND OLD.assigned_to IS DISTINCT FROM NEW.assigned_to
+  THEN
+    UPDATE users SET
+      total_leads_received = GREATEST(0, COALESCE(total_leads_received, 0) - 1),
+      leads_today          = GREATEST(0, COALESCE(leads_today, 0) - 1),
+      is_active = CASE
+        WHEN payment_status = 'active'
+             AND plan_name != 'none'
+             AND GREATEST(0, COALESCE(total_leads_received, 0) - 1) < COALESCE(total_leads_promised, 0)
+        THEN true ELSE is_active END,
+      updated_at = NOW()
+    WHERE id = OLD.assigned_to;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+```
+
+#### Verification
+```sql
+-- After fix: this query should return 0 rows
+SELECT u.email, u.total_leads_received AS counter,
+       COUNT(l.id) AS actual,
+       u.total_leads_received - COUNT(l.id) AS drift
+FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+WHERE u.role = 'member'
+GROUP BY u.id
+HAVING u.total_leads_received != COUNT(l.id);
+-- Result: 0 rows ✅
+```
+
+---
+
+### BUG-002 — Over-Quota Users Still Active
+
+**Status:** ✅ Fixed  
+**Severity:** Critical (business loss — users receiving leads they didn't pay for)  
+**Affected:** 10 users  
+
+#### What was the bug
+10 users had `is_active = true` even though their actual lead count (`COUNT(*)`) had already exceeded `total_leads_promised`. They were continuing to receive leads for free.
+
+**Root cause:** Same as BUG-001. Inflated counters meant the auto-deactivate trigger never fired for these users because the trigger compares `total_leads_received` (counter) against `total_leads_promised`. Counter was lower than actual leads, so the trigger thought quota wasn't exhausted yet.
+
+#### What broke
+Users got free extra leads beyond what their plan covered → business loss.
+
+#### How it was fixed
+Deactivated all 10 users using actual lead count (not counter):
+```sql
+UPDATE users
+SET is_active = false,
+    payment_status = CASE WHEN payment_status = 'active' THEN 'expired' ELSE payment_status END
+WHERE id IN (
+  SELECT u.id FROM users u
+  WHERE u.is_active = true
+    AND u.total_leads_promised > 0
+    AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= u.total_leads_promised
+    AND u.role = 'member'
+);
+```
+
+#### Verification
+```sql
+-- Should return 0 rows after fix
+SELECT email, name,
+       (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) AS actual,
+       total_leads_promised, is_active
+FROM users u
+WHERE is_active = true AND total_leads_promised > 0
+  AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= total_leads_promised;
+-- Result: 0 rows ✅
+```
+
+---
+
+### BUG-003 — Daily Limit Trigger Uses Stale `leads_today` Counter
+
+**Status:** ✅ Fixed  
+**Severity:** High (could cause users to get fewer leads than plan allows, or more)  
+**Affected:** `check_lead_limit_before_insert` function (used by both `trg_check_limit_insert` and `trg_check_limit_update`)  
+
+#### What was the bug
+The BEFORE INSERT/UPDATE trigger that enforces daily limits was reading `leads_today` from the `users` table:
+```sql
+SELECT leads_today, daily_limit, name INTO current_leads, max_limit, user_name
+FROM users WHERE id = NEW.assigned_to;
+IF current_leads >= max_limit THEN RAISE EXCEPTION 'BLOCKED';
+```
+
+**Root cause — Timezone window:** The `daily-counter-reset` cron resets `leads_today = 0` at **midnight UTC = 5:30 AM IST**. But IST day changes at **midnight IST**. So from 12:00 AM IST → 5:30 AM IST (5.5 hour window), the new IST day has started but `leads_today` still shows the previous day's count. Any backlog processing in this window would be incorrectly blocked with "User is Full" even though the new day has fresh capacity.
+
+**Secondary cause:** If `leads_today` ever drifts for any other reason (manual ops, bugs), the limit check becomes inaccurate.
+
+The RPC `get_best_assignee_for_team` already uses actual `COUNT(*)` — the trigger should too.
+
+#### What broke
+- Users' leads blocked prematurely (shows full when not actually at limit)
+- Backlog leads assigned at 10 AM IST process correctly, but any lead assignment attempted between 12 AM–5:30 AM IST could be incorrectly blocked
+
+#### How it was fixed
+Changed `check_lead_limit_before_insert` to use actual `COUNT(*)` from the `leads` table with IST date filter:
+```sql
+CREATE OR REPLACE FUNCTION public.check_lead_limit_before_insert()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    current_leads INT;
+    max_limit     INT;
+    user_name     TEXT;
+BEGIN
+    IF NEW.status = 'Assigned' AND NEW.assigned_to IS NOT NULL THEN
+        SELECT daily_limit, name
+        INTO   max_limit, user_name
+        FROM   users
+        WHERE  id = NEW.assigned_to;
+
+        max_limit := COALESCE(max_limit, 0);
+
+        IF max_limit > 0 THEN
+            -- Use actual COUNT from leads table with IST date (immune to leads_today counter drift)
+            SELECT COUNT(*) INTO current_leads
+            FROM   leads
+            WHERE  assigned_to = NEW.assigned_to
+              AND  id IS DISTINCT FROM NEW.id
+              AND  assigned_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Kolkata')
+              AND  assigned_at < ((CURRENT_DATE + 1) AT TIME ZONE 'Asia/Kolkata');
+
+            IF current_leads >= max_limit THEN
+                RAISE EXCEPTION '⛔ BLOCKED: User % is Full (%/%). Cannot assign lead.',
+                    user_name, current_leads, max_limit;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+```
+
+**Key detail:** `id IS DISTINCT FROM NEW.id` — for UPDATE trigger, this excludes the current lead being updated so it's not double-counted. For INSERT (BEFORE INSERT), the row doesn't exist yet so it's a safe no-op exclusion.
+
+#### Verification
+```sql
+-- Confirm function no longer reads leads_today column
+SELECT prosrc LIKE '%actual COUNT from leads table%' AS fixed,
+       prosrc LIKE '%SELECT leads_today%' AS still_uses_counter
+FROM pg_proc WHERE proname = 'check_lead_limit_before_insert';
+-- fixed=true, still_uses_counter=false ✅
+```
+
+---
+
+### BUG-004 — Safety Net Trigger Double-Increments `leads_today`
+
+**Status:** ✅ Fixed  
+**Severity:** Medium (dead code in production — trigger never fires, but would cause damage if it did)  
+**Affected:** `process_stuck_lead` function (`trg_safety_net_assign` trigger)  
+
+#### What was the bug
+The `trg_safety_net_assign` (BEFORE INSERT on leads) ran when a lead arrived as `status='New'` with `assigned_to=NULL`. It manually incremented the counter AND THEN the AFTER trigger also incremented it:
+
+```sql
+-- In process_stuck_lead (BEFORE INSERT):
+IF v_target_user IS NOT NULL THEN
+    NEW.assigned_to := v_target_user;
+    NEW.status := 'Assigned';
+    UPDATE users SET leads_today = leads_today + 1 WHERE id = v_target_user;  -- ← MANUAL +1
+END IF;
+
+-- THEN trigger_update_user_lead_count fires (AFTER INSERT):
+-- Also does leads_today = leads_today + 1  ← SECOND +1!
+```
+
+Net result: `leads_today += 2` per safety-net-assigned lead, `total_leads_received += 1` (correct only once by AFTER trigger). Users would appear to hit their daily limit at 50% of actual capacity.
+
+**Note:** Confirmed 0 leads with `status='New'` have ever existed in production — this trigger has never actually fired. But it's a time bomb.
+
+#### What broke
+Not currently broken (dead code). If it ever fires, users would get blocked at half their daily limit.
+
+#### How it was fixed
+Removed the manual `UPDATE users SET leads_today += 1` line. AFTER trigger handles all counter updates:
+```sql
+CREATE OR REPLACE FUNCTION public.process_stuck_lead()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_target_team TEXT;
+    v_target_user UUID;
+BEGIN
+    IF NEW.status = 'New' AND NEW.assigned_to IS NULL THEN
+        -- ... team routing logic ...
+        IF v_target_user IS NOT NULL THEN
+            NEW.assigned_to := v_target_user;
+            NEW.status := 'Assigned';
+            -- trigger_update_user_lead_count (AFTER INSERT) handles counter updates
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+```
+
+#### Verification
+```sql
+SELECT prosrc LIKE '%UPDATE users SET leads_today%' AS still_double_increments
+FROM pg_proc WHERE proname = 'process_stuck_lead';
+-- still_double_increments=false ✅
+```
+
+---
+
+### BUG-005 — `get_best_assignee_for_team` PASS 2 Has Reversed `plan_weight` Ordering
+
+**Status:** ✅ Fixed  
+**Severity:** Low (no current impact — all users have `plan_weight=1`, but latent bug for future)  
+**Affected:** `get_best_assignee_for_team` RPC  
+
+#### What was the bug
+The RPC has two passes:
+- **PASS 1** (users below 60% daily limit): `ORDER BY ... COALESCE(plan_weight, 1) ASC`
+- **PASS 2** (users 60–100% daily limit): `ORDER BY ... COALESCE(plan_weight, 1) DESC` ← **REVERSED!**
+
+In PASS 1, `ASC` means lower weight = higher priority. In PASS 2, `DESC` means higher weight = higher priority. These are opposite behaviors. If you set different `plan_weight` values for different users/plans in the future, PASS 2 would assign leads in reverse-priority order, causing unequal distribution.
+
+#### What broke
+No current impact (all `plan_weight = 1`). Would cause lead distribution problems if `plan_weight` is ever varied.
+
+#### How it was fixed
+Changed PASS 2 ORDER BY from `DESC` to `ASC`:
+```sql
+-- PASS 2 ORDER BY (was DESC, now ASC — matches PASS 1):
+ORDER BY
+    (today_count)::float / GREATEST(COALESCE(u.plan_weight, 1), 1) ASC,
+    CASE u.plan_name WHEN 'manager' THEN 1 ... END ASC,
+    COALESCE(u.plan_weight, 1) ASC,   -- ← Fixed: was DESC
+    RANDOM()
+```
+
+#### Verification
+```sql
+SELECT prosrc LIKE '%plan_weight, 1) DESC%' AS still_has_bug,
+       prosrc LIKE '%plan_weight, 1) ASC%'  AS fixed
+FROM pg_proc WHERE proname = 'get_best_assignee_for_team';
+-- still_has_bug=false, fixed=true ✅
+```
+
+---
+
+## Historical Over-Delivery (Root Cause Analysis)
+
+**Date discovered:** 2026-05-24  
+**Status:** Cannot be reversed (historical), future protected by BUG-001/002/003 fixes  
+
+100+ past users received more leads than `total_leads_promised`. Biggest cases:
+- Simran (simransimmi983): +142 leads over
+- Princy (princyrani303): +135 over  
+- Kulwant Singh: +107 over
+
+**Root cause:** These leads were assigned before `trigger_update_user_lead_count` had auto-deactivation logic. The trigger existed but did not check `total_leads_received >= total_leads_promised` and set `is_active = false`. Counter drift (BUG-001) compounded the problem.
+
+**Protection going forward:**
+- BUG-001 fix: trigger now decrements on reassign → counters stay accurate
+- BUG-002 fix: regular audit can catch over-quota active users
+- BUG-003 fix: daily limit trigger uses actual count → no false passes
+- Auto-deactivate in trigger: fires atomically at exact quota exhaustion
+
+---
+
+## Non-Bug Fixes / Data Operations (2026-05-24)
+
+| Operation | Detail |
+|-----------|--------|
+| 19 Queued/Duplicate leads assigned | Round-robin to 9 active users (May 20 batch) |
+| Komal bishnoi (kb817949) credit | +35 leads (weekly_boost underdelivery fix — plan ran 10 May onward) |
+| Ajay kumar re-activated | Had quota remaining (545/554), was incorrectly inactive |
+| Reetika re-activated | Had quota remaining (51/52) |
+| Harmandeep kaur (deeprandhawa1604) re-activated | Had quota remaining (50/82) |
+| 14 users deactivated | Non-May-paying users, quota zeroed |
+
+---
+
+## How to Use This File
+
+1. **Before debugging a new issue** — CTRL+F for keywords (e.g., "leads_today", "counter", "daily limit"). If the root cause is already documented, the fix approach is known.
+
+2. **After fixing any bug** — Add an entry here with date, symptoms, root cause, exact SQL/code fix, and verification query.
+
+3. **For audit trail** — Each entry has a date and verification query you can re-run to confirm the fix is still in place.
+
+4. **Counter drift check** — Run this anytime you suspect counter issues:
+   ```sql
+   SELECT u.email, u.name,
+          u.total_leads_received AS counter,
+          COUNT(l.id) AS actual,
+          u.total_leads_received - COUNT(l.id) AS drift
+   FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+   WHERE u.role = 'member'
+   GROUP BY u.id, u.email, u.name, u.total_leads_received
+   HAVING u.total_leads_received != COUNT(l.id)
+   ORDER BY ABS(u.total_leads_received - COUNT(l.id)) DESC;
+   ```
+
+5. **Over-quota active users check** — Run weekly:
+   ```sql
+   SELECT email, name, total_leads_promised,
+          (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) AS actual_leads,
+          is_active
+   FROM users u
+   WHERE is_active = true AND total_leads_promised > 0
+     AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= total_leads_promised;
+   ```
