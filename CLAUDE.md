@@ -258,6 +258,17 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-05-24
+- auth/useAuth.tsx: instant restore from localStorage (loading screen fix for returning users)
+- App.tsx: Force Refresh now preserves Supabase auth tokens (was silently logging users out)
+- PwaInstallPrompt.tsx: 3-platform detection (Android / iOS Safari / iOS Chrome with guidance)
+- DB: 14 non-May-paying users deactivated, quota zeroed
+- DB: 28 May mis-routed leads reassigned round-robin to active users
+- DB: RLS enabled on push_subscriptions_backup_20260502 + notifications_backup_20260502
+- DB: Komal bishnoi (kb817949) — 35 leads credit added (weekly_boost underdelivery fix)
+- DB: Ajay kumar, Reetika, Harmandeep kaur (deeprandhawa1604) re-activated (had quota remaining)
+- CLAUDE.md: Added DATABASE REPORTING RULES section (accuracy mandatory)
+
 ### 2026-03-25
 - Duplicate check on 69 new leads: 45 duplicates found, 24 clean
 
@@ -293,6 +304,67 @@ new-crm-saas/
 6. **Modifying env.ts to add hardcoded URLs** — use VITE_ environment variables
 7. **Creating new Edge Functions without proper CORS headers** — all functions need OPTIONS handler
 8. **Using `NOW()` in cron jobs without timezone conversion** — Supabase runs in UTC
+
+---
+
+## 🗄️ DATABASE REPORTING RULES — ACCURACY MANDATORY
+
+> These rules exist because wrong DB reports cause real business loss. Follow them every single time.
+
+### User Identification
+- **ALWAYS use `email` to identify users, NEVER `name`** — multiple users can have the same name (e.g. two "Harmandeep kaur", two "Kajal", two "Saloni Rajput", two "Komal bishnoi", two "Himanshu Sharma")
+- When showing reports, always include email alongside name
+
+### Counter Verification (MANDATORY before any report)
+- **NEVER trust `total_leads_received` counter alone** — always cross-verify with actual lead count:
+  ```sql
+  SELECT u.total_leads_received as counter, COUNT(l.id) as actual,
+         (u.total_leads_received - COUNT(l.id)) as diff
+  FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+  WHERE u.email = 'x@x.com' GROUP BY u.total_leads_received;
+  ```
+- If `diff != 0` → counter is corrupted, report actual lead count, flag the mismatch
+- The authoritative quota formula is: `total_leads_promised - COUNT(actual leads)`, NOT `total_leads_promised - total_leads_received`
+
+### "Who expired on date X" Queries
+- **NEVER use `CURRENT_DATE` to check who expired on a past date** — that gives today's snapshot
+- To check who expired ON a specific date, filter by `updated_at` or check leads assigned up to that date
+- Correct approach: compare actual lead count at point-in-time, not current counter
+
+### Status Audit Rule
+- Before reporting any user as "expired" or "active", run this check:
+  ```sql
+  CASE
+    WHEN actual_leads >= promised AND is_active = true  THEN '⚠️ SHOULD BE INACTIVE'
+    WHEN actual_leads < promised  AND is_active = false AND payment_status='active' THEN '⚠️ SHOULD BE ACTIVE'
+    ELSE '✅ OK'
+  END
+  ```
+- Fix mismatches immediately before reporting
+
+### Plan daily_limit Values (Actual DB values — NOT plan marketing numbers)
+| Plan | daily_limit in DB |
+|------|------------------|
+| starter | 5 |
+| supervisor | 7 |
+| weekly_boost | 12 |
+| turbo_boost | 14 |
+| manager | 7 |
+
+### Key DB Triggers on `leads` table
+- `trg_check_limit_update` (BEFORE UPDATE) — blocks assignment if user at daily limit. Disable for admin overrides: `ALTER TABLE leads DISABLE TRIGGER trg_check_limit_update;` — **always re-enable immediately after**
+- `trigger_update_user_lead_count` (AFTER UPDATE/INSERT) — auto-increments `leads_today` + `total_leads_received` when `assigned_to` changes. **Do NOT also call `increment_user_lead_counters` — that would double-count**
+- When manually assigning leads via DO block: update `total_leads_promised` FIRST (before assignment) to prevent auto-deactivation trigger mid-loop
+
+### Manual Lead Assignment Checklist
+```
+□ Disable trg_check_limit_update
+□ Update total_leads_promised for all target users FIRST (+N per user)
+□ Run round-robin UPDATE on leads (trigger handles counters automatically)
+□ Re-enable trg_check_limit_update immediately
+□ Verify: SELECT actual_leads, counter, quota_remaining for each affected user
+□ Report with email + name + actual count
+```
 
 ---
 
