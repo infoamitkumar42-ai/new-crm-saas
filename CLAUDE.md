@@ -228,7 +228,7 @@ new-crm-saas/
 | Plan | Price | Duration | Daily Limit | Fresh Leads | Replacement | total_leads_promised (DB) |
 |------|-------|----------|-------------|-------------|-------------|--------------------------|
 | starter | ₹999 | 10 days | 5 | 45 | 5 | **50** |
-| supervisor | ₹1,499 | 15 days | 7 | 105 | 10 | **115** |
+| supervisor | ₹1,499 | 15 days | 7 | 70 | 10 | **80** |
 | manager | ₹2,999 | 20 days | 8 | 160 | 16 | **176** |
 
 ### Weekly Booster Plans
@@ -359,7 +359,7 @@ new-crm-saas/
 | Plan | daily_limit in DB | total_leads_promised |
 |------|------------------|----------------------|
 | starter | 5 | 50 |
-| supervisor | 7 | 115 |
+| supervisor | 7 | 80 |
 | weekly_boost | 12 | 92 |
 | turbo_boost | 14 | 108 |
 | manager | 8 | 176 |
