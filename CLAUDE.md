@@ -224,15 +224,22 @@ new-crm-saas/
 
 ## 💰 Plan Configuration
 
-| Plan | Price | Daily Limit | Total Leads | daily_limit value |
-|------|-------|-------------|-------------|-------------------|
-| starter | ₹999 | 5 | 55 | 55 |
-| supervisor | ₹1,999 | 7 | 115 | 115 |
-| weekly_boost | ₹1,999 | 14 | 92-100 | 92 |
-| turbo_boost | ₹2,499 | 14 | 108 | 108 |
-| manager | ₹2,999 | 7 | 176 | 176 |
+### Monthly Growth Plans
+| Plan | Price | Duration | Daily Limit | Fresh Leads | Replacement | total_leads_promised (DB) |
+|------|-------|----------|-------------|-------------|-------------|--------------------------|
+| starter | ₹999 | 10 days | 5 | 45 | 5 | **50** |
+| supervisor | ₹1,499 | 15 days | 7 | 105 | 10 | **115** |
+| manager | ₹2,999 | 20 days | 8 | 160 | 16 | **176** |
 
-> **CRITICAL**: `daily_limit` in the users table stores the **per-day cap** (e.g. 12 for weekly_boost). `total_leads_promised` stores the full plan quota (e.g. 92 for weekly_boost = 84 leads + 8 replacements).
+### Weekly Booster Plans
+| Plan | Price | Duration | Daily Limit | Fresh Leads | Replacement | total_leads_promised (DB) |
+|------|-------|----------|-------------|-------------|-------------|--------------------------|
+| weekly_boost | ₹1,999 | 7 days | 12 | 84 | 8 | **92** |
+| turbo_boost | ₹2,499 | 7 days | 14 | 98 | 10 | **108** |
+
+> **Welcome Bonus:** +5 extra leads FREE for new users (added to total_leads_promised at first activation).
+
+> **CRITICAL**: `total_leads_promised` in DB = Fresh Leads + Replacement (e.g. weekly_boost = 84+8 = 92). `daily_limit` in DB = Daily Limit column above. Supervisor price changed from ₹1,999 → ₹1,499 (2026-05-25).
 
 ---
 
@@ -348,14 +355,14 @@ new-crm-saas/
   ```
 - Fix mismatches immediately before reporting
 
-### Plan daily_limit Values (Actual DB values — NOT plan marketing numbers)
-| Plan | daily_limit in DB |
-|------|------------------|
-| starter | 5 |
-| supervisor | 7 |
-| weekly_boost | 12 |
-| turbo_boost | 14 |
-| manager | 7 |
+### Plan daily_limit Values (Actual DB values)
+| Plan | daily_limit in DB | total_leads_promised |
+|------|------------------|----------------------|
+| starter | 5 | 50 |
+| supervisor | 7 | 115 |
+| weekly_boost | 12 | 92 |
+| turbo_boost | 14 | 108 |
+| manager | 8 | 176 |
 
 ### Key DB Triggers on `leads` table
 - `trg_check_limit_insert` (BEFORE INSERT) — blocks new lead if user at daily limit. Uses actual `COUNT(*)` from leads table with IST date (NOT `leads_today` counter).
