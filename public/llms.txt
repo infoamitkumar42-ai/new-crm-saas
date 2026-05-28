@@ -1,0 +1,45 @@
+# LeadFlow CRM
+> India's Facebook lead distribution platform
+for sales teams and network marketing distributors.
+
+## What is LeadFlow CRM
+LeadFlow CRM automatically distributes Facebook
+leads to sales team members in seconds. When a
+Facebook Lead Ad form is filled, the system
+assigns the lead to the right team member
+based on daily limits and availability.
+
+## Who Uses LeadFlow CRM
+- Forever Living (FLP) distributors
+- Insurance sales teams
+- Real estate agents
+- Network marketing managers
+- SMB sales teams running Facebook Lead Ads
+- Sales teams in Punjab, Haryana, Delhi NCR
+
+## Key Features
+- Automatic lead assignment from Facebook Lead Ads
+- Fair round-robin distribution
+- Daily lead limits per member
+- Real-time push notifications
+- Manager dashboard with complete tracking
+- Member mobile dashboard
+- Plan-based quota system
+
+## Pricing
+- Starter Plan: Rs 999 — 55 leads, 5/day
+- Supervisor Plan: Rs 1,999 — 115 leads, 10/day
+- Manager Plan: Rs 2,999 — 176 leads, 15/day
+- No monthly subscription
+- One-time payment per quota cycle
+
+## Key Pages
+- Homepage: https://www.leadflowcrm.in
+- Login: https://www.leadflowcrm.in/login
+- Blog: https://blog.leadflowcrm.in
+- Terms: https://www.leadflowcrm.in/terms
+
+## Company
+- Founded: 2026
+- Location: Chandigarh, India
+- Contact: support@leadflowcrm.in
