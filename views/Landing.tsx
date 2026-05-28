@@ -897,7 +897,24 @@ export const Landing = () => {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-sm text-slate-400">
+          {/* SEO internal links */}
+          <div className="pt-8 border-t border-slate-800">
+            <p className="text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wider">Resources & Guides</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+              <a href="/forever-living-crm.html" className="hover:text-slate-300">Forever Living Leads CRM</a>
+              <a href="/facebook-lead-distribution-software-india.html" className="hover:text-slate-300">Facebook Lead Distribution Software India</a>
+              <a href="/network-marketing-crm-india.html" className="hover:text-slate-300">Network Marketing CRM India</a>
+              <a href="/flp-leads-management-software.html" className="hover:text-slate-300">FLP Leads Management Software</a>
+              <a href="/sales-team-lead-distribution-india.html" className="hover:text-slate-300">Sales Team Lead Distribution India</a>
+              <a href="/mlm-crm-software-india.html" className="hover:text-slate-300">MLM CRM Software India</a>
+              <a href="/lead-distribution-automation-india.html" className="hover:text-slate-300">Lead Distribution Automation India</a>
+              <a href="/forever-living-distributor-software.html" className="hover:text-slate-300">Forever Living Distributor Software</a>
+              <a href="/whatsapp-lead-distribution-alternative.html" className="hover:text-slate-300">WhatsApp Lead Distribution Alternative</a>
+              <a href="/facebook-leads-automatically-assign-karo.html" className="hover:text-slate-300">Facebook Leads Automatically Assign Karo</a>
+            </div>
+          </div>
+
+          <div className="pt-6 text-center text-sm text-slate-400">
             © 2026 LeadFlow CRM. All rights reserved.
           </div>
         </div>
