@@ -130,9 +130,9 @@ export const Landing = () => {
       <Helmet>
         <link rel="canonical" href="https://www.leadflowcrm.in/" />
         <title>LeadFlow CRM — Facebook Lead Distribution Software India</title>
-        <meta name="description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. India's #1 lead distribution CRM for network marketing teams. Start today." />
+        <meta name="description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. Built for network marketing and MLM teams across India." />
         <meta property="og:title" content="LeadFlow CRM — Facebook Lead Distribution Software India" />
-        <meta property="og:description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. India's #1 lead distribution CRM for network marketing teams. Start today." />
+        <meta property="og:description" content="Automatically distribute Facebook leads to your sales team. No missed leads, no WhatsApp chaos. Built for network marketing and MLM teams across India." />
       </Helmet>
 
       <div
@@ -268,11 +268,11 @@ export const Landing = () => {
               <div className="flex items-center justify-center lg:justify-start gap-4">
                 <div className="flex -space-x-3">
                   {/* Real Indian profile images - Eager loaded for LCP */}
-                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 1" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 2" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 3" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 4" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="User Reviewer 5" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face" alt="Forever Living distributor using LeadFlow CRM" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="Network marketing team leader India" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face" alt="MLM sales manager managing Facebook leads" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face" alt="FLP distributor India lead distribution" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
+                  <img fetchpriority="high" loading="eager" decoding="async" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face" alt="Sales team member receiving auto-assigned leads" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-1">
