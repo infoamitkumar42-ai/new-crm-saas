@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Truck, Monitor, Clock, CheckCircle, Zap } from 'lucide-react';
 
@@ -6,6 +7,11 @@ export const ShippingPolicy = () => {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
+    <>
+      <Helmet>
+        <link rel="canonical" href="https://www.leadflowcrm.in/shipping" />
+        <title>Shipping Policy — LeadFlow CRM</title>
+      </Helmet>
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -154,5 +160,6 @@ export const ShippingPolicy = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
