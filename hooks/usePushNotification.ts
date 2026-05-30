@@ -8,6 +8,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
+// Persists across login/logout so the enable banner doesn't flash on page reload
+const PUSH_ENABLED_KEY = 'push_subscription_active';
+
 // Convert VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -109,7 +112,14 @@ export function usePushNotification(): UsePushNotificationReturn {
     };
   }
 
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // Immediate state: if permission is granted and we stored the flag, assume subscribed
+  // so the Enable banner never flashes on page reload for already-subscribed users
+  const [isSubscribed, setIsSubscribed] = useState(() =>
+    typeof window !== 'undefined' &&
+    'Notification' in window &&
+    window.Notification.permission === 'granted' &&
+    localStorage.getItem(PUSH_ENABLED_KEY) === 'true'
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
@@ -176,6 +186,7 @@ export function usePushNotification(): UsePushNotificationReturn {
           if (!resubscribed) {
             console.log('[Push] ℹ️ No DB subscription — showing button');
             setIsSubscribed(false);
+            localStorage.removeItem(PUSH_ENABLED_KEY);
 
             // Auto-subscribe if permission already granted (guard prevents double subscribe)
             if (Notification.permission === 'granted' && !isSyncingRef.current) {
@@ -314,8 +325,9 @@ export function usePushNotification(): UsePushNotificationReturn {
         }
       }
 
-      // We successfully got the browser subscription. We should hide the button.
+      // Successfully subscribed — persist flag so banner never flashes on next login
       setIsSubscribed(true);
+      localStorage.setItem(PUSH_ENABLED_KEY, 'true');
 
       // Save to DB with retry logic
       let userId: string | null = null;
@@ -400,6 +412,7 @@ export function usePushNotification(): UsePushNotificationReturn {
       }
 
       setIsSubscribed(false);
+      localStorage.removeItem(PUSH_ENABLED_KEY);
       console.log('[Push] ✅ Unsubscribed');
       return true;
 
