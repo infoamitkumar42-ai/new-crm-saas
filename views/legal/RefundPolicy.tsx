@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, XCircle, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 
@@ -8,6 +9,11 @@ export const RefundPolicy = () => {
   const lastUpdated = "January 2025";
 
   return (
+    <>
+      <Helmet>
+        <link rel="canonical" href="https://www.leadflowcrm.in/refund" />
+        <title>Refund Policy — LeadFlow CRM</title>
+      </Helmet>
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -162,5 +168,6 @@ export const RefundPolicy = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
