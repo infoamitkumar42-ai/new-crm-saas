@@ -126,7 +126,7 @@ export const LeadAlert: React.FC = () => {
           setTimeout(() => setBanner({ show: false, lead: null }), 8000);
         }
       }
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [session?.user?.id, soundEnabled]);
 
