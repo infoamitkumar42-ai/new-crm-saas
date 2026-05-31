@@ -468,12 +468,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // toh dashboard immediately dikhao, background mein validate hoga
       // Agar token invalid nikla → SIGNED_OUT event handle karega → login pe redirect
       try {
-        const sbKey = Object.keys(localStorage)
-          .find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-        if (sbKey && profileRef.current) {
-          const sbSession = JSON.parse(localStorage.getItem(sbKey) || '{}');
+        // storageKey = 'leadflow-auth-v2' (custom key in supabaseClient.ts)
+        // Fallback: also check default Supabase sb-* key format
+        const authKey = localStorage.getItem('leadflow-auth-v2')
+          ? 'leadflow-auth-v2'
+          : Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+
+        if (authKey && profileRef.current) {
+          const sbSession = JSON.parse(localStorage.getItem(authKey) || '{}');
           const nowSec = Math.floor(Date.now() / 1000);
-          if (sbSession?.access_token && sbSession?.expires_at > nowSec + 60) {
+          // Show dashboard instantly if: valid access token OR refresh token exists (autoRefreshToken will renew it)
+          const hasValidToken = sbSession?.access_token && sbSession?.expires_at > nowSec + 60;
+          const hasRefreshToken = sbSession?.refresh_token && sbSession?.access_token;
+          if (hasValidToken || hasRefreshToken) {
             setSession(sbSession);
             setLoading(false);
             setIsInitialized(true);
