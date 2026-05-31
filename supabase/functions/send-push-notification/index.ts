@@ -1,9 +1,8 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - Edge Function: send-push-notification         ║
- * ║  Status: PRODUCTION READY (Fast Mode)                      ║
- * ║  v1.1: Fixed user_id snake_case matching                   ║
- * ║  Logic: Lead Aayi -> Turant Ghanti Bajao 🔔                ║
+ * ║  Edge Function: send-push-notification                     ║
+ * ║  v1.2: Handle INSERT (webhook) + UPDATE (manual/recycle)   ║
+ * ║  Logic: Lead Assigned → Instant Push 🔔                    ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -23,7 +22,7 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    console.log("📥 Edge Function Triggered!");
+    console.log("📥 Edge Function Triggered! type:", payload.type);
 
     // 1. Secrets Load Karo
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -50,12 +49,11 @@ serve(async (req) => {
     let body = "Update";
     let data: any = {};
 
-    if (payload.type === "INSERT" && payload.record) {
+    // Handle INSERT (webhook new lead) and UPDATE (manual/recycle assignment)
+    if ((payload.type === "INSERT" || payload.type === "UPDATE") && payload.record) {
       const record = payload.record;
-      // 🔧 FIX: leads table uses 'assigned_to', not 'user_id'
       userId = record.assigned_to || record.user_id;
 
-      // Skip if no user assigned (duplicate/queued leads)
       if (!userId) {
         console.log("⏭️ Lead has no assigned user, skipping push.");
         return new Response(JSON.stringify({ message: "No assigned user" }), {
@@ -67,7 +65,8 @@ serve(async (req) => {
       title = "🔥 New Lead Alert!";
       body = `👤 ${record.name || "Unknown"} | 📍 ${record.city || "Online"}\nTap to check details.`;
       data = { url: "/leads", leadId: record.id };
-    // ✅ FIX: Added payload.user_id check (meta-webhook sends snake_case)
+
+    // Handle direct calls with user_id (e.g. from other edge functions)
     } else if (payload.userId || payload.user_id) {
       userId = payload.userId || payload.user_id;
       title = payload.title || title;
@@ -129,13 +128,9 @@ serve(async (req) => {
     );
 
     const successCount = results.filter(r => r.success).length;
-    console.log(`✅ Sent to ${successCount} devices.`);
-
     const failedResults = results.filter(r => !r.success);
-    console.log(`📊 Results: ${successCount} sent, ${failedResults.length} failed`);
-    if (failedResults.length > 0) {
-      console.error("❌ Failed details:", JSON.stringify(failedResults));
-    }
+    console.log(`✅ Sent to ${successCount} devices, ${failedResults.length} failed`);
+
     return new Response(JSON.stringify({
       success: true,
       sent: successCount,
