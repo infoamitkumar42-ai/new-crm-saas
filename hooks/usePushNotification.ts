@@ -153,6 +153,8 @@ export function usePushNotification(): UsePushNotificationReturn {
         const sub = await registration.pushManager.getSubscription();
         if (sub) {
           console.log('[Push] ✅ Browser subscription found');
+          // Persist flag immediately so button never shows on next load
+          localStorage.setItem(PUSH_ENABLED_KEY, 'true');
           setIsSubscribed(true);
           syncSubscriptionToDb(sub).catch(() => {});
         } else {
