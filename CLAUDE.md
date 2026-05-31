@@ -265,6 +265,15 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-05-31
+- hooks/usePushNotification.ts: lazy-init isSubscribed=true immediately when permission=granted + push_subscription_active flag set → eliminates 1-3s Enable banner flash for returning users
+- hooks/usePushNotification.ts: set push_subscription_active localStorage flag on subscribe, clear on unsubscribe
+- components/NotificationBanner.tsx: dismissed initializes to true when Notification.permission=granted; hide_push_prompt flag set on subscribe success (not just manual dismiss)
+- DB: trigger_push_notification() updated — now guards INSERT (assigned_to not null) AND UPDATE (assigned_to changed); previously fired for all INSERTs including null-assigned leads
+- DB: on_lead_updated_push trigger created — AFTER UPDATE on leads → trigger_push_notification() → push sent for manual/recycle assignments
+- DB: new_lead_notification trigger deleted — had trailing dash in URL (https://...send-push-notification-), never worked
+- Edge Function send-push-notification v1.2 deployed — now handles payload.type=UPDATE same as INSERT
+
 ### 2026-05-24
 - auth/useAuth.tsx: instant restore from localStorage (loading screen fix for returning users)
 - App.tsx: Force Refresh now preserves Supabase auth tokens (was silently logging users out)
