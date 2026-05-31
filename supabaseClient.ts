@@ -71,7 +71,7 @@ export const supabase = createClient(
   ENV.SUPABASE_ANON_KEY,
   {
     auth: {
-      autoRefreshToken: false, // 🛡️ DISABLED — manual refresh in useAuth.tsx prevents internal fetch bypass
+      autoRefreshToken: true, // ✅ ENABLED — window.fetch override already routes /auth/v1/ direct to Supabase
       persistSession: true,
       storageKey: 'leadflow-auth-v2', // 🛡️ Changed to avoid stale lock conflict from old key
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,

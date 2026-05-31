@@ -92,9 +92,9 @@ export const LeadAlert: React.FC = () => {
       const { data } = await supabase
         .from('leads')
         .select('*')
-        .eq('user_id', session.user.id)
-        .gt('created_at', lastCheckTimeRef.current)
-        .order('created_at', { ascending: false })
+        .eq('assigned_to', session.user.id)
+        .gt('assigned_at', lastCheckTimeRef.current)
+        .order('assigned_at', { ascending: false })
         .limit(1);
 
       if (data && data.length > 0) {
@@ -102,7 +102,7 @@ export const LeadAlert: React.FC = () => {
         const leadId = newLead.id;
 
         // Update last check time
-        lastCheckTimeRef.current = newLead.created_at;
+        lastCheckTimeRef.current = newLead.assigned_at;
 
         // 🔥 Only play sound if this lead hasn't been played before
         if (!playedLeadsRef.current.has(leadId)) {
