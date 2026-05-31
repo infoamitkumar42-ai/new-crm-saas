@@ -19,7 +19,10 @@ export const NotificationBanner: React.FC = () => {
     } = usePushNotification();
 
     const [dismissed, setDismissed] = useState(() => {
-        return localStorage.getItem('hide_push_prompt') === 'true';
+        if (localStorage.getItem('hide_push_prompt') === 'true') return true;
+        // Permission already granted = user already subscribed before; no need to re-prompt
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') return true;
+        return false;
     });
 
     const [showSuccess, setShowSuccess] = useState(false);
@@ -43,6 +46,13 @@ export const NotificationBanner: React.FC = () => {
     const handleDismiss = () => {
         setDismissed(true);
         localStorage.setItem('hide_push_prompt', 'true');
+    };
+
+    const handleSubscribe = async () => {
+        const success = await subscribe();
+        if (success) {
+            localStorage.setItem('hide_push_prompt', 'true');
+        }
     };
 
     // Don't show anything if:
@@ -165,7 +175,7 @@ export const NotificationBanner: React.FC = () => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
-                    onClick={() => subscribe()}
+                    onClick={handleSubscribe}
                     disabled={isLoading}
                     style={{
                         background: 'white',
