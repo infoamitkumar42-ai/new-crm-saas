@@ -1,1 +1,25 @@
+# SEO landing page clean-URL → .html 301 redirects
+# Must be BEFORE the catch-all /* rule
+/forever-living-crm                          /forever-living-crm.html                          301
+/facebook-lead-distribution-software-india   /facebook-lead-distribution-software-india.html   301
+/network-marketing-crm-india                 /network-marketing-crm-india.html                 301
+/flp-leads-management-software               /flp-leads-management-software.html               301
+/sales-team-lead-distribution-india          /sales-team-lead-distribution-india.html          301
+/mlm-crm-software-india                      /mlm-crm-software-india.html                      301
+/lead-distribution-automation-india          /lead-distribution-automation-india.html          301
+/forever-living-distributor-software         /forever-living-distributor-software.html         301
+/whatsapp-lead-distribution-alternative      /whatsapp-lead-distribution-alternative.html      301
+/facebook-leads-automatically-assign-karo    /facebook-leads-automatically-assign-karo.html    301
+/mlm-leads-kaise-generate-kare               /mlm-leads-kaise-generate-kare.html               301
+/forever-living-business-kaise-badhaye       /forever-living-business-kaise-badhaye.html       301
+/network-marketing-leads-india               /network-marketing-leads-india.html               301
+/facebook-ads-for-mlm-india                  /facebook-ads-for-mlm-india.html                  301
+/flp-business-kaise-badhaye                  /flp-business-kaise-badhaye.html                  301
+/lead-generation-for-network-marketing       /lead-generation-for-network-marketing.html       301
+/mlm-recruitment-software-india              /mlm-recruitment-software-india.html              301
+/direct-selling-leads-india                  /direct-selling-leads-india.html                  301
+/vestige-modicare-leads-crm                  /vestige-modicare-leads-crm.html                  301
+/herbalife-leads-management-india            /herbalife-leads-management-india.html            301
+
+# SPA catch-all — must be last
 /*    /index.html   200
