@@ -1184,6 +1184,18 @@ export const MemberDashboard = () => {
                           <MapPin size={10} />
                           <span className="truncate">{lead.city || 'N/A'}</span>
                         </div>
+                        {lead.source && !['Night_Backlog', 'Night_Queue', 'Fresh', 'Queued', 'New', 'Assigned'].includes(lead.source) && (
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${
+                              lead.source === 'Snapchat'
+                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                : 'bg-blue-50 text-blue-600 border-blue-200'
+                            }`}>
+                              {lead.source === 'Snapchat' ? '👻' : '📘'}
+                              {lead.source.includes('Meta') || lead.source.includes('Facebook') ? 'Facebook' : lead.source}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* 🔥 SMART TIME DISPLAY */}
