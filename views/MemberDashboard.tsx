@@ -1191,8 +1191,14 @@ export const MemberDashboard = () => {
                                 ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                 : 'bg-blue-50 text-blue-600 border-blue-200'
                             }`}>
-                              {lead.source === 'Snapchat' ? '👻' : '📘'}
-                              {lead.source.includes('Meta') || lead.source.includes('Facebook') ? 'Facebook' : lead.source}
+                              {lead.source === 'Snapchat' ? (
+                                <span>👻</span>
+                              ) : (
+                                <svg width="12" height="8" viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M1.5 9C1.5 5.4 3.5 2.5 6.2 2.5C8 2.5 9.3 3.5 10.8 6L14 11L17.2 6C18.7 3.5 20 2.5 21.8 2.5C24.5 2.5 26.5 5.4 26.5 9C26.5 12.6 24.5 15.5 21.8 15.5C20 15.5 18.7 14.5 17.2 12L14 7L10.8 12C9.3 14.5 8 15.5 6.2 15.5C3.5 15.5 1.5 12.6 1.5 9Z" fill="currentColor"/>
+                                </svg>
+                              )}
+                              {lead.source.includes('Meta') || lead.source.includes('Facebook') || lead.source.includes('Instagram') ? 'Meta' : lead.source}
                             </span>
                           </div>
                         )}
