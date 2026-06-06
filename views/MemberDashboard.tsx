@@ -1189,13 +1189,13 @@ export const MemberDashboard = () => {
                             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${
                               lead.source === 'Snapchat'
                                 ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                : 'bg-blue-50 text-blue-600 border-blue-200'
+                                : 'bg-[#0866FF] text-white border-[#0866FF]'
                             }`}>
                               {lead.source === 'Snapchat' ? (
                                 <span>👻</span>
                               ) : (
-                                <svg width="12" height="8" viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <path d="M1.5 9C1.5 5.4 3.5 2.5 6.2 2.5C8 2.5 9.3 3.5 10.8 6L14 11L17.2 6C18.7 3.5 20 2.5 21.8 2.5C24.5 2.5 26.5 5.4 26.5 9C26.5 12.6 24.5 15.5 21.8 15.5C20 15.5 18.7 14.5 17.2 12L14 7L10.8 12C9.3 14.5 8 15.5 6.2 15.5C3.5 15.5 1.5 12.6 1.5 9Z" fill="currentColor"/>
+                                <svg width="13" height="9" viewBox="0 0 52 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M4 17C4 11.2 7.2 6 12.2 6C15.4 6 17.8 7.9 20.6 12.4L26 21.5L31.4 12.4C34.2 7.9 36.6 6 39.8 6C44.8 6 48 11.2 48 17C48 22.8 44.8 28 39.8 28C36.6 28 34.2 26.1 31.4 21.6L26 12.5L20.6 21.6C17.8 26.1 15.4 28 12.2 28C7.2 28 4 22.8 4 17Z" fill="white"/>
                                 </svg>
                               )}
                               {lead.source.includes('Meta') || lead.source.includes('Facebook') || lead.source.includes('Instagram') ? 'Meta' : lead.source}
