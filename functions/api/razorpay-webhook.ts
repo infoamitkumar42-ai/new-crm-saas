@@ -47,9 +47,9 @@ export const onRequestPost = async (context: any) => {
         const rawBody = await request.text();
         console.log('[Webhook] Body Length:', rawBody.length);
 
-        const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+        const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET || env.VITE_RAZORPAY_WEBHOOK_SECRET;
         const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
-        const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
         if (!webhookSecret || !supabaseUrl || !supabaseKey) {
             console.error('[Webhook] CRITICAL: Environment variables missing!');
