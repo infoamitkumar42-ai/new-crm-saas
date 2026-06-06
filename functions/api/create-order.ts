@@ -20,8 +20,8 @@ export const onRequestPost = async (context: any) => {
   try {
     const { planId, price, userId } = await request.json();
 
-    const keyId = env.RAZORPAY_KEY_ID;
-    const keySecret = env.RAZORPAY_KEY_SECRET;
+    const keyId = env.RAZORPAY_KEY_ID || env.VITE_RAZORPAY_KEY_ID;
+    const keySecret = env.RAZORPAY_KEY_SECRET || env.VITE_RAZORPAY_KEY_SECRET;
 
     if (!keyId || !keySecret) {
       console.error('[create-order] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET missing');
