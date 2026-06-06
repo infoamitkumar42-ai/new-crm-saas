@@ -1192,13 +1192,17 @@ export const MemberDashboard = () => {
                                 : 'bg-[#0866FF] text-white border-[#0866FF]'
                             }`}>
                               {lead.source === 'Snapchat' ? (
-                                <span>👻</span>
+                                <svg width="9" height="11" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M12 1C6.5 1 2 5.5 2 11v10l3-2.5 2.5 3.5 2.5-3 2 2.5 2-2.5 2.5 3 2.5-3.5 3 2.5V11C22 5.5 17.5 1 12 1z" fill="white" stroke="black" strokeWidth="0.5"/>
+                                  <circle cx="9" cy="13" r="1.5" fill="black"/>
+                                  <circle cx="15" cy="13" r="1.5" fill="black"/>
+                                </svg>
                               ) : (
                                 <svg width="13" height="9" viewBox="0 0 52 34" fill="none" xmlns="http://www.w3.org/2000/svg">
                                   <path d="M4 17C4 11.2 7.2 6 12.2 6C15.4 6 17.8 7.9 20.6 12.4L26 21.5L31.4 12.4C34.2 7.9 36.6 6 39.8 6C44.8 6 48 11.2 48 17C48 22.8 44.8 28 39.8 28C36.6 28 34.2 26.1 31.4 21.6L26 12.5L20.6 21.6C17.8 26.1 15.4 28 12.2 28C7.2 28 4 22.8 4 17Z" fill="white"/>
                                 </svg>
                               )}
-                              {lead.source.includes('Meta') || lead.source.includes('Facebook') || lead.source.includes('Instagram') ? 'Meta' : lead.source}
+                              {lead.source === 'Snapchat' ? 'Snapchat' : lead.source.includes('Meta') || lead.source.includes('Facebook') || lead.source.includes('Instagram') ? 'Meta' : lead.source}
                             </span>
                           </div>
                         )}
