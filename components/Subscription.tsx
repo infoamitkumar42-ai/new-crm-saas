@@ -45,15 +45,19 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
 
-  // 🔥 Dynamically Load Razorpay Script (Saves 200kb on Landing Page)
-  useEffect(() => {
-    if (!document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+  // Load Razorpay script only when user clicks Buy (prevents 200kb load + tab crash on low-RAM phones)
+  const loadRazorpayScript = (): Promise<void> => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) { resolve(); return; }
+      const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existing) { existing.addEventListener('load', () => resolve()); return; }
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
+      script.onload = () => resolve();
       document.body.appendChild(script);
-    }
-  }, []);
+    });
+  };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ACTIVATION COUNTDOWN COMPONENT
@@ -362,6 +366,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         }
       };
 
+      await loadRazorpayScript();
       const rzp = new window.Razorpay(options);
 
       rzp.on('payment.failed', function (response: any) {
