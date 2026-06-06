@@ -265,6 +265,22 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-06-06
+- functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
+- functions/api/create-order.ts: CREATED — Cloudflare Pages Function for server-side Razorpay order creation; uses env.RAZORPAY_KEY_ID || env.VITE_RAZORPAY_KEY_ID fallback
+- functions/api/razorpay-webhook.ts: env var fallbacks added — RAZORPAY_WEBHOOK_SECRET and SUPABASE_SERVICE_ROLE_KEY now also check VITE_ prefixed versions (Cloudflare Pages only exposes VITE_ vars by default)
+- components/Subscription.tsx: error handling fixed — no longer crashes on non-JSON error responses from /api/create-order
+- DB: plan_config table corrected — weekly_boost weight 5→7, total_leads 110→92; supervisor total_leads 105→80; manager weight 5→10 (highest priority)
+- DB: recycled-morning-batch cron (jobid=21) deleted permanently — no recycle leads to go out
+- DB: All active users recycled_leads_quota = 0 — blocks future recycle lead assignment
+- DB: trg_sync_user_plan_fields trigger discovered — overrides plan_weight/daily_limit from plan_config table on every UPDATE; direct SET of these fields is overridden
+- DB: Saijel Goel (saijelgoel4@gmail.com) — manually activated weekly_boost (pay_SyDMbJHz4jBGDd ₹1,999); total_leads_promised corrected to 325 (remaining=92)
+- DB: PRACHI GARG (prachigarg@flp.com) — manually activated manager (pay_SyDIeM4Wudy5NH ₹2,999); total_leads_promised=264 (remaining=159)
+- DB: Saloni Rajput — deactivated, total_leads_promised set to actual (remaining=0); fresh plan will add on top on renewal
+- DB: Himanshu Sharma (sharmahimanshu9797) — is_online=true, now receiving leads
+- DB: Asha — total_leads_promised corrected to 274 (remaining=50 exact)
+- Cloudflare: "Force WWW" redirect rule reversed — was non-www→www (broken); now www→non-www (correct); fixes Sentry TypeError 'text/html' MIME error on iOS Safari
+
 ### 2026-05-31
 - hooks/usePushNotification.ts: lazy-init isSubscribed=true immediately when permission=granted + push_subscription_active flag set → eliminates 1-3s Enable banner flash for returning users
 - hooks/usePushNotification.ts: set push_subscription_active localStorage flag on subscribe, clear on unsubscribe
