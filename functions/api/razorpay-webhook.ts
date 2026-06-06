@@ -48,7 +48,9 @@ export const onRequestPost = async (context: any) => {
         console.log('[Webhook] Body Length:', rawBody.length);
 
         const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET || env.VITE_RAZORPAY_WEBHOOK_SECRET;
-        const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_DIRECT_URL || env.VITE_SUPABASE_URL || 'https://vewqzsqddgmkslnuctvb.supabase.co';
+        // Always use direct Supabase URL — never the ISP-bypass proxy (api.leadflowcrm.in)
+        // Proxy is for frontend only; server-side functions reach Supabase directly
+        const supabaseUrl = 'https://vewqzsqddgmkslnuctvb.supabase.co';
         const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
         if (!webhookSecret || !supabaseUrl || !supabaseKey) {
