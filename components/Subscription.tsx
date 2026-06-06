@@ -311,8 +311,12 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
       });
 
       if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        throw new Error(errorData.error || 'Failed to create order');
+        let errorMsg = 'Failed to create order';
+        try {
+          const errorData = await orderResponse.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
       const orderData = await orderResponse.json();
