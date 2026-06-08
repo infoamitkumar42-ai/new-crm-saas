@@ -27,7 +27,9 @@ function sanitizePhone(raw) {
 }
 
 function isValidIndianPhone(phone) {
-  return /^[6789]\d{9}$/.test(phone);
+  if (!/^[6789]\d{9}$/.test(phone)) return false;
+  if (/^(\d)\1{9}$/.test(phone)) return false; // reject 9999999999, 8888888888, etc.
+  return true;
 }
 
 /**
@@ -91,6 +93,10 @@ async function processLead(lead, env) {
   const phone = sanitizePhone(rawPhone);
 
   if (!isValidIndianPhone(phone)) {
+    // Distinguish reason for audit log
+    const invalidReason = /^(\d)\1{9}$/.test(phone)
+      ? 'Fake number (all same digits)'
+      : 'Not a valid Indian mobile number';
     // Store as Invalid for audit — does NOT go through RPC (no assignment)
     await supabase(env, '/rest/v1/leads', {
       method: 'POST',
@@ -104,7 +110,7 @@ async function processLead(lead, env) {
         status: 'Invalid',
       }),
     });
-    return { phone: rawPhone, formId, status: 'Invalid', reason: 'Failed ^[6789]\\d{9}$ validation' };
+    return { phone: rawPhone, formId, status: 'Invalid', reason: invalidReason };
   }
 
   // 3. Call assign_lead_round_robin RPC

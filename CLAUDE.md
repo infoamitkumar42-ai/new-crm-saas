@@ -373,6 +373,7 @@ new-crm-saas/
 6. **Modifying env.ts to add hardcoded URLs** — use VITE_ environment variables
 7. **Creating new Edge Functions without proper CORS headers** — all functions need OPTIONS handler
 8. **Using `NOW()` in cron jobs without timezone conversion** — Supabase runs in UTC
+9. **Phone comparison with raw string `WHERE phone = p_phone`** — Indian numbers arrive as both `+917347512985` and `7347512985`. Always normalize before comparing: `right(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = right(regexp_replace(p_phone, '[^0-9]', '', 'g'), 10)`. The `assign_lead_round_robin` RPC already does this — do NOT change it back to exact match.
 
 ---
 
