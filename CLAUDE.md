@@ -132,7 +132,10 @@ new-crm-saas/
 │   ├── razorpay-webhook.ts       # Payment webhook handler
 │   └── [[path]].ts               # Catch-all proxy (legacy)
 │
-├── cloudflare-worker/            # Supabase proxy worker code
+├── cloudflare-worker/            # Cloudflare Workers
+│   ├── worker.js                 # ISP-bypass Supabase proxy (api.leadflowcrm.in) — DO NOT TOUCH
+│   ├── snapchat-webhook.js       # 🆕 Snapchat lead intake Worker (separate deployment)
+│   └── snapchat-gas.js           # 🆕 Google Apps Script — paste into Apps Script editor
 ├── api/                          # Legacy Vercel functions (NOT active)
 ├── public/                       # Static assets, PWA icons
 └── *.sql, *.csv, *.json, *.txt   # Operational scripts — DO NOT DELETE
@@ -197,6 +200,22 @@ new-crm-saas/
 | endpoint | TEXT | FCM push URL |
 | p256dh, auth | TEXT | Encryption keys |
 
+### lead_sources 🆕 (Snapchat routing table)
+| Column | Type | Purpose |
+|--------|------|---------|
+| source_key | TEXT PK | Ad platform identifier (Snapchat formId, Meta pageId — permanent, never changes) |
+| platform | TEXT | 'snapchat' / 'meta' / 'google' etc. (default 'snapchat') |
+| team_code | TEXT | Target team(s) — single 'TEAMFIRE' or comma-sep 'TEAMFIRE,TEAMSIMRAN' |
+| display_name | TEXT | Human-readable form/page name |
+| is_active | BOOLEAN | false = skip this source entirely |
+| created_at | TIMESTAMPTZ | Creation time |
+
+> New Snapchat form = add ONE row to `lead_sources`. Zero code change.
+> RLS enabled, no policies — anon/auth cannot access. service_role bypasses RLS.
+
+> ⚠️ `leads.form_id` (TEXT, nullable) column **already exists** — stores Snapchat formId for reporting/joins.
+> Snapchat leads also use `leads.status` values: Assigned / Queued / Duplicate / Invalid.
+
 ---
 
 ## 🔧 Key RPC Functions — DO NOT MODIFY WITHOUT APPROVAL
@@ -208,6 +227,7 @@ new-crm-saas/
 | `increment_user_lead_counters(p_user_id)` | Atomically updates leads_today + total_leads_received | ⛔ YES |
 | `upsert_push_subscription()` | Save/update push subscription | Medium |
 | `assign_lead_atomically()` | Atomic lead insert + counter update | ⛔ YES |
+| `assign_lead_round_robin(p_name, p_phone, p_city, p_source, p_form_id, p_team_codes text[])` | 🆕 Multi-team round-robin assignment for Snapchat leads. SECURITY DEFINER. Returns JSONB {status, lead_id, assigned_to}. DO NOT add counter updates — trigger handles it. | ⛔ YES |
 
 ---
 
@@ -264,6 +284,14 @@ new-crm-saas/
 ---
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
+
+### 2026-06-08 — Snapchat Automation (Phase 1)
+- DB: `lead_sources` table created — maps Snapchat formId (source_key PK) → team_code. RLS enabled, no public policies.
+- DB: `assign_lead_round_robin` RPC created — SECURITY DEFINER, multi-team round-robin, 30-day duplicate window, FOR UPDATE SKIP LOCKED (race condition safe), trigger handles counters (no manual UPDATE). REVOKE EXECUTE from anon/authenticated.
+- cloudflare-worker/snapchat-webhook.js: NEW standalone Cloudflare Worker (deploy separately from ISP-bypass proxy). Validates X-Webhook-Secret, resolves team_code server-side from lead_sources, validates Indian phone, calls assign_lead_round_robin RPC. Env vars: SNAPCHAT_WEBHOOK_SECRET (Secret), SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (Secret).
+- cloudflare-worker/snapchat-gas.js: Google Apps Script for Google Sheet → Worker. LockService, 1-min trigger, Synced column auto-created, per-lead result logging. Error rows left unsynced for auto-retry.
+- SNAPCHAT_AUTOMATION_BRIEF.md: Created in repo root — full architecture reference including Phase 2 notes.
+- Phase 2 (NOT YET BUILT): Re-assign repeat phone to same original user (relationship continuity). Per-form field_map in lead_sources. Google Ads / other platforms via same lead_sources table + new Worker.
 
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
