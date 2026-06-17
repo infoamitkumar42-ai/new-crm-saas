@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import {
   CheckCircle, Zap, Shield, ArrowRight,
@@ -10,6 +10,23 @@ import {
 import * as Sentry from '@sentry/react';
 
 export const Landing = () => {
+  const navigate = useNavigate();
+
+  // PWA Splash Screen — only for installed app (standalone mode), not browser
+  const isPwa =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const [showSplash, setShowSplash] = useState(isPwa);
+
+  useEffect(() => {
+    if (!isPwa) return;
+    const t = setTimeout(() => {
+      setShowSplash(false);
+      navigate('/login', { replace: true });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, []);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
@@ -124,6 +141,43 @@ export const Landing = () => {
       a: "Haan, manager-controlled distribution completely possible hai."
     }
   ];
+
+  if (showSplash) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'linear-gradient(135deg, #1e40af 0%, #4f46e5 100%)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999,
+      }}>
+        <style>{`
+          @keyframes pwa-pop {
+            from { opacity: 0; transform: scale(0.6); }
+            to   { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+        <img
+          src="/icon-192x192.png"
+          alt="LeadFlow"
+          style={{
+            width: 96, height: 96, borderRadius: 22,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            animation: 'pwa-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards',
+          }}
+        />
+        <p style={{
+          color: '#fff', fontSize: 22, fontWeight: 700,
+          marginTop: 20, letterSpacing: 0.5,
+          fontFamily: 'sans-serif',
+        }}>LeadFlow CRM</p>
+        <p style={{
+          color: 'rgba(255,255,255,0.7)', fontSize: 13,
+          marginTop: 6, fontFamily: 'sans-serif',
+        }}>Lead Distribution Software</p>
+      </div>
+    );
+  }
 
   return (
     <main className="font-sans text-slate-900 overflow-x-hidden bg-white selection:bg-blue-100 selection:text-blue-900">
@@ -938,7 +992,7 @@ export const Landing = () => {
             className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-center py-3.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
           >
             <Zap size={18} fill="currentColor" />
-            Get Verified Leads
+            Login Now
           </Link>
           <a
             href={`https://wa.me/${WHATSAPP_NUMBER}`}
