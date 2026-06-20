@@ -52,6 +52,9 @@ const RefundPolicy = lazyWithRetry(() => import('./views/legal/RefundPolicy').th
 const ShippingPolicy = lazyWithRetry(() => import('./views/legal/ShippingPolicy').then(m => ({ default: m.ShippingPolicy })));
 const ContactUs = lazyWithRetry(() => import('./views/legal/ContactUs').then(m => ({ default: m.ContactUs })));
 
+// 🔒 HIDDEN INTERNAL PAGE — Not linked anywhere, noindex/nofollow
+const FlpDemoBooking = lazyWithRetry(() => import('./views/FlpDemoBooking'));
+
 // ============================================================
 // 🔄 LOADING SCREEN COMPONENT
 // ============================================================
@@ -342,6 +345,9 @@ const AppRoutes: React.FC = () => {
           <Route path="/refund" element={<RefundPolicy />} />
           <Route path="/shipping" element={<ShippingPolicy />} />
           <Route path="/contact" element={<ContactUs />} />
+
+          {/* 🔒 Hidden Internal Demo Booking — No search indexing */}
+          <Route path="/flp-x7k" element={<FlpDemoBooking />} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
