@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { 
   MessageCircle, 
@@ -6,16 +6,65 @@ import {
   Users, 
   BarChart3, 
   Shield, 
-  ArrowRight, 
-  Sparkles,
   ChevronRight,
-  Facebook,
-  Check
+  ChevronLeft,
+  Sparkles,
+  Smartphone,
+  Eye
 } from 'lucide-react';
 
 const WHATSAPP_LINK = 'https://wa.me/916283182767?text=Hi,%20main%20FLP%20team%20Manager%20hoon.%20LeadFlow%20ke%20baare%20mein%20batao.';
 
+const SLIDES = [
+  '/images/slide1.png',
+  '/images/slide2.png',
+  '/images/slide3.png',
+  '/images/slide4.png',
+  '/images/slide5.png'
+];
+
+const SLIDE_CAPTIONS = [
+  'Daily Fresh Leads For Your Team',
+  'Real-Time Lead Alerts & Notifications',
+  'Track Every Lead In One Place',
+  'Monitor Daily Goals In Real-Time',
+  'Manager Dashboard - Control Your Team'
+];
+
 export const FlpDemoBooking: React.FC = () => {
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
+  const [isAutoplay, setIsAutoplay] = useState<boolean>(true);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Autoplay Logic
+  useEffect(() => {
+    if (isAutoplay) {
+      autoplayRef.current = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+      }, 3500);
+    }
+    return () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+    };
+  }, [isAutoplay]);
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsAutoplay(false); // Pause autoplay on manual interaction
+    setCurrentSlide((prev) => (prev === 0 ? SLIDES.length - 1 : prev - 1));
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsAutoplay(false); // Pause autoplay on manual interaction
+    setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+  };
+
+  const handleDotClick = (index: number) => {
+    setIsAutoplay(false); // Pause autoplay on manual interaction
+    setCurrentSlide(index);
+  };
+
   return (
     <>
       <Helmet>
@@ -38,14 +87,6 @@ export const FlpDemoBooking: React.FC = () => {
         @keyframes pulse-btn {
           0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); }
           50% { transform: scale(1.02); box-shadow: 0 6px 25px rgba(16, 185, 129, 0.6); }
-        }
-        /* Hide scrollbars but keep functionality */
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
         }
       `}} />
 
@@ -101,78 +142,77 @@ export const FlpDemoBooking: React.FC = () => {
               </p>
             </div>
 
-            {/* ── Product Flow Mockup Card (Logo Themed) ── */}
-            <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                <span className="text-xs font-extrabold text-slate-800 tracking-wide">LeadFlow Process Mockup</span>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Real-time</span>
+            {/* ── App Store Slideshow Mockup Preview ── */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  <Smartphone size={16} className="text-slate-800" />
+                  <span className="text-xs font-extrabold text-slate-800 tracking-wide">App Store Preview</span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <Eye size={12} className="animate-pulse" />
+                  <span>Interactive Slider</span>
+                </div>
               </div>
 
-              {/* Graphical Process Path */}
-              <div className="flex flex-col space-y-4">
+              {/* Slider Component */}
+              <div className="relative bg-slate-50 border border-slate-100 rounded-[32px] p-4 shadow-sm">
                 
-                {/* Step 1: Facebook Source */}
-                <div className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                      <Facebook size={18} className="fill-blue-600" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-900">Facebook Ads Leads</span>
-                      <span className="text-[9px] text-slate-400">Instant API Webhook Sync</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full">ACTIVE</span>
-                </div>
-
-                {/* Vertical Connector Path */}
-                <div className="flex justify-center -my-2.5 h-6">
-                  <div className="w-0.5 bg-gradient-to-b from-blue-500 via-indigo-500 to-indigo-600 h-full border-dashed" />
-                </div>
-
-                {/* Step 2: LeadFlow Router Hub */}
-                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-indigo-100 shadow-sm shadow-indigo-100/10">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
-                    <Zap size={18} className="text-white fill-white/10" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-extrabold text-slate-900">LeadFlow Rotator Engine</span>
-                    <span className="text-[9px] text-slate-400">Fair Distribution Router v3.9</span>
-                  </div>
-                </div>
-
-                {/* Vertical Connector Path */}
-                <div className="flex justify-center -my-2.5 h-6">
-                  <div className="w-0.5 bg-gradient-to-b from-indigo-600 to-purple-600 h-full border-dashed" />
-                </div>
-
-                {/* Step 3: Team Distribution Output */}
-                <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    <span>Team Member</span>
-                    <span>Received Leads</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {[
-                      { name: 'Kajal Kaur', role: 'FLP Manager', count: 18, color: 'bg-emerald-500' },
-                      { name: 'Ranjit Singh', role: 'Team Leader', count: 24, color: 'bg-indigo-500' },
-                      { name: 'Loveleen Kaur', role: 'Distributor', count: 15, color: 'bg-purple-500' }
-                    ].map((member, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100/50">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${member.color}`} />
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-800">{member.name}</span>
-                            <span className="text-[9px] text-slate-400">{member.role}</span>
-                          </div>
-                        </div>
-                        <span className="text-xs font-black text-slate-900 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shadow-sm">
-                          {member.count} Leads
-                        </span>
+                {/* Carousel Viewport */}
+                <div className="relative overflow-hidden rounded-[24px] bg-white border border-slate-100 shadow-sm aspect-[473/1024] w-full max-w-[280px] mx-auto">
+                  <div 
+                    className="absolute inset-0 flex transition-transform duration-500 ease-out" 
+                    style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                  >
+                    {SLIDES.map((slide, idx) => (
+                      <div key={idx} className="w-full h-full flex-shrink-0">
+                        <img 
+                          src={slide} 
+                          alt={SLIDE_CAPTIONS[idx]} 
+                          className="w-full h-full object-cover select-none pointer-events-none"
+                        />
                       </div>
                     ))}
                   </div>
+
+                  {/* Left Navigation Arrow */}
+                  <button 
+                    onClick={handlePrev} 
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-slate-100 flex items-center justify-center text-slate-700 shadow-md hover:bg-white active:scale-90 transition-all z-10"
+                    aria-label="Previous slide"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  {/* Right Navigation Arrow */}
+                  <button 
+                    onClick={handleNext} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-slate-100 flex items-center justify-center text-slate-700 shadow-md hover:bg-white active:scale-90 transition-all z-10"
+                    aria-label="Next slide"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+
+                {/* Active Caption */}
+                <div className="text-center mt-3.5 px-2 min-h-[40px] flex items-center justify-center">
+                  <p className="text-xs font-bold text-slate-700 leading-snug">
+                    {SLIDE_CAPTIONS[currentSlide]}
+                  </p>
+                </div>
+
+                {/* Dot Indicators */}
+                <div className="flex justify-center gap-1.5 mt-2">
+                  {SLIDES.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleDotClick(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        currentSlide === idx ? 'w-5 bg-indigo-600' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
                 </div>
 
               </div>
