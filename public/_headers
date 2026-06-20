@@ -1,0 +1,12 @@
+# Cloudflare Pages headers
+
+# HTML document + SPA routes + service worker must ALWAYS revalidate.
+# Prevents the PWA/browser from serving a stale index.html that
+# references deleted JS chunks (causes ChunkLoadError after deploys).
+/*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Hashed asset files never change → cache forever (fast loads).
+# Listed after /* so this more-specific rule wins for /assets/.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
