@@ -53,7 +53,7 @@ const ShippingPolicy = lazyWithRetry(() => import('./views/legal/ShippingPolicy'
 const ContactUs = lazyWithRetry(() => import('./views/legal/ContactUs').then(m => ({ default: m.ContactUs })));
 
 // 🔒 HIDDEN INTERNAL PAGE — Not linked anywhere, noindex/nofollow
-const FlpDemoBooking = lazyWithRetry(() => import('./views/FlpDemoBooking'));
+const FlpDemoBooking = lazyWithRetry(() => import('./views/FlpDemoBooking').then(m => ({ default: m.FlpDemoBooking })));
 
 // ============================================================
 // 🔄 LOADING SCREEN COMPONENT
