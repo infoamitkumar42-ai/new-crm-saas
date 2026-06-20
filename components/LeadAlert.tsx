@@ -33,8 +33,9 @@ export const LeadAlert: React.FC = () => {
   const playedLeadsRef = useRef<Set<string>>(new Set());
 
   // 🔥 FIX: Hide Alert Button if not logged in
+  // ⚠️ DO NOT early-return here — hooks below must run on every render.
+  // The actual "return null" guard is AFTER all hooks (Rules of Hooks).
   const shouldRender = !!session?.user;
-  if (!shouldRender) return null;
 
   // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
