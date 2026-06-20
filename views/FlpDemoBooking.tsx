@@ -296,7 +296,7 @@ export const FlpDemoBooking: React.FC = () => {
                 rel="noopener noreferrer"
                 className="btn-green-pulse flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-extrabold text-[15px] transition-all transform active:scale-95 text-center"
               >
-                <svg className="w-5.5 h-5.5 fill-white flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-6 h-6 fill-white flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.37 5.054L2 22l5.075-1.33a9.923 9.923 0 0 0 4.937 1.314c5.507 0 9.991-4.479 9.992-9.985A9.998 9.998 0 0 0 12.012 2zm5.457 14.185c-.244.686-1.413 1.311-1.977 1.396-.505.076-1.144.108-1.846-.116-.426-.135-.973-.316-1.674-.619-2.946-1.272-4.869-4.24-5.015-4.437-.146-.195-1.198-1.593-1.198-3.037 0-1.444.75-2.152.99-2.446.244-.294.488-.368.651-.368.162 0 .325.002.467.01.146.007.325-.054.512.395.187.45.651 1.583.71 1.704.059.121.098.262.018.423-.079.162-.119.262-.239.403-.12.141-.252.314-.359.421-.121.121-.247.253-.105.494.141.242.629 1.037 1.349 1.678.929.827 1.71 1.082 1.954 1.203.244.121.385.101.527-.062.141-.162.61-1.077.772-1.33.162-.253.325-.212.548-.13.224.081 1.423.67 1.667.792.244.121.407.182.467.283.06.101.06.586-.184 1.272z" />
                 </svg>
                 <span>Free Demo Book Karo — WhatsApp Pe Aao</span>
