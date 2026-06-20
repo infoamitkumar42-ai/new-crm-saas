@@ -118,7 +118,7 @@ export const FlpDemoBooking: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-bold text-slate-500">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Internal Only</span>
+              <span>Exclusively for FLP Leaders</span>
             </div>
           </header>
 
@@ -224,6 +224,14 @@ export const FlpDemoBooking: React.FC = () => {
               </div>
             </div>
 
+            {/* ── Social Proof Banner ── */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 flex items-start gap-2.5">
+              <span className="text-sm pt-0.5">✅</span>
+              <p className="text-xs font-bold text-emerald-800 leading-normal">
+                Ek Soaring Manager ne LeadFlow use kiya — pehle hafte mein 7-8 conversions aaye.
+              </p>
+            </div>
+
             {/* Feature Bullet Points (Compact Mobile Layout) */}
             <div className="space-y-3 pt-2">
               {[
@@ -247,8 +255,8 @@ export const FlpDemoBooking: React.FC = () => {
                 },
                 {
                   icon: Shield,
-                  title: '100% Secure & Verified',
-                  desc: 'No duplicate lead sharing, client security complete priority.',
+                  title: 'Secure & Verified',
+                  desc: 'SSL encrypted. No duplicate lead sharing. Client data fully protected.',
                   color: 'text-emerald-600 bg-emerald-50'
                 }
               ].map((item, idx) => (
@@ -267,6 +275,16 @@ export const FlpDemoBooking: React.FC = () => {
               ))}
             </div>
 
+            {/* ── Founder Credibility Section ── */}
+            <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 space-y-2.5">
+              <h3 className="font-extrabold text-sm text-slate-900 tracking-wide">
+                Who Built This?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                LeadFlow ke founder Amit ko marketing aur advertising ka 5+ saal ka experience hai. Pichhle 2 saal se wo FLP teams ke liye ye system build kar rahe hain.
+              </p>
+            </div>
+
           </main>
 
           {/* Footer inside the card */}
@@ -275,7 +293,7 @@ export const FlpDemoBooking: React.FC = () => {
               🔒 FLP INTERNAL CRM PLATFORM
             </p>
             <p className="text-[10px] text-slate-400 leading-normal">
-              Authorized personnel only. Data encrypted via SSL.
+              Data encrypted via SSL. Secure platform for FLP team leaders.
             </p>
             <div className="pt-2.5 border-t border-slate-200/60 text-[8px] text-slate-400/80 leading-relaxed text-left space-y-1.5">
               <p>
