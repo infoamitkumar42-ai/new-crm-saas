@@ -16,11 +16,11 @@ import {
 const WHATSAPP_LINK = 'https://wa.me/916283182767?text=Hi,%20main%20FLP%20team%20Manager%20hoon.%20LeadFlow%20ke%20baare%20mein%20batao.';
 
 const SLIDES = [
-  '/images/slide1.png',
-  '/images/slide2.png',
-  '/images/slide3.png',
-  '/images/slide4.png',
-  '/images/slide5.png'
+  '/images/slide1.webp',
+  '/images/slide2.webp',
+  '/images/slide3.webp',
+  '/images/slide4.webp',
+  '/images/slide5.webp'
 ];
 
 const SLIDE_CAPTIONS = [
@@ -99,7 +99,7 @@ export const FlpDemoBooking: React.FC = () => {
           <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="/logo.jpg" 
+                src="/logo.webp" 
                 alt="LeadFlow CRM Logo" 
                 className="w-10 h-10 object-contain rounded-xl shadow-md border border-slate-100"
               />
