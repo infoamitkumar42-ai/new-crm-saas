@@ -20,7 +20,10 @@ const SLIDES = [
   '/images/slide2.webp',
   '/images/slide3.webp',
   '/images/slide4.webp',
-  '/images/slide5.webp'
+  '/images/slide5.webp',
+  '/images/slide6.webp',
+  '/images/slide7.webp',
+  '/images/slide8.webp'
 ];
 
 const SLIDE_CAPTIONS = [
@@ -28,7 +31,10 @@ const SLIDE_CAPTIONS = [
   'Real-Time Lead Alerts & Notifications',
   'Track Every Lead In One Place',
   'Monitor Daily Goals In Real-Time',
-  'Manager Dashboard - Control Your Team'
+  'Manager Dashboard - Control Your Team',
+  'Success Stories - Trusted By Forever Leaders',
+  'Overall Performance - Scale Without Chaos',
+  'Auto Lead Distribution - Fair. Smart. Instant.'
 ];
 
 export const FlpDemoBooking: React.FC = () => {
@@ -120,7 +126,7 @@ export const FlpDemoBooking: React.FC = () => {
           <main className="px-5 py-6 flex-1 flex flex-col space-y-6">
             
             {/* Top Tagline */}
-            <div className="flex justify-start">
+            <div className="flex justify-center">
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100/60">
                 <Sparkles size={14} className="text-indigo-600" />
                 <span className="text-[10px] font-extrabold text-indigo-700 tracking-wider uppercase">
@@ -130,14 +136,14 @@ export const FlpDemoBooking: React.FC = () => {
             </div>
 
             {/* Headline */}
-            <div className="space-y-3">
+            <div className="space-y-3 text-center flex flex-col items-center">
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 leading-tight">
                 FLP Managers ke liye
                 <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-500">
                   Automatic Lead Distribution System
                 </span>
               </h1>
-              <p className="text-sm text-slate-500 font-medium leading-relaxed">
+              <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-xs">
                 Apne Facebook Ads leads ko bina kisi manual kaam ke, automatic, fair rotation ke saath instantly poori team mein distribute karein.
               </p>
             </div>
@@ -264,13 +270,21 @@ export const FlpDemoBooking: React.FC = () => {
           </main>
 
           {/* Footer inside the card */}
-          <footer className="px-5 py-6 bg-slate-50 border-t border-slate-100 text-center space-y-3">
+          <footer className="px-5 py-6 bg-slate-50 border-t border-slate-100 text-center space-y-4">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
               🔒 FLP INTERNAL CRM PLATFORM
             </p>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[10px] text-slate-400 leading-normal">
               Authorized personnel only. Data encrypted via SSL.
             </p>
+            <div className="pt-2.5 border-t border-slate-200/60 text-[8px] text-slate-400/80 leading-relaxed text-left space-y-1.5">
+              <p>
+                <strong>Disclaimer:</strong> This website is not affiliated with, endorsed by, or associated with Meta Platforms, Inc., Facebook, or Google LLC in any manner. FACEBOOK is a trademark of Meta Platforms, Inc.
+              </p>
+              <p>
+                We strictly adhere to all advertising guidelines and policies set by Meta and Google. LeadFlow CRM provides lead distribution software utilities for sales teams; results and performance metrics may vary based on campaign setup and team activity.
+              </p>
+            </div>
           </footer>
 
           {/* Sticky Bottom CTA Bar (Highly Converting for Mobile) */}
@@ -280,11 +294,12 @@ export const FlpDemoBooking: React.FC = () => {
                 href={WHATSAPP_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-green-pulse flex items-center justify-center gap-3 w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-extrabold text-base transition-all transform active:scale-95"
+                className="btn-green-pulse flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-extrabold text-[15px] transition-all transform active:scale-95 text-center"
               >
-                <MessageCircle size={22} className="fill-white/10" />
+                <svg className="w-5.5 h-5.5 fill-white flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.37 5.054L2 22l5.075-1.33a9.923 9.923 0 0 0 4.937 1.314c5.507 0 9.991-4.479 9.992-9.985A9.998 9.998 0 0 0 12.012 2zm5.457 14.185c-.244.686-1.413 1.311-1.977 1.396-.505.076-1.144.108-1.846-.116-.426-.135-.973-.316-1.674-.619-2.946-1.272-4.869-4.24-5.015-4.437-.146-.195-1.198-1.593-1.198-3.037 0-1.444.75-2.152.99-2.446.244-.294.488-.368.651-.368.162 0 .325.002.467.01.146.007.325-.054.512.395.187.45.651 1.583.71 1.704.059.121.098.262.018.423-.079.162-.119.262-.239.403-.12.141-.252.314-.359.421-.121.121-.247.253-.105.494.141.242.629 1.037 1.349 1.678.929.827 1.71 1.082 1.954 1.203.244.121.385.101.527-.062.141-.162.61-1.077.772-1.33.162-.253.325-.212.548-.13.224.081 1.423.67 1.667.792.244.121.407.182.467.283.06.101.06.586-.184 1.272z" />
+                </svg>
                 <span>Free Demo Book Karo — WhatsApp Pe Aao</span>
-                <ChevronRight size={18} className="opacity-80" />
               </a>
               <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 <span>🟢 Auto-Setup Support</span>
