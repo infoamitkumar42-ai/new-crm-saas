@@ -358,6 +358,69 @@ const AppRoutes: React.FC = () => {
 };
 
 // ============================================================
+// 💥 CRASH RECOVERY SCREEN (Sentry ErrorBoundary fallback)
+// ============================================================
+// Shown when a chunk fails to load after a new deploy (ChunkLoadError)
+// or any uncaught render error. Gives the user a one-tap recovery that
+// clears SW + asset caches while PRESERVING Supabase auth tokens.
+const CrashRecoveryScreen: React.FC = () => {
+  const handleRecover = async () => {
+    try {
+      // 1. Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+
+      // 2. Clear session + local caches, but KEEP Supabase auth tokens
+      sessionStorage.clear();
+      const preserveKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          preserveKeys.push(key);
+        }
+      }
+      const preserved: Record<string, string> = {};
+      preserveKeys.forEach(k => { preserved[k] = localStorage.getItem(k) || ''; });
+      localStorage.clear();
+      preserveKeys.forEach(k => localStorage.setItem(k, preserved[k]));
+
+      // 3. Clear PWA asset caches (old JS/CSS chunks)
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key)));
+      }
+
+      // 4. Hard reload to fetch fresh build
+      window.location.href = '/';
+    } catch (e) {
+      window.location.href = '/';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <h1 className="text-xl font-bold text-slate-900 mb-2">Something went wrong.</h1>
+      <p className="text-slate-500 mb-8 max-w-sm leading-relaxed">
+        The app needs a quick refresh to load the latest update. Your login stays safe.
+      </p>
+      <button
+        onClick={handleRecover}
+        className="px-10 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+      >
+        Reload App
+      </button>
+      <p className="mt-4 text-[11px] text-slate-400 max-w-[220px] leading-relaxed">
+        This clears the old cache and fixes the loading issue.
+      </p>
+    </div>
+  );
+};
+
+// ============================================================
 // 🚀 MAIN APP COMPONENT
 // ============================================================
 import * as Sentry from "@sentry/react";
@@ -413,7 +476,7 @@ function App() {
   }
 
   return (
-    <Sentry.ErrorBoundary fallback={<div className="p-10 text-center"><h1>Something went wrong.</h1><p>Our team has been notified.</p></div>}>
+    <Sentry.ErrorBoundary fallback={<CrashRecoveryScreen />}>
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
