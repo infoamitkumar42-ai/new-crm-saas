@@ -34,6 +34,7 @@ export const LeadAlert: React.FC = () => {
 
   // 🔥 FIX: Hide Alert Button if not logged in
   const shouldRender = !!session?.user;
+  if (!shouldRender) return null;
 
   // Audio Init - FIXED: Only LOAD audio, don't play on click
   useEffect(() => {
