@@ -27,6 +27,14 @@ export const Landing = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // If a Supabase recovery/magic-link hash lands on root, forward to /reset-password
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('access_token')) {
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, []);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
