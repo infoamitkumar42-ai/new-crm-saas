@@ -359,18 +359,29 @@ export const Auth: React.FC = () => {
       </Helmet>
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
 
-        {/* Header */}
+        {/* Brand Header */}
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {mode === "login" && "Welcome Back"}
-            {mode === "signup" && "Join LeadFlow"}
-            {mode === "forgot_password" && "Reset Password"}
-          </h2>
-          <p className="text-slate-500 mt-2 text-sm">
-            {mode === "login" && "Login to access your dashboard"}
-            {mode === "signup" && "Start managing or working on leads today"}
-            {mode === "forgot_password" && "We'll send you a reset link"}
-          </p>
+          <div className="flex flex-col items-center mb-5">
+            <img
+              src="/icon-192x192.png"
+              alt="LeadFlow CRM"
+              className="w-16 h-16 rounded-2xl shadow-md mb-3"
+            />
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">LeadFlow CRM</h1>
+            <p className="text-xs font-semibold text-indigo-600 mt-1 tracking-wide uppercase">India's first MLM CRM Software</p>
+          </div>
+          <div className="border-t border-slate-100 pt-5">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {mode === "login" && "Welcome Back"}
+              {mode === "signup" && "Join LeadFlow"}
+              {mode === "forgot_password" && "Reset Password"}
+            </h2>
+            <p className="text-slate-500 mt-1.5 text-sm">
+              {mode === "login" && "Login to access your dashboard"}
+              {mode === "signup" && "Start managing or working on leads today"}
+              {mode === "forgot_password" && "We'll send you a reset link"}
+            </p>
+          </div>
         </div>
 
         {/* FORGOT PASSWORD FORM */}
