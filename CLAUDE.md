@@ -6,6 +6,11 @@
 
 ## ⛔ HARD RULES — VIOLATING ANY OF THESE = INSTANT ROLLBACK
 
+0. **ALWAYS use PR workflow — NEVER push directly to `main`**:
+   - All changes must go on a feature branch
+   - Create a GitHub PR, then merge the PR into `main`
+   - Direct push to `main` is FORBIDDEN
+
 1. **NEVER modify LOCKED files** without explicit user instruction:
    - `auth/useAuth.tsx` (v6.4) — Auth logic, session management
    - `supabaseClient.ts` (v4.0) — Supabase client with Cloudflare proxy
