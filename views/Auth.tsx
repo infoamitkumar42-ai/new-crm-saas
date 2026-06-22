@@ -210,10 +210,8 @@ export const Auth: React.FC = () => {
     setLoading(true);
 
     try {
-      const redirectUrl = (import.meta.env as any).VITE_APP_URL || window.location.origin;
-
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${redirectUrl}/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
