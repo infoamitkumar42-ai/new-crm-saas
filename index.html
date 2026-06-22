@@ -3,6 +3,24 @@
 
 <head>
   <meta charset="UTF-8" />
+
+  <!-- 🔑 PASSWORD RECOVERY GUARD — must run BEFORE any JS module loads.
+       Supabase's detectSessionInUrl auto-consumes the hash on first
+       load, which logs the user in and clears the recovery token.
+       If we see a recovery hash on any path that isn't /reset-password,
+       rewrite the URL so React Router lands directly on the reset form. -->
+  <script>
+    (function () {
+      try {
+        var h = window.location.hash || '';
+        if ((h.indexOf('type=recovery') !== -1 || h.indexOf('access_token') !== -1) &&
+            window.location.pathname.indexOf('reset-password') === -1) {
+          window.history.replaceState(null, '', '/reset-password' + window.location.search + h);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <meta property="fb:app_id" content="890507710217487">
   <!-- ✅ NEW: viewport-fit=cover added for iPhone notch -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
