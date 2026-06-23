@@ -231,8 +231,8 @@ export const Landing = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2.5">
-              <img src="/logo.webp" alt="LeadFlow CRM" className="h-10 w-auto" />
-              <span className="font-extrabold text-xl tracking-tight text-slate-900">LeadFlow CRM</span>
+              <img src="/icon-192x192.png" alt="LeadFlow" className="w-9 h-9 rounded-xl shadow-sm" />
+              <span className="font-extrabold text-xl tracking-tight text-slate-900">LeadFlow</span>
             </div>
 
             <div className="hidden md:flex items-center gap-6">
@@ -924,7 +924,8 @@ export const Landing = () => {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src="/logo.webp" alt="LeadFlow CRM" className="h-8 w-auto brightness-0 invert" />
+                <img src="/icon-192x192.png" alt="LeadFlow" className="w-8 h-8 rounded-lg" />
+                <span className="font-bold text-white text-lg">LeadFlow</span>
               </div>
               <p className="text-sm">Daily fresh leads for serious agents.</p>
             </div>
