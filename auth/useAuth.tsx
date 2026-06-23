@@ -125,6 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const profileFailCount = useRef(0);
   const isRefreshing = useRef(false);
   const lastProfileAttemptRef = useRef<number>(0);
+  const isManualSignOutRef = useRef(false); // ✅ Tracks intentional signOut vs system SIGNED_OUT
   const PROFILE_COOLDOWN_MS = 30000;
 
   // ✅ FIX v6.4: Use ref to track profile without causing dependency loops
@@ -596,6 +597,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_OUT') {
+        // If user manually called signOut(), skip recovery and clear immediately
+        if (isManualSignOutRef.current) {
+          isManualSignOutRef.current = false;
+          processingSignIn.current = false;
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          lastProfileAttemptRef.current = 0;
+          hasInitializedRef.current = false;
+          localStorage.removeItem('leadflow-profile-cache');
+          return;
+        }
+
+        // System-triggered SIGNED_OUT (could be network failure or genuine expiry)
+        // Supabase clears localStorage on genuine expiry BEFORE firing SIGNED_OUT.
+        // So if token is still in localStorage, it means network failed mid-refresh
+        // (not a genuine logout) — attempt one recovery before logging out.
+        const storedRaw = localStorage.getItem('leadflow-auth-v2');
+        if (storedRaw && mountedRef.current) {
+          try {
+            const stored = JSON.parse(storedRaw);
+            if (stored?.refresh_token) {
+              console.warn('⚠️ System SIGNED_OUT — attempting 1× session recovery...');
+              const { data, error } = await supabase.auth.refreshSession({
+                refresh_token: stored.refresh_token
+              });
+              if (data?.session && !error && mountedRef.current) {
+                console.log('✅ Session recovered — SIGNED_OUT was a false trigger (network glitch)');
+                setSession(data.session);
+                return; // User stays logged in, no logout
+              }
+              console.warn('⚠️ Recovery failed — genuine SIGNED_OUT. Logging out.');
+            }
+          } catch (e) {
+            console.warn('⚠️ Session recovery error:', e);
+          }
+        }
+
+        // Genuine logout — clear everything
         processingSignIn.current = false;
         setSession(null);
         setProfile(null);
@@ -863,6 +903,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = useCallback(async () => {
+    isManualSignOutRef.current = true; // Mark as intentional before calling signOut
     setSession(null);
     setProfile(null);
     setLoading(false);
