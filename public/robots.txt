@@ -1,8 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /blog.html
 Allow: /blog/
 Allow: /terms
 Allow: /login
+Allow: /contact
+Allow: /privacy
+Allow: /refund
+Allow: /shipping
 Disallow: /api/
 Disallow: /admin/
 Disallow: /dashboard/

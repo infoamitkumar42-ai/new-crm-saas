@@ -1,0 +1,75 @@
+# LeadFlow CRM
+# https://www.leadflowcrm.in
+# Facebook lead distribution software for Indian sales teams and network marketing distributors.
+
+## Product
+LeadFlow CRM is a SaaS platform that automatically distributes Facebook leads to paid subscribers using a round-robin algorithm. Plans are leads-based (quota exhausted = plan expired). Built for network marketing teams, Forever Living distributors, and Indian SMB sales teams.
+
+## Key Pages
+
+### Home
+- URL: https://www.leadflowcrm.in/
+- Description: Main landing page — product overview, pricing, how it works, testimonials from Indian sales managers.
+
+### Login / Signup
+- URL: https://www.leadflowcrm.in/login
+- Description: User authentication page.
+
+### Contact
+- URL: https://www.leadflowcrm.in/contact
+- Description: Contact form and support details.
+
+## Blog — Lead Management Guides for Indian Teams
+
+### Blog Index
+- URL: https://www.leadflowcrm.in/blog.html
+- Description: All blog articles — lead management tips for Indian sales teams in Hinglish.
+
+### Lead Flow Management Guide
+- URL: https://www.leadflowcrm.in/blog/lead-flow-management-guide-india.html
+- Title: Lead Flow Management — Complete Guide for Indian Sales Teams 2026
+- Keywords: lead flow, lead flow management, Facebook lead distribution India
+- Summary: What lead flow means, why Indian sales teams struggle with it, 5 components of a proper lead flow system, Facebook to CRM flow explained.
+
+### Network Marketing CRM Guide
+- URL: https://www.leadflowcrm.in/blog/network-marketing-crm-guide-india.html
+- Title: Network Marketing CRM India 2026 — Kaunsa Choose Kare
+- Keywords: network marketing crm, mlm crm india, crm for network marketing teams
+- Summary: Honest comparison of Zoho vs HubSpot vs LeadFlow CRM for Indian network marketing and MLM teams.
+
+### FLP Leads Guide
+- URL: https://www.leadflowcrm.in/blog/flp-leads-generate-kaise-kare.html
+- Title: FLP Leads Generate Kaise Kare — Proven System 2026
+- Keywords: flp leads, forever living leads, flp lead generation india
+- Summary: How to generate leads for Forever Living (FLP) business via Facebook ads, Instagram, WhatsApp, and automatic distribution systems.
+
+### Forever Leads Distribution System
+- URL: https://www.leadflowcrm.in/blog/forever-leads-distribution-system.html
+- Title: Forever Leads Distribution System — Auto Assign Karo
+- Keywords: forever leads, forever living lead distribution, flp team lead management
+- Summary: How to stop manual WhatsApp-based lead distribution and build an automated system for Forever Living teams.
+
+### Lead Distribution Software India
+- URL: https://www.leadflowcrm.in/blog/lead-distribution-software-india.html
+- Title: Lead Distribution Software India — Best Options 2026
+- Keywords: lead distribution software india, lead distribution management software india
+- Summary: Comparison of LeadSquared, Salesforce, Zoho CRM, and LeadFlow CRM for Indian SMB and network marketing teams.
+
+## Legal Pages
+- Privacy Policy: https://www.leadflowcrm.in/privacy
+- Terms of Service: https://www.leadflowcrm.in/terms
+- Refund Policy: https://www.leadflowcrm.in/refund
+- Shipping Policy: https://www.leadflowcrm.in/shipping
+
+## Plans & Pricing (as of 2026)
+- Starter: ₹999 / 55 leads (5 leads/day, 10 days)
+- Supervisor: ₹1,999 / 115 leads (7 leads/day, 15 days)
+- Weekly Boost: ₹1,999 / 92 leads (12 leads/day, 7 days)
+- Turbo Boost: ₹2,499 / 108 leads (14 leads/day, 7 days)
+- Manager: ₹3,499 / 150 leads (8 leads/day, 20 days)
+
+## Technical
+- Frontend: React 18 SPA on Cloudflare Pages
+- Backend: Supabase (PostgreSQL + Edge Functions)
+- Payments: Razorpay
+- API Proxy: https://api.leadflowcrm.in (Cloudflare Worker)
