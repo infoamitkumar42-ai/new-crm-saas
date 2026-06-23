@@ -82,7 +82,12 @@ const LoadingScreen: React.FC<{ message?: string }> = ({ message = "Loading work
       const preserveKeys: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+        if (key && (
+          key.startsWith('sb-') ||
+          key.includes('supabase') ||
+          key === 'leadflow-auth-v2' ||  // custom storageKey in supabaseClient.ts
+          key === 'leadflow-auth'         // legacy fallback key
+        )) {
           preserveKeys.push(key);
         }
       }
@@ -379,7 +384,12 @@ const CrashRecoveryScreen: React.FC = () => {
       const preserveKeys: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+        if (key && (
+          key.startsWith('sb-') ||
+          key.includes('supabase') ||
+          key === 'leadflow-auth-v2' ||  // custom storageKey in supabaseClient.ts
+          key === 'leadflow-auth'         // legacy fallback key
+        )) {
           preserveKeys.push(key);
         }
       }
