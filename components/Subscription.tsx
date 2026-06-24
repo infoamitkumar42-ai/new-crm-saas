@@ -157,7 +157,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         price: 1499,
         originalPrice: 2999,
         duration: 12,
-        dailyLeads: 7,
+        dailyLeads: 6,
         totalLeads: 80,
         perDay: 125,
         weight: 3,
@@ -172,7 +172,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         borderColor: 'border-blue-400',
         accentColor: 'text-blue-600',
         features: [
-          { text: '7 Leads/Day', icon: Target, highlight: true },
+          { text: '6 Leads/Day', icon: Target, highlight: true },
           { text: '80 Total Leads', icon: TrendingUp, highlight: true },
           { text: '8 Replacement Leads Included', icon: RefreshCw, highlight: true },
           { text: '12 Day Campaign', icon: Clock, highlight: false },
