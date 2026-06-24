@@ -13,12 +13,12 @@
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
-  Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
+  ArrowRight, Star, X, ChevronLeft, TrendingUp,
   Phone, MessageCircle, RefreshCw, Sparkles, Users,
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
 } from 'lucide-react';
@@ -57,59 +57,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
       script.onload = () => resolve();
       document.body.appendChild(script);
     });
-  };
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ACTIVATION COUNTDOWN COMPONENT
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const ActivationCountdown = () => {
-    const [timeLeft, setTimeLeft] = useState('');
-
-    useEffect(() => {
-      const calculateTimeLeft = () => {
-        const now = new Date();
-        const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const istNow = new Date(utcNow + (3600000 * 5.5));
-        
-        const targetIST = new Date(istNow);
-        if (istNow.getHours() >= 7) {
-          targetIST.setDate(targetIST.getDate() + 1);
-        }
-        targetIST.setHours(7, 0, 0, 0);
-
-        const diff = targetIST.getTime() - istNow.getTime();
-        
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-      };
-
-      calculateTimeLeft();
-      const timer = setInterval(calculateTimeLeft, 1000);
-      return () => clearInterval(timer);
-    }, []);
-
-    return (
-      <div className="bg-slate-900/60 backdrop-blur-md border border-blue-500/30 rounded-2xl p-4 mb-6 shadow-xl shadow-blue-900/20">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/20 rounded-xl">
-              <Timer className="text-blue-400 animate-pulse" size={24} />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-sm">Next Activation Window</h3>
-              <p className="text-white/60 text-xs">Plans activate automatically everyday at <strong className="text-blue-300">7:00 AM IST</strong></p>
-            </div>
-          </div>
-          <div className="bg-slate-900 px-5 py-2.5 rounded-xl border border-white/10 text-center min-w-[140px] shadow-inner">
-            <div className="text-[10px] text-white/50 font-bold tracking-wider mb-0.5 uppercase">Time Remaining</div>
-            <div className="text-blue-400 font-mono font-bold text-lg tracking-wider">{timeLeft || '...'}</div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -437,23 +384,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         </div>
 
         <div className="px-4 py-5 pb-32 relative z-10">
-
-          {/* ━━━ Activation Countdown Timer ━━━ */}
-          <ActivationCountdown />
-
-          {/* ━━━ Welcome Offer Banner ━━━ */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-4 mb-6 shadow-2xl shadow-emerald-500/20">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvZz48L3N2Zz4=')] opacity-30"></div>
-            <div className="relative flex items-center justify-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Gift size={24} className="text-white animate-bounce" />
-                <span className="font-bold text-white text-lg">Welcome Bonus!</span>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full">
-                <span className="text-white font-black text-sm">🎁 5 EXTRA Leads FREE</span>
-              </div>
-            </div>
-          </div>
 
           {/* ━━━ Header Text ━━━ */}
           <div className="text-center mb-6">

@@ -297,6 +297,22 @@ export const MemberDashboard = () => {
   const isPlanPending = profile?.is_plan_pending === true;
   const isPaused = profile?.is_active === false && !isPlanPending;
 
+  const [pendingCountdown, setPendingCountdown] = useState('');
+  useEffect(() => {
+    if (!isPlanPending || !profile?.plan_activation_time) return;
+    const update = () => {
+      const diff = Math.max(0, new Date(profile.plan_activation_time).getTime() - Date.now());
+      if (diff === 0) { setPendingCountdown('Activate ho raha hai! 🎉'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setPendingCountdown(`${h}h ${m}m ${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [isPlanPending, profile?.plan_activation_time]);
+
   const daysExtended = profile?.days_extended || 0;
   const totalPromised = profile?.total_leads_promised || 0;
 
@@ -912,30 +928,6 @@ export const MemberDashboard = () => {
           </div>
         )}
 
-        {/* Pending Plan Banner — shows until plan activates at 7 AM IST */}
-        {profile?.is_plan_pending && profile?.plan_activation_time && (() => {
-          const activationTime = new Date(profile.plan_activation_time);
-          const now = new Date();
-          const msLeft = Math.max(0, activationTime.getTime() - now.getTime());
-          const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
-          const minutesLeft = Math.floor((msLeft % (1000 * 60 * 60)) / 60000);
-
-          return (
-            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-3 px-4">
-              <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
-                <Clock size={18} className="animate-pulse flex-shrink-0" />
-                <span className="text-sm font-medium">
-                  ⏳ Aapka plan kal <span className="font-bold">8:00 AM</span> pe activate hoga
-                  {msLeft > 0 ? (
-                    <> — <span className="font-bold">{hoursLeft > 0 ? `${hoursLeft} ghante ` : ''}{minutesLeft} minute</span> baaki hain</>
-                  ) : (
-                    <> — activate ho raha hai! Page refresh karein 🎉</>
-                  )}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Header */}
@@ -1086,6 +1078,21 @@ export const MemberDashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Pending Plan Activation Countdown */}
+            {isPlanPending && (
+              <div className="mt-3 flex items-center gap-3 bg-amber-500/20 border border-amber-400/40 px-3 py-2.5 rounded-xl">
+                <Clock size={16} className="text-amber-300 animate-pulse flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-amber-200 capitalize">{profile?.plan_name?.replace('_', ' ')} Plan — Activation Pending</p>
+                  <p className="text-[11px] text-amber-300/80">Aapka plan 7:00 AM IST pe activate hoga</p>
+                </div>
+                <div className="bg-amber-500/30 border border-amber-400/50 px-2.5 py-1 rounded-lg text-center flex-shrink-0">
+                  <div className="text-[9px] text-amber-300/70 font-bold uppercase tracking-wide">Baaki</div>
+                  <div className="text-amber-200 font-mono font-bold text-xs">{pendingCountdown || '...'}</div>
+                </div>
+              </div>
+            )}
 
             {/* Plan Extension */}
             {daysExtended > 0 && (
