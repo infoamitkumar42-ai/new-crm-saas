@@ -383,7 +383,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
           </button>
         </div>
 
-        <div className="px-4 py-5 pb-32 relative z-10">
+        <div className="px-4 py-5 pb-8 relative z-10">
 
           {/* ━━━ Header Text ━━━ */}
           <div className="text-center mb-6">
@@ -686,19 +686,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
             </div>
           )}
 
-        </div>
-
-        {/* ━━━ Bottom Bar (Mobile) - CLEAN VERSION ━━━ */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
-          <div className="flex items-center justify-center">
-            <button
-              onClick={handleClose}
-              className="px-8 py-3 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-all border border-white/20 flex items-center gap-2"
-            >
-              <ChevronLeft size={18} />
-              Maybe Later
-            </button>
-          </div>
         </div>
 
       </div>
