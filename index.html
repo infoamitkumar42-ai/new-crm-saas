@@ -4,22 +4,6 @@
 <head>
   <meta charset="UTF-8" />
 
-  <!-- WWW REDIRECT GUARD — must run BEFORE any module loads.
-       iOS Safari fails dynamic imports (React.lazy chunks) on 301 redirects.
-       Cloudflare redirect happens at network level AFTER HTML is served,
-       so chunks still hit www and fail. This JS guard catches it first. -->
-  <script>
-    (function () {
-      try {
-        if (window.location.hostname === 'www.leadflowcrm.in') {
-          window.location.replace(
-            'https://leadflowcrm.in' + window.location.pathname + window.location.search + window.location.hash
-          );
-        }
-      } catch (e) {}
-    })();
-  </script>
-
   <!-- 🔑 PASSWORD RECOVERY GUARD — must run BEFORE any JS module loads.
        Supabase's detectSessionInUrl auto-consumes the hash on first
        load, which logs the user in and clears the recovery token.
@@ -56,12 +40,12 @@
   <meta property="og:title" content="LeadFlow CRM - Facebook Lead Distribution System India">
   <meta property="og:description"
     content="Automatically distribute Facebook leads to your sales team. Used by 260+ sales professionals across India.">
-  <meta property="og:url" content="https://leadflowcrm.in">
+  <meta property="og:url" content="https://www.leadflowcrm.in">
   <meta name="robots" content="index, follow">
   <title>LeadFlow CRM — Facebook Lead Distribution Software India</title>
 
   <!-- Canonical -->
-  <link rel="canonical" href="https://leadflowcrm.in/" />
+  <link rel="canonical" href="https://www.leadflowcrm.in/" />
 
   <!-- OG Image & Extra OG Tags -->
   <meta property="og:image" content="https://www.leadflowcrm.in/og-image.png">
@@ -216,7 +200,7 @@
   <!-- CACHE VERSION CHECK - Feb 7, 2026 (Preserve Auth) -->
   <script>
     (function () {
-      var CACHE_VERSION = 'v20260626_v1';
+      var CACHE_VERSION = 'v20260618_v1';
       var storageKey = 'leadflow_cache_version';
       try {
         var savedVersion = localStorage.getItem(storageKey);
