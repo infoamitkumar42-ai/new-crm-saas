@@ -313,6 +313,79 @@
       } catch (e) { }
     })();
   </script>
+
+  <!-- AUTH-HANG SELF-HEALER
+       Problem: handleForceRefresh in App.tsx preserves Supabase auth tokens
+       (keys starting with "sb-") so the user stays logged in. But if the
+       preserved session makes useAuth hang on the next load (e.g. Supabase
+       auth endpoint blocked by ISP), the app is stuck in LoadingScreen
+       forever — even after clicking Force Refresh.
+
+       This guard fires 25 s after page load. It detects a stuck LoadingScreen
+       by looking for the sentinel text that is ONLY present in LoadingScreen
+       ("Connecting to secure server..."). SENTINEL must match App.tsx.
+
+       Round 1: clear caches only, reload — keeps auth tokens.
+       Round 2: full wipe including auth tokens, reload → user re-logs in.
+
+       Counter key "sb-lf-ah" starts with "sb-" so handleForceRefresh
+       preserves it, letting us count failures across Force Refresh reloads. -->
+  <script>
+    (function () {
+      var HANG_KEY = 'sb-lf-ah';
+      var SENTINEL = 'Connecting to secure server';
+
+      function getN() {
+        try { return parseInt(localStorage.getItem(HANG_KEY) || '0', 10) || 0; }
+        catch (e) { return 0; }
+      }
+      function setN(n) {
+        try {
+          if (n <= 0) localStorage.removeItem(HANG_KEY);
+          else localStorage.setItem(HANG_KEY, '' + n);
+        } catch (e) { }
+      }
+      function clearCaches(cb) {
+        try {
+          if (window.caches && caches.keys) {
+            caches.keys().then(function (ns) {
+              Promise.all(ns.map(function (nm) { return caches.delete(nm); })).then(cb, cb);
+            }, cb);
+          } else { cb(); }
+        } catch (e) { cb(); }
+      }
+
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          try {
+            var root = document.getElementById('root');
+            var html = root ? root.innerHTML : '';
+
+            // Real app has loaded — no sentinel text and has content
+            if (html.indexOf(SENTINEL) === -1 && html.length > 200) {
+              setN(0);
+              return;
+            }
+
+            // Still showing LoadingScreen (sentinel present) or empty root
+            var n = getN();
+
+            if (n >= 1) {
+              // Second failure: auth tokens themselves are causing the hang.
+              // Full wipe → on reload useAuth finds no session → instant init → login page.
+              setN(0);
+              try { localStorage.clear(); sessionStorage.clear(); } catch (e) { }
+              clearCaches(function () { window.location.replace('/'); });
+            } else {
+              // First failure: cache-only wipe, keep auth tokens → reload
+              setN(n + 1);
+              clearCaches(function () { window.location.reload(); });
+            }
+          } catch (e) { }
+        }, 25000);
+      });
+    })();
+  </script>
 </head>
 
 <body class="bg-slate-50 text-slate-900 antialiased">
