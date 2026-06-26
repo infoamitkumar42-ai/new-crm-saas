@@ -352,18 +352,6 @@ export function usePushNotification(): UsePushNotificationReturn {
         console.log('[Push] ✅ Fully subscribed and synced!');
       }
 
-      // Send a confirmation test notification
-      if (!isSilent) {
-        reg.showNotification('🔔 Notifications Enabled!', {
-          body: 'You will now receive lead alerts.',
-          icon: '/icon-192x192.png',
-          badge: '/icon-192x192.png',
-          vibrate: [200, 100, 200],
-          tag: 'enabled-' + Date.now(),
-          requireInteraction: false
-        });
-      }
-
       return true;
 
     } catch (err: any) {
