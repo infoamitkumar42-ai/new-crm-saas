@@ -186,6 +186,19 @@ a:hover{text-decoration:underline}
 
 /* Utilities */
 .container{max-width:1200px;margin:0 auto;padding:0 1.5rem}
+
+/* Table mobile fix — all blog comparison tables scroll horizontally */
+.blog-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1.5rem 0}
+.blog-table-wrap table{min-width:600px;width:100%;border-collapse:collapse}
+.blog-table-wrap th,.blog-table-wrap td{padding:.75rem 1rem;border:1px solid var(--border);font-size:.875rem;color:var(--text)}
+.blog-table-wrap th{background:var(--bg-secondary);font-weight:700;color:var(--text-muted);text-align:left;white-space:nowrap}
+
+/* Light mode safety — ensure article body text is never white on white */
+@media (prefers-color-scheme: light){
+  .article-body,.article-body h2,.article-body h3,.article-body p,.article-body li{color:var(--text)}
+  .page-hero h1,.page-hero p{color:var(--text)}
+  .faq-question{color:var(--text)}
+}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 @media(max-width:640px){
   .page-hero{padding:2rem 1rem 1.5rem}
