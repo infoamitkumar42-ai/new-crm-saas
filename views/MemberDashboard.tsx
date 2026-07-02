@@ -1242,6 +1242,20 @@ export const MemberDashboard = () => {
                       </div>
                     )}
 
+                    {/* Lead Qualifying Details (from lead form: education, profession, experience, DOB) */}
+                    {lead.lead_details && Object.keys(lead.lead_details).length > 0 && (
+                      <div className="text-xs text-slate-600 bg-blue-50 border border-blue-100 p-2.5 rounded-lg mb-3">
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                          {Object.entries(lead.lead_details).map(([label, value]) => (
+                            <div key={label} className="truncate">
+                              <span className="text-slate-400">{label}:</span>{' '}
+                              <span className="font-medium">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="grid grid-cols-4 gap-2 mb-3">
                       <a
