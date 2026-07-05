@@ -424,26 +424,15 @@ export function usePushNotification(): UsePushNotificationReturn {
       const existingSub = await reg.pushManager.getSubscription();
 
       if (existingSub) {
-        const { data: dbSub } = await supabase
-          .from('push_subscriptions')
-          .select('created_at')
-          .eq('endpoint', existingSub.endpoint)
-          .single();
-
-        if (dbSub) {
-          const age = Date.now() - new Date(dbSub.created_at).getTime();
-          const sevenDays = 7 * 24 * 60 * 60 * 1000;
-
-          if (age > sevenDays) {
-            console.log('[Push] Subscription stale, refreshing...');
-            await existingSub.unsubscribe();
-            await subscribe();
-          }
-        } else {
-          // Subscription exists in browser but not in DB - sync it
-          console.log('[Push] Subscription not in DB, syncing...');
-          await syncSubscriptionToDb(existingSub);
-        }
+        // Always re-validate with the push service instead of trusting DB
+        // record age. A subscription can go stale server-side (push service
+        // revokes the endpoint, e.g. 410 Gone) while the browser still holds
+        // the old object locally — pushManager.getSubscription() has no way
+        // to detect that on its own. Calling subscribe() re-issues/renews the
+        // subscription when needed (no-op if it's still valid, no re-prompt
+        // since permission is already granted) and re-syncs it to the DB,
+        // so a silently-dead endpoint doesn't sit there failing forever.
+        await subscribe(true);
       }
     } catch (err) {
       console.warn('[Push] Refresh error:', err);
