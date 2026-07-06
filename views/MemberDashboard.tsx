@@ -60,6 +60,7 @@ interface Lead {
   name: string;
   phone: string;
   city: string;
+  state?: string;
   status: string;
   source: string; // 'Night_Backlog', 'Fresh', etc.
   quality_score: number;
@@ -475,7 +476,7 @@ export const MemberDashboard = () => {
 
   // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
-  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type,lead_details';
+  const LEAD_COLUMNS = 'id,name,phone,city,state,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type,lead_details';
 
   const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
@@ -1198,7 +1199,10 @@ export const MemberDashboard = () => {
                         <div className="font-bold text-slate-900 text-sm sm:text-base truncate">{lead.name}</div>
                         <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                           <MapPin size={10} />
-                          <span className="truncate">{lead.city || 'N/A'}</span>
+                          <span className="truncate">{
+                            (lead.city && lead.city.toLowerCase() !== 'unknown' ? lead.city : lead.state)
+                            || lead.state || 'N/A'
+                          }</span>
                         </div>
                         {lead.source && !['Night_Backlog', 'Night_Queue', 'Fresh', 'Queued', 'New', 'Assigned'].includes(lead.source) && (
                           <div className="mt-1">
