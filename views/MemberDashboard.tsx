@@ -475,7 +475,7 @@ export const MemberDashboard = () => {
 
   // 🚀 OPTIMIZED COLUMNS: Only fetch what the UI needs (saves ~70% payload)
   // NOTE: Must match ACTUAL DB columns (distribution_score does NOT exist!)
-  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type';
+  const LEAD_COLUMNS = 'id,name,phone,city,status,source,quality_score,notes,created_at,assigned_at,user_id,assigned_to,lead_type,lead_details';
 
   const fetchData = async (offset: number = 0, pageSize: number = 50, retryCount: number = 0) => {
     if (isFetchingRef.current) return;
@@ -1218,7 +1218,7 @@ export const MemberDashboard = () => {
                                   <path d="M4 17C4 11.2 7.2 6 12.2 6C15.4 6 17.8 7.9 20.6 12.4L26 21.5L31.4 12.4C34.2 7.9 36.6 6 39.8 6C44.8 6 48 11.2 48 17C48 22.8 44.8 28 39.8 28C36.6 28 34.2 26.1 31.4 21.6L26 12.5L20.6 21.6C17.8 26.1 15.4 28 12.2 28C7.2 28 4 22.8 4 17Z" fill="white"/>
                                 </svg>
                               )}
-                              {lead.source?.toLowerCase().includes('snapchat') ? 'Snapchat' : lead.source?.includes('Meta') || lead.source?.includes('Facebook') || lead.source?.includes('Instagram') ? 'Meta' : lead.source}
+                              {lead.source?.toLowerCase().includes('snapchat') ? 'Snapchat' : lead.source?.includes('Meta') || lead.source?.includes('Facebook') || lead.source?.includes('Instagram') || lead.source?.includes('GoogleSheet') ? 'Meta' : lead.source}
                             </span>
                           </div>
                         )}
@@ -1234,8 +1234,9 @@ export const MemberDashboard = () => {
                     </div>
 
 
-                    {/* Notes Display */}
-                    {lead.notes && (
+                    {/* Notes Display — hide system-generated routing/queue messages
+                        (e.g. "Team X - all users at capacity"); show only real user notes */}
+                    {lead.notes && !/at capacity/i.test(lead.notes) && (
                       <div className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-2.5 rounded-lg mb-3 flex items-start gap-2">
                         <StickyNote size={12} className="mt-0.5 text-amber-500" />
                         <span className="line-clamp-2">{lead.notes}</span>
