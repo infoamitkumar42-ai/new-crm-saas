@@ -735,13 +735,8 @@ export const MemberDashboard = () => {
       return;
     }
 
-    // 🎯 Notify Meta CAPI of real lead quality (non-blocking, never affects UI)
-    if (newStatus === 'Interested' || newStatus === 'Closed') {
-      const eventName = newStatus === 'Closed' ? 'ClosedDeal' : 'QualifiedLead';
-      supabase.functions
-        .invoke('send-crm-conversion', { body: { lead_id: leadId, event_name: eventName } })
-        .catch(() => {});
-    }
+    // 🎯 Meta CAPI notification now handled server-side by trg_send_crm_conversion
+    // DB trigger (fires reliably regardless of client/browser state).
   };
 
   const saveNote = async () => {
