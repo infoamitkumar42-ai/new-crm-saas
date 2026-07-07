@@ -282,6 +282,9 @@ new-crm-saas/
   - `RAZORPAY_WEBHOOK_SECRET` is a separate credential (signature verification only) and is unaffected by key_id/key_secret regeneration — not touched.
 - DB: `handle_new_user()` trigger function fixed — was hardcoding `is_active=true` for every new signup regardless of payment, contradicting its own correctly-set `payment_status='inactive'`/`plan_name='none'` on the same row. Changed to `is_active=false`. See `bugfix.md` BUG-008.
 - DB: 11 unpaid signup accounts (TEAMFIRE's Sangeeta + ALPHAECO's 10 — Sukhmani + 9 manager-linked, all verified zero rows in `payments`) deactivated (`is_active=false`). 12 more from the same audit (ECO@WIN12 x7, ECO-SUKH2022 x4, DIGFIG x1 — Rahul) were flagged as the same issue and deactivated in a same-day follow-up pass, after re-verifying zero `payments` rows each. Total across both passes: 23 unpaid signups corrected. `SELECT COUNT(*) FROM users WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_name='none'` confirmed 0 remaining.
+- Supabase Edge Function `send-crm-conversion` v3→v4 — added `'FollowUp'` event (status='Call Back', a high-intent signal: lead was interested enough to warrant a scheduled callback). `capi_event_log_event_name_check` CHECK constraint updated to allow it.
+- DB: new trigger `trg_send_crm_conversion` (`AFTER UPDATE ON leads`) created — calls `send-crm-conversion` server-side via `net.http_post` whenever `status` changes to `Interested`/`Call Back`/`Closed`. Replaces the old frontend fire-and-forget call (`views/MemberDashboard.tsx` — removed, was `supabase.functions.invoke(...).catch(() => {})`), which audit found could silently never fire (found via `capi_event_log`: a lead tagged `Interested` on 07-06 with zero log entry at all). See `bugfix.md` BUG-009.
+- Backfill: 5 Interested/Call Back leads tagged since the active Pixel's creation (2026-06-30) that were missing a `sent` `capi_event_log` row were re-sent — 4/5 succeeded (real Meta `fbtrace_id`s), 1 correctly `skipped_no_pixel` (ECO@WIN12 has no active Pixel/CAPI config, same known gap as before). Deliberately did NOT backfill the full historical gap (881 Interested + 70 Closed + 590 Call Back, mostly pre-dating the current Pixel) — sending months-old CRM outcomes to Meta with a synthetic "now" `event_time` risks skewing signal quality / ad-account review for zero benefit.
 
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
@@ -472,6 +475,7 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-006 | 2026-07-07 | Razorpay webhook silently drops captured payments, no self-healing | New `razorpay-reconcile` Edge Function + `pg_cron` every 15 min |
 | BUG-007 | 2026-07-07 | Stale hardcoded Razorpay key fallback in `config/env.ts` after live key regeneration | Fallback updated to new key_id |
 | BUG-008 | 2026-07-07 | New signups defaulted to `is_active=true` with zero payment (free leads) | `handle_new_user()` trigger — `is_active` hardcoded value `true` → `false` |
+| BUG-009 | 2026-07-07 | Meta CAPI signal silently never fires for some Interested/Closed tags (fire-and-forget frontend call) | New `trg_send_crm_conversion` DB trigger, server-side + `FollowUp` event added |
 
 ---
 
