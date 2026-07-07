@@ -444,6 +444,46 @@ WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_na
 
 ---
 
+### BUG-009 — Meta CAPI Signal Silently Never Fires For Some Interested/Closed Tags
+
+**Status:** ✅ Fixed
+**Severity:** Medium — data quality issue for Meta ad optimization, not a business-data-loss bug
+**Affected:** `views/MemberDashboard.tsx` (`handleStatusChange`), `send-crm-conversion` Edge Function
+
+#### What was the bug
+When a member tagged a lead `Interested`/`Closed`, the frontend called `send-crm-conversion` as pure fire-and-forget: `supabase.functions.invoke(...).catch(() => {})`. If the tab closed, the network blipped, or the call errored before the function's `capi_event_log` insert branches were reached, the signal silently never reached Meta — no error shown to the user, no log row at all (not even a `failed` result), completely invisible.
+
+#### What broke
+Audit on 2026-07-07 using the `capi_event_log` table (which records every real attempt + Meta's actual response) found:
+- Priyanka Sharma's lead tagged `Interested` on 2026-07-06 — zero `capi_event_log` row exists. The call never completed.
+- Separately (not a bug, a coverage gap): Lovepreet Kaur's lead (`ECO@WIN12` team) correctly logged `skipped_no_pixel` — `pixel_config` only has active rows for `team_code IN ('TEAMFIRE', 'TEAMFIRE,TEAMSIMRAN')`; no other team has an active Meta Pixel/CAPI mapping, so their Interested/Closed/Call Back tags can never reach Meta until a pixel is configured for them.
+- A separate high-intent signal was also missing entirely: `status='Call Back'` (a lead interested enough to warrant a scheduled follow-up) was never sent to Meta at all — only `Interested`→`QualifiedLead` and `Closed`→`ClosedDeal` existed.
+
+Full-history count (all-time, since this feature has ever existed): 881 `Interested`, 70 `Closed`, 590 `Call Back` tagged leads, of which only 19 + 16 + 0 respectively had a `sent` `capi_event_log` row — but nearly all of that gap is leads tagged *before* the current active Pixel (`1047115834311811`, created 2026-06-30 20:09 UTC) ever existed, so backfilling those would mean reporting months-old CRM interactions to Meta as if they "just happened" (`event_time` is always stamped `now()` by design) — a real risk of skewing Meta's signal quality / triggering unusual-activity review on the ad account for no benefit, since Meta never saw those campaigns' outcomes anyway. Backfill was intentionally scoped to **only leads updated since the active Pixel was created** (2026-06-30 onward) — 5 leads total.
+
+#### How it was fixed
+1. **`send-crm-conversion` v4** — added `'FollowUp'` to `ALLOWED_EVENTS` (was `['QualifiedLead', 'ClosedDeal']`), and updated the `capi_event_log_event_name_check` CHECK constraint to allow it.
+2. **New DB trigger `trg_send_crm_conversion`** (`AFTER UPDATE ON leads`, fires when `status` changes to `Interested`/`Call Back`/`Closed`) calls `send-crm-conversion` via `net.http_post` — server-side, so it fires reliably regardless of the member's browser/tab/network state. This is now the sole path; the frontend's fire-and-forget call was removed from `MemberDashboard.tsx` entirely (see PR #84).
+3. **Backfill**: the 5 leads tagged since the active Pixel's creation (2026-06-30) that were missing a `sent` log were re-sent via the (now-fixed) function — 4/5 succeeded with real Meta `fbtrace_id`s confirming genuine acceptance; the 5th (Lovepreet Kaur, `ECO@WIN12`) correctly `skipped_no_pixel` again, same as before — that part is a config gap, not something this fix could resolve (needs a Pixel/CAPI token for `ECO@WIN12` and any other non-TEAMFIRE team, same as was done for TEAMFIRE earlier).
+
+#### Verification
+```sql
+-- Trigger is live
+SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = 'trg_send_crm_conversion';
+-- tgenabled = 'O' (enabled)
+
+-- Going forward: any Interested/Call Back/Closed tag should get a capi_event_log row
+-- within seconds, with result IN ('sent','failed','skipped_no_pixel') -- never absent.
+SELECT l.name, l.status, cel.event_name, cel.result, cel.created_at
+FROM leads l LEFT JOIN capi_event_log cel ON cel.lead_id = l.id
+WHERE l.status IN ('Interested','Call Back','Closed')
+ORDER BY l.updated_at DESC LIMIT 20;
+```
+
+**Open item:** only `TEAMFIRE`/`TEAMSIMRAN` have an active Pixel/CAPI mapping in `pixel_config`. `ECO@WIN12`, `ALPHAECO`, `ECO-SUKH2022`, `WIN11`, `DIGFIG` all get `skipped_no_pixel` for every Interested/Call Back/Closed tag — needs a Pixel ID + CAPI access token per team (or per ad account) to close, same setup process as TEAMFIRE.
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  
