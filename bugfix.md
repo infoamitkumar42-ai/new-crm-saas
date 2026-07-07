@@ -396,6 +396,54 @@ Real-world verification: open the app, click "Buy"/"Subscribe" on any plan — R
 
 ---
 
+### BUG-008 — New Signups Default to `is_active=true` With No Payment
+
+**Status:** ✅ Fixed
+**Severity:** High — every new signup was immediately eligible to receive leads for free
+**Affected:** `handle_new_user()` trigger function (fires `AFTER INSERT ON auth.users`, populates `public.users`)
+
+#### What was the bug
+`handle_new_user()` correctly sets `payment_status='inactive'` and `plan_name='none'` for a brand-new signup (no payment made yet), but in the same INSERT it hardcoded `is_active` to `true`. `is_active` is the flag that controls lead-receiving eligibility, so every single new account — the moment they finish Supabase Auth signup, before paying anything — became eligible to receive leads.
+
+#### What broke
+Audit on 2026-07-07 found 22 accounts created between 2026-06-10 and 2026-07-01 with `is_active=true`, `payment_status='inactive'`, `plan_name='none'`, `total_leads_received=0` — genuine unpaid signups, not paying members. Cross-checked their `manager_id` to find their real intended team (their own `team_code` is NULL for members, only managers get a `team_code`):
+
+| Real team (via manager) | Count |
+|---|---|
+| ALPHAECO | 9 |
+| ECO@WIN12 | 7 |
+| ECO-SUKH2022 | 4 |
+| TEAMFIRE | 1 |
+| DIGFIG | 1 |
+
+Plus 1 more with an explicit `team_code='ALPHAECO'` (Sukhmani) — highest risk of the batch, since she (unlike the other 9 ALPHAECO signups whose `team_code` is NULL) would actually pass a `team_code='ALPHAECO'` filter in lead-assignment RPCs despite having paid nothing.
+
+11 of these (the ones under TEAMFIRE/ALPHAECO, verified zero `payments` rows each) were deactivated as part of this fix — see verification query below for the full list. The remaining 11 (ECO@WIN12/ECO-SUKH2022/DIGFIG) were not touched in this pass — same bug, same treatment needed, but out of scope for this cleanup and left for a follow-up.
+
+#### How it was fixed
+```sql
+-- handle_new_user() — before:
+'{"pan_india": true}'::jsonb, true, 0, 50,
+-- after:
+'{"pan_india": true}'::jsonb, false, 0, 50,
+```
+Single-value change inside the existing `INSERT INTO public.users (...)` column list (`is_active` column position) — full `CREATE OR REPLACE FUNCTION` re-deployed with only this value flipped. All other fields (payment_status, plan_name, quota defaults, team_code/manager_id extraction logic) untouched.
+
+#### Verification
+```sql
+SELECT prosrc LIKE '%jsonb, false, 0, 50%' AS fixed FROM pg_proc WHERE proname = 'handle_new_user';
+-- fixed = true
+
+-- Should return 0 rows going forward (no new unpaid account should ever be is_active=true):
+SELECT email, name, created_at FROM users
+WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_name='none'
+  AND created_at > '2026-07-07'::date;
+```
+
+**Note:** the `is_active` column itself still has a table-level `DEFAULT true` (`information_schema.columns` confirms this). It's dormant now — every actual signup path goes through `handle_new_user()`, which explicitly specifies `is_active` in its INSERT, overriding the column default. Left as-is (changing a column default is a schema change requiring separate sign-off per the hard rules in `CLAUDE.md`), but flagged here in case any future insert path into `public.users` ever omits `is_active` explicitly.
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  
