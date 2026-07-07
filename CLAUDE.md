@@ -270,6 +270,12 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-07-07
+- Supabase Edge Function `razorpay-reconcile` CREATED (v1, `verify_jwt: false`) — polls Razorpay's `/v1/payments` API directly every 15 min and backfills any `captured` payment missing from the `payments` table, using the same `PLAN_CONFIG`/baseline-cumulative-quota/next-day-7AM-IST-activation logic as `razorpay-webhook.ts`. Idempotent (dedupes on `razorpay_payment_id`), always returns HTTP 200.
+- DB: `pg_cron` job `razorpay-reconcile-15min` created (jobid=26, `*/15 * * * *`) to invoke the above function automatically.
+- Reason: Razorpay webhook (`functions/api/razorpay-webhook.ts`) failed silently a second time on 2026-07-07 (2 real payments — SEEMA RANI `pay_TAaIC81bqGq1ZA`, Ravenjeet Kaur `pay_TAa7wUU9qCp8MV` — went unprocessed) despite the 2026-06-06 www-redirect fix. No Razorpay tool exposes webhook delivery logs, so this adds a self-healing safety net instead of relying solely on webhook delivery. See `bugfix.md` BUG-006 for full details and verification queries.
+- Note: Razorpay API keys are hardcoded as constants inside `razorpay-reconcile` (no Supabase secrets-manager tool available in this environment) — same pattern already used for other credentials (CAPI tokens) in this project.
+
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
 - functions/api/create-order.ts: CREATED — Cloudflare Pages Function for server-side Razorpay order creation; uses env.RAZORPAY_KEY_ID || env.VITE_RAZORPAY_KEY_ID fallback
