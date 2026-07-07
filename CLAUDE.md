@@ -281,7 +281,7 @@ new-crm-saas/
   - Supabase `razorpay-reconcile` — already had the new key (deployed with it directly).
   - `RAZORPAY_WEBHOOK_SECRET` is a separate credential (signature verification only) and is unaffected by key_id/key_secret regeneration — not touched.
 - DB: `handle_new_user()` trigger function fixed — was hardcoding `is_active=true` for every new signup regardless of payment, contradicting its own correctly-set `payment_status='inactive'`/`plan_name='none'` on the same row. Changed to `is_active=false`. See `bugfix.md` BUG-008.
-- DB: 11 unpaid signup accounts (TEAMFIRE's Sangeeta + ALPHAECO's 10 — Sukhmani + 9 manager-linked, all verified zero rows in `payments`) deactivated (`is_active=false`). 11 more from the same audit (ECO@WIN12 x7, ECO-SUKH2022 x4) are the same issue but were **not** touched this pass — flagged for a follow-up cleanup.
+- DB: 11 unpaid signup accounts (TEAMFIRE's Sangeeta + ALPHAECO's 10 — Sukhmani + 9 manager-linked, all verified zero rows in `payments`) deactivated (`is_active=false`). 12 more from the same audit (ECO@WIN12 x7, ECO-SUKH2022 x4, DIGFIG x1 — Rahul) were flagged as the same issue and deactivated in a same-day follow-up pass, after re-verifying zero `payments` rows each. Total across both passes: 23 unpaid signups corrected. `SELECT COUNT(*) FROM users WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_name='none'` confirmed 0 remaining.
 
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures

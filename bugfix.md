@@ -418,7 +418,7 @@ Audit on 2026-07-07 found 22 accounts created between 2026-06-10 and 2026-07-01 
 
 Plus 1 more with an explicit `team_code='ALPHAECO'` (Sukhmani) — highest risk of the batch, since she (unlike the other 9 ALPHAECO signups whose `team_code` is NULL) would actually pass a `team_code='ALPHAECO'` filter in lead-assignment RPCs despite having paid nothing.
 
-11 of these (the ones under TEAMFIRE/ALPHAECO, verified zero `payments` rows each) were deactivated as part of this fix — see verification query below for the full list. The remaining 11 (ECO@WIN12/ECO-SUKH2022/DIGFIG) were not touched in this pass — same bug, same treatment needed, but out of scope for this cleanup and left for a follow-up.
+11 of these (the ones under TEAMFIRE/ALPHAECO, verified zero `payments` rows each) were deactivated first; the remaining 12 (ECO@WIN12 x7, ECO-SUKH2022 x4, DIGFIG x1) were re-verified zero-payment and deactivated the same day in a follow-up pass. All 23 unpaid signups found in this audit are now `is_active=false`.
 
 #### How it was fixed
 ```sql
