@@ -358,6 +358,44 @@ SELECT net.http_post(
 
 ---
 
+### BUG-007 — Stale Hardcoded Razorpay Key Fallback in `config/env.ts`
+
+**Status:** ✅ Fixed
+**Severity:** High (latent — would have caused silent checkout failure)
+**Affected:** `config/env.ts`
+
+#### What was the bug
+`config/env.ts` had `RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_RnAEaa2JKAP8Ow"` — a hardcoded live key baked in as a silent fallback for whenever the build-time env var is unset. On 2026-07-07, the admin regenerated the Razorpay live API key (new key_id `rzp_live_TAhoGz0Jx9Do7e`) from the Razorpay dashboard, which immediately invalidates the old key_id/key_secret pair. Regeneration was done to give this session a working key pair for building `razorpay-reconcile` (BUG-006).
+
+#### What broke
+Nothing broke in production because `VITE_RAZORPAY_KEY_ID` was already correctly set in Cloudflare Pages at build time (the fallback was never actually hit). But the fallback was now silently pointing at a dead key — if the Cloudflare Pages build-time var were ever accidentally removed or misconfigured, the frontend checkout widget (`components/Subscription.tsx` / `views/Subscription.tsx`, `key: import.meta.env.VITE_RAZORPAY_KEY_ID`) would fall back to this invalid key with no clear error, and Razorpay Checkout would fail to open for every user.
+
+#### What needed updating (full propagation checklist for a Razorpay live key rotation)
+- Cloudflare Pages env (Production) — `RAZORPAY_KEY_ID` (server-side, used by `functions/api/create-order.ts`) — did not exist before, newly added
+- Cloudflare Pages env (Production) — `RAZORPAY_KEY_SECRET` (server-side, same file) — existing var, value updated
+- Cloudflare Pages env (Production) — `VITE_RAZORPAY_KEY_ID` (build-time, baked into frontend bundle for the Checkout widget) — existing var, value updated
+- **A fresh Cloudflare Pages deployment triggered after all three were updated** — required, since Cloudflare only applies env/secret changes to deployments made after the change (confirmed via Cloudflare docs: "it needs to be done before a deployment that uses those secrets")
+- `config/env.ts` hardcoded fallback — updated to the new key (this fix)
+- Supabase `razorpay-reconcile` — already deployed with the new key directly, no separate update needed
+- **NOT touched, correctly**: `RAZORPAY_WEBHOOK_SECRET` — this is a separate credential (HMAC signature verification only) and is not affected by key_id/key_secret regeneration
+
+#### How it was fixed
+```ts
+// config/env.ts — before:
+RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_RnAEaa2JKAP8Ow",
+// after:
+RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TAhoGz0Jx9Do7e",
+```
+
+#### Verification
+```
+grep -n "RAZORPAY_KEY_ID" config/env.ts
+-- should show rzp_live_TAhoGz0Jx9Do7e, not rzp_live_RnAEaa2JKAP8Ow
+```
+Real-world verification: open the app, click "Buy"/"Subscribe" on any plan — Razorpay Checkout popup should open without a "Server misconfiguration" or order-creation error.
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  

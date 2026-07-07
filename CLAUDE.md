@@ -275,6 +275,11 @@ new-crm-saas/
 - DB: `pg_cron` job `razorpay-reconcile-15min` created (jobid=26, `*/15 * * * *`) to invoke the above function automatically.
 - Reason: Razorpay webhook (`functions/api/razorpay-webhook.ts`) failed silently a second time on 2026-07-07 (2 real payments — SEEMA RANI `pay_TAaIC81bqGq1ZA`, Ravenjeet Kaur `pay_TAa7wUU9qCp8MV` — went unprocessed) despite the 2026-06-06 www-redirect fix. No Razorpay tool exposes webhook delivery logs, so this adds a self-healing safety net instead of relying solely on webhook delivery. See `bugfix.md` BUG-006 for full details and verification queries.
 - Note: Razorpay API keys are hardcoded as constants inside `razorpay-reconcile` (no Supabase secrets-manager tool available in this environment) — same pattern already used for other credentials (CAPI tokens) in this project.
+- **Razorpay live API key regenerated** (new key_id `rzp_live_TAhoGz0Jx9Do7e`) — propagated to all locations that needed it:
+  - Cloudflare Pages env (Production): `RAZORPAY_KEY_ID` (newly added — did not exist before), `RAZORPAY_KEY_SECRET` (updated existing var), `VITE_RAZORPAY_KEY_ID` (updated existing var, build-time) — all updated then a fresh Pages redeploy triggered (required, since Cloudflare Pages only applies env/secret changes to deployments made *after* the change).
+  - `config/env.ts`: hardcoded fallback `RAZORPAY_KEY_ID` (only used if `VITE_RAZORPAY_KEY_ID` is unset at build time) updated from stale `rzp_live_RnAEaa2JKAP8Ow` to the new key — see `bugfix.md` BUG-007.
+  - Supabase `razorpay-reconcile` — already had the new key (deployed with it directly).
+  - `RAZORPAY_WEBHOOK_SECRET` is a separate credential (signature verification only) and is unaffected by key_id/key_secret regeneration — not touched.
 
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
@@ -462,6 +467,8 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-003 | 2026-05-24 | Daily limit trigger used stale `leads_today` (IST/UTC gap) | `check_lead_limit_before_insert` → now uses COUNT(*) |
 | BUG-004 | 2026-05-24 | Safety net trigger double-incremented `leads_today` | `process_stuck_lead` — removed manual UPDATE |
 | BUG-005 | 2026-05-24 | `get_best_assignee_for_team` PASS 2 had reversed ordering | RPC PASS 2 `plan_weight DESC` → `ASC` |
+| BUG-006 | 2026-07-07 | Razorpay webhook silently drops captured payments, no self-healing | New `razorpay-reconcile` Edge Function + `pg_cron` every 15 min |
+| BUG-007 | 2026-07-07 | Stale hardcoded Razorpay key fallback in `config/env.ts` after live key regeneration | Fallback updated to new key_id |
 
 ---
 
