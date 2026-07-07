@@ -480,7 +480,32 @@ WHERE l.status IN ('Interested','Call Back','Closed')
 ORDER BY l.updated_at DESC LIMIT 20;
 ```
 
-**Open item:** only `TEAMFIRE`/`TEAMSIMRAN` have an active Pixel/CAPI mapping in `pixel_config`. `ECO@WIN12`, `ALPHAECO`, `ECO-SUKH2022`, `WIN11`, `DIGFIG` all get `skipped_no_pixel` for every Interested/Call Back/Closed tag — needs a Pixel ID + CAPI access token per team (or per ad account) to close, same setup process as TEAMFIRE.
+**Open item:** only `TEAMFIRE`/`TEAMSIMRAN` have an active Pixel/CAPI mapping in `pixel_config`. `ECO@WIN12`, `ALPHAECO`, `ECO-SUKH2022`, `WIN11`, `DIGFIG` all get `skipped_no_pixel` for every Interested/Follow-up/Closed tag — needs a Pixel ID + CAPI access token per team (or per ad account) to close, same setup process as TEAMFIRE.
+
+#### ⚠️ Correction (same day) — wrong status was wired to the `FollowUp` event
+
+The first version of this fix incorrectly mapped `status='Call Back'` → `FollowUp` event. **`Call Back` and `Follow-up` are two separate, distinct statuses** in this system (`Call Back` = "contact requested a callback later," a scheduling/logistics status; `Follow-up` = 📅 a dedicated status for a lead that showed real interest and is now being nurtured — the actual high-intent status). This was caught and corrected the same day.
+
+**Consequence:** 3 leads with `status='Call Back'` (Komal_Kamal_Kayra, "anika", Priti_Mangal) were sent to Meta as a `FollowUp` custom event on 2026-07-07 before the fix. Meta CAPI has no delete/retract API for already-received custom events, so this cannot be undone — noted here for the record. Impact is minor (a handful of custom-event mislabels, not a standard/tracked conversion event, phone-hash match data itself was correct), but it's the honest state.
+
+**Fix:**
+```sql
+-- trigger_send_crm_conversion() CASE mapping — before:
+WHEN 'Call Back' THEN 'FollowUp'
+-- after:
+WHEN 'Follow-up' THEN 'FollowUp'
+```
+Also updated the trigger's `WHEN` clause: `NEW.status IN ('Interested','Call Back','Closed')` → `NEW.status IN ('Interested','Follow-up','Closed')`. `Call Back` status is intentionally NOT wired to any CAPI event (it wasn't part of the original request and isn't a reliable positive-intent signal by itself).
+
+**Backfill correction:** 12 genuine `Follow-up`-status leads (tagged since the active Pixel's creation, 2026-06-30) had zero CAPI signal sent — all 12 backfilled successfully with real Meta `fbtrace_id`s after the fix.
+
+**Verification:**
+```sql
+SELECT prosrc LIKE '%Follow-up%FollowUp%' AS has_correct_mapping,
+       prosrc LIKE '%Call Back%' AS still_has_wrong_mapping
+FROM pg_proc WHERE proname = 'trigger_send_crm_conversion';
+-- has_correct_mapping = true, still_has_wrong_mapping = false
+```
 
 ---
 
