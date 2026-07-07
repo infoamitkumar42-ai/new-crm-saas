@@ -315,6 +315,49 @@ FROM pg_proc WHERE proname = 'get_best_assignee_for_team';
 
 ---
 
+### BUG-006 — Razorpay Webhook Silently Drops Payments (No Self-Healing)
+
+**Status:** ✅ Fixed (permanent safety net added)
+**Severity:** Critical — real captured payments were not activating user plans, with no automatic detection
+**Affected:** `functions/api/razorpay-webhook.ts` (Cloudflare Pages Function)
+
+#### What was the bug
+The Razorpay webhook is the only path that turns a captured payment into an active plan. It had already failed once for 27+ days (root cause: `leadflowcrm.in` non-www→www redirect turning Razorpay's POST into a GET — fixed earlier). Even after that fix and a webhook-secret rotation, it failed again on 2026-07-07 for 2 more real payments (`pay_TAaIC81bqGq1ZA` — SEEMA RANI, `pay_TAa7wUU9qCp8MV` — Ravenjeet Kaur), proving webhook delivery from Razorpay → Cloudflare Pages is not reliable enough to trust unmonitored. No Razorpay MCP/API tool exposes webhook delivery logs or retry config, so the delivery side could not be further diagnosed from this codebase.
+
+#### What broke
+A paying customer's plan does not activate and they receive no leads, with zero automatic alert — the only way this was caught was the customer complaining.
+
+#### How it was fixed
+Instead of only chasing the webhook reliability issue again, added a reconciliation safety net that doesn't depend on the webhook working at all:
+- New Supabase Edge Function **`razorpay-reconcile`** (project `vewqzsqddgmkslnuctvb`) polls `GET https://api.razorpay.com/v1/payments?from=<now-2h>&count=100` via Razorpay's REST API directly, and for every `status=captured` payment not yet present in `payments` (checked by `razorpay_payment_id`), replays the exact same activation logic as `razorpay-webhook.ts` (same `PLAN_CONFIG`, same `baseline = Math.max(total_leads_received, total_leads_promised)` cumulative-quota math, same next-day-7AM-IST pending-activation flow).
+- `pg_cron` job `razorpay-reconcile-15min` (jobid 26, schedule `*/15 * * * *`) invokes it every 15 minutes via `net.http_post`, using the project's existing service_role JWT (same pattern as `morning-backlog-processor`/`daily-quota-check`).
+- The 2-hour lookback window vs. 15-minute cron interval gives an 8x safety margin, so a single missed cron tick or a burst of Razorpay API slowness still gets caught on the next run.
+- Idempotent by design (dedupes on `razorpay_payment_id`) — safe to run indefinitely alongside the real webhook; it only ever fills gaps, never double-processes.
+- Razorpay API keys (`key_id`/`key_secret`) are hardcoded as constants inside the Edge Function source, since no Supabase secrets-management MCP tool was available in this environment to set them as an env var (`deploy_edge_function` was the only deployment path found).
+
+#### Verification
+```sql
+-- Cron job is active
+SELECT jobid, jobname, schedule, active FROM cron.job WHERE jobname = 'razorpay-reconcile-15min';
+-- jobid=26, schedule='*/15 * * * *', active=true
+
+-- Manual test invocation returned 200 and reached Razorpay live (not a silent failure)
+SELECT net.http_post(
+  url := 'https://vewqzsqddgmkslnuctvb.supabase.co/functions/v1/razorpay-reconcile',
+  headers := '{"Content-Type": "application/json", "Authorization": "Bearer <service_role_jwt>"}'::jsonb,
+  body := '{}'::jsonb
+);
+-- then: SELECT status_code, content FROM net._http_response WHERE id = <request_id>;
+-- status_code=200, content={"checked":0,"results":[]}  (0 = correct, no new captured payment in last 2h at test time)
+
+-- Cross-check: Razorpay's live captured-payment list has zero gap vs. the payments table
+-- (confirmed 2026-07-07: both of today's captured payments already present in `payments`)
+```
+
+**Note:** this does not fix Razorpay→Cloudflare webhook delivery itself (still unexplained/unmonitorable from this side) — it makes the *consequence* of that failure self-healing within ~15 minutes instead of requiring a customer complaint to notice.
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  
