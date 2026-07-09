@@ -6,6 +6,11 @@
 
 ## ⛔ HARD RULES — VIOLATING ANY OF THESE = INSTANT ROLLBACK
 
+0. **ALWAYS use PR workflow — NEVER push directly to `main`**:
+   - All changes must go on a feature branch
+   - Create a GitHub PR, then merge the PR into `main`
+   - Direct push to `main` is FORBIDDEN
+
 1. **NEVER modify LOCKED files** without explicit user instruction:
    - `auth/useAuth.tsx` (v6.4) — Auth logic, session management
    - `supabaseClient.ts` (v4.0) — Supabase client with Cloudflare proxy
@@ -265,6 +270,22 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-07-07
+- Supabase Edge Function `razorpay-reconcile` CREATED (v1, `verify_jwt: false`) — polls Razorpay's `/v1/payments` API directly every 15 min and backfills any `captured` payment missing from the `payments` table, using the same `PLAN_CONFIG`/baseline-cumulative-quota/next-day-7AM-IST-activation logic as `razorpay-webhook.ts`. Idempotent (dedupes on `razorpay_payment_id`), always returns HTTP 200.
+- DB: `pg_cron` job `razorpay-reconcile-15min` created (jobid=26, `*/15 * * * *`) to invoke the above function automatically.
+- Reason: Razorpay webhook (`functions/api/razorpay-webhook.ts`) failed silently a second time on 2026-07-07 (2 real payments — SEEMA RANI `pay_TAaIC81bqGq1ZA`, Ravenjeet Kaur `pay_TAa7wUU9qCp8MV` — went unprocessed) despite the 2026-06-06 www-redirect fix. No Razorpay tool exposes webhook delivery logs, so this adds a self-healing safety net instead of relying solely on webhook delivery. See `bugfix.md` BUG-006 for full details and verification queries.
+- Note: Razorpay API keys are hardcoded as constants inside `razorpay-reconcile` (no Supabase secrets-manager tool available in this environment) — same pattern already used for other credentials (CAPI tokens) in this project.
+- **Razorpay live API key regenerated** (new key_id `rzp_live_TAhoGz0Jx9Do7e`) — propagated to all locations that needed it:
+  - Cloudflare Pages env (Production): `RAZORPAY_KEY_ID` (newly added — did not exist before), `RAZORPAY_KEY_SECRET` (updated existing var), `VITE_RAZORPAY_KEY_ID` (updated existing var, build-time) — all updated then a fresh Pages redeploy triggered (required, since Cloudflare Pages only applies env/secret changes to deployments made *after* the change).
+  - `config/env.ts`: hardcoded fallback `RAZORPAY_KEY_ID` (only used if `VITE_RAZORPAY_KEY_ID` is unset at build time) updated from stale `rzp_live_RnAEaa2JKAP8Ow` to the new key — see `bugfix.md` BUG-007.
+  - Supabase `razorpay-reconcile` — already had the new key (deployed with it directly).
+  - `RAZORPAY_WEBHOOK_SECRET` is a separate credential (signature verification only) and is unaffected by key_id/key_secret regeneration — not touched.
+- DB: `handle_new_user()` trigger function fixed — was hardcoding `is_active=true` for every new signup regardless of payment, contradicting its own correctly-set `payment_status='inactive'`/`plan_name='none'` on the same row. Changed to `is_active=false`. See `bugfix.md` BUG-008.
+- DB: 11 unpaid signup accounts (TEAMFIRE's Sangeeta + ALPHAECO's 10 — Sukhmani + 9 manager-linked, all verified zero rows in `payments`) deactivated (`is_active=false`). 12 more from the same audit (ECO@WIN12 x7, ECO-SUKH2022 x4, DIGFIG x1 — Rahul) were flagged as the same issue and deactivated in a same-day follow-up pass, after re-verifying zero `payments` rows each. Total across both passes: 23 unpaid signups corrected. `SELECT COUNT(*) FROM users WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_name='none'` confirmed 0 remaining.
+- Supabase Edge Function `send-crm-conversion` v3→v4 — added `'FollowUp'` event, correctly mapped to `status='Follow-up'` (📅 — a lead who showed real interest and is now being nurtured; **distinct from `status='Call Back'`** 🔄, which is just scheduling/logistics and is NOT wired to any CAPI event). `capi_event_log_event_name_check` CHECK constraint updated to allow it.
+- DB: new trigger `trg_send_crm_conversion` (`AFTER UPDATE ON leads`) created — calls `send-crm-conversion` server-side via `net.http_post` whenever `status` changes to `Interested`/`Follow-up`/`Closed`. Replaces the old frontend fire-and-forget call (`views/MemberDashboard.tsx` — removed, was `supabase.functions.invoke(...).catch(() => {})`), which audit found could silently never fire (found via `capi_event_log`: a lead tagged `Interested` on 07-06 with zero log entry at all). See `bugfix.md` BUG-009 (includes a same-day correction: first version wrongly mapped `Call Back`→`FollowUp` instead of `Follow-up`→`FollowUp`; 3 leads were sent to Meta under the wrong event name before this was caught — cannot be retracted, documented in bugfix.md).
+- Backfill: 5 Interested/Closed leads + 12 Follow-up leads tagged since the active Pixel's creation (2026-06-30) that were missing a `sent` `capi_event_log` row were re-sent — 16/17 succeeded (real Meta `fbtrace_id`s), 1 correctly `skipped_no_pixel` (ECO@WIN12 has no active Pixel/CAPI config, same known gap as before). Deliberately did NOT backfill the full historical gap (881 Interested + 70 Closed + 590 Call Back + 361 Follow-up, mostly pre-dating the current Pixel) — sending months-old CRM outcomes to Meta with a synthetic "now" `event_time` risks skewing signal quality / ad-account review for zero benefit.
+
 ### 2026-06-06
 - functions/api/[[path]].ts: DELETED — was catch-all proxy to dead Vercel URL, intercepting /api/razorpay-webhook and returning 403 → caused Razorpay to auto-disable webhook after 5 failures
 - functions/api/create-order.ts: CREATED — Cloudflare Pages Function for server-side Razorpay order creation; uses env.RAZORPAY_KEY_ID || env.VITE_RAZORPAY_KEY_ID fallback
@@ -451,6 +472,10 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-003 | 2026-05-24 | Daily limit trigger used stale `leads_today` (IST/UTC gap) | `check_lead_limit_before_insert` → now uses COUNT(*) |
 | BUG-004 | 2026-05-24 | Safety net trigger double-incremented `leads_today` | `process_stuck_lead` — removed manual UPDATE |
 | BUG-005 | 2026-05-24 | `get_best_assignee_for_team` PASS 2 had reversed ordering | RPC PASS 2 `plan_weight DESC` → `ASC` |
+| BUG-006 | 2026-07-07 | Razorpay webhook silently drops captured payments, no self-healing | New `razorpay-reconcile` Edge Function + `pg_cron` every 15 min |
+| BUG-007 | 2026-07-07 | Stale hardcoded Razorpay key fallback in `config/env.ts` after live key regeneration | Fallback updated to new key_id |
+| BUG-008 | 2026-07-07 | New signups defaulted to `is_active=true` with zero payment (free leads) | `handle_new_user()` trigger — `is_active` hardcoded value `true` → `false` |
+| BUG-009 | 2026-07-07 | Meta CAPI signal silently never fires for some Interested/Closed tags (fire-and-forget frontend call) | New `trg_send_crm_conversion` DB trigger, server-side + `FollowUp` event added (correctly mapped to `Follow-up` status, not `Call Back`) |
 
 ---
 

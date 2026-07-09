@@ -3,6 +3,120 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="facebook-domain-verification" content="zqyucomeq9d8xnc4xuiltwqoom2jar" />
+
+  <!-- 🛟 BOOT RECOVERY GUARD — must run BEFORE any module/chunk loads.
+       Fixes iOS PWA "Importing a module script failed" / stuck spinner.
+       Cause: after a new deploy, the cached index.html (esp. iOS app shell)
+       points to old hashed chunk files that no longer exist -> module load
+       fails -> app never boots. React-level retries can't help because the
+       MAIN module fails before React mounts. This catches it at the HTML
+       level and does ONE cache-busting recovery reload.
+
+       SAFETY:
+       - sessionStorage one-shot guard -> recovers at most ONCE per session
+         (CANNOT infinite loop).
+       - Only clears CACHES + unregisters SW. Never touches localStorage
+         (Supabase auth tokens stay intact -> no logout).
+       - Passive: only acts on a real module/chunk load error. Zero effect
+         on users whose app loads fine.
+       - Cache-busting query param forces iOS to fetch a fresh index.html. -->
+  <script>
+    (function () {
+      var GUARD = 'lf_boot_recovered';
+      var recovering = false;
+
+      function alreadyRecovered() {
+        try { return sessionStorage.getItem(GUARD) === '1'; }
+        catch (e) { return !!window.__lfBootRecovered; }
+      }
+      function markRecovered() {
+        try { sessionStorage.setItem(GUARD, '1'); }
+        catch (e) { window.__lfBootRecovered = true; }
+      }
+
+      function hardReload() {
+        try {
+          var loc = window.location;
+          // strip any previous recovery param so it never accumulates
+          var search = (loc.search || '').replace(/[?&]_r=\d+/g, '');
+          search = search ? (search.charAt(0) === '?' ? search : '?' + search) : '';
+          var sep = search ? '&' : '?';
+          var url = loc.pathname + search + sep + '_r=' + Date.now() + (loc.hash || '');
+          loc.replace(url);
+        } catch (e) {
+          window.location.reload();
+        }
+      }
+
+      function recover() {
+        if (recovering || alreadyRecovered()) return;
+        recovering = true;
+        markRecovered();
+
+        var tasks = [];
+        try {
+          if (window.caches && caches.keys) {
+            tasks.push(caches.keys().then(function (names) {
+              return Promise.all(names.map(function (n) { return caches.delete(n); }));
+            }));
+          }
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            tasks.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            }));
+          }
+        } catch (e) {}
+
+        // Reload after caches cleared; safety timeout in case clearing hangs.
+        Promise.all(tasks).then(hardReload, hardReload);
+        setTimeout(hardReload, 2500);
+      }
+
+      // 1. Failed <script>/<link> resource loads (covers the MAIN module
+      //    script failing before React boots). Capture phase required.
+      window.addEventListener('error', function (e) {
+        var t = e && e.target;
+        if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) recover();
+      }, true);
+
+      // 2. Failed dynamic import() rejections (lazy route chunks).
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e && e.reason;
+        var msg = (r && (r.message || r.toString && r.toString())) || '';
+        if (/import|module|chunk|dynamically imported/i.test(msg)) recover();
+      });
+
+      // 3. App booted OK -> clear the guard so a FUTURE error (later session
+      //    state) can still recover. Detect by #root having rendered content.
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          try {
+            var root = document.getElementById('root');
+            if (root && root.children.length > 0) sessionStorage.removeItem(GUARD);
+          } catch (e) {}
+        }, 6000);
+      });
+    })();
+  </script>
+
+  <!-- 🔑 PASSWORD RECOVERY GUARD — must run BEFORE any JS module loads.
+       Supabase's detectSessionInUrl auto-consumes the hash on first
+       load, which logs the user in and clears the recovery token.
+       If we see a recovery hash on any path that isn't /reset-password,
+       rewrite the URL so React Router lands directly on the reset form. -->
+  <script>
+    (function () {
+      try {
+        var h = window.location.hash || '';
+        if ((h.indexOf('type=recovery') !== -1 || h.indexOf('access_token') !== -1) &&
+            window.location.pathname.indexOf('reset-password') === -1) {
+          window.history.replaceState(null, '', '/reset-password' + window.location.search + h);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <meta property="fb:app_id" content="890507710217487">
   <!-- ✅ NEW: viewport-fit=cover added for iPhone notch -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -168,6 +282,7 @@
 
   <!-- PWA Manifest & Icons -->
   <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icon-192x192.png" />
   <link rel="apple-touch-icon" href="/icon-192x192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -181,7 +296,7 @@
   <!-- CACHE VERSION CHECK - Feb 7, 2026 (Preserve Auth) -->
   <script>
     (function () {
-      var CACHE_VERSION = 'v20260618_v1';
+      var CACHE_VERSION = 'v20260706_v1';
       var storageKey = 'leadflow_cache_version';
       try {
         var savedVersion = localStorage.getItem(storageKey);
@@ -197,6 +312,79 @@
           window.location.reload();
         }
       } catch (e) { }
+    })();
+  </script>
+
+  <!-- AUTH-HANG SELF-HEALER
+       Problem: handleForceRefresh in App.tsx preserves Supabase auth tokens
+       (keys starting with "sb-") so the user stays logged in. But if the
+       preserved session makes useAuth hang on the next load (e.g. Supabase
+       auth endpoint blocked by ISP), the app is stuck in LoadingScreen
+       forever — even after clicking Force Refresh.
+
+       This guard fires 25 s after page load. It detects a stuck LoadingScreen
+       by looking for the sentinel text that is ONLY present in LoadingScreen
+       ("Connecting to secure server..."). SENTINEL must match App.tsx.
+
+       Round 1: clear caches only, reload — keeps auth tokens.
+       Round 2: full wipe including auth tokens, reload → user re-logs in.
+
+       Counter key "sb-lf-ah" starts with "sb-" so handleForceRefresh
+       preserves it, letting us count failures across Force Refresh reloads. -->
+  <script>
+    (function () {
+      var HANG_KEY = 'sb-lf-ah';
+      var SENTINEL = 'Connecting to secure server';
+
+      function getN() {
+        try { return parseInt(localStorage.getItem(HANG_KEY) || '0', 10) || 0; }
+        catch (e) { return 0; }
+      }
+      function setN(n) {
+        try {
+          if (n <= 0) localStorage.removeItem(HANG_KEY);
+          else localStorage.setItem(HANG_KEY, '' + n);
+        } catch (e) { }
+      }
+      function clearCaches(cb) {
+        try {
+          if (window.caches && caches.keys) {
+            caches.keys().then(function (ns) {
+              Promise.all(ns.map(function (nm) { return caches.delete(nm); })).then(cb, cb);
+            }, cb);
+          } else { cb(); }
+        } catch (e) { cb(); }
+      }
+
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          try {
+            var root = document.getElementById('root');
+            var html = root ? root.innerHTML : '';
+
+            // Real app has loaded — no sentinel text and has content
+            if (html.indexOf(SENTINEL) === -1 && html.length > 200) {
+              setN(0);
+              return;
+            }
+
+            // Still showing LoadingScreen (sentinel present) or empty root
+            var n = getN();
+
+            if (n >= 1) {
+              // Second failure: auth tokens themselves are causing the hang.
+              // Full wipe → on reload useAuth finds no session → instant init → login page.
+              setN(0);
+              try { localStorage.clear(); sessionStorage.clear(); } catch (e) { }
+              clearCaches(function () { window.location.replace('/'); });
+            } else {
+              // First failure: cache-only wipe, keep auth tokens → reload
+              setN(n + 1);
+              clearCaches(function () { window.location.reload(); });
+            }
+          } catch (e) { }
+        }, 25000);
+      });
     })();
   </script>
 </head>

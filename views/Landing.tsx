@@ -27,6 +27,14 @@ export const Landing = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // If a Supabase recovery/magic-link hash lands on root, forward to /reset-password
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('access_token')) {
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, []);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [liveLeadsCount, setLiveLeadsCount] = useState(1847);
   const [showExitPopup, setShowExitPopup] = useState(false);
@@ -223,9 +231,7 @@ export const Landing = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">
-                LF
-              </div>
+              <img src="/icon-192x192.png" alt="LeadFlow" className="w-9 h-9 rounded-xl shadow-sm" />
               <span className="font-extrabold text-xl tracking-tight text-slate-900">LeadFlow</span>
             </div>
 
@@ -233,6 +239,7 @@ export const Landing = () => {
               <a href="#how-it-works" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">How it Works</a>
               <a href="#pricing" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Pricing</a>
               <a href="#testimonials" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Success Stories</a>
+              <a href="/blog.html" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Blog</a>
               <Link to="/login" className="text-sm font-semibold text-slate-700 hover:text-blue-600 transition-colors">Login</Link>
               <Link to="/login" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-full font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:-translate-y-0.5 flex items-center gap-2">
                 Start Now <ArrowRight size={16} />
@@ -250,6 +257,7 @@ export const Landing = () => {
             <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">How it Works</a>
             <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">Pricing</a>
             <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">Success Stories</a>
+            <a href="/blog.html" onClick={() => setMobileMenuOpen(false)} className="block py-2 font-semibold text-slate-700">Blog</a>
             <Link to="/login" className="block py-2 font-semibold text-slate-700">Login</Link>
             <Link to="/login" className="block w-full text-center bg-blue-600 text-white py-3 rounded-xl font-bold mt-2">
               Start Now
@@ -764,7 +772,7 @@ export const Landing = () => {
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>5 Fresh Leads/Day</strong></li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 55 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 50 Total Leads</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Personal Dashboard</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> WhatsApp Alerts</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 5 Lead Replacements</li>
@@ -789,14 +797,14 @@ export const Landing = () => {
                 <span className="text-sm text-blue-100 line-through">₹2,999</span>
               </div>
               <div className="mb-6">
-                <span className="text-5xl font-black">₹1,999</span>
-                <span className="text-white">/15 days</span>
+                <span className="text-5xl font-black">₹1,499</span>
+                <span className="text-white">/12 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>7 Fresh Leads/Day</strong></li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 115 Total Leads</li>
+                <li className="flex gap-2 text-sm font-medium"><CheckCircle size={18} className="text-white flex-shrink-0" /> <strong>6 Fresh Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 80 Total Leads</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Priority Queue (3x Faster)</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 10 Lead Replacements</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> 8 Lead Replacements</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-white flex-shrink-0" /> Cost: ₹19/lead only</li>
               </ul>
               <Link to="/login" className="block w-full py-4 bg-white text-blue-700 rounded-xl hover:bg-blue-50 transition-all font-bold text-center shadow-lg">
@@ -824,7 +832,7 @@ export const Landing = () => {
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 176 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 160 Total Leads</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Highest Priority (5x)</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 16 Lead Replacements</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Dedicated Manager</li>
@@ -916,7 +924,7 @@ export const Landing = () => {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">LF</div>
+                <img src="/icon-192x192.png" alt="LeadFlow" className="w-8 h-8 rounded-lg" />
                 <span className="font-bold text-white text-lg">LeadFlow</span>
               </div>
               <p className="text-sm">Daily fresh leads for serious agents.</p>

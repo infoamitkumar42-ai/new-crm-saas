@@ -18,8 +18,23 @@ export const NotificationBanner: React.FC = () => {
         testNotification,
     } = usePushNotification();
 
+    // Dismissing the banner only silences it for 24h, not forever — if the user
+    // still hasn't subscribed by then, it reminds them again automatically.
+    const HIDE_DURATION_MS = 24 * 60 * 60 * 1000;
+    const isDismissalActive = () => {
+        const stored = localStorage.getItem('hide_push_prompt');
+        if (!stored) return false;
+        const hiddenAt = Number(stored);
+        if (!isNaN(hiddenAt) && hiddenAt > 0) {
+            return (Date.now() - hiddenAt) < HIDE_DURATION_MS;
+        }
+        // Legacy 'true' flag from before this fix — treat as expired so
+        // still-unsubscribed users get reminded once on their next visit.
+        return false;
+    };
+
     const [dismissed, setDismissed] = useState(() => {
-        if (localStorage.getItem('hide_push_prompt') === 'true') return true;
+        if (isDismissalActive()) return true;
         // Permission already granted = user already subscribed before; no need to re-prompt
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') return true;
         return false;
@@ -45,7 +60,7 @@ export const NotificationBanner: React.FC = () => {
 
     const handleDismiss = () => {
         setDismissed(true);
-        localStorage.setItem('hide_push_prompt', 'true');
+        localStorage.setItem('hide_push_prompt', String(Date.now()));
     };
 
     const handleSubscribe = async () => {

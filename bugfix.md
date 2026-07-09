@@ -315,6 +315,200 @@ FROM pg_proc WHERE proname = 'get_best_assignee_for_team';
 
 ---
 
+### BUG-006 — Razorpay Webhook Silently Drops Payments (No Self-Healing)
+
+**Status:** ✅ Fixed (permanent safety net added)
+**Severity:** Critical — real captured payments were not activating user plans, with no automatic detection
+**Affected:** `functions/api/razorpay-webhook.ts` (Cloudflare Pages Function)
+
+#### What was the bug
+The Razorpay webhook is the only path that turns a captured payment into an active plan. It had already failed once for 27+ days (root cause: `leadflowcrm.in` non-www→www redirect turning Razorpay's POST into a GET — fixed earlier). Even after that fix and a webhook-secret rotation, it failed again on 2026-07-07 for 2 more real payments (`pay_TAaIC81bqGq1ZA` — SEEMA RANI, `pay_TAa7wUU9qCp8MV` — Ravenjeet Kaur), proving webhook delivery from Razorpay → Cloudflare Pages is not reliable enough to trust unmonitored. No Razorpay MCP/API tool exposes webhook delivery logs or retry config, so the delivery side could not be further diagnosed from this codebase.
+
+#### What broke
+A paying customer's plan does not activate and they receive no leads, with zero automatic alert — the only way this was caught was the customer complaining.
+
+#### How it was fixed
+Instead of only chasing the webhook reliability issue again, added a reconciliation safety net that doesn't depend on the webhook working at all:
+- New Supabase Edge Function **`razorpay-reconcile`** (project `vewqzsqddgmkslnuctvb`) polls `GET https://api.razorpay.com/v1/payments?from=<now-2h>&count=100` via Razorpay's REST API directly, and for every `status=captured` payment not yet present in `payments` (checked by `razorpay_payment_id`), replays the exact same activation logic as `razorpay-webhook.ts` (same `PLAN_CONFIG`, same `baseline = Math.max(total_leads_received, total_leads_promised)` cumulative-quota math, same next-day-7AM-IST pending-activation flow).
+- `pg_cron` job `razorpay-reconcile-15min` (jobid 26, schedule `*/15 * * * *`) invokes it every 15 minutes via `net.http_post`, using the project's existing service_role JWT (same pattern as `morning-backlog-processor`/`daily-quota-check`).
+- The 2-hour lookback window vs. 15-minute cron interval gives an 8x safety margin, so a single missed cron tick or a burst of Razorpay API slowness still gets caught on the next run.
+- Idempotent by design (dedupes on `razorpay_payment_id`) — safe to run indefinitely alongside the real webhook; it only ever fills gaps, never double-processes.
+- Razorpay API keys (`key_id`/`key_secret`) are hardcoded as constants inside the Edge Function source, since no Supabase secrets-management MCP tool was available in this environment to set them as an env var (`deploy_edge_function` was the only deployment path found).
+
+#### Verification
+```sql
+-- Cron job is active
+SELECT jobid, jobname, schedule, active FROM cron.job WHERE jobname = 'razorpay-reconcile-15min';
+-- jobid=26, schedule='*/15 * * * *', active=true
+
+-- Manual test invocation returned 200 and reached Razorpay live (not a silent failure)
+SELECT net.http_post(
+  url := 'https://vewqzsqddgmkslnuctvb.supabase.co/functions/v1/razorpay-reconcile',
+  headers := '{"Content-Type": "application/json", "Authorization": "Bearer <service_role_jwt>"}'::jsonb,
+  body := '{}'::jsonb
+);
+-- then: SELECT status_code, content FROM net._http_response WHERE id = <request_id>;
+-- status_code=200, content={"checked":0,"results":[]}  (0 = correct, no new captured payment in last 2h at test time)
+
+-- Cross-check: Razorpay's live captured-payment list has zero gap vs. the payments table
+-- (confirmed 2026-07-07: both of today's captured payments already present in `payments`)
+```
+
+**Note:** this does not fix Razorpay→Cloudflare webhook delivery itself (still unexplained/unmonitorable from this side) — it makes the *consequence* of that failure self-healing within ~15 minutes instead of requiring a customer complaint to notice.
+
+---
+
+### BUG-007 — Stale Hardcoded Razorpay Key Fallback in `config/env.ts`
+
+**Status:** ✅ Fixed
+**Severity:** High (latent — would have caused silent checkout failure)
+**Affected:** `config/env.ts`
+
+#### What was the bug
+`config/env.ts` had `RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_RnAEaa2JKAP8Ow"` — a hardcoded live key baked in as a silent fallback for whenever the build-time env var is unset. On 2026-07-07, the admin regenerated the Razorpay live API key (new key_id `rzp_live_TAhoGz0Jx9Do7e`) from the Razorpay dashboard, which immediately invalidates the old key_id/key_secret pair. Regeneration was done to give this session a working key pair for building `razorpay-reconcile` (BUG-006).
+
+#### What broke
+Nothing broke in production because `VITE_RAZORPAY_KEY_ID` was already correctly set in Cloudflare Pages at build time (the fallback was never actually hit). But the fallback was now silently pointing at a dead key — if the Cloudflare Pages build-time var were ever accidentally removed or misconfigured, the frontend checkout widget (`components/Subscription.tsx` / `views/Subscription.tsx`, `key: import.meta.env.VITE_RAZORPAY_KEY_ID`) would fall back to this invalid key with no clear error, and Razorpay Checkout would fail to open for every user.
+
+#### What needed updating (full propagation checklist for a Razorpay live key rotation)
+- Cloudflare Pages env (Production) — `RAZORPAY_KEY_ID` (server-side, used by `functions/api/create-order.ts`) — did not exist before, newly added
+- Cloudflare Pages env (Production) — `RAZORPAY_KEY_SECRET` (server-side, same file) — existing var, value updated
+- Cloudflare Pages env (Production) — `VITE_RAZORPAY_KEY_ID` (build-time, baked into frontend bundle for the Checkout widget) — existing var, value updated
+- **A fresh Cloudflare Pages deployment triggered after all three were updated** — required, since Cloudflare only applies env/secret changes to deployments made after the change (confirmed via Cloudflare docs: "it needs to be done before a deployment that uses those secrets")
+- `config/env.ts` hardcoded fallback — updated to the new key (this fix)
+- Supabase `razorpay-reconcile` — already deployed with the new key directly, no separate update needed
+- **NOT touched, correctly**: `RAZORPAY_WEBHOOK_SECRET` — this is a separate credential (HMAC signature verification only) and is not affected by key_id/key_secret regeneration
+
+#### How it was fixed
+```ts
+// config/env.ts — before:
+RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_RnAEaa2JKAP8Ow",
+// after:
+RAZORPAY_KEY_ID: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TAhoGz0Jx9Do7e",
+```
+
+#### Verification
+```
+grep -n "RAZORPAY_KEY_ID" config/env.ts
+-- should show rzp_live_TAhoGz0Jx9Do7e, not rzp_live_RnAEaa2JKAP8Ow
+```
+Real-world verification: open the app, click "Buy"/"Subscribe" on any plan — Razorpay Checkout popup should open without a "Server misconfiguration" or order-creation error.
+
+---
+
+### BUG-008 — New Signups Default to `is_active=true` With No Payment
+
+**Status:** ✅ Fixed
+**Severity:** High — every new signup was immediately eligible to receive leads for free
+**Affected:** `handle_new_user()` trigger function (fires `AFTER INSERT ON auth.users`, populates `public.users`)
+
+#### What was the bug
+`handle_new_user()` correctly sets `payment_status='inactive'` and `plan_name='none'` for a brand-new signup (no payment made yet), but in the same INSERT it hardcoded `is_active` to `true`. `is_active` is the flag that controls lead-receiving eligibility, so every single new account — the moment they finish Supabase Auth signup, before paying anything — became eligible to receive leads.
+
+#### What broke
+Audit on 2026-07-07 found 22 accounts created between 2026-06-10 and 2026-07-01 with `is_active=true`, `payment_status='inactive'`, `plan_name='none'`, `total_leads_received=0` — genuine unpaid signups, not paying members. Cross-checked their `manager_id` to find their real intended team (their own `team_code` is NULL for members, only managers get a `team_code`):
+
+| Real team (via manager) | Count |
+|---|---|
+| ALPHAECO | 9 |
+| ECO@WIN12 | 7 |
+| ECO-SUKH2022 | 4 |
+| TEAMFIRE | 1 |
+| DIGFIG | 1 |
+
+Plus 1 more with an explicit `team_code='ALPHAECO'` (Sukhmani) — highest risk of the batch, since she (unlike the other 9 ALPHAECO signups whose `team_code` is NULL) would actually pass a `team_code='ALPHAECO'` filter in lead-assignment RPCs despite having paid nothing.
+
+11 of these (the ones under TEAMFIRE/ALPHAECO, verified zero `payments` rows each) were deactivated first; the remaining 12 (ECO@WIN12 x7, ECO-SUKH2022 x4, DIGFIG x1) were re-verified zero-payment and deactivated the same day in a follow-up pass. All 23 unpaid signups found in this audit are now `is_active=false`.
+
+#### How it was fixed
+```sql
+-- handle_new_user() — before:
+'{"pan_india": true}'::jsonb, true, 0, 50,
+-- after:
+'{"pan_india": true}'::jsonb, false, 0, 50,
+```
+Single-value change inside the existing `INSERT INTO public.users (...)` column list (`is_active` column position) — full `CREATE OR REPLACE FUNCTION` re-deployed with only this value flipped. All other fields (payment_status, plan_name, quota defaults, team_code/manager_id extraction logic) untouched.
+
+#### Verification
+```sql
+SELECT prosrc LIKE '%jsonb, false, 0, 50%' AS fixed FROM pg_proc WHERE proname = 'handle_new_user';
+-- fixed = true
+
+-- Should return 0 rows going forward (no new unpaid account should ever be is_active=true):
+SELECT email, name, created_at FROM users
+WHERE role='member' AND is_active=true AND payment_status='inactive' AND plan_name='none'
+  AND created_at > '2026-07-07'::date;
+```
+
+**Note:** the `is_active` column itself still has a table-level `DEFAULT true` (`information_schema.columns` confirms this). It's dormant now — every actual signup path goes through `handle_new_user()`, which explicitly specifies `is_active` in its INSERT, overriding the column default. Left as-is (changing a column default is a schema change requiring separate sign-off per the hard rules in `CLAUDE.md`), but flagged here in case any future insert path into `public.users` ever omits `is_active` explicitly.
+
+---
+
+### BUG-009 — Meta CAPI Signal Silently Never Fires For Some Interested/Closed Tags
+
+**Status:** ✅ Fixed
+**Severity:** Medium — data quality issue for Meta ad optimization, not a business-data-loss bug
+**Affected:** `views/MemberDashboard.tsx` (`handleStatusChange`), `send-crm-conversion` Edge Function
+
+#### What was the bug
+When a member tagged a lead `Interested`/`Closed`, the frontend called `send-crm-conversion` as pure fire-and-forget: `supabase.functions.invoke(...).catch(() => {})`. If the tab closed, the network blipped, or the call errored before the function's `capi_event_log` insert branches were reached, the signal silently never reached Meta — no error shown to the user, no log row at all (not even a `failed` result), completely invisible.
+
+#### What broke
+Audit on 2026-07-07 using the `capi_event_log` table (which records every real attempt + Meta's actual response) found:
+- Priyanka Sharma's lead tagged `Interested` on 2026-07-06 — zero `capi_event_log` row exists. The call never completed.
+- Separately (not a bug, a coverage gap): Lovepreet Kaur's lead (`ECO@WIN12` team) correctly logged `skipped_no_pixel` — `pixel_config` only has active rows for `team_code IN ('TEAMFIRE', 'TEAMFIRE,TEAMSIMRAN')`; no other team has an active Meta Pixel/CAPI mapping, so their Interested/Closed/Call Back tags can never reach Meta until a pixel is configured for them.
+- A separate high-intent signal was also missing entirely: `status='Call Back'` (a lead interested enough to warrant a scheduled follow-up) was never sent to Meta at all — only `Interested`→`QualifiedLead` and `Closed`→`ClosedDeal` existed.
+
+Full-history count (all-time, since this feature has ever existed): 881 `Interested`, 70 `Closed`, 590 `Call Back` tagged leads, of which only 19 + 16 + 0 respectively had a `sent` `capi_event_log` row — but nearly all of that gap is leads tagged *before* the current active Pixel (`1047115834311811`, created 2026-06-30 20:09 UTC) ever existed, so backfilling those would mean reporting months-old CRM interactions to Meta as if they "just happened" (`event_time` is always stamped `now()` by design) — a real risk of skewing Meta's signal quality / triggering unusual-activity review on the ad account for no benefit, since Meta never saw those campaigns' outcomes anyway. Backfill was intentionally scoped to **only leads updated since the active Pixel was created** (2026-06-30 onward) — 5 leads total.
+
+#### How it was fixed
+1. **`send-crm-conversion` v4** — added `'FollowUp'` to `ALLOWED_EVENTS` (was `['QualifiedLead', 'ClosedDeal']`), and updated the `capi_event_log_event_name_check` CHECK constraint to allow it.
+2. **New DB trigger `trg_send_crm_conversion`** (`AFTER UPDATE ON leads`, fires when `status` changes to `Interested`/`Call Back`/`Closed`) calls `send-crm-conversion` via `net.http_post` — server-side, so it fires reliably regardless of the member's browser/tab/network state. This is now the sole path; the frontend's fire-and-forget call was removed from `MemberDashboard.tsx` entirely (see PR #84).
+3. **Backfill**: the 5 leads tagged since the active Pixel's creation (2026-06-30) that were missing a `sent` log were re-sent via the (now-fixed) function — 4/5 succeeded with real Meta `fbtrace_id`s confirming genuine acceptance; the 5th (Lovepreet Kaur, `ECO@WIN12`) correctly `skipped_no_pixel` again, same as before — that part is a config gap, not something this fix could resolve (needs a Pixel/CAPI token for `ECO@WIN12` and any other non-TEAMFIRE team, same as was done for TEAMFIRE earlier).
+
+#### Verification
+```sql
+-- Trigger is live
+SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = 'trg_send_crm_conversion';
+-- tgenabled = 'O' (enabled)
+
+-- Going forward: any Interested/Call Back/Closed tag should get a capi_event_log row
+-- within seconds, with result IN ('sent','failed','skipped_no_pixel') -- never absent.
+SELECT l.name, l.status, cel.event_name, cel.result, cel.created_at
+FROM leads l LEFT JOIN capi_event_log cel ON cel.lead_id = l.id
+WHERE l.status IN ('Interested','Call Back','Closed')
+ORDER BY l.updated_at DESC LIMIT 20;
+```
+
+**Open item:** only `TEAMFIRE`/`TEAMSIMRAN` have an active Pixel/CAPI mapping in `pixel_config`. `ECO@WIN12`, `ALPHAECO`, `ECO-SUKH2022`, `WIN11`, `DIGFIG` all get `skipped_no_pixel` for every Interested/Follow-up/Closed tag — needs a Pixel ID + CAPI access token per team (or per ad account) to close, same setup process as TEAMFIRE.
+
+#### ⚠️ Correction (same day) — wrong status was wired to the `FollowUp` event
+
+The first version of this fix incorrectly mapped `status='Call Back'` → `FollowUp` event. **`Call Back` and `Follow-up` are two separate, distinct statuses** in this system (`Call Back` = "contact requested a callback later," a scheduling/logistics status; `Follow-up` = 📅 a dedicated status for a lead that showed real interest and is now being nurtured — the actual high-intent status). This was caught and corrected the same day.
+
+**Consequence:** 3 leads with `status='Call Back'` (Komal_Kamal_Kayra, "anika", Priti_Mangal) were sent to Meta as a `FollowUp` custom event on 2026-07-07 before the fix. Meta CAPI has no delete/retract API for already-received custom events, so this cannot be undone — noted here for the record. Impact is minor (a handful of custom-event mislabels, not a standard/tracked conversion event, phone-hash match data itself was correct), but it's the honest state.
+
+**Fix:**
+```sql
+-- trigger_send_crm_conversion() CASE mapping — before:
+WHEN 'Call Back' THEN 'FollowUp'
+-- after:
+WHEN 'Follow-up' THEN 'FollowUp'
+```
+Also updated the trigger's `WHEN` clause: `NEW.status IN ('Interested','Call Back','Closed')` → `NEW.status IN ('Interested','Follow-up','Closed')`. `Call Back` status is intentionally NOT wired to any CAPI event (it wasn't part of the original request and isn't a reliable positive-intent signal by itself).
+
+**Backfill correction:** 12 genuine `Follow-up`-status leads (tagged since the active Pixel's creation, 2026-06-30) had zero CAPI signal sent — all 12 backfilled successfully with real Meta `fbtrace_id`s after the fix.
+
+**Verification:**
+```sql
+SELECT prosrc LIKE '%Follow-up%FollowUp%' AS has_correct_mapping,
+       prosrc LIKE '%Call Back%' AS still_has_wrong_mapping
+FROM pg_proc WHERE proname = 'trigger_send_crm_conversion';
+-- has_correct_mapping = true, still_has_wrong_mapping = false
+```
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  

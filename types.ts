@@ -21,6 +21,7 @@ export interface Lead {
   assigned_to: string;
   manager_id: string;
   created_at: string;
+  lead_details?: Record<string, string> | null;
 }
 
 export interface User {

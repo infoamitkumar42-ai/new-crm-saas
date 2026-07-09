@@ -13,12 +13,12 @@
  * ╚════════════════════════════════════════════════════════════╝
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../auth/useAuth';
 import {
   Check, Zap, Shield, Crown, Rocket, Flame, Clock,
-  Gift, ArrowRight, Star, X, ChevronLeft, TrendingUp,
+  ArrowRight, Star, X, ChevronLeft, TrendingUp,
   Phone, MessageCircle, RefreshCw, Sparkles, Users,
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
 } from 'lucide-react';
@@ -57,59 +57,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
       script.onload = () => resolve();
       document.body.appendChild(script);
     });
-  };
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ACTIVATION COUNTDOWN COMPONENT
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const ActivationCountdown = () => {
-    const [timeLeft, setTimeLeft] = useState('');
-
-    useEffect(() => {
-      const calculateTimeLeft = () => {
-        const now = new Date();
-        const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const istNow = new Date(utcNow + (3600000 * 5.5));
-        
-        const targetIST = new Date(istNow);
-        if (istNow.getHours() >= 7) {
-          targetIST.setDate(targetIST.getDate() + 1);
-        }
-        targetIST.setHours(7, 0, 0, 0);
-
-        const diff = targetIST.getTime() - istNow.getTime();
-        
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-      };
-
-      calculateTimeLeft();
-      const timer = setInterval(calculateTimeLeft, 1000);
-      return () => clearInterval(timer);
-    }, []);
-
-    return (
-      <div className="bg-slate-900/60 backdrop-blur-md border border-blue-500/30 rounded-2xl p-4 mb-6 shadow-xl shadow-blue-900/20">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/20 rounded-xl">
-              <Timer className="text-blue-400 animate-pulse" size={24} />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-sm">Next Activation Window</h3>
-              <p className="text-white/60 text-xs">Plans activate automatically everyday at <strong className="text-blue-300">7:00 AM IST</strong></p>
-            </div>
-          </div>
-          <div className="bg-slate-900 px-5 py-2.5 rounded-xl border border-white/10 text-center min-w-[140px] shadow-inner">
-            <div className="text-[10px] text-white/50 font-bold tracking-wider mb-0.5 uppercase">Time Remaining</div>
-            <div className="text-blue-400 font-mono font-bold text-lg tracking-wider">{timeLeft || '...'}</div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -157,7 +104,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         price: 1499,
         originalPrice: 2999,
         duration: 12,
-        dailyLeads: 7,
+        dailyLeads: 6,
         totalLeads: 80,
         perDay: 125,
         weight: 3,
@@ -172,7 +119,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         borderColor: 'border-blue-400',
         accentColor: 'text-blue-600',
         features: [
-          { text: '7 Leads/Day', icon: Target, highlight: true },
+          { text: '6 Leads/Day', icon: Target, highlight: true },
           { text: '80 Total Leads', icon: TrendingUp, highlight: true },
           { text: '8 Replacement Leads Included', icon: RefreshCw, highlight: true },
           { text: '12 Day Campaign', icon: Clock, highlight: false },
@@ -436,24 +383,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
           </button>
         </div>
 
-        <div className="px-4 py-5 pb-32 relative z-10">
-
-          {/* ━━━ Activation Countdown Timer ━━━ */}
-          <ActivationCountdown />
-
-          {/* ━━━ Welcome Offer Banner ━━━ */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-4 mb-6 shadow-2xl shadow-emerald-500/20">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvZz48L3N2Zz4=')] opacity-30"></div>
-            <div className="relative flex items-center justify-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Gift size={24} className="text-white animate-bounce" />
-                <span className="font-bold text-white text-lg">Welcome Bonus!</span>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full">
-                <span className="text-white font-black text-sm">🎁 5 EXTRA Leads FREE</span>
-              </div>
-            </div>
-          </div>
+        <div className="px-4 py-5 pb-8 relative z-10">
 
           {/* ━━━ Header Text ━━━ */}
           <div className="text-center mb-6">
@@ -756,19 +686,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
             </div>
           )}
 
-        </div>
-
-        {/* ━━━ Bottom Bar (Mobile) - CLEAN VERSION ━━━ */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 z-30">
-          <div className="flex items-center justify-center">
-            <button
-              onClick={handleClose}
-              className="px-8 py-3 bg-white/10 text-white font-semibold rounded-xl text-sm hover:bg-white/20 transition-all border border-white/20 flex items-center gap-2"
-            >
-              <ChevronLeft size={18} />
-              Maybe Later
-            </button>
-          </div>
         </div>
 
       </div>
