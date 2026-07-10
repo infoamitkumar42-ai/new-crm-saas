@@ -509,6 +509,46 @@ FROM pg_proc WHERE proname = 'trigger_send_crm_conversion';
 
 ---
 
+### BUG-010 — Phantom `total_leads_promised=50` at Signup Doubles Quota on First Real Payment
+
+**Status:** ✅ Fixed
+**Severity:** High — silent over-crediting of paid quota, real money impact
+**Affected:** `handle_new_user()` trigger function
+
+#### What was the bug
+`handle_new_user()` hardcoded `total_leads_promised = 50` for **every** new signup, regardless of payment — a brand-new unpaid account (`payment_status='inactive'`, `plan_name='none'`) already had `total_leads_promised=50` sitting in the row from day one, with no payment behind it.
+
+`razorpay-webhook.ts` / `razorpay-reconcile`'s cumulative-safety math (`baseline = Math.max(total_leads_received, total_leads_promised)`, `new_total = baseline + plan.totalLeads`) exists to protect users who already have real remaining quota from a prior payment when they renew. It has no way to distinguish that legitimate case from this phantom default — so the first time an affected user made a **real** payment, the phantom 50 got treated as already-earned quota and added on top of their actual plan.
+
+#### What broke
+Discovered 2026-07-09: Bhawna chawla (one of the 23 unpaid signups deactivated in BUG-008) made a genuine ₹999 starter-plan payment (`pay_TB5Pk9AXIpg0Uv`, captured) on 2026-07-08. `razorpay-reconcile` correctly activated her plan, but computed `total_leads_promised = 100` (phantom 50 + starter's real 50) instead of the correct **50** — she would have received double what she paid for.
+
+Checked the remaining 22 previously-deactivated unpaid signups — none had a captured payment yet, so Bhawna was the only account actually affected at time of discovery.
+
+#### How it was fixed
+```sql
+-- handle_new_user() — before:
+'{"pan_india": true}'::jsonb, false, 0, 50,
+-- after:
+'{"pan_india": true}'::jsonb, false, 0, 0,
+```
+New signups now start at `total_leads_promised=0` — the cumulative-safety baseline math on first real payment then correctly computes `max(0, 0) + plan.totalLeads = plan.totalLeads`, exactly what was paid for.
+
+**Manual correction for Bhawna chawla:** `total_leads_promised` 100 → 50 (matches her actual ₹999 starter payment). Also assigned `team_code='ECO@WIN12'` per admin instruction, so she now receives leads from that team's sheet instead of sitting unrouted.
+
+#### Verification
+```sql
+SELECT prosrc LIKE '%jsonb, false, 0, 0,%' AS fixed FROM pg_proc WHERE proname = 'handle_new_user';
+-- fixed = true
+
+-- Should return 0 rows going forward (no unpaid new signup should ever show a non-zero promised quota):
+SELECT email, name, total_leads_promised FROM users
+WHERE role='member' AND payment_status='inactive' AND plan_name='none' AND total_leads_promised != 0
+  AND created_at > '2026-07-09'::date;
+```
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  

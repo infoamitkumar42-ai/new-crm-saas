@@ -270,6 +270,13 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-07-09
+- Supabase Edge Function `send-crm-conversion` — no code change, but `pixel_config` gained a new active row: `pixel_id=2334725197446887` ("TEAM ECO SIMAR"), `team_code='ECO@WIN12'` — ECO@WIN12's leads now get real CAPI coverage (previously 100% `skipped_no_pixel`). Verified live with a real Meta test event before relying on it.
+- DB: manual backfill — ECO@WIN12's only pre-existing missed Interested/Follow-up/Closed tag (Lovepreet Kaur, from before the pixel existed) sent successfully once the pixel went active.
+- DB: `handle_new_user()` trigger fixed — was hardcoding `total_leads_promised=50` for every new signup regardless of payment, even though `payment_status`/`plan_name` correctly showed unpaid. This phantom 50 got silently added on top of the real plan quota the first time an affected user actually paid (cumulative-safety math treats it as legitimate pre-existing quota). Changed default to `0`. See `bugfix.md` BUG-010.
+- DB: Bhawna chawla (bhanupari23@gmail.com) — real ₹999 starter payment on 2026-07-08 had been double-credited (`total_leads_promised=100` instead of 50) by the above bug; corrected to 50. Also assigned `team_code='ECO@WIN12'` (was NULL / unrouted) per admin instruction so she now receives that team's leads.
+- DB: manual lead assignment — 8 ECO@WIN12 leads stuck in `Queued` status (team's daily capacity exhausted by a Night_Backlog catch-up that morning) were round-robin assigned across the 3 active members (`trg_check_limit_update` disabled/re-enabled per the standard manual-assignment checklist), one-time daily-limit top-up only, not a permanent `daily_limit` change.
+
 ### 2026-07-07
 - Supabase Edge Function `razorpay-reconcile` CREATED (v1, `verify_jwt: false`) — polls Razorpay's `/v1/payments` API directly every 15 min and backfills any `captured` payment missing from the `payments` table, using the same `PLAN_CONFIG`/baseline-cumulative-quota/next-day-7AM-IST-activation logic as `razorpay-webhook.ts`. Idempotent (dedupes on `razorpay_payment_id`), always returns HTTP 200.
 - DB: `pg_cron` job `razorpay-reconcile-15min` created (jobid=26, `*/15 * * * *`) to invoke the above function automatically.
@@ -476,6 +483,7 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-007 | 2026-07-07 | Stale hardcoded Razorpay key fallback in `config/env.ts` after live key regeneration | Fallback updated to new key_id |
 | BUG-008 | 2026-07-07 | New signups defaulted to `is_active=true` with zero payment (free leads) | `handle_new_user()` trigger — `is_active` hardcoded value `true` → `false` |
 | BUG-009 | 2026-07-07 | Meta CAPI signal silently never fires for some Interested/Closed tags (fire-and-forget frontend call) | New `trg_send_crm_conversion` DB trigger, server-side + `FollowUp` event added (correctly mapped to `Follow-up` status, not `Call Back`) |
+| BUG-010 | 2026-07-09 | Phantom `total_leads_promised=50` at signup doubles quota on first real payment | `handle_new_user()` — default `50` → `0` |
 
 ---
 
