@@ -547,6 +547,35 @@ WHERE role='member' AND payment_status='inactive' AND plan_name='none' AND total
   AND created_at > '2026-07-09'::date;
 ```
 
+#### Follow-up (same day) — retroactive cleanup, 34 pre-existing accounts
+
+The fix above only prevents the bug for *future* signups. It does not fix existing rows created before the fix — anyone who signed up unpaid while the old `handle_new_user()` was live still has the phantom `total_leads_promised=50` sitting in their row today, visible in their dashboard as a misleading "50 total left" even though `Plan Inactive`.
+
+Found via screenshot report (Amandeep kaur / `mnkaur5678@gmail.com` — one of the 23 accounts deactivated in BUG-008). Broadened the check beyond just her account:
+
+```sql
+-- Correctly scoped: only accounts with ZERO real payment history.
+-- Users with captured_payments > 0 legitimately have a non-zero total_leads_promised
+-- (their cumulative history from real past plans, even if currently expired/inactive) —
+-- those must NOT be touched.
+UPDATE users u
+SET total_leads_promised = 0, updated_at = now()
+WHERE role='member' AND payment_status='inactive' AND plan_name='none'
+  AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.user_id = u.id AND p.status='captured')
+  AND total_leads_promised != 0;
+```
+
+34 accounts corrected (Amandeep kaur among them). All were already `is_active=false` (from BUG-008), so this was purely a cosmetic/data-accuracy fix — no lead-routing behavior changed, just the dashboard now correctly shows `0 total left` / `Plan Inactive` instead of a phantom `50 total left` for someone who never paid.
+
+**Safety verification before and after** — confirmed zero real-paying users were affected:
+```sql
+SELECT COUNT(*) FROM users u
+WHERE role='member' AND payment_status='inactive' AND plan_name='none'
+  AND total_leads_promised != 0
+  AND EXISTS (SELECT 1 FROM payments p WHERE p.user_id=u.id AND p.status='captured');
+-- 0 rows — every corrected account had zero captured payments, confirmed individually first
+```
+
 ---
 
 ## Historical Over-Delivery (Root Cause Analysis)
