@@ -170,6 +170,14 @@ serve(async (req) => {
                     const rawPhone = extractField(fields, 'phone_number', 'phoneNumber', 'phone', 'mobile', 'contact');
                     const phone = sanitizePhone(rawPhone);
 
+                    // Qualifying-question fields (e.g. "Your Age", "Your Profession") —
+                    // generic extraction so any page's form questions get captured, not hardcoded per page.
+                    const age = extractField(fields, 'age', 'your_age');
+                    const profession = extractField(fields, 'profession', 'your_profession', 'occupation');
+                    const leadDetails: Record<string, string> = {};
+                    if (age) leadDetails['Age'] = age;
+                    if (profession) leadDetails['Profession'] = profession;
+
                     // ────────────────────────────────────────────────────────
                     // D. VALIDATION
                     // ────────────────────────────────────────────────────────
@@ -182,7 +190,7 @@ serve(async (req) => {
                         console.log(`⏭️ Invalid phone: ${phone}`);
                         await supabase.from('leads').insert({
                             name, phone: phone || 'INVALID', city,
-                            source: `Meta - ${pageName}`, status: 'Invalid'
+                            source: `Meta - ${pageName}`, status: 'Invalid', lead_details: leadDetails
                         });
                         continue;
                     }
@@ -200,7 +208,7 @@ serve(async (req) => {
                         console.log(`♻️ Duplicate: ${phone}`);
                         await supabase.from('leads').insert({
                             name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Duplicate'
+                            source: `Meta - ${pageName}`, status: 'Duplicate', lead_details: leadDetails
                         });
                         continue;
                     }
@@ -211,7 +219,7 @@ serve(async (req) => {
                     if (!isWithinWorkingHours()) {
                         await supabase.from('leads').insert({
                             name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Night_Backlog'
+                            source: `Meta - ${pageName}`, status: 'Night_Backlog', lead_details: leadDetails
                         });
                         continue;
                     }
@@ -230,7 +238,7 @@ serve(async (req) => {
                         await supabase.from('leads').insert({
                             name, phone, city,
                             source: `Meta - ${pageName}`, status: 'Orphan',
-                            notes: 'Manual Distribution Mode Enabled'
+                            notes: 'Manual Distribution Mode Enabled', lead_details: leadDetails
                         });
                         continue;
                     }
@@ -319,7 +327,7 @@ serve(async (req) => {
                         await supabase.from('leads').insert({
                             name, phone, city,
                             source: `Meta - ${pageName}`, status: 'New',
-                            notes: 'RPC Error - Manual Assignment Required'
+                            notes: 'RPC Error - Manual Assignment Required', lead_details: leadDetails
                         });
                         continue;
                     }
@@ -330,7 +338,7 @@ serve(async (req) => {
                         await supabase.from('leads').insert({
                             name, phone, city,
                             source: `Meta - ${pageName}`, status: 'Queued',
-                            notes: `Team ${requiredTeamCode} - All users at capacity`
+                            notes: `Team ${requiredTeamCode} - All users at capacity`, lead_details: leadDetails
                         });
                         continue;
                     }
@@ -358,7 +366,8 @@ serve(async (req) => {
                             user_id: finalUserId,
                             assigned_at: new Date().toISOString(),
                             lead_type: 'fresh',
-                            recycle_count: 0
+                            recycle_count: 0,
+                            lead_details: leadDetails
                         })
                         .select('id')
                         .single();
@@ -367,7 +376,7 @@ serve(async (req) => {
                         console.log(`⚠️ Direct assign failed for ${targetUser.user_name}, inserting as Queued:`, assignError.message);
                         await supabase.from('leads').insert({
                             name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Queued'
+                            source: `Meta - ${pageName}`, status: 'Queued', lead_details: leadDetails
                         });
                         continue;
                     }
