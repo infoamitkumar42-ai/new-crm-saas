@@ -69,6 +69,7 @@ interface Lead {
   created_at: string;
   assigned_at: string;
   lead_type?: string;
+  lead_details?: Record<string, string> | null;
 }
 
 interface DeliveryStatusInfo {
@@ -139,6 +140,75 @@ const isIOS = () => {
 const getTimeUntilOpen = (): string => {
   // 🔓 24/7 Mode: No wait time
   return '';
+};
+
+// ============================================================
+// LEAD DETAILS CHIPS (qualifying-question fields → colored badges)
+// Raw form values (18_-_25, post_graduate, DOB) display se pehle
+// clean hote hain; junk values (Yes/Ye/blank) chip nahi banti.
+// ============================================================
+
+const DETAIL_JUNK_VALUES = new Set(['yes', 'ye', 'no', 'na', 'n/a', '-', '.']);
+
+const detailTitleCase = (s: string): string =>
+  s.replace(/[_]+/g, ' ').trim().replace(/\s+/g, ' ')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+const ageFromDob = (raw: string): string | null => {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return null;
+  const age = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
+  return age >= 14 && age <= 90 ? `${age} yrs` : null;
+};
+
+interface DetailChip { key: string; icon: string; text: string; cls: string; }
+
+const buildDetailChips = (details: Record<string, string>): DetailChip[] => {
+  const chips: DetailChip[] = [];
+  const get = (label: string): string => {
+    const v = (details[label] ?? '').toString().trim();
+    return v && !DETAIL_JUNK_VALUES.has(v.toLowerCase()) ? v : '';
+  };
+
+  // Age bucket (new form: "18_-_25") ya DOB (old form) — dono age chip bante hain
+  const rawAge = get('Age');
+  const rawDob = get('Date of Birth');
+  if (rawAge) {
+    const m = rawAge.replace(/_/g, '').match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+    chips.push({ key: 'age', icon: '🎂', text: m ? `${m[1]}–${m[2]} yrs` : rawAge, cls: 'bg-teal-50 text-teal-700' });
+  } else if (rawDob) {
+    const age = ageFromDob(rawDob);
+    if (age) chips.push({ key: 'age', icon: '🎂', text: age, cls: 'bg-teal-50 text-teal-700' });
+  }
+
+  const pro = get('Profession');
+  if (pro) chips.push({ key: 'pro', icon: '💼', text: detailTitleCase(pro), cls: 'bg-violet-50 text-violet-700' });
+
+  const edu = get('Education');
+  if (edu) chips.push({ key: 'edu', icon: '🎓', text: detailTitleCase(edu), cls: 'bg-indigo-50 text-indigo-700' });
+
+  const exp = get('Experience');
+  if (exp) {
+    const isFresher = /fresh/i.test(exp);
+    chips.push({
+      key: 'exp',
+      icon: isFresher ? '🌱' : '⭐',
+      text: isFresher ? 'Fresher' : detailTitleCase(exp),
+      cls: isFresher ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700',
+    });
+  }
+
+  // Future forms ke naye/unknown fields — generic chip, kuch bhi silently drop na ho
+  const KNOWN_DETAIL_KEYS = new Set(['Age', 'Date of Birth', 'Profession', 'Education', 'Experience']);
+  Object.keys(details).forEach((k) => {
+    if (KNOWN_DETAIL_KEYS.has(k)) return;
+    const v = get(k);
+    if (v) chips.push({ key: k, icon: '📋', text: v, cls: 'bg-slate-100 text-slate-600' });
+  });
+
+  return chips;
 };
 
 // ============================================================
@@ -1242,17 +1312,18 @@ export const MemberDashboard = () => {
                       </div>
                     )}
 
-                    {/* Lead Qualifying Details (from lead form: education, profession, experience, DOB) */}
-                    {lead.lead_details && Object.keys(lead.lead_details).length > 0 && (
-                      <div className="text-xs text-slate-600 bg-blue-50 border border-blue-100 p-2.5 rounded-lg mb-3">
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {Object.entries(lead.lead_details).map(([label, value]) => (
-                            <div key={label} className="truncate">
-                              <span className="text-slate-400">{label}:</span>{' '}
-                              <span className="font-medium">{value}</span>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Lead Qualifying Details — colored chips (Age → Profession → Education → Experience) */}
+                    {lead.lead_details && buildDetailChips(lead.lead_details).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {buildDetailChips(lead.lead_details).map((c) => (
+                          <span
+                            key={c.key}
+                            className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${c.cls}`}
+                          >
+                            <span aria-hidden="true">{c.icon}</span>
+                            {c.text}
+                          </span>
+                        ))}
                       </div>
                     )}
 
