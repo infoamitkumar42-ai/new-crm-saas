@@ -1414,8 +1414,8 @@ export const MemberDashboard = () => {
         </div>
       </main>
 
-      {/* Mobile Bottom CTA */}
-      {!isExpired && (
+      {/* Mobile Bottom CTA — sirf tab dikhta hai jab quota khatam hone waali ho (renewal nudge) */}
+      {!isExpired && remainingLeads <= 5 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 p-3 sm:hidden z-30 shadow-xl">
           <button
             onClick={() => setShowSubscription(true)}
