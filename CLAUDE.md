@@ -270,6 +270,11 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-07-14
+- `views/MemberDashboard.tsx`: lead qualifying details (lead_details JSONB) redesigned — truncating 2-column grey grid replaced with flex-wrap colored chip badges (🎂 age teal, 💼 profession violet, 🎓 education indigo, 🌱 Fresher amber / ⭐ Experienced green). Raw values normalized at display time only (DB untouched): Meta age buckets `18_-_25` → "18–25 yrs", DOB → computed age, snake_case → Title Case, junk values (Yes/Ye/blank) hidden, unknown future fields → generic chip. `lead_details` field also added to the `Lead` TS interface (was missing).
+- `views/MemberDashboard.tsx`: lead action buttons redesigned — Call + WhatsApp are now full-width primary buttons with always-visible labels (labels were `hidden sm:inline`, i.e. invisible on mobile); WhatsApp uses the official brand glyph (new inline `WhatsAppIcon` SVG component, brand green #25D366) instead of generic `MessageSquare`; Note/Report are compact 52px secondary buttons with mini-labels.
+- `PRD-B2C.md` CREATED (draft v0.1) — B2C/individual pay-per-lead marketplace PRD: wallet + honest lead-tiering (Exclusive/Shared/Rotation), DIRECT pool architecture, MVP scope, 10 open decision points pending founder brainstorm. NOT final — do not build from it until locked to v1.0.
+
 ### 2026-07-09
 - Supabase Edge Function `send-crm-conversion` — no code change, but `pixel_config` gained a new active row: `pixel_id=2334725197446887` ("TEAM ECO SIMAR"), `team_code='ECO@WIN12'` — ECO@WIN12's leads now get real CAPI coverage (previously 100% `skipped_no_pixel`). Verified live with a real Meta test event before relying on it.
 - DB: manual backfill — ECO@WIN12's only pre-existing missed Interested/Follow-up/Closed tag (Lovepreet Kaur, from before the pixel existed) sent successfully once the pixel went active.
