@@ -3,16 +3,20 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 🚀 LEADFLOW WEBHOOK v34 - OPTIMIZED (KILL SWITCH REMOVED, RPC-BASED)
+ * 🚀 LEADFLOW WEBHOOK v36 - PRIORITY USER TEMPORARILY BLOCKED
  * ═══════════════════════════════════════════════════════════════════════════
- * 
+ *
  * FIXES APPLIED:
  * 1. ❌ REMOVED: Auto-disable (is_active: false) when quota full
  * 2. ✅ ADDED: Single RPC call (get_best_assignee_for_team) replaces N+1 loop
  * 3. ✅ ADDED: Robust field extraction with multiple fallbacks
  * 4. ✅ ADDED: Graceful error handling (no silent failures)
  * 5. ✅ ADDED: lead_queue fallback when no eligible users
- * 
+ * 6. ✅ ADDED (v35): Capture qualifying-question fields (Age, Profession) into lead_details
+ * 7. ✅ ADDED (v36): PRIORITY_USER_BLOCKED flag — Himanshu's hardcoded priority
+ *    routing bypassed the fresh_leads_quota admin block, so it's disabled here
+ *    directly. Flip back to false to restore.
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -251,8 +255,11 @@ serve(async (req) => {
                     // ════════════════════════════════════════════════════════
                     const PRIORITY_EMAIL = 'sharmahimanshu9797@gmail.com';
                     const PRIORITY_DAILY_LIMIT = 14;
+                    // Temporary admin block (2026-07-30) — Himanshu should not receive fresh
+                    // leads right now. Set back to false to restore priority routing.
+                    const PRIORITY_USER_BLOCKED = true;
 
-                    if (requiredTeamCode === 'TEAMFIRE' || requiredTeamCode.split(',').map((c: string) => c.trim()).includes('TEAMFIRE')) {
+                    if (!PRIORITY_USER_BLOCKED && (requiredTeamCode === 'TEAMFIRE' || requiredTeamCode.split(',').map((c: string) => c.trim()).includes('TEAMFIRE'))) {
                         const { data: priorityUser } = await supabase
                             .from('users')
                             .select('id, leads_today, total_leads_received, total_leads_promised, is_active, is_online, payment_status')
