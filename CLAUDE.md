@@ -271,6 +271,15 @@ new-crm-saas/
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
 ### 2026-08-04
+- **BUG-012**: `App.tsx` ka `lazyWithRetry` deploy ke baad aane wale chunk-404 pe **crash screen**
+  dikha raha tha, silent refresh ke bajaye. Do wajah: (1) `try/catch` rejection ko handle kar leta
+  tha isliye `index.html` ka strong boot-recovery (`unhandledrejection` par cache-clear +
+  cache-busting reload) kabhi trigger hi nahi hota tha; (2) `return window.location.reload()`
+  `undefined` return karta hai, jo React ne lazy component samajh kar turant render kiya aur
+  reload hone se pehle hi ErrorBoundary mein gir gaya. Fix: caches clear + `?_r=` cache-busting
+  reload + `return new Promise<never>(() => {})` taaki React reload tak wait kare. Sentry
+  `da7394b932b5448cb45d8709b1245798` (Chrome Mobile/Android) se pakda gaya. Sirf `lazyWithRetry`
+  block badla — PWA cleanup, router, auth sab untouched.
 - **AUGUST OFFER LIVE — SABHI 5 plans pe** promotional quota (price same, leads badhi, ₹11/lead):
   starter 50→90 (daily 5→9), supervisor 80→136 (6→11), weekly_boost 92→181 (12→26),
   turbo_boost 108→227 (14→33), manager 160→272 (8→14).
@@ -531,6 +540,8 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-008 | 2026-07-07 | New signups defaulted to `is_active=true` with zero payment (free leads) | `handle_new_user()` trigger — `is_active` hardcoded value `true` → `false` |
 | BUG-009 | 2026-07-07 | Meta CAPI signal silently never fires for some Interested/Closed tags (fire-and-forget frontend call) | New `trg_send_crm_conversion` DB trigger, server-side + `FollowUp` event added (correctly mapped to `Follow-up` status, not `Call Back`) |
 | BUG-010 | 2026-07-09 | Phantom `total_leads_promised=50` at signup doubles quota on first real payment | `handle_new_user()` — default `50` → `0` |
+| BUG-011 | 2026-08-04 | `assign_recycled_leads` RPC silently returned 0 leads (NULL-unsafe `NOT (col ILIKE ...)` filter) | `COALESCE(l.state,'')` / `COALESCE(l.city,'')` — pool 0 → 1,140 |
+| BUG-012 | 2026-08-04 | Chunk-load failure after deploy showed crash screen instead of auto-recovering | `App.tsx` `lazyWithRetry` — cache clear + cache-busting reload + pending promise |
 
 ---
 
