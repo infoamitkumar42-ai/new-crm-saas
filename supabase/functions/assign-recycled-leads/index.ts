@@ -11,6 +11,17 @@ const RECYCLED_SCHEDULE: Record<string, { recycledDayAmount: number }> = {
 
 const BOOST_PLANS = new Set(['daily_boost', 'weekly_boost', 'turbo_boost'])
 
+// ── AUGUST OFFER MODE ────────────────────────────────────────────────────
+// true hone par:
+//   1. Boost plans ka day-3/5/7 gate bypass hota hai (offer quota us schedule
+//      se poori nahi ho sakti — weekly_boost ko 97 recycled chahiye, schedule
+//      sirf 12 deta tha).
+//   2. recycled_daily ko aadha nahi kiya jata. Purane setup mein 2 batch/din
+//      chalti thi isliye /2 tha; morning batch (jobid 21) delete ho chuki hai,
+//      ab sirf ek batch chalti hai.
+// Offer band karte waqt isse false kar do. Runbook: OFFER-PLAYBOOK.md
+const OFFER_MODE = true
+
 serve(async (req) => {
   const startTime = Date.now()
   const batchLabel = req.headers.get('x-batch') || 'manual'
@@ -78,8 +89,8 @@ serve(async (req) => {
         const config = planConfigs[user.plan_name]
         if (!config) continue
 
-        // ── BOOST PLANS: Day 3/5/7 gate ─────────────────────────────────
-        if (BOOST_PLANS.has(user.plan_name)) {
+        // ── BOOST PLANS: Day 3/5/7 gate (OFFER_MODE mein bypass) ────────
+        if (!OFFER_MODE && BOOST_PLANS.has(user.plan_name)) {
 
           if (!user.plan_start_date) {
             console.log(`[Recycler] ${user.email}: no plan_start_date, skipping`)
@@ -165,7 +176,9 @@ serve(async (req) => {
           continue
         }
 
-        const batchTarget = Math.ceil((config.recycled_daily || 0) / 2)
+        const batchTarget = OFFER_MODE
+          ? (config.recycled_daily || 0)
+          : Math.ceil((config.recycled_daily || 0) / 2)
 
         let canAssign: number
         if (dailyRemaining > 0) {
