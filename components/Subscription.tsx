@@ -23,6 +23,7 @@ import {
   ChevronDown, ChevronUp, BadgeCheck, Timer, Target
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getOfferForPlan, isOfferLive, OFFER } from '../config/offer';
 
 interface SubscriptionProps {
   onClose?: () => void;
@@ -231,6 +232,41 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // PROMOTIONAL OFFER OVERLAY
+  // Offer band karne ke liye config/offer.ts mein OFFER_ACTIVE = false.
+  // Tab ye function pass-through ban jata hai aur original plans dikhte hain.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  type OfferExtras = { baseTotalLeads?: number; isOffer?: boolean };
+
+  const applyOffer = <T extends typeof plans.monthly[0]>(plan: T): T & OfferExtras => {
+    const offer = getOfferForPlan(plan.id);
+    if (!offer) return plan;
+
+    return {
+      ...plan,
+      dailyLeads: offer.dailyLeads,
+      totalLeads: offer.totalLeads,
+      replacementLimit: offer.replacementLimit,
+      baseTotalLeads: offer.baseTotalLeads,
+      isOffer: true,
+      badge: '🔥 AUGUST OFFER',
+      features: [
+        { text: `${offer.dailyLeads} Leads/Day`, icon: Target, highlight: true },
+        { text: `${offer.totalLeads} Total Leads`, icon: TrendingUp, highlight: true },
+        { text: `${offer.replacementLimit} Replacement Leads Included`, icon: RefreshCw, highlight: true },
+        { text: `${plan.duration} Day Campaign`, icon: Clock, highlight: false },
+      ],
+    } as T & OfferExtras;
+  };
+
+  const offerLive = isOfferLive();
+  const offerPlans = {
+    monthly: plans.monthly.map(applyOffer),
+    boost: plans.boost.map(applyOffer),
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PAYMENT HANDLER (SECURE API CALL)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -343,7 +379,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
     setExpandedPlan(expandedPlan === planId ? null : planId);
   };
 
-  const currentPlans = activeTab === 'boost' ? plans.boost : plans.monthly;
+  const currentPlans = activeTab === 'boost' ? offerPlans.boost : offerPlans.monthly;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // RENDER
@@ -490,11 +526,28 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
                         <div className="text-2xl font-black text-green-600">₹{Math.round(plan.perDay)}</div>
                         <div className="text-[10px] text-slate-500 font-medium">PER DAY</div>
                       </div>
-                      <div className="bg-white/80 backdrop-blur rounded-xl p-3 text-center border border-slate-200/50">
-                        <div className="text-2xl font-black text-slate-700">{plan.totalLeads}</div>
+                      <div className={`backdrop-blur rounded-xl p-3 text-center border ${plan.isOffer
+                        ? 'bg-green-50/90 border-green-300'
+                        : 'bg-white/80 border-slate-200/50'}`}>
+                        {plan.isOffer && plan.baseTotalLeads && (
+                          <div className="text-xs text-slate-400 line-through leading-none">{plan.baseTotalLeads}</div>
+                        )}
+                        <div className={`text-2xl font-black ${plan.isOffer ? 'text-green-600' : 'text-slate-700'}`}>
+                          {plan.totalLeads}
+                        </div>
                         <div className="text-[10px] text-slate-500 font-medium">TOTAL LEADS</div>
                       </div>
                     </div>
+
+                    {/* Offer strip — sirf offer active hone par */}
+                    {plan.isOffer && (
+                      <div className="flex items-center justify-center gap-2 mb-4 rounded-xl px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow">
+                        <Sparkles size={14} className="shrink-0" />
+                        <span className="text-xs font-black tracking-wide">
+                          AUGUST OFFER · {plan.totalLeads} LEADS · ₹{OFFER.perLeadPrice}/LEAD
+                        </span>
+                      </div>
+                    )}
 
                     {/* Replacement Guarantee Box */}
                     <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 mb-4">

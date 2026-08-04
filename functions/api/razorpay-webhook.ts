@@ -16,10 +16,21 @@ const PLAN_CONFIG: Record<string, {
     fresh_count: number;
     recycled_count: number;
 }> = {
-    starter:      { price: 999,  duration: 10, dailyLeads: 5,  totalLeads: 50,  weight: 1, maxReplacements: 5,  fresh_count: 21, recycled_count: 34 },
-    supervisor:   { price: 1499, duration: 15, dailyLeads: 7,  totalLeads: 80,  weight: 3, maxReplacements: 10, fresh_count: 70, recycled_count: 10 },
+    // ⚠️ AUGUST OFFER ACTIVE — starter / supervisor / weekly_boost pe promotional quota.
+    // Offer band karne ke liye teeno lines ko neeche diye NORMAL values se replace karo
+    // (aur config/offer.ts mein OFFER_ACTIVE = false). Poora runbook: OFFER-PLAYBOOK.md
+    //
+    //   NORMAL (offer se pehle wali values — revert ke liye):
+    //   starter:      { ..., dailyLeads: 5,  totalLeads: 50,  maxReplacements: 5,  fresh_count: 21, recycled_count: 34 },
+    //   supervisor:   { ..., dailyLeads: 7,  totalLeads: 80,  maxReplacements: 10, fresh_count: 70, recycled_count: 10 },
+    //   weekly_boost: { ..., dailyLeads: 12, totalLeads: 92,  maxReplacements: 8,  fresh_count: 80, recycled_count: 12 },
+    //
+    // Offer ka logic: fresh_count bilkul same rehta hai (ad-cost nahi badhta),
+    // extra leads sirf recycled_count se aati hain (₹0 cost).
+    starter:      { price: 999,  duration: 10, dailyLeads: 9,  totalLeads: 90,  weight: 1, maxReplacements: 9,  fresh_count: 45, recycled_count: 45 },
+    supervisor:   { price: 1499, duration: 15, dailyLeads: 11, totalLeads: 136, weight: 3, maxReplacements: 13, fresh_count: 70, recycled_count: 66 },
     manager:      { price: 2999, duration: 20, dailyLeads: 8,  totalLeads: 160, weight: 5, maxReplacements: 16, fresh_count: 76, recycled_count: 74 },
-    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 12, totalLeads: 92,  weight: 7, maxReplacements: 8,  fresh_count: 80, recycled_count: 12 },
+    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 26, totalLeads: 181, weight: 7, maxReplacements: 18, fresh_count: 84, recycled_count: 97 },
     turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 10, fresh_count: 93, recycled_count: 15 },
     test_plan:    { price: 1,    duration: 1,  dailyLeads: 1,  totalLeads: 1,   weight: 1, maxReplacements: 0,  fresh_count: 1,  recycled_count: 0  },
 };
