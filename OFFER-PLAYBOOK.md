@@ -21,14 +21,23 @@ Andar ka math: **Fresh leads count bilkul same rehta hai** (jitni aaj hai). Extr
 Recycled lead ka ad-cost = **₹0** (wo ad-spend pehle hi ho chuka tha).
 Isliye COGS bilkul nahi badhta → **margin same rehta hai**, sirf marketed lead-count double dikhta hai.
 
-| Plan | Price | Fresh (unchanged, ₹11 CPL) | Recycled top-up (₹0) | **Offer Total** | Aaj ka Total | Real COGS |
-|---|---|---|---|---|---|---|
-| Starter | ₹999 | 45 | +45 | **90** | 50 | ₹495 (same) |
-| Supervisor | ₹1,499 | 70 | +66 | **136** | 80 | ₹770 (same) |
-| Weekly Boost | ₹1,999 | 84 | +97 | **181** | 92 | ₹924 (same) |
+**SABHI 5 plans pe offer hai.** Har plan ka total = `price ÷ ₹11` (round down).
 
-Manager + Turbo Boost — **offer se bahar** (kam bikte hain: 13 aur 17 sales lifetime).
-Top 3 sellers hi liye gaye hain: Starter 182 sales, Weekly Boost 91, Supervisor 80.
+| Plan | Price | Fresh (unchanged, ₹11 CPL) | Recycled top-up (₹0) | **Offer Total** | Purana Total | Daily | Real COGS |
+|---|---|---|---|---|---|---|---|
+| Starter | ₹999 | 45 | +45 | **90** | 50 | 9 | ₹495 (same) |
+| Supervisor | ₹1,499 | 70 | +66 | **136** | 80 | 11 | ₹770 (same) |
+| Weekly Boost | ₹1,999 | 84 | +97 | **181** | 92 | 26 | ₹924 (same) |
+| Turbo Boost | ₹2,499 | 93 | +134 | **227** | 108 | 33 | ₹1,023 (same) |
+| Manager | ₹2,999 | 76 | +196 | **272** | 160 | 14 | ₹836 (same) |
+
+Har plan ₹11.0x/lead pe aata hai. COGS kisi bhi plan ka nahi badha kyunki `fresh_count`
+har jagah waisa hi hai jaisa offer se pehle tha.
+
+⚠️ **Pool consumption dhyan mein rakho:** Manager ka ek buyer **196 recycled** khata hai
+(pool ka ~17%), Turbo **134** (~12%). Isliye in dono ke aane se safe buyer-capacity
+~22 se ghatkar **~16 buyers** ho jati hai (historical plan-mix ke hisaab se ~71 recycled
+per buyer average). 16+ sales dikhein to Pool D (1,996) pe shift karna padega — section 3 dekho.
 
 **UI/UX rule:** Recycled leads user ko bilkul normal leads jaisi dikhengi. RPC already
 `status='Fresh'` set karta hai aur `notes` clear kar deta hai. DB mein internal record
@@ -97,17 +106,21 @@ chhod deta hai. Include karna ho to alag se bolna padega — double-calling ka r
 | D. Any age + inactive owner, 3 teams | 1,996 |
 | E. Any age + inactive owner, sabhi teams | 2,364 |
 
-**Kitne buyers handle kar sakte hain (Pool = 1,140 ke hisaab se):**
+**Kitne buyers handle kar sakte hain (Pool ≈ 1,132 ke hisaab se):**
 
-| Plan | Recycled/buyer | Max buyers |
+| Plan | Recycled/buyer | Agar sirf yahi plan bike |
 |---|---|---|
-| Starter | 45 | ~25 |
-| Supervisor | 66 | ~17 |
-| Weekly Boost | 97 | ~11 |
+| Starter | 45 | ~25 buyers |
+| Supervisor | 66 | ~17 buyers |
+| Weekly Boost | 97 | ~11 buyers |
+| Turbo Boost | 134 | ~8 buyers |
+| Manager | 196 | ~5 buyers |
 
-➡️ **Mixed ~22 buyers tak safe hai.** Usse zyada bike to pool sookh jayega aur baad wale
-buyers ko promised quota nahi milega. Agar 2-din ki window mein 22+ expected hain to
-Pool D (1,996) pe jaana padega.
+Historical plan-mix (starter 47.5%, weekly 23.8%, supervisor 20.9%, turbo 4.4%, manager 3.4%)
+se weighted average = **~71 recycled per buyer**.
+
+➡️ **Mixed ~16 buyers tak safe hai.** Usse zyada bike to pool sookh jayega aur baad wale
+buyers ko promised quota nahi milega. 16+ sales dikhein to Pool D (1,996) pe shift karo.
 
 ### RPC mein kya badlega is pool ke liye
 
@@ -236,10 +249,12 @@ Code side: current state git mein already commit hai (`c206078`), toh revert ke 
        SELECT cron.alter_job(22, active := false);
        -- NOTE: `UPDATE cron.job SET active=false` kaam NAHI karta (permission denied)
 
-□ 2. plan_config restore:
+□ 2. plan_config restore (SABHI 5):
        UPDATE plan_config SET total_leads=50,  daily_leads=5,  max_replacements=5  WHERE plan_name='starter';
        UPDATE plan_config SET total_leads=80,  daily_leads=7,  max_replacements=10 WHERE plan_name='supervisor';
+       UPDATE plan_config SET total_leads=160, daily_leads=8,  max_replacements=16 WHERE plan_name='manager';
        UPDATE plan_config SET total_leads=92,  daily_leads=12, max_replacements=8  WHERE plan_name='weekly_boost';
+       UPDATE plan_config SET total_leads=108, daily_leads=14, max_replacements=10 WHERE plan_name='turbo_boost';
 
 □ 3. system_config.plan_fresh_config restore backup se:
        UPDATE system_config s SET config_value = (b.data->>'config_value')::jsonb
@@ -275,33 +290,49 @@ buyers ko normal plan milega. Ye jaan-boojh kar aisa hai (paid promise honour ka
 
 ---
 
-## 10. Poster ke liye GPT/Image prompt
+## 10. Poster ke liye GPT/Image prompt (sabhi 5 plans)
 
 ```
-Create a premium, eye-catching promotional poster for an Indian SaaS lead-generation
-product called "LeadFlow CRM". Portrait format, 4:5 aspect ratio (1080x1350).
+Create a premium promotional poster for an Indian SaaS lead-generation product called
+"LeadFlow CRM". Portrait orientation, 4:5 aspect ratio (1080 x 1350 px).
 
-HEADLINE (largest element, top): "AUGUST MEGA OFFER"
-SUBHEAD directly below: "Same Price. Double Leads."
-A bold circular starburst badge on the top-right corner reading: "ONLY ₹11 PER LEAD"
+═══ TOP SECTION ═══
+HEADLINE (largest text on the poster): AUGUST MEGA OFFER
+SUBHEAD directly below it: Same Price. Double The Leads.
+Top-right corner: a bold circular starburst badge in gold/amber reading: ONLY ₹11 PER LEAD
 
-MAIN CONTENT — three glassmorphic pricing cards in a vertical stack, each showing a
-plan with the OLD lead count struck through in grey and the NEW count in large bold
-green with an upward arrow:
-  Card 1 — "STARTER"       ₹999   |  50 leads (struck out) → 90 LEADS
-  Card 2 — "SUPERVISOR"    ₹1,499 |  80 leads (struck out) → 136 LEADS   [ribbon: MOST POPULAR]
-  Card 3 — "WEEKLY BOOST"  ₹1,999 |  92 leads (struck out) → 181 LEADS   [ribbon: BEST VALUE]
+═══ MIDDLE SECTION — A PRICING TABLE WITH EXACTLY 5 ROWS ═══
+Render this as a clean table or as 5 stacked horizontal cards. Each row has 4 columns:
+PLAN NAME | PRICE | OLD LEADS (small, grey, struck through) | NEW LEADS (large, bold, bright green)
 
-BOTTOM STRIP: an urgency bar in bright amber/red with a small clock icon reading
-"OFFER VALID FOR 2 DAYS ONLY — GRAB IT NOW"
-Below that, small clean footer text: "www.leadflowcrm.in"
+Row 1:  STARTER        ₹999     50  →  90
+Row 2:  SUPERVISOR     ₹1,499   80  →  136      [small ribbon on this row: MOST POPULAR]
+Row 3:  WEEKLY BOOST   ₹1,999   92  →  181      [small ribbon on this row: BEST VALUE]
+Row 4:  TURBO BOOST    ₹2,499   108 →  227
+Row 5:  MANAGER        ₹2,999   160 →  272      [small ribbon on this row: PRO]
 
-STYLE: modern Indian fintech/SaaS aesthetic. Deep indigo-to-violet gradient background
-with subtle light streaks and soft sparkles. Glassmorphism cards with soft white borders
-and gentle drop shadows. High contrast, premium feel, similar polish to Razorpay or
-CRED marketing creatives. Bold geometric sans-serif typography (Poppins / Montserrat style).
-Accent colours: electric blue, violet, and gold. Leave clean breathing space — not cluttered.
-No stock photos of people. No spelling errors. All text must be crisp and perfectly legible.
+Put a small upward green arrow between the old and new number in every row.
+All 5 rows must be present, in this exact order, with these exact numbers.
+
+═══ BOTTOM SECTION ═══
+An urgency bar in bright red/amber with a clock icon, text: LIMITED TIME — ONLY 2 DAYS LEFT
+Below it, a footer line in small clean text: www.leadflowcrm.in
+
+═══ STYLE ═══
+Modern Indian fintech/SaaS aesthetic — comparable polish to Razorpay or CRED marketing
+creatives. Deep indigo-to-violet gradient background with subtle diagonal light streaks
+and soft sparkle particles. Glassmorphism panels with soft white borders and gentle drop
+shadows. Bold geometric sans-serif typography (Poppins or Montserrat style).
+Accent colours: electric blue, violet, gold, and bright green for the new numbers.
+High contrast so every number is instantly readable on a phone screen.
+Generous breathing space — clean and premium, NOT cluttered.
+
+═══ STRICT RULES ═══
+- Exactly 5 plan rows. Do not add, remove, merge or reorder any plan.
+- Reproduce every number and price EXACTLY as written above. Do not invent or round numbers.
+- Correct spelling everywhere. Use the ₹ symbol for all prices.
+- No photographs of people. No fake logos. No lorem ipsum or placeholder text.
+- Every piece of text must be sharp and fully legible — no cut-off or overlapping text.
 ```
 
 ---
