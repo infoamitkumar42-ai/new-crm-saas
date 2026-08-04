@@ -100,6 +100,66 @@
     })();
   </script>
 
+  <!-- 🔄 STALE-BUILD PREVENTION (PWA ke liye zaroori)
+       PWA / background tab reload kiye bina memory mein zinda rehta hai. Us
+       purane page ki JS mein purane chunk URLs bhare hote hain. Beech mein
+       deploy ho jaye to user ke resume karte hi koi bhi lazy route 404 de deta
+       hai — HTTP cache headers yahan kuch nahi kar sakte, kyunki page dobara
+       fetch hi nahi hua.
+
+       Isliye: lambe background ke baad resume par index.html fresh laake entry
+       script ka hash compare karte hain. Alag mila = naya build deploy ho chuka
+       hai = chup-chaap reload. User ko error dekhne ki nauchat hi nahi aati.
+       (BUG-012 ka recovery App.tsx mein hai; ye uska prevention hai.) -->
+  <script>
+    (function () {
+      var IDLE_MS = 15 * 60 * 1000; // itni der background mein raha tabhi check karo
+      var hiddenAt = 0;
+      var checking = false;
+
+      function entrySrc(doc) {
+        try {
+          var el = (doc || document).querySelector('script[type="module"][src*="/assets/"]');
+          return el ? el.getAttribute('src') : null;
+        } catch (e) { return null; }
+      }
+
+      var bootEntry = entrySrc(document);
+
+      function hardReload() {
+        try {
+          var loc = window.location;
+          var search = (loc.search || '').replace(/[?&]_r=\d+/g, '');
+          search = search ? (search.charAt(0) === '?' ? search : '?' + search) : '';
+          var sep = search ? '&' : '?';
+          loc.replace(loc.pathname + search + sep + '_r=' + Date.now() + (loc.hash || ''));
+        } catch (e) {
+          window.location.reload();
+        }
+      }
+
+      function checkForNewBuild() {
+        if (checking || !bootEntry || !window.fetch) return;
+        checking = true;
+        fetch('/?_v=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+          .then(function (res) { return res.ok ? res.text() : null; })
+          .then(function (html) {
+            if (!html) return;
+            var m = html.match(/<script[^>]+type="module"[^>]+src="([^"]+)"/);
+            // Naya entry hash = naya build. Reload karke fresh chunks laao.
+            if (m && m[1] && m[1] !== bootEntry) hardReload();
+          })
+          .catch(function () { /* offline ya network down — chhod do */ })
+          .then(function () { checking = false; }, function () { checking = false; });
+      }
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) { hiddenAt = Date.now(); return; }
+        if (hiddenAt && (Date.now() - hiddenAt) > IDLE_MS) checkForNewBuild();
+      });
+    })();
+  </script>
+
   <!-- 🔑 PASSWORD RECOVERY GUARD — must run BEFORE any JS module loads.
        Supabase's detectSessionInUrl auto-consumes the hash on first
        load, which logs the user in and clears the recovery token.
