@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
+import { OfferBanner } from '../components/OfferBanner';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
 
@@ -1065,6 +1066,9 @@ export const MemberDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
+
+        {/* 🔥 PROMOTIONAL OFFER BANNER — config/offer.ts se control hota hai */}
+        <OfferBanner onUpgrade={() => setShowSubscription(true)} />
 
         {/* 🎯 SMART RENEWAL BANNER (Psychology Triggers) */}
         <SmartRenewalBanner
