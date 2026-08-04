@@ -270,6 +270,43 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-04
+- **AUGUST OFFER LIVE** — top-3 selling plans pe promotional quota (price same, leads badhi):
+  starter 50→90 (daily 5→9), supervisor 80→136 (daily 6→11), weekly_boost 92→181 (daily 12→26).
+  Manager + turbo_boost offer se bahar. Fresh lead count unchanged hai — extra leads recycled
+  pool se aati hain isliye ad-cost (COGS) nahi badhta. **Poora ON/OFF runbook: `OFFER-PLAYBOOK.md`.**
+  - `config/offer.ts` CREATED — `OFFER_ACTIVE` master switch + offer numbers (UI ka single source of truth)
+  - `components/OfferBanner.tsx` CREATED — dashboard banner (countdown + dismiss, localStorage-backed)
+  - `components/Subscription.tsx`, `views/MemberDashboard.tsx`, `views/Landing.tsx` — offer UI
+  - `functions/api/razorpay-webhook.ts` — `PLAN_CONFIG` quota (sirf NAYE payments pe lagta hai;
+    maujooda active users ka `total_leads_promised` nahi badalta). Purani values file mein
+    comment ki hui hain revert ke liye.
+  - Landing page pe "Fresh Leads/Day" → "Leads/Day" kiya, kyunki offer mein leads ka ek hissa
+    recycled pool se aata hai.
+- **BUG-011**: `assign_recycled_leads` RPC live mein hamesha **0 leads** return kar raha tha —
+  Gujarat-exclusion filter NULL-unsafe tha (`NOT (l.state ILIKE ... OR ...)`; `state` NULL hone par
+  poora expression NULL → har row drop). Eligible pool ke saare 1,046 leads mein `state` NULL tha.
+  `COALESCE(l.state,'')`/`COALESCE(l.city,'')` se fix. Pool **0 → 1,140**. Recycler agar bina is fix
+  ke ON kar dete to silently kuch bhi assign na hota aur offer under-deliver kar jata.
+- DB: `assign_recycled_leads` RPC ka age-window widen kiya — purani window (2–6 mahine, 3 teams)
+  **OR** July ki Call Back leads (sabhi teams, dates hard-coded `2026-07-01`–`2026-08-01`).
+  Baaki saare guards as-is — khaas taur pe `u.is_active=false OR payment_status IN ('expired','inactive')`,
+  yaani **active member se lead kabhi nahi cheeni jaati** (13 aisi July leads deliberately chhodi gayi).
+- DB: `plan_config` + `system_config.plan_fresh_config` — offer numbers. Backup:
+  `offer_backup_20260804` table (plan_config, system_config, cron job 22, RPC ki purani definition).
+- Edge Function `assign-recycled-leads` v11→v12 — naya `OFFER_MODE` flag: boost plans ka
+  day-3/5/7 gate bypass (us schedule se weekly_boost ko sirf 12 recycled milti thi, chahiye 97) aur
+  `recycled_daily` ki `/2` halving hatai (wo 2-batch-per-day setup ka tha; morning batch jobid 21
+  2026-06-06 ko delete ho chuki hai).
+- DB: cron job 22 `recycled-afternoon-batch` **activate** (roz 3:30 PM IST). Note: `UPDATE cron.job`
+  pe permission nahi hai — `SELECT cron.alter_job(22, active := true/false)` use karo.
+- Live test: 8 recycled leads assign hui (Gurdeep 4, Jasnoor 4) — `assigned_at` aaj ka, `created_at`
+  original (July) surakshit, `status='Fresh'`, notes clear, purane owner sab inactive, counter drift 0.
+- **Recycled leads ka timestamp**: UI already `assigned_at` display karta hai (`MemberDashboard.tsx:1271`),
+  `created_at` nahi — isliye recycled lead user ko aaj ki hi dikhti hai. `created_at` deliberately
+  untouched rakha gaya (duplicate-detection, date-wise audit queries, CAPI event_time aur khud
+  recycler ka age-window usi par depend karte hain).
+
 ### 2026-07-14
 - `views/MemberDashboard.tsx`: lead qualifying details (lead_details JSONB) redesigned — truncating 2-column grey grid replaced with flex-wrap colored chip badges (🎂 age teal, 💼 profession violet, 🎓 education indigo, 🌱 Fresher amber / ⭐ Experienced green). Raw values normalized at display time only (DB untouched): Meta age buckets `18_-_25` → "18–25 yrs", DOB → computed age, snake_case → Title Case, junk values (Yes/Ye/blank) hidden, unknown future fields → generic chip. `lead_details` field also added to the `Lead` TS interface (was missing).
 - `views/MemberDashboard.tsx`: lead action buttons redesigned — Call + WhatsApp are now full-width primary buttons with always-visible labels (labels were `hidden sm:inline`, i.e. invisible on mobile); WhatsApp uses the official brand glyph (new inline `WhatsAppIcon` SVG component, brand green #25D366) instead of generic `MessageSquare`; Note/Report are compact 52px secondary buttons with mini-labels.

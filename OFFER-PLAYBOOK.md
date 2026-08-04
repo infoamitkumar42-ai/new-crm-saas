@@ -1,8 +1,12 @@
 # OFFER PLAYBOOK — August ₹11/Lead Offer
 
-> **Status: PLAN ONLY — kuch bhi live nahi kiya gaya hai.** Approval ke baad hi apply hoga.
-> Owner: Amit Kumar | Drafted: 2026-08-04
+> **Status: 🟢 LIVE — 2026-08-04 ko apply kiya gaya, Amit ki approval ke baad.**
+> Owner: Amit Kumar | Applied: 2026-08-04
 > Ye file offer ko **ON aur OFF** dono karne ka exact runbook hai. Baad mein dobara chalana ho to yahi steps repeat karo.
+>
+> **Abhi kya pending hai:** Cloudflare Pages redeploy (webhook ka naya PLAN_CONFIG live hone ke liye)
+> aur uske baad users ko mail. Mail tab tak mat bhejo jab tak ek real payment se
+> end-to-end verify na ho jaye.
 
 ---
 
@@ -209,32 +213,61 @@ Code side: current state git mein already commit hai (`c206078`), toh revert ke 
 
 ---
 
-## 8. OFFER ON — steps (order matter karta hai)
+## 8. OFFER ON — steps (2026-08-04 ko ye sab ho chuka hai)
 
 ```
-□ 1. Backup table banao (section 7)
-□ 2. RPC NULL-fix apply karo → verify: SELECT assign_recycled_leads test pe 0 se zyada mile
-□ 3. system_config.offer_config row insert karo (offer_active = true)
-□ 4. system_config.plan_fresh_config update karo (offer numbers)
-□ 5. plan_config update karo (total_leads + daily_leads)
-□ 6. Code PR merge karo (webhook + UI + banner)
-□ 7. Cloudflare Pages redeploy confirm karo (webhook change live hone ke liye zaroori)
-□ 8. Cron job 22 activate karo
-□ 9. ₹1 test_plan se end-to-end test — payment → quota → recycled lead delivery
-□ 10. Tabhi mail bhejo users ko
+☑ 1. Backup table offer_backup_20260804 banaya (RPC ki purani definition bhi usi mein)
+☑ 2. RPC fix apply — pool 0 → 1,140 verified
+☑ 3. system_config.plan_fresh_config update (fresh/recycled daily split)
+☑ 4. plan_config update (total_leads + daily_leads + max_replacements)
+☑ 5. Edge function assign-recycled-leads v12 deploy (OFFER_MODE=true, verify_jwt:false)
+☑ 6. Code push (UI + banner + webhook PLAN_CONFIG)
+☑ 7. Live test — 8 leads assign hui, sab verified (neeche section 12)
+☑ 8. Cron job 22 activate (roz 3:30 PM IST)
+□ 9. Cloudflare Pages redeploy  ← ZAROORI, warna webhook purana quota dega
+□ 10. Ek real payment se end-to-end verify
+□ 11. Tabhi mail bhejo users ko
 ```
 
 ## 9. OFFER OFF — steps (jab Amit bole)
 
 ```
-□ 1. Cron job 22 → active = false
-□ 2. plan_config restore karo backup se
-□ 3. system_config.plan_fresh_config restore karo backup se
-□ 4. system_config.offer_config → offer_active = false (ya row delete)
-□ 5. Code revert PR merge karo → UI wapas normal plans dikhayega
-□ 6. Cloudflare Pages redeploy
-□ 7. Verify: Subscription page pe 50/80/92 wapas dikhe, banner gayab ho
+□ 1. Cron job 22 band karo:
+       SELECT cron.alter_job(22, active := false);
+       -- NOTE: `UPDATE cron.job SET active=false` kaam NAHI karta (permission denied)
+
+□ 2. plan_config restore:
+       UPDATE plan_config SET total_leads=50,  daily_leads=5,  max_replacements=5  WHERE plan_name='starter';
+       UPDATE plan_config SET total_leads=80,  daily_leads=7,  max_replacements=10 WHERE plan_name='supervisor';
+       UPDATE plan_config SET total_leads=92,  daily_leads=12, max_replacements=8  WHERE plan_name='weekly_boost';
+
+□ 3. system_config.plan_fresh_config restore backup se:
+       UPDATE system_config s SET config_value = (b.data->>'config_value')::jsonb
+       FROM offer_backup_20260804 b
+       WHERE s.config_key='plan_fresh_config'
+         AND b.src='system_config' AND b.data->>'config_key'='plan_fresh_config';
+
+□ 4. Code side (ek PR mein):
+       - config/offer.ts               → OFFER_ACTIVE = false
+       - functions/api/razorpay-webhook.ts → PLAN_CONFIG mein commented NORMAL values wapas
+       - supabase/functions/assign-recycled-leads/index.ts → OFFER_MODE = false (+ redeploy)
+       - views/Landing.tsx             → 50/80 counts + "Fresh Leads/Day" wording wapas
+
+□ 5. Cloudflare Pages redeploy
+
+□ 6. Verify: Subscription page pe 50/80/92 wapas dikhe, dashboard banner gayab ho,
+     aur `SELECT active FROM cron.job WHERE jobid=22` → false
 ```
+
+⚠️ **Jo users offer ke dauraan khareed chuke honge unka quota nahi chhinega** — unka
+`total_leads_promised` already set ho chuka hoga, wo poori leads paayenge. Sirf naye
+buyers ko normal plan milega. Ye jaan-boojh kar aisa hai (paid promise honour karna).
+
+⚠️ **`daily_limit` ka side effect:** `trg_sync_user_plan_fields` trigger har user-row
+UPDATE par `plan_config.daily_leads` se `daily_limit` sync karta hai. Isliye offer ON
+karte hi maujooda starter users ka daily_limit 5 → 9 ho jata hai (unka total quota 50
+wahi rehta hai, bas roz zyada leads mil sakti hain). Offer OFF karne par step 2 ke baad
+ye apne aap wapas 5 ho jayega — alag se kuch nahi karna.
 
 ⚠️ **Jo users offer ke dauraan khareed chuke honge unka quota nahi chhinega** — unka
 `total_leads_promised` already set ho chuka hoga, wo poori leads paayenge. Sirf naye
@@ -273,9 +306,41 @@ No stock photos of people. No spelling errors. All text must be crisp and perfec
 
 ---
 
-## 11. Open decisions (Amit confirm kare)
+## 11. Decisions (Amit ne 2026-08-04 ko confirm kiye)
 
-1. **Pool A (1,041) ya Pool B (1,996)?** — kitne buyers expect kar rahe ho 2 din mein?
-2. **daily_limit badhaye** (option a) ya duration slip hone de (option b)?
-3. Offer window kitne din — 2 din confirm?
-4. Banner pe countdown timer chahiye ya sirf "2 days left" text?
+1. **Pool:** base + July ki saari teams ki Call Back leads = **1,140** ✅
+2. **daily_limit:** badhaya — starter 9, supervisor 11, weekly_boost 26 ✅
+3. **Offer window:** 2 din (`endsAt` = 2026-08-06 23:59 IST, `config/offer.ts` mein) ✅
+4. **Banner:** countdown timer ke saath, dismiss button bhi ✅
+5. **Recycled leads ka timestamp:** user ko aaj ka dikhna chahiye ✅
+   → RPC `assigned_at = NOW()` set karta hai aur UI (`MemberDashboard.tsx:1271`)
+     `assigned_at` hi display karta hai, `created_at` nahi. Isliye ye pehle se hi
+     sahi kaam karta hai — koi change nahi chahiye tha.
+   → **`created_at` ko deliberately haath nahi lagaya.** Wahi asli record hai jisse
+     duplicate-detection, "kis date ki leads" wali audit queries, CAPI event_time
+     aur khud recycler ka age-window chalta hai. Overwrite karne se ye sab tootta.
+
+---
+
+## 12. Live test result (2026-08-04, 16:02 IST)
+
+Recycler manually chalaya gaya cron ON karne se pehle:
+
+```json
+{"success":true,"users_processed":3,"leads_assigned":8,
+ "details":[{"user":"kaurgurmeet0418@gmail.com","plan":"starter","assigned":4},
+            {"user":"sranjasnoor11@gmail.com","plan":"starter","assigned":4}]}
+```
+
+| Verification | Result |
+|---|---|
+| UI pe dikhne wala time (`assigned_at`) | 08-04 16:02 — aaj ka ✅ |
+| Asli `created_at` (internal) | 20–23 July — surakshit ✅ |
+| `status` | `Fresh` ✅ |
+| Purane owner ke `notes` | Clear ho gaye ✅ |
+| Purane owner | Manav, Goldy, Arsh, Sandeep — **sab inactive** ✅ |
+| Kis pool se aayi | July Call Back leads ✅ |
+| Counter drift (dono users) | **0** ✅ |
+| Himanshu | 0 leads (recycled_quota=0) — sahi ✅ |
+
+Pool ab: 1,140 − 8 = **1,132 baaki**.
