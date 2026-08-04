@@ -14,6 +14,12 @@ import { Loader2, WifiOff } from 'lucide-react';
 import { ENV } from './config/env';
 
 /// 🚀 LAZY LOAD RETRY HELPER (Fixes ChunkLoadError after new deploys)
+// NOTE: ye error index.html ke boot-recovery script tak NAHI pahunchta, kyunki
+// yahan try/catch use pehle hi handle kar leta hai (isliye `unhandledrejection`
+// kabhi fire nahi hota). Isliye recovery yahan bhi wahi karni padti hai jo
+// index.html karta hai: caches clear + cache-busting reload. Plain reload()
+// kaafi nahi tha — wo cached index.html dobara serve kar sakta hai, jisme wahi
+// purana (404 ho chuka) chunk URL hota hai.
 const lazyWithRetry = (componentImport: () => Promise<any>) =>
   React.lazy(async () => {
     const pageHasAlreadyBeenForceRefreshed = JSON.parse(
@@ -28,7 +34,28 @@ const lazyWithRetry = (componentImport: () => Promise<any>) =>
       if (!pageHasAlreadyBeenForceRefreshed) {
         // 🔄 Automatic retry once
         window.localStorage.setItem('page-has-been-force-refreshed', 'true');
-        return window.location.reload();
+
+        // Purane chunk cached na reh jayein
+        if ('caches' in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          } catch (_) { /* non-critical */ }
+        }
+
+        // Cache-busting reload — fresh index.html force karta hai
+        try {
+          const loc = window.location;
+          const cleaned = (loc.search || '').replace(/[?&]_r=\d+/g, '');
+          const search = cleaned ? (cleaned.charAt(0) === '?' ? cleaned : '?' + cleaned) : '';
+          const sep = search ? '&' : '?';
+          loc.replace(loc.pathname + search + sep + '_r=' + Date.now() + (loc.hash || ''));
+        } catch (_) {
+          window.location.reload();
+        }
+
+        // Reload hone tak pending rakho, taaki React beech mein error na throw kare
+        return new Promise<never>(() => { });
       }
       // ❌ If it fails twice, throw the error
       throw error;

@@ -578,6 +578,150 @@ WHERE role='member' AND payment_status='inactive' AND plan_name='none'
 
 ---
 
+### BUG-011 — `assign_recycled_leads` RPC Silently Returns 0 Leads (NULL-unsafe filter)
+
+**Status:** ✅ Fixed
+**Severity:** High — would have caused mass under-delivery on a paid promotional offer
+**Affected:** `assign_recycled_leads(p_user_id, p_count)` RPC
+**Date:** 2026-08-04
+
+#### What was the bug
+The RPC's Gujarat-exclusion filter was NULL-unsafe:
+
+```sql
+AND NOT (l.state ILIKE '%gujarat%' OR l.city ILIKE '%gujarat%' OR ...)
+```
+
+In SQL, `NULL ILIKE '...'` evaluates to `NULL`, not `FALSE`. So for any lead where `state` is
+NULL, the whole `OR` chain became `NULL`, `NOT NULL` = `NULL`, and the row was **silently
+dropped** — no error, no warning, just zero rows.
+
+#### What broke
+Discovered 2026-08-04 while preparing the August ₹11/lead offer, which depends entirely on the
+recycler delivering the non-fresh portion of each plan's quota.
+
+**Every single one of the 1,046 eligible leads had `state = NULL`** (that column was never
+populated for those older TEAMFIRE/TEAMSIMRAN/TEAMRAJ leads). Result: the eligible pool was
+**0**. The recycler cron (jobid 22) had been inactive, so this had never surfaced.
+
+Had the cron simply been switched on without this fix, buyers promised 90 / 136 / 181 / 227 / 272
+leads would have received only the fresh portion (45 / 70 / 84 / 93 / 76) and the offer would have
+under-delivered on every single sale, silently.
+
+#### How it was fixed
+Wrapped both columns in `COALESCE` so a NULL city/state behaves as an empty string:
+
+```sql
+AND NOT (COALESCE(l.state,'') ILIKE '%gujarat%' OR COALESCE(l.city,'') ILIKE '%gujarat%'
+      OR COALESCE(l.city,'')  ILIKE '%ahmedabad%'   OR COALESCE(l.city,'') ILIKE '%surat%'
+      OR COALESCE(l.city,'')  ILIKE '%vadodara%'    OR COALESCE(l.city,'') ILIKE '%rajkot%'
+      OR COALESCE(l.city,'')  ILIKE '%vapi%'        OR COALESCE(l.city,'') ILIKE '%deesa%'
+      OR COALESCE(l.city,'')  ILIKE '%gandhinagar%' OR COALESCE(l.city,'') ILIKE '%baroda%')
+```
+
+The same deploy also widened the age window to include July's Call Back leads across all teams
+(offer inventory) — see `OFFER-PLAYBOOK.md`. All other guards were left untouched, in particular
+`u.is_active = false OR u.payment_status IN ('expired','inactive')`, which ensures a lead is
+**never taken away from an active paying member**.
+
+Pool after fix: **0 → 1,140**.
+
+#### Verification
+```sql
+-- Old definition returned 0; this must now return > 0
+SELECT count(*) AS pool
+FROM leads l INNER JOIN users u ON l.assigned_to = u.id
+WHERE l.status IN ('Call Back','Contacted','Interested','Follow-up')
+  AND COALESCE(l.recycle_count,0) <= 1
+  AND l.phone IS NOT NULL AND LENGTH(TRIM(l.phone)) >= 10
+  AND (u.is_active=false OR u.payment_status IN ('expired','inactive'))
+  AND NOT (COALESCE(l.state,'') ILIKE '%gujarat%' OR COALESCE(l.city,'') ILIKE '%gujarat%');
+
+-- Confirm the fix is live in the deployed function
+SELECT prosrc LIKE '%COALESCE(l.state%' AS fixed FROM pg_proc WHERE proname='assign_recycled_leads';
+-- fixed = true
+```
+
+**Live test (2026-08-04 16:02 IST):** 8 recycled leads delivered (Gurdeep 4, Jasnoor 4) —
+`assigned_at` = today, `created_at` preserved (original July dates), `status='Fresh'`, previous
+owners' notes cleared, all previous owners inactive, counter drift **0**.
+
+**Lesson:** any `NOT (col ILIKE ...)` filter on a nullable column silently drops NULL rows.
+Always `COALESCE(col,'')` first. Worth grepping other RPCs for this same pattern.
+
+---
+
+### BUG-012 — Chunk-load failure after deploy shows crash screen instead of auto-recovering
+
+**Status:** ✅ Fixed
+**Severity:** Medium — no data loss, but paying users see "Something went wrong" after every deploy
+**Affected:** `App.tsx` → `lazyWithRetry()`
+**Date:** 2026-08-04
+
+#### What was the bug
+Every deploy changes Vite's content-hashed chunk filenames. A user holding a cached `index.html`
+requests the old chunk (e.g. `MemberDashboard-DfOrkO6f.js`), gets a 404, and React's lazy import
+rejects.
+
+There are two recovery layers, and **they cancelled each other out**:
+
+1. `index.html` has a strong boot-recovery script — clears caches, unregisters service workers,
+   then hard-reloads with a `?_r=<timestamp>` cache-buster. It triggers on the
+   `unhandledrejection` event.
+2. `App.tsx`'s `lazyWithRetry` wraps the import in its own `try/catch`.
+
+Because layer 2 **catches** the rejection, it is never *unhandled* — so layer 1's
+`unhandledrejection` listener never fired, and the good recovery never ran.
+
+Layer 2's own fallback was weaker in two ways:
+
+```js
+return window.location.reload();
+```
+
+- Plain `reload()` does not bypass the HTTP cache, so it can re-serve the very same stale
+  `index.html` pointing at the very same dead chunk → fails again → second attempt `throw`s.
+- `window.location.reload()` returns `undefined`, and that `undefined` was returned **as the lazy
+  component**. React tried to render `undefined` immediately, crashing into the ErrorBoundary
+  *before* the reload could take effect. This is why users landed on `CrashRecoveryScreen` rather
+  than getting a silent refresh.
+
+#### What broke
+Sentry `da7394b932b5448cb45d8709b1245798`, 2026-08-04 10:57 UTC (16:27 IST) — Chrome Mobile /
+Android, `TypeError: Failed to fetch dynamically imported module: .../MemberDashboard-DfOrkO6f.js`,
+caught by the React ErrorBoundary. Timing lines up exactly with that day's offer deploys.
+
+Confirmed the hash churn locally:
+
+| Build | MemberDashboard chunk |
+|---|---|
+| Live before the offer deploys | `DfOrkO6f` |
+| `main` @ 8dd92b1 (pre-offer) | `CAn2cVgr` |
+| After offer merge | `1NsBSe-a` |
+
+#### How it was fixed
+`lazyWithRetry`'s catch block now mirrors what `index.html` already does:
+
+1. `caches.delete()` every cache entry so stale chunks cannot be re-served
+2. Reload via `loc.replace(path + '?_r=' + Date.now())` instead of plain `reload()`, forcing a
+   fresh `index.html`
+3. **`return new Promise<never>(() => {})`** — keeps the lazy factory pending until the navigation
+   actually happens, so React never renders `undefined`. This is the part that turns a visible
+   crash screen into a silent refresh.
+
+The double-failure path (`pageHasAlreadyBeenForceRefreshed === true` → `throw`) is unchanged, so a
+genuinely broken build still surfaces to the ErrorBoundary rather than looping forever.
+
+#### Verification
+- `npm run build` clean; `npx tsc --noEmit` shows no new errors (the pre-existing
+  `import.meta.env.DEV` error just shifts line number)
+- Manual: hard-load the app, delete a chunk from `dist/assets/`, navigate to that route — the page
+  should silently reload once and render, instead of showing "Something went wrong"
+- Sentry: `Failed to fetch dynamically imported module` events should drop sharply after the next
+  deploy; only genuine repeat failures should remain
+
+---
+
 ## Historical Over-Delivery (Root Cause Analysis)
 
 **Date discovered:** 2026-05-24  
