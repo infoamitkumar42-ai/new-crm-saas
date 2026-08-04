@@ -831,10 +831,10 @@ export const Landing = () => {
                 <span className="text-slate-200">/20 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>8 Fresh Leads/Day</strong></li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 160 Total Leads</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>14 Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <span className="text-slate-400 line-through mr-1">160</span> <strong className="text-green-400">272 Total Leads</strong></li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Highest Priority (5x)</li>
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 16 Lead Replacements</li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 27 Lead Replacements</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Dedicated Manager</li>
               </ul>
               <Link to="/login" className="block w-full py-3 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-bold text-center">

@@ -271,10 +271,13 @@ new-crm-saas/
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
 ### 2026-08-04
-- **AUGUST OFFER LIVE** — top-3 selling plans pe promotional quota (price same, leads badhi):
-  starter 50→90 (daily 5→9), supervisor 80→136 (daily 6→11), weekly_boost 92→181 (daily 12→26).
-  Manager + turbo_boost offer se bahar. Fresh lead count unchanged hai — extra leads recycled
-  pool se aati hain isliye ad-cost (COGS) nahi badhta. **Poora ON/OFF runbook: `OFFER-PLAYBOOK.md`.**
+- **AUGUST OFFER LIVE — SABHI 5 plans pe** promotional quota (price same, leads badhi, ₹11/lead):
+  starter 50→90 (daily 5→9), supervisor 80→136 (6→11), weekly_boost 92→181 (12→26),
+  turbo_boost 108→227 (14→33), manager 160→272 (8→14).
+  Fresh lead count har plan mein unchanged hai — extra leads recycled pool se aati hain
+  isliye ad-cost (COGS) nahi badhta. **Poora ON/OFF runbook: `OFFER-PLAYBOOK.md`.**
+  ⚠️ Pool capacity: manager ka ek buyer 196 recycled khata hai, turbo 134 — isliye safe
+  buyer-capacity ~16 hai (pool 1,132). 16+ sales pe Pool D (1,996) pe shift karna hoga.
   - `config/offer.ts` CREATED — `OFFER_ACTIVE` master switch + offer numbers (UI ka single source of truth)
   - `components/OfferBanner.tsx` CREATED — dashboard banner (countdown + dismiss, localStorage-backed)
   - `components/Subscription.tsx`, `views/MemberDashboard.tsx`, `views/Landing.tsx` — offer UI

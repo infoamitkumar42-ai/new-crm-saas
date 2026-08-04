@@ -25,6 +25,15 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getOfferForPlan, isOfferLive, OFFER } from '../config/offer';
 
+/** Offer banner ki summary strip mein plans ka order + chhote naam */
+const OFFER_PLAN_ORDER = [
+  { id: 'starter', short: 'Starter' },
+  { id: 'supervisor', short: 'Super' },
+  { id: 'manager', short: 'Manager' },
+  { id: 'weekly_boost', short: 'Weekly' },
+  { id: 'turbo_boost', short: 'Turbo' },
+];
+
 interface SubscriptionProps {
   onClose?: () => void;
   user?: any;
@@ -449,19 +458,19 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
                   {OFFER.tagline}
                 </h3>
                 <p className="text-white/80 text-sm mb-4">
-                  Har plan mein zyada leads — sirf{' '}
+                  <span className="font-black text-white">Sabhi plans</span> mein zyada leads — sirf{' '}
                   <span className="font-black text-amber-300">₹{OFFER.perLeadPrice}/lead</span>
                 </p>
 
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {['starter', 'supervisor', 'weekly_boost'].map((id) => {
+                <div className="grid grid-cols-5 gap-1.5 mb-4">
+                  {OFFER_PLAN_ORDER.map(({ id, short }) => {
                     const o = OFFER.plans[id];
                     if (!o) return null;
                     return (
-                      <div key={id} className="bg-white/15 backdrop-blur rounded-xl py-2 px-1 border border-white/20">
-                        <div className="text-[10px] text-white/60 line-through leading-none">{o.baseTotalLeads}</div>
-                        <div className="text-xl font-black text-white leading-tight">{o.totalLeads}</div>
-                        <div className="text-[9px] text-white/70 font-medium uppercase">leads</div>
+                      <div key={id} className="bg-white/15 backdrop-blur rounded-lg py-2 px-0.5 border border-white/20">
+                        <div className="text-[8px] text-white/70 font-bold uppercase leading-none mb-1 truncate">{short}</div>
+                        <div className="text-[9px] text-white/50 line-through leading-none">{o.baseTotalLeads}</div>
+                        <div className="text-base sm:text-lg font-black text-white leading-tight">{o.totalLeads}</div>
                       </div>
                     );
                   })}

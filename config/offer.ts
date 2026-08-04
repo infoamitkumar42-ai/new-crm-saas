@@ -33,25 +33,40 @@ export const OFFER = {
   /** Offer khatam hone ka time (IST). Banner isse countdown dikhata hai. */
   endsAt: '2026-08-06T23:59:59+05:30',
 
-  /** Sirf top-3 selling plans pe offer hai. Manager + Turbo Boost normal rahenge. */
+  /**
+   * SABHI 5 plans pe offer hai. Har plan ka total = price ÷ ₹11 (round down).
+   * Fresh count har plan mein unchanged hai — extra leads sirf recycled pool se.
+   */
   plans: {
     starter: {
       baseTotalLeads: 50,
-      totalLeads: 90,
-      dailyLeads: 9,
+      totalLeads: 90,      // 999 / 11
+      dailyLeads: 9,       // 90 / 10 din
       replacementLimit: 9,
     },
     supervisor: {
       baseTotalLeads: 80,
-      totalLeads: 136,
-      dailyLeads: 11,
+      totalLeads: 136,     // 1499 / 11
+      dailyLeads: 11,      // 136 / 12 din
       replacementLimit: 13,
+    },
+    manager: {
+      baseTotalLeads: 160,
+      totalLeads: 272,     // 2999 / 11
+      dailyLeads: 14,      // 272 / 20 din
+      replacementLimit: 27,
     },
     weekly_boost: {
       baseTotalLeads: 92,
-      totalLeads: 181,
-      dailyLeads: 26,
+      totalLeads: 181,     // 1999 / 11
+      dailyLeads: 26,      // 181 / 7 din
       replacementLimit: 18,
+    },
+    turbo_boost: {
+      baseTotalLeads: 108,
+      totalLeads: 227,     // 2499 / 11
+      dailyLeads: 33,      // 227 / 7 din
+      replacementLimit: 21,
     },
   } as Record<string, OfferPlanOverride>,
 };
