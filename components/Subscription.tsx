@@ -427,9 +427,53 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
               Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Growth Plan</span>
             </h2>
             <p className="text-white/60 text-sm">
-              Fresh leads daily • 100% Exclusive • Real-time delivery
+              {offerLive
+                ? 'Leads daily • Real-time delivery • Replacement guarantee'
+                : 'Fresh leads daily • 100% Exclusive • Real-time delivery'}
             </p>
           </div>
+
+          {/* ━━━ AUGUST OFFER BANNER (config/offer.ts → OFFER_ACTIVE) ━━━ */}
+          {offerLive && (
+            <div className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 shadow-xl ring-1 ring-white/20">
+              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-amber-300/10 blur-2xl" aria-hidden="true" />
+
+              <div className="relative p-5 text-center">
+                <div className="inline-flex items-center gap-1.5 mb-2 px-3 py-1 rounded-full bg-amber-400 text-slate-900">
+                  <Sparkles size={13} className="shrink-0" />
+                  <span className="text-[11px] font-black tracking-widest">{OFFER.title}</span>
+                </div>
+
+                <h3 className="text-white text-2xl font-black leading-tight mb-1">
+                  {OFFER.tagline}
+                </h3>
+                <p className="text-white/80 text-sm mb-4">
+                  Har plan mein zyada leads — sirf{' '}
+                  <span className="font-black text-amber-300">₹{OFFER.perLeadPrice}/lead</span>
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {['starter', 'supervisor', 'weekly_boost'].map((id) => {
+                    const o = OFFER.plans[id];
+                    if (!o) return null;
+                    return (
+                      <div key={id} className="bg-white/15 backdrop-blur rounded-xl py-2 px-1 border border-white/20">
+                        <div className="text-[10px] text-white/60 line-through leading-none">{o.baseTotalLeads}</div>
+                        <div className="text-xl font-black text-white leading-tight">{o.totalLeads}</div>
+                        <div className="text-[9px] text-white/70 font-medium uppercase">leads</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 bg-red-500 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg">
+                  <Timer size={14} className="shrink-0" />
+                  LIMITED TIME — JALDI GRAB KARO
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ━━━ Tab Switcher ━━━ */}
           <div className="flex justify-center mb-8">
