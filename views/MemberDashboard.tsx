@@ -1067,8 +1067,14 @@ export const MemberDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
 
-        {/* 🔥 PROMOTIONAL OFFER BANNER — config/offer.ts se control hota hai */}
-        <OfferBanner onUpgrade={() => setShowSubscription(true)} />
+        {/* 🔥 PROMOTIONAL OFFER BANNER — config/offer.ts se control hota hai.
+            Active plan wale user ko nahi dikhta jab tak quota khatam hone ke
+            kareeb na ho (OfferBanner ke andar RENEWAL_WINDOW_LEADS dekho). */}
+        <OfferBanner
+          onUpgrade={() => setShowSubscription(true)}
+          planActive={!isExpired && profile?.payment_status === 'active'}
+          remainingLeads={remainingLeads}
+        />
 
         {/* 🎯 SMART RENEWAL BANNER (Psychology Triggers) */}
         <SmartRenewalBanner

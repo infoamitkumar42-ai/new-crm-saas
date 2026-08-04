@@ -12,8 +12,20 @@ import { isOfferLive, OFFER } from '../config/offer';
 
 const DISMISS_KEY = `offer_banner_dismissed_${OFFER.id}`;
 
+/**
+ * Jis user ke paas active plan hai aur itni ya isse zyada leads bachi hain,
+ * usko offer banner nahi dikhega — wo abhi kharidne wala nahi hai. Jaise hi
+ * quota is number se neeche aayegi (yaani plan khatam hone wala hai), banner
+ * apne aap dikhne lagega — wahi renewal ka sahi waqt hai.
+ */
+const RENEWAL_WINDOW_LEADS = 10;
+
 interface OfferBannerProps {
   onUpgrade?: () => void;
+  /** User ka plan abhi chal raha hai (active + expired nahi) */
+  planActive?: boolean;
+  /** Kitni leads abhi baaki hain (total_leads_promised - actual received) */
+  remainingLeads?: number;
 }
 
 const formatCountdown = (msLeft: number): string => {
@@ -26,7 +38,11 @@ const formatCountdown = (msLeft: number): string => {
   return `${minutes}m left`;
 };
 
-export const OfferBanner: React.FC<OfferBannerProps> = ({ onUpgrade }) => {
+export const OfferBanner: React.FC<OfferBannerProps> = ({
+  onUpgrade,
+  planActive = false,
+  remainingLeads = 0,
+}) => {
   const [dismissed, setDismissed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(DISMISS_KEY) === '1';
@@ -46,6 +62,10 @@ export const OfferBanner: React.FC<OfferBannerProps> = ({ onUpgrade }) => {
   }, []);
 
   if (!isOfferLive() || dismissed || msLeft <= 0) return null;
+
+  // Chalta hua plan + kaafi leads baaki = abhi kharidne ki zaroorat nahi.
+  // Banner tabhi dikhega jab plan khatam hone ke kareeb ho ya hai hi nahi.
+  if (planActive && remainingLeads > RENEWAL_WINDOW_LEADS) return null;
 
   const handleDismiss = () => {
     setDismissed(true);
