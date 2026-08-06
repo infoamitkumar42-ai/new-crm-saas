@@ -16,11 +16,18 @@ const BOOST_PLANS = new Set(['daily_boost', 'weekly_boost', 'turbo_boost'])
 //   1. Boost plans ka day-3/5/7 gate bypass hota hai (offer quota us schedule
 //      se poori nahi ho sakti — weekly_boost ko 97 recycled chahiye, schedule
 //      sirf 12 deta tha).
-//   2. recycled_daily ko aadha nahi kiya jata. Purane setup mein 2 batch/din
-//      chalti thi isliye /2 tha; morning batch (jobid 21) delete ho chuki hai,
-//      ab sirf ek batch chalti hai.
+//   2. recycled_daily poore din ke RUNS_PER_DAY runs mein baraabar-baraabar
+//      baatta hai (neeche dekho) — ek hi 3:30 PM batch mein sab dump karne se
+//      user ko "achanak itni saari purani leads kahan se aayi" jaisa lagta
+//      tha. Ab din bhar mein chhoti-chhoti kist mein aati hain, fresh ke saath
+//      mix hoke — behtar lagta hai, koi margin/cost farak nahi (recycled lead
+//      hamesha ₹0 cost ki hoti hai, chahe kabhi bhi di jaye).
 // Offer band karte waqt isse false kar do. Runbook: OFFER-PLAYBOOK.md
 const OFFER_MODE = true
+
+// Din bhar mein cron kitni baar chalta hai (cron.job 22 ka schedule isी se
+// match karna chahiye — abhi 11AM-9PM IST, har 2 ghante, 6 runs).
+const RUNS_PER_DAY = 6
 
 serve(async (req) => {
   const startTime = Date.now()
@@ -177,7 +184,7 @@ serve(async (req) => {
         }
 
         const batchTarget = OFFER_MODE
-          ? (config.recycled_daily || 0)
+          ? Math.max(1, Math.ceil((config.recycled_daily || 0) / RUNS_PER_DAY))
           : Math.ceil((config.recycled_daily || 0) / 2)
 
         let canAssign: number
