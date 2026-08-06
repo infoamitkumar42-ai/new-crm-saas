@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 🚀 LEADFLOW WEBHOOK v36 - PRIORITY USER TEMPORARILY BLOCKED
+ * 🚀 LEADFLOW WEBHOOK v37 - DUPLICATE PHONE NO LONGER BLOCKS ASSIGNMENT
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * FIXES APPLIED:
@@ -16,6 +16,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  * 7. ✅ ADDED (v36): PRIORITY_USER_BLOCKED flag — Himanshu's hardcoded priority
  *    routing bypassed the fresh_leads_quota admin block, so it's disabled here
  *    directly. Flip back to false to restore.
+ * 8. ✅ CHANGED (v37, admin decision 2026-08-06): 'Duplicate' status removed.
+ *    Same-phone submissions used to be blocked from assignment forever. Now
+ *    treated as a genuinely fresh lead and assigned normally — only a 10-min
+ *    retry guard remains (protects against Meta re-delivering the same
+ *    webhook event, not against real repeat form-fills).
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -200,20 +205,27 @@ serve(async (req) => {
                     }
 
                     // ────────────────────────────────────────────────────────
-                    // E. DUPLICATE CHECK
+                    // E. DUPLICATE CHECK (v37 — admin decision 2026-08-06)
                     // ────────────────────────────────────────────────────────
-                    const { data: dup } = await supabase
+                    // Purana behavior: same phone kabhi bhi pehle system mein aaya ho
+                    // (chahe mahino purana) to naya submission 'Duplicate' status mein
+                    // insert hota tha aur KABHI kisi ko assign nahi hota tha.
+                    //
+                    // Naya behavior: agar prospect ne genuinely dobara form fill kiya
+                    // hai (renewed interest), use bilkul fresh lead ki tarah treat karo
+                    // aur normal round-robin se assign karo — 'Duplicate' status ab kabhi
+                    // nahi lagta. Sirf ek technical safeguard: agar Meta ne EXACT SAME
+                    // webhook event thodi der pehle (10 min) already deliver kiya tha
+                    // (retry/double-fire, kabhi-kabhi hota hai), to double-insert na ho.
+                    const { data: recentDup } = await supabase
                         .from('leads')
                         .select('id')
                         .eq('phone', phone)
+                        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
                         .limit(1);
 
-                    if (dup && dup.length > 0) {
-                        console.log(`♻️ Duplicate: ${phone}`);
-                        await supabase.from('leads').insert({
-                            name, phone, city,
-                            source: `Meta - ${pageName}`, status: 'Duplicate', lead_details: leadDetails
-                        });
+                    if (recentDup && recentDup.length > 0) {
+                        console.log(`⏭️ Same phone 10 min ke andar dobara aayi (webhook retry?), skip: ${phone}`);
                         continue;
                     }
 
