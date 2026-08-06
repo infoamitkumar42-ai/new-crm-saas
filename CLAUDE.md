@@ -270,6 +270,42 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-06
+- **Deliberate business-rule change (admin decision, not a bug)**: `status='Duplicate'` removed
+  from both `meta-webhook` (v36→v37) and `sheet-lead-intake` (v4→v5). Purana behavior: same phone
+  number kabhi bhi pehle system mein aaya ho (chahe mahino purana), naya submission ko forever
+  `Duplicate` status pe insert karta tha aur **kabhi kisi ko assign nahi hota tha**. Caught via
+  direct comparison against real Meta Ads Manager screenshots — genuine same-day leads (4 of 30 for
+  TEAMFIRE, 2 of 25 for Digital Skills India) were sitting unassigned in the CRM despite being real,
+  fresh prospect interest. Naya behavior: sirf ek **10-minute retry guard** rehta hai (Meta/Apps
+  Script ke webhook double-fire se bachata hai), genuine repeat form-fills ab bilkul fresh lead ki
+  tarah normal round-robin (`get_best_assignee_for_team`) se assign hote hain — koi special-casing
+  original owner ko nahi milti (explicit admin choice, double-calling risk accepted). PR #101.
+- DB: `razorpay-reconcile` v2 redeployed with corrected 5-plan offer `PLAN_CONFIG` — this function
+  (15-min cron, direct Razorpay API poll) turned out to be processing most live payments, since the
+  Cloudflare webhook (`functions/api/razorpay-webhook.ts`) has a documented history of silent
+  failures (BUG-006). It had its own separate, never-updated `PLAN_CONFIG` copy that was missed
+  during the August offer rollout, causing two real paying offer-customers (Ravenjeet Kaur, Kajal)
+  to receive stale/wrong quota — corrected manually for both, then the function's config fixed to
+  match `functions/api/razorpay-webhook.ts` exactly.
+- DB: `get_best_assignee_for_team` RPC — `ORDER BY` precedence swapped from `plan_weight DESC,
+  fill_ratio ASC` to **`fill_ratio ASC, plan_weight DESC`** (both PASS 1 and PASS 2). Old order gave
+  high-tier users strict priority regardless of how many leads they'd already received today,
+  causing total starvation for low-tier users on low-volume days (observed: one user 11 leads,
+  another 0). New order is proportional-fairness-first (whoever's furthest from their daily quota
+  goes first), with plan tier only deciding ties.
+- DB: Himanshu Sharma's stale `daily_limit=14` (should've been 33 after the offer) traced to a
+  hardcoded per-user-ID special case inside `sync_user_plan_fields` trigger that hadn't re-fired
+  since the plan_config update. Fixed via harmless self-`UPDATE` to force re-sync. Also reset his
+  `fresh_leads_quota` (not the old `PRIORITY_USER_BLOCKED` hardcoded-14-cap flag in meta-webhook,
+  which would've bypassed round-robin fairness) so he participates normally via the RPC path.
+- DB: `sheet_intake_tokens.team_code` for ECO@WIN12 changed to `'ECO@WIN12,TEAMFIRE'` (multi-team
+  routing, already supported by the RPC) — ECO@WIN12 has zero active members, so its Google-Sheet
+  leads were landing in `Queued` forever instead of auto-routing to TEAMFIRE. Also fixed a resulting
+  cosmetic bug: one lead's `source` got polluted as `'GoogleSheet-ECO@WIN12,TEAMFIRE'` because the
+  function's fallback label used the full multi-team string — `sheet-lead-intake` now uses only the
+  first team in the list for the source label (`teamCode.split(',')[0].trim()`).
+
 ### 2026-08-04
 - **BUG-012**: `App.tsx` ka `lazyWithRetry` deploy ke baad aane wale chunk-404 pe **crash screen**
   dikha raha tha, silent refresh ke bajaye. Do wajah: (1) `try/catch` rejection ko handle kar leta
