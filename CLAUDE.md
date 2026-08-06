@@ -271,6 +271,17 @@ new-crm-saas/
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
 ### 2026-08-06
+- DB: 13 leads from earlier today that were wrongly stuck at `status='Duplicate'` (created before the
+  v37/v5 deploy went live) manually reassigned via the same `get_best_assignee_for_team` RPC, one at a
+  time (sequential, so round-robin fairness stayed intact — no single user got a bulk dump). Counter
+  drift check re-run after: 0 mismatches. **Follow-up fix**: initially wrote an audit note into
+  `leads.notes` for these 13 ("Manually reassigned... v37 retroactive fix") — forgot `notes` renders
+  directly on the member dashboard lead card, so this internal admin note was visible to the assigned
+  agents. Cleared (`notes = NULL`) on all 13 same-day. Lesson: `leads.notes` is user-facing, never use
+  it for internal/audit annotations.
+- Himanshu Sharma's `total_leads_promised = 1,000,001` confirmed by admin as an **intentional
+  unlimited-quota override**, not corrupted data (see Known Issues #6) — do not flag or "fix" in
+  future reports.
 - **Deliberate business-rule change (admin decision, not a bug)**: `status='Duplicate'` removed
   from both `meta-webhook` (v36→v37) and `sheet-lead-intake` (v4→v5). Purana behavior: same phone
   number kabhi bhi pehle system mein aaya ho (chahe mahino purana), naya submission ko forever
@@ -452,6 +463,12 @@ new-crm-saas/
 3. Auth lock "5000ms" warnings — React Strict Mode + polling, cosmetic only
 4. ERR_NETWORK_CHANGED — mobile network switching, unfixable without changing locked files
 5. Orphan leads modal shows empty — stats card queries leads table, modal queries orphan_leads table (mismatch)
+6. **Himanshu Sharma (sharmahimanshu9797@gmail.com)** has `total_leads_promised = 1,000,001` —
+   this is an **intentional admin-set "unlimited" override**, confirmed by the admin 2026-08-06,
+   NOT corrupted data. Do NOT flag this as a data anomaly, do NOT "fix"/reduce it, and do NOT
+   compare his `quota_remaining` against other users' plan-based quotas in reports — he's a
+   deliberate special case. His `daily_limit` still applies normally (syncs from `plan_config`
+   like any other user); only his *total* quota ceiling is intentionally unlimited.
 
 ---
 
