@@ -271,6 +271,41 @@ new-crm-saas/
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
 ### 2026-08-07
+- **August offer ended, then found: recycler cron was wrongly disabled with it.** Offer-end initially
+  disabled cron job 22 (`recycled-afternoon-batch`) too, thinking it was purely offer-specific. Caught
+  before real damage: 25 active offer-era users still had large unclaimed `recycled_leads_quota`
+  (e.g. Mandeep kaur/Kajal/Mary Janjot/Nitinluthra owed 127 each) — leaving the cron off would have
+  permanently stranded their promised total (RPC's fresh-quota gate would eventually block further
+  fresh leads too, since `fresh_leads_received` never increments in practice). Cron re-enabled,
+  manually triggered once to verify (41 recycled leads assigned across 8 users, counter drift 0,
+  0 over-quota), and 6 automatic runs/day (11AM–9PM) continue as before. Recycler is NOT purely
+  offer-specific — normal (pre-offer) `PLAN_CONFIG` also has non-zero `recycled_count` per plan.
+- **Own mistake, caught and fixed same-day**: while manually verifying the recycler re-enable,
+  triggered a `demo@gmail.com` test-payment reprocessing bug — deleting a `payments` row (done
+  yesterday to "revert" the ₹1 Razorpay test) broke `razorpay-reconcile`'s idempotency check
+  (dedupes on `razorpay_payment_id` existing in `payments`), so its 15-min cron re-discovered the
+  same payment on Razorpay's side as "new" and fully re-activated the demo account with real offer
+  quota overnight — it then received 1 real recycled lead ("Rani") that should have gone to an
+  actual paying member. Fixed: reassigned that lead to a real user (Harmandeep kaur, lowest fill
+  ratio), reverted demo account to its true original state (`is_active=false`, `total_leads_promised=50`),
+  fixed `recycled_leads_received` counters on both sides. Counter drift re-verified: 0. **Lesson**:
+  never delete a `payments` row to "undo" a test/reconcile-processed payment — it breaks the
+  self-healing dedup and causes reprocessing. Correct the affected `users` row fields directly instead
+  and leave the `payments` row in place as history.
+- Priya Bhatiya (`pbhatiya769@gmail.com`, real ₹999 starter payment, signed up 2026-06-26) had
+  `team_code=NULL` — meaning zero fresh leads could ever route to her (recycled-only). Root cause:
+  her `auth.users.raw_user_meta_data` had the correct signup-time team (`ECO@WIN12`) but it was never
+  synced into `public.users.team_code`. Fixed by setting it from the metadata (not defaulted to
+  TEAMFIRE) — now eligible via the existing `ECO@WIN12,TEAMFIRE` multi-team routing. Worth a wider
+  audit: other `team_code IS NULL` paying/active users may have the same signup-sync gap.
+- **New feature**: stale-lead status reminder (CAPI quality). Agents often call/WhatsApp a lead and
+  never update its status afterward — no status change means `trg_send_crm_conversion` never fires,
+  so Meta CAPI never gets a quality signal for that lead. Soft-nudge approach (PR #107): dashboard
+  popup (`components/StaleLeadReminder.tsx`, mounted in `MemberDashboard.tsx`) shown to an agent when
+  they have leads at `status='Assigned'/'Fresh'` for 24h+, re-appears each new IST day until resolved
+  (sessionStorage-scoped dismiss, not permanent). Paired with a new `stale-lead-reminder` Edge
+  Function + daily cron (jobid 27, 12 PM IST) sending the same nudge as a push notification —
+  manually verified live (200, notified 22 users with real stale leads).
 - **Razorpay account migration**: switched to a new Razorpay account (LeadFlow Technologies,
   proprietorship, GST-registered, live mode). Updated: Cloudflare Pages env vars
   (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `VITE_RAZORPAY_KEY_ID`, `RAZORPAY_WEBHOOK_SECRET`),
