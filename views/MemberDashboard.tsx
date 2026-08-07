@@ -26,6 +26,7 @@ import {
 import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
 import { OfferBanner } from '../components/OfferBanner';
+import { StaleLeadReminder } from '../components/StaleLeadReminder';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
 
@@ -287,6 +288,9 @@ export const MemberDashboard = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
   const [hasMoreLeads, setHasMoreLeads] = useState(true);
   const [totalLeadCount, setTotalLeadCount] = useState<number | null>(null);
+  // 📋 Leads assigned 24h+ ago with no status update yet — nudges agent to
+  // update outcome (Interested/Follow-up/etc.) so CAPI gets real signal.
+  const [staleLeadCount, setStaleLeadCount] = useState<number>(0);
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
@@ -580,7 +584,8 @@ export const MemberDashboard = () => {
       }
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
-      const [managerResult, leadsResult, profileResult, countResult] = await Promise.all([
+      const staleThresholdIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [managerResult, leadsResult, profileResult, countResult, staleCountResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
@@ -608,7 +613,15 @@ export const MemberDashboard = () => {
         supabase
           .from('leads')
           .select('id', { count: 'exact', head: true })
+          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
+
+        // 5. Stale lead count — Assigned/Fresh leads 24h+ old with no status update yet
+        supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+          .in('status', ['Assigned', 'Fresh'])
+          .lt('assigned_at', staleThresholdIso)
       ]);
 
       // Update UI with results
@@ -626,6 +639,11 @@ export const MemberDashboard = () => {
       // Update total count
       if (countResult?.count !== null && countResult?.count !== undefined) {
         setTotalLeadCount(countResult.count);
+      }
+
+      // Update stale lead count (for the status-update reminder popup)
+      if (staleCountResult?.count !== null && staleCountResult?.count !== undefined) {
+        setStaleLeadCount(staleCountResult.count);
       }
 
       if (leadsResult.data) {
@@ -1066,6 +1084,10 @@ export const MemberDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
+
+        {/* 📋 STALE LEAD STATUS REMINDER — nudges agent to update outcome on
+            leads assigned 24h+ ago, so CAPI gets real conversion signal. */}
+        <StaleLeadReminder staleCount={staleLeadCount} />
 
         {/* 🔥 PROMOTIONAL OFFER BANNER — config/offer.ts se control hota hai.
             Active plan wale user ko nahi dikhta jab tak quota khatam hone ke
