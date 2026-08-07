@@ -16,24 +16,23 @@ const PLAN_CONFIG: Record<string, {
     fresh_count: number;
     recycled_count: number;
 }> = {
-    // ⚠️ AUGUST OFFER ACTIVE — SABHI 5 plans pe promotional quota (₹11/lead).
-    // Offer band karne ke liye paanchon lines ko neeche diye NORMAL values se replace
-    // karo (aur config/offer.ts mein OFFER_ACTIVE = false). Runbook: OFFER-PLAYBOOK.md
+    // ⚠️ AUGUST OFFER ENDED (2026-08-07) — reverted to NORMAL (non-offer) values.
+    // Naye payments ab normal quota pate hain. Offer ke dauraan jo users khareed
+    // chuke the, unka total_leads_promised already set ho chuka hai — unhe touch
+    // nahi kiya (existing rows change nahi hote is file ke revert se, sirf NAYE
+    // payments affect hote hain). Runbook: OFFER-PLAYBOOK.md section 9.
     //
-    //   NORMAL (offer se pehle wali values — revert ke liye):
-    //   starter:      { ..., dailyLeads: 5,  totalLeads: 50,  maxReplacements: 5,  fresh_count: 21, recycled_count: 34 },
-    //   supervisor:   { ..., dailyLeads: 7,  totalLeads: 80,  maxReplacements: 10, fresh_count: 70, recycled_count: 10 },
-    //   manager:      { ..., dailyLeads: 8,  totalLeads: 160, maxReplacements: 16, fresh_count: 76, recycled_count: 74 },
-    //   weekly_boost: { ..., dailyLeads: 12, totalLeads: 92,  maxReplacements: 8,  fresh_count: 80, recycled_count: 12 },
-    //   turbo_boost:  { ..., dailyLeads: 14, totalLeads: 108, maxReplacements: 10, fresh_count: 93, recycled_count: 15 },
-    //
-    // Offer ka logic: fresh_count bilkul same rehta hai (ad-cost nahi badhta),
-    // extra leads sirf recycled_count se aati hain (₹0 cost).
-    starter:      { price: 999,  duration: 10, dailyLeads: 9,  totalLeads: 90,  weight: 1, maxReplacements: 9,  fresh_count: 45, recycled_count: 45  },
-    supervisor:   { price: 1499, duration: 15, dailyLeads: 11, totalLeads: 136, weight: 3, maxReplacements: 13, fresh_count: 70, recycled_count: 66  },
-    manager:      { price: 2999, duration: 20, dailyLeads: 14, totalLeads: 272, weight: 5, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
-    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 26, totalLeads: 181, weight: 7, maxReplacements: 18, fresh_count: 84, recycled_count: 97  },
-    turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 33, totalLeads: 227, weight: 9, maxReplacements: 21, fresh_count: 93, recycled_count: 134 },
+    //   OFFER values (dobara ON karna ho to — revert ke liye):
+    //   starter:      { ..., dailyLeads: 9,  totalLeads: 90,  maxReplacements: 9,  fresh_count: 45, recycled_count: 45  },
+    //   supervisor:   { ..., dailyLeads: 11, totalLeads: 136, maxReplacements: 13, fresh_count: 70, recycled_count: 66  },
+    //   manager:      { ..., dailyLeads: 14, totalLeads: 272, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
+    //   weekly_boost: { ..., dailyLeads: 26, totalLeads: 181, maxReplacements: 18, fresh_count: 84, recycled_count: 97  },
+    //   turbo_boost:  { ..., dailyLeads: 33, totalLeads: 227, maxReplacements: 21, fresh_count: 93, recycled_count: 134 },
+    starter:      { price: 999,  duration: 10, dailyLeads: 5,  totalLeads: 50,  weight: 1, maxReplacements: 5,  fresh_count: 21, recycled_count: 34 },
+    supervisor:   { price: 1499, duration: 15, dailyLeads: 7,  totalLeads: 80,  weight: 3, maxReplacements: 10, fresh_count: 70, recycled_count: 10 },
+    manager:      { price: 2999, duration: 20, dailyLeads: 8,  totalLeads: 160, weight: 5, maxReplacements: 16, fresh_count: 76, recycled_count: 74 },
+    weekly_boost: { price: 1999, duration: 7,  dailyLeads: 12, totalLeads: 92,  weight: 7, maxReplacements: 8,  fresh_count: 80, recycled_count: 12 },
+    turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 14, totalLeads: 108, weight: 9, maxReplacements: 10, fresh_count: 93, recycled_count: 15 },
     test_plan:    { price: 1,    duration: 1,  dailyLeads: 1,  totalLeads: 1,   weight: 1, maxReplacements: 0,  fresh_count: 1,  recycled_count: 0   },
 };
 

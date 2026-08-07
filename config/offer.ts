@@ -14,7 +14,7 @@
  */
 
 /** Master switch — offer band karne ke liye isse false kar do. */
-export const OFFER_ACTIVE = true;
+export const OFFER_ACTIVE = false;
 
 export interface OfferPlanOverride {
   totalLeads: number;
