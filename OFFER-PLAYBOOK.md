@@ -1,12 +1,21 @@
 # OFFER PLAYBOOK — August ₹11/Lead Offer
 
-> **Status: 🟢 LIVE — 2026-08-04 ko apply kiya gaya, Amit ki approval ke baad.**
-> Owner: Amit Kumar | Applied: 2026-08-04
+> **Status: 🔴 OFF — 2026-08-07 ko band kiya gaya, Amit ki approval ke baad.**
+> Owner: Amit Kumar | Applied: 2026-08-04 | Ended: 2026-08-07 | PR #105
 > Ye file offer ko **ON aur OFF** dono karne ka exact runbook hai. Baad mein dobara chalana ho to yahi steps repeat karo.
 >
-> **Abhi kya pending hai:** Cloudflare Pages redeploy (webhook ka naya PLAN_CONFIG live hone ke liye)
-> aur uske baad users ko mail. Mail tab tak mat bhejo jab tak ek real payment se
-> end-to-end verify na ho jaye.
+> **OFF karte waqt jo mila:** Section 9 ka planned approach (DB `plan_config` table
+> revert karna) **actually nahi kiya gaya** — root-cause analysis se pata chala ki
+> `sync_user_plan_fields` trigger us table ko **live**, har `users` row UPDATE par
+> padhta hai (sirf signup par nahi). Table revert karne se maujooda offer-era users
+> ka `daily_limit` unki agli lead assignment par hi chupke se normal pe wapas aa
+> jaata — jabki unka `total_leads_promised` offer level pe hi rehta. Isliye `plan_config`
+> table **jaan-boojh kar touch nahi kiya** — sirf code-side `PLAN_CONFIG` (webhook +
+> reconcile, jo sirf NAYE payments padhte hain) revert kiya + recycler cron band kiya.
+> Verified: existing offer users (Mandeep kaur, Kajal, Gurdeep) ka daily_limit
+> post-revert bhi offer level pe hi hai (33, 33, 9). `plan_config` table ka safe
+> cohort-based revert abhi bhi **pending hai** — section 9 se pehle dobara design
+> karna hoga taaki naye (post-offer) signups ka `daily_limit` bhi sahi (normal) mile.
 
 ---
 

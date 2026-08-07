@@ -270,6 +270,31 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-07
+- **Razorpay account migration**: switched to a new Razorpay account (LeadFlow Technologies,
+  proprietorship, GST-registered, live mode). Updated: Cloudflare Pages env vars
+  (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `VITE_RAZORPAY_KEY_ID`, `RAZORPAY_WEBHOOK_SECRET`),
+  `config/env.ts` fallback `RAZORPAY_KEY_ID`, `razorpay-reconcile` edge function's hardcoded keys.
+  End-to-end verified with a real ₹1 test payment (Payment Link, `demo@gmail.com` test account) —
+  webhook + reconcile backup both confirmed working after Cloudflare Pages redeploy; test payment
+  and its quota effect on the demo account fully reverted afterward.
+- **August offer ended** (PR #105). Only NEW payments from now on get normal (pre-offer) quota —
+  `config/offer.ts` `OFFER_ACTIVE=false`, `functions/api/razorpay-webhook.ts` + `razorpay-reconcile`
+  (v4) `PLAN_CONFIG` reverted, `views/Landing.tsx` pricing cards reverted, recycler cron (job 22)
+  disabled. **Existing offer-era users' `total_leads_promised`/`daily_limit` deliberately untouched**
+  — verified post-revert (Mandeep kaur, Kajal still `daily_limit=33`, Gurdeep still `9`). DB
+  `plan_config` table was **deliberately NOT reverted** — see `OFFER-PLAYBOOK.md` header for why
+  (the `sync_user_plan_fields` trigger reads it live on every `users` UPDATE, not just at signup;
+  reverting it now would silently drop existing offer users' `daily_limit` on their next lead).
+  **Follow-up still pending**: `plan_config` table needs a proper cohort-safe revert so *new*
+  post-offer signups also get the correct (lower) `daily_limit` pacing — right now new starter/etc.
+  buyers still get offer-era daily_limit even though their `total_leads_promised` is correctly capped
+  at the normal (lower) total, so no over-delivery, just faster-than-advertised pacing until fixed.
+- **Bug found (not yet fixed, flagged only)**: `getOfferForPlan()` in `config/offer.ts` only checked
+  `OFFER_ACTIVE`, never the `endsAt` date — so `Subscription.tsx`'s pricing-card offer overlay would
+  never auto-expire on its own even after `endsAt` passed (only the top banner's `isOfferLive()` did).
+  Moot now that `OFFER_ACTIVE=false`, but worth fixing before ever relying on `endsAt` alone again.
+
 ### 2026-08-06
 - DB: 13 leads from earlier today that were wrongly stuck at `status='Duplicate'` (created before the
   v37/v5 deploy went live) manually reassigned via the same `get_best_assignee_for_team` RPC, one at a
