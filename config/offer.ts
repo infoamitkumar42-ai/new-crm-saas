@@ -14,7 +14,7 @@
  */
 
 /** Master switch — offer band karne ke liye isse false kar do. */
-export const OFFER_ACTIVE = false;
+export const OFFER_ACTIVE = true;
 
 export interface OfferPlanOverride {
   totalLeads: number;
@@ -31,7 +31,7 @@ export const OFFER = {
   /** Marketing ke liye per-lead price */
   perLeadPrice: 11,
   /** Offer khatam hone ka time (IST). Banner isse countdown dikhata hai. */
-  endsAt: '2026-08-06T23:59:59+05:30',
+  endsAt: '2026-08-09T23:59:59+05:30',
 
   /**
    * SABHI 5 plans pe offer hai. Har plan ka total = price ÷ ₹11 (round down).
