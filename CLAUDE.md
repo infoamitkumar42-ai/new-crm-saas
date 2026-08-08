@@ -270,6 +270,48 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-08
+- **August offer RE-EXTENDED by 2 days** (PR #109) — `endsAt` = 2026-08-09 23:59 IST,
+  `OFFER_ACTIVE=true`, `razorpay-webhook.ts` + `razorpay-reconcile` (v5) `PLAN_CONFIG` restored to
+  offer values, `views/Landing.tsx` cards restored. Recycle-pool was **deliberately NOT widened**
+  for this extension (admin said pool will be recalculated separately later) — see capacity warning
+  below.
+- ⚠️ **Recycle-pool is over-committed — flagged, not fixed.** Existing offer-era users are already
+  owed **1,085** recycled leads but the live pool (current narrow criteria) only has **~790**.
+  Widening the RPC age-window would raise it to ~1,548 (Pool D). Until that's done, some paying
+  offer users may not be able to complete their promised total. Do NOT assume capacity is fine.
+- **`stale-lead-reminder` v2** deployed + cron (jobid 27) changed from daily → **every 10 min**:
+  - Only **current IST month** leads counted (old backlog leads deliberately ignored — nagging about
+    months-old leads is bad UX and they're not actionable).
+  - **Per-user cooldown (3h)** via the pre-existing, previously-unused `notification_logs` table
+    (no schema change). Without this, a 10-min cron = ~144 push/day/user, agents would mute
+    notifications entirely — which would also kill the NEW LEAD alerts they depend on.
+    Change `REMINDER_COOLDOWN_HOURS` in the function to tune frequency, not the cron interval.
+  - Working-hours guard (8 AM–10 PM IST).
+  - Verified live: first run notified 19 users; immediate second run sent **0** (cooldown held).
+  - ⚠️ Cron `jobname` still reads `stale-lead-reminder-daily` — it is NOT daily anymore (pg_cron
+    has no rename; left as-is to avoid unschedule/reschedule risk). Don't be misled by the name.
+  - `views/MemberDashboard.tsx` popup uses the same current-month rule (PR #110).
+- Supabase Pro limits checked for the 10-min cron: ~3.2k queries/day + ~2.5k edge invocations/day
+  against a 2M/month allowance — **no plan-limit concern**. The constraint was UX, not quota.
+- Harmandeep kaur (`harmankaur6661@gmail.com`) had `team_code=NULL` — same signup-sync gap as Priya
+  Bhatiya. Her `auth.users.raw_user_meta_data` correctly had `TEAMFIRE`; set from that. This is now
+  the **second** confirmed case — a wider audit of `team_code IS NULL` paying users is still pending.
+- Offer broadcast push sent to **51 users** (TEAMFIRE / ECO@WIN12 / ECOKULWINDER / ALPHAECO, plus
+  anyone who signed up since 2026-06-01). **Gujarat teams excluded** (`GJ01TEAMFIRE` etc. — they had
+  zero push subscribers anyway) and `demo@gmail.com` excluded. Copy said "kal raat tak" (accurate to
+  the real `endsAt`) rather than "last 24 hours", which would have been ~14h off. Note: live
+  subscriber count dropped 51 → 46 during the send because `send-push-notification` auto-deletes
+  expired/410 tokens — normal self-cleaning, those users had uninstalled the app.
+- ⚠️ **Night_Backlog pile-up found (flagged, will self-clear):** 143 leads in `Night_Backlog`, of
+  which **55 were 1–2 days old** (5 from 06-Aug, 50 from 07-Aug). Root cause is **daily-limit
+  saturation, not a bug**: total team capacity is 289/day and on 07-Aug it was fully consumed
+  (21 of 22 users hit their exact `daily_limit`), because recycled leads and fresh leads compete for
+  the same `daily_limit` slots. So the 10 AM `morning-backlog` cron had nowhere to place them.
+  Capacity at time of check today: 289 total, 19 used — the backlog should clear at the 10 AM run.
+  **Underlying tension remains**: incoming volume + recycler output exceeds what active buyers can
+  absorb, so fresh leads age 1–2 days before delivery (colder leads, wasted ad spend).
+
 ### 2026-08-07
 - **August offer ended, then found: recycler cron was wrongly disabled with it.** Offer-end initially
   disabled cron job 22 (`recycled-afternoon-batch`) too, thinking it was purely offer-specific. Caught
