@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -8,38 +7,81 @@ const corsHeaders = {
 }
 
 // ----------------------------------------------------------------------
+// FORM-BASED MANAGER ROUTING (added 2026-08-08)
+// Mirrors the rule already live in sheet-lead-intake v10, so a lead gets
+// the SAME routing whether it is assigned at intake time or later by this
+// backlog sweeper. Without this, the backlog path was a hole in the rule:
+// a normal-form lead that happened to queue could be handed to one of
+// Simar's managed users the next morning.
+//
+//  - women-only form  -> Simar's team gets FIRST REFUSAL, then everyone
+//                        else (fallback, so leads never rot in the queue)
+//  - any other form   -> Simar's managed users are EXCLUDED entirely
+//
+// Deliberately applied ONLY when the lead actually has a form_id. Leads
+// created before the Apps Script started forwarding form_id (2026-08-08
+// ~15:40 IST) have form_id NULL and could belong to either form — guessing
+// would either starve Simar's team or leak leads to it, so those keep the
+// exact pre-existing behaviour. That legacy set only shrinks over time.
+// ----------------------------------------------------------------------
+const WOMEN_ONLY_FORM_ID = '26784403284560247';
+const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
+
+// ----------------------------------------------------------------------
 // HELPER: Infer State from Phone (Simplified Copy)
 // ----------------------------------------------------------------------
 function inferStateFromPhone(phone: string): string {
     if (!phone) return 'Unknown';
-    // Normalized check
     const p = phone.replace('+91', '').trim();
 
-    // Quick Map (Same as Webhook - truncated for brevity but covering major regions)
-    // In a real deployed file, I would replicate the full map. 
-    // For now, I use a decent subset or the full logic if I have it.
-    // I Will use a simplified robust check for key northern states.
-
     const startingDigits = p.substring(0, 4);
-    const start2 = p.substring(0, 2); // some are 2 digits
+    const start2 = p.substring(0, 2);
 
-    // Punjab
     if (['9814', '9815', '9872', '9876', '9878', '9914', '9915', '9988', '9417', '9463', '9464', '9465', '8146', '8194', '9501', '9855'].some(pre => p.startsWith(pre))) return 'Punjab';
-
-    // Delhi
     if (['9810', '9811', '9818', '9868', '9871', '9910', '9958', '9999'].some(pre => p.startsWith(pre))) return 'Delhi';
-
-    // Haryana
     if (['9812', '9813', '9896', '9991', '9992', '9416', '9466', '9467'].some(pre => p.startsWith(pre))) return 'Haryana';
 
-    // ... (For Safety, if exact logic is needed, we should share code)
-    // Fallback: If unknown, user logic 'status_allow_all' generally handles it.
     return 'Unknown';
+}
+
+// ----------------------------------------------------------------------
+// HELPER: Resolve which team(s) a lead belongs to, purely from its
+// `source` string. Generic for ANY team (present or future) instead of
+// the old hardcoded Himanshu/Simran-only check.
+//
+//  - "GoogleSheet-<TEAM_CODE>"  -> team_code taken directly from source
+//  - "Meta - <page name>"      -> looked up in meta_pages (same table
+//                                  meta-webhook itself uses), matched by
+//                                  substring like the existing CAPI code
+//
+// Returns null when unresolved (e.g. unusual/legacy source strings) --
+// in that case NO team filter is applied, same permissive fallback the
+// function already had before this fix, so nothing that worked before
+// regresses.
+// ----------------------------------------------------------------------
+function resolveTeamCodes(source: string, metaPages: { page_name: string; team_id: string }[]): string[] | null {
+    if (!source) return null;
+
+    if (source.startsWith('GoogleSheet-')) {
+        const tc = source.replace('GoogleSheet-', '').trim();
+        return tc ? [tc] : null;
+    }
+
+    if (source.startsWith('Meta - ')) {
+        const pageName = source.replace('Meta - ', '').trim().toLowerCase();
+        for (const p of metaPages) {
+            const configPage = (p.page_name || '').toLowerCase();
+            if (pageName.includes(configPage) || configPage.includes(pageName)) {
+                return (p.team_id || '').split(',').map(t => t.trim()).filter(Boolean);
+            }
+        }
+    }
+
+    return null;
 }
 // ----------------------------------------------------------------------
 
 serve(async (req) => {
-    // Handle CORS
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
@@ -63,16 +105,12 @@ serve(async (req) => {
         }
 
         // 1. Fetch 'New' Leads (Oldest First)
-        // We look for anything 'New' that is older than 5 minutes (to give webhook a chance first?)
-        // Or just 'New'. 
-        // User wants immediate fix, so 'New' is fine.
-
         const { data: leads, error: leadsError } = await supabase
             .from('leads')
             .select('*')
             .in('status', ['New', 'Night_Backlog', 'Queued'])
             .order('created_at', { ascending: true })
-            .limit(100); // Process 100 at a time
+            .limit(100);
 
         if (leadsError) throw leadsError
         if (!leads || leads.length === 0) {
@@ -84,6 +122,9 @@ serve(async (req) => {
 
         console.log(`📦 Processing ${leads.length} stuck leads...`);
 
+        // 1b. Fetch meta_pages ONCE — used to resolve team_code for "Meta - ..." sources
+        const { data: metaPages } = await supabase.from('meta_pages').select('page_name, team_id');
+
         // 2. Fetch Active Users
         const { data: users, error: usersError } = await supabase
             .from('users')
@@ -94,23 +135,22 @@ serve(async (req) => {
 
         if (usersError) throw usersError
 
-        // Global Debug Vars
-        let firstLeadRejections = { capacity: 0, manager: 0, state: 0, total_users: users.length };
+        let firstLeadRejections = { capacity: 0, team: 0, state: 0, form: 0, total_users: users.length };
 
         let distributedCount = 0;
 
         // 3. Process Each Lead
         for (let i = 0; i < leads.length; i++) {
             const lead = leads[i];
-            // A. Determine Context
-            let manager_id = null;
+
+            // A. Determine Context — team_code(s) this lead is allowed to go to
+            const teamCodes = resolveTeamCodes(lead.source, metaPages || []);
             let leadState = lead.state;
 
-            // Map Source -> Manager
-            if (lead.source?.includes("Himanshu")) {
-                // Correct Himanshu ID (Verified)
-                manager_id = "79c67296-b221-4ca9-a3a5-1611e690e68d";
-            }
+            // Form-based routing context (see header note). Only meaningful
+            // when the lead actually carries a form_id.
+            const leadFormId = lead.form_id || null;
+            const isWomenOnlyForm = leadFormId === WOMEN_ONLY_FORM_ID;
 
             // Infer State
             if (!leadState || leadState === 'Unknown') {
@@ -135,37 +175,36 @@ serve(async (req) => {
                     return false;
                 }
 
-                // 2. Manager (Hierarchy)
-                if (manager_id) {
-                    // Check if user is Himanshu OR Simran OR Reports to them
-                    const isHimanshu = (u.id === manager_id);
-                    const isHimanshuTeam = (u.manager_id === manager_id);
-                    const isSimran = (u.id === 'ff0ead1f-212c-4e89-bc81-dec4185f8853'); // Simran
-                    const isSimranTeam = (u.manager_id === 'ff0ead1f-212c-4e89-bc81-dec4185f8853');
-                    const isSimranSimmi = (u.id === '5cca04ae-3d29-4efe-a12a-0b01336cddee'); // Simran Simmi
-
-                    if (!isHimanshu && !isHimanshuTeam && !isSimran && !isSimranTeam && !isSimranSimmi) {
-                        if (i === 0) firstLeadRejections.manager++;
+                // 3. Team (generic — replaces old hardcoded Himanshu/Simran-only logic)
+                if (teamCodes && teamCodes.length > 0) {
+                    if (!teamCodes.includes(u.team_code)) {
+                        if (i === 0) firstLeadRejections.team++;
                         return false;
                     }
                 }
+                // If teamCodes is null (unresolved source), no team filter is applied —
+                // same permissive fallback as before this fix.
 
-                // 3. State
+                // 3b. Form-based exclusion — leads from any form OTHER than the
+                // women-only form must never reach Simar's managed users.
+                // (Skipped entirely when form_id is unknown; see header note.)
+                if (leadFormId && !isWomenOnlyForm && u.manager_id === SIMAR_MANAGER_ID) {
+                    if (i === 0) firstLeadRejections.form++;
+                    return false;
+                }
+
+                // 4. State
                 if (leadState && leadState !== 'Unknown') {
                     const userFilters = u.filters || {};
-                    // Check Pan India (support both keys seen in DB)
                     const isPanIndia = userFilters.panIndia === true || userFilters.pan_india === true;
 
                     if (isPanIndia) return true;
 
-                    // Check Specific States
                     const allowedStates = userFilters.states || [];
-                    // Case-insensitive check
                     const hasState = allowedStates.some((s: string) => s.toLowerCase() === leadState.toLowerCase());
 
                     if (hasState) return true;
 
-                    // Fallback: If 'target_state' column exists and says "All India"
                     if (u.target_state === 'All India') return true;
 
                     if (i === 0) firstLeadRejections.state++;
@@ -179,16 +218,25 @@ serve(async (req) => {
                 continue;
             }
 
+            // B2. Women-only form: Simar's team gets FIRST REFUSAL. If at least
+            // one of their users is still eligible, narrow the pool to them.
+            // If none are (daily limit full / nobody active), the full pool is
+            // kept so the lead still goes out instead of sitting in the queue —
+            // exactly the fallback rule live in sheet-lead-intake v10.
+            if (isWomenOnlyForm) {
+                const simarFirst = eligible.filter(u => u.manager_id === SIMAR_MANAGER_ID);
+                if (simarFirst.length > 0) {
+                    eligible = simarFirst;
+                }
+            }
+
             // C. Sort (Equalizer Strategy: Round Robin 1->2, 2->3)
-            // Priority: LEAST LEADS TODAY First (0->1, then 1->2)
             eligible.sort((a, b) => {
                 const leadsA = a.leads_today || 0;
                 const leadsB = b.leads_today || 0;
 
-                // Primary: Least Leads First
                 if (leadsA !== leadsB) return leadsA - leadsB;
 
-                // Secondary: High Pending Capacity (Tie-breaker)
                 const pendingA = (a.daily_limit || 0) - leadsA;
                 const pendingB = (b.daily_limit || 0) - leadsB;
                 return pendingB - pendingA;
@@ -197,9 +245,7 @@ serve(async (req) => {
             // D. Assign (With Concurrency Check)
             let selectedUser = null;
 
-            // Try top 3 users in case of race conditions
             for (let candidate of eligible) {
-                // Re-fetch fresh count directly from DB
                 const { data: freshUser, error: freshErr } = await supabase
                     .from('users')
                     .select('leads_today, daily_limit')
@@ -212,7 +258,6 @@ serve(async (req) => {
                 const freshLimit = freshUser.daily_limit || 0;
 
                 if (freshCurrent < freshLimit) {
-                    // Valid!
                     candidate.leads_today = freshCurrent;
                     selectedUser = candidate;
                     break;
@@ -226,7 +271,6 @@ serve(async (req) => {
                 continue;
             }
 
-            // Critical Atomic Update: Check status is STILL unassigned
             const { error: assignError, data: updateData } = await supabase
                 .from('leads')
                 .update({
@@ -236,13 +280,12 @@ serve(async (req) => {
                     assigned_at: new Date().toISOString()
                 })
                 .eq('id', lead.id)
-                .in('status', ['New', 'Night_Backlog', 'Queued']) // Safety check
+                .in('status', ['New', 'Night_Backlog', 'Queued'])
                 .select();
 
             if (!assignError && updateData && updateData.length > 0) {
                 console.log(`✅ Assigned ${lead.phone.slice(-4)} -> ${selectedUser.name}`);
 
-                // Update local cache
                 selectedUser.leads_today = (selectedUser.leads_today || 0) + 1;
                 distributedCount++;
             }
