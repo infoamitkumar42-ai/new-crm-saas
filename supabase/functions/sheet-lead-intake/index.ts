@@ -3,8 +3,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v5 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v6 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v6 (admin decision 2026-08-08):
+ *  1. FORM-BASED MANAGER ROUTING — form_id WOMEN_ONLY_FORM_ID ("TEAM ECO
+ *     SIMAR", form_id 2419407918566414 per the Apps Script's own
+ *     FORM_OVERRIDES label — CONFIRM this matches the intended form before
+ *     trusting it blindly) is women/girls-only leads. These must go ONLY to
+ *     users managed by SIMARJIT (simar@forever.com, manager_id below) —
+ *     never to the general ECO@WIN12/TEAMFIRE pool, even if Simar's team is
+ *     at capacity (that would leak women-only leads to unrelated agents).
+ *     Requires the Apps Script to send `form_id` in the payload (it computes
+ *     form_id internally for column-mapping already, but wasn't forwarding
+ *     it — see the Apps Script patch alongside this deploy).
+ *  2. CAPI SIGNAL ADDED — this function previously sent NO Meta CAPI signal
+ *     at all for any sheet-sourced lead (verified: zero CAPI code existed
+ *     before this version). A pixel_config row for team_code='ECO@WIN12'
+ *     ("TEAM ECO SIMAR", pixel_id 2334725197446887) already existed live
+ *     since 2026-07-08 but was never actually called from here. Now sends
+ *     the same 'Lead' event as meta-webhook.ts, matched by the intake
+ *     token's own team_code (first team) — applies to ALL leads from this
+ *     Google Sheet channel, not just the women-only form.
+ *
  * v5 (admin decision 2026-08-06): 'Duplicate' status removed for repeat phone
  * numbers. Purana behavior: same phone kabhi bhi pehle aaya ho (chahe mahino
  * purana) to naya submission 'Duplicate' status mein insert hota tha aur
@@ -25,7 +45,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  * FB Page webhook), this endpoint accepts a simple JSON lead payload from a
  * Google Apps Script trigger and runs it through the SAME assignment logic
  * as meta-webhook: recent-retry check -> working-hours check -> RPC-based
- * best-assignee lookup -> insert -> push notification.
+ * best-assignee lookup -> insert -> push notification -> CAPI.
  *
  * AUTH: verify_jwt is disabled (Apps Script can't hold a Supabase session,
  * same reason meta-webhook disables it). Instead, the caller must send a
@@ -37,6 +57,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  */
 
 const WORKING_HOURS = { START: 8, END: 22, TIMEZONE: 'Asia/Kolkata' };
+
+// Women/girls-only form — leads from this form_id go ONLY to users managed
+// by SIMARJIT, never to the general team pool. See header note above.
+const WOMEN_ONLY_FORM_ID = '2419407918566414';
+const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +97,116 @@ function buildLeadDetails(body: any): Record<string, string> | null {
     if (v) details[label] = v;
   }
   return Object.keys(details).length > 0 ? details : null;
+}
+
+// Finds the best active user managed by `managerId`, using the same
+// fairness rule as get_best_assignee_for_team (lowest fill-ratio first,
+// plan_weight as tiebreaker) but scoped by manager_id instead of team_code.
+// Kept as a separate inline check (not a shared RPC) so it can't affect
+// the normal team-based routing path used by everyone else.
+async function findManagerScopedAssignee(supabase: any, managerId: string) {
+  const { data: candidates } = await supabase
+    .from('users')
+    .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight')
+    .eq('manager_id', managerId)
+    .eq('is_active', true)
+    .eq('is_online', true)
+    .eq('payment_status', 'active');
+
+  if (!candidates || candidates.length === 0) return null;
+
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const startOfDayIso = new Date(`${todayIST}T00:00:00+05:30`).toISOString();
+
+  const scored: { user: any; fillRatio: number; weight: number }[] = [];
+
+  for (const u of candidates) {
+    if (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised) continue;
+
+    const { count: todayCount } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', u.id)
+      .gte('assigned_at', startOfDayIso);
+
+    const dailyLimit = u.daily_limit || 0;
+    if (dailyLimit > 0 && (todayCount || 0) >= dailyLimit) continue;
+
+    const fillRatio = dailyLimit > 0 ? (todayCount || 0) / dailyLimit : 0;
+    scored.push({ user: u, fillRatio, weight: u.plan_weight || 1 });
+  }
+
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => a.fillRatio - b.fillRatio || b.weight - a.weight);
+  return scored[0].user;
+}
+
+async function sendCapiLeadEvent(
+  supabase: any,
+  teamCodeForPixelMatch: string,
+  leadId: string,
+  name: string,
+  phone: string,
+  city: string
+) {
+  try {
+    const { data: pixelConfigs } = await supabase
+      .from('pixel_config')
+      .select('pixel_id, capi_access_token, team_code')
+      .eq('is_active', true);
+
+    const matchedPixel = pixelConfigs?.find((c: any) => c.team_code === teamCodeForPixelMatch) || null;
+
+    if (!matchedPixel || matchedPixel.capi_access_token === 'PENDING_TOKEN') {
+      console.log(`[CAPI] ⏭️ Skipped — ${!matchedPixel ? 'no config' : 'PENDING_TOKEN'} | team: ${teamCodeForPixelMatch}`);
+      return;
+    }
+
+    const hashValue = async (val: string): Promise<string> => {
+      const encoder = new TextEncoder();
+      const data = encoder.encode((val || '').toLowerCase().trim());
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const formatPhone = (p: string): string => {
+      const digits = (p || '').replace(/\D/g, '');
+      if (digits.startsWith('91') && digits.length === 12) return digits;
+      if (digits.length === 10) return '91' + digits;
+      return digits;
+    };
+
+    const capiPayload = {
+      data: [{
+        event_name: 'Lead',
+        event_id: `sheetlead_${leadId}_${Math.floor(Date.now() / 1000)}`,
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: 'crm',
+        user_data: {
+          ph: [await hashValue(formatPhone(phone))],
+          fn: [await hashValue(name || '')],
+          ct: [await hashValue(city || '')],
+          country: [await hashValue('in')],
+        },
+        custom_data: {
+          event_source: 'crm',
+          lead_event_source: 'LeadFlow CRM',
+          currency: 'INR',
+          value: 0,
+        },
+      }],
+    };
+
+    const capiResp = await fetch(
+      `https://graph.facebook.com/v18.0/${matchedPixel.pixel_id}/events?access_token=${matchedPixel.capi_access_token}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(capiPayload) }
+    );
+    const capiResult = await capiResp.json();
+    console.log(`[CAPI] ✅ Pixel ${matchedPixel.pixel_id} | team: ${teamCodeForPixelMatch} | Result:`, JSON.stringify(capiResult));
+  } catch (capiError: any) {
+    // NEVER fail the main intake because of CAPI
+    console.error('[CAPI] ❌ Error (non-fatal):', capiError.message);
+  }
 }
 
 serve(async (req) => {
@@ -110,7 +245,8 @@ serve(async (req) => {
     const teamCode = tokenRow.team_code;
     // Source label ke liye sirf PEHLA team use karo, poori multi-team
     // routing-string nahi — warna source jaisa "GoogleSheet-ECO@WIN12,TEAMFIRE"
-    // ban jata hai jo reporting mein confusing hai.
+    // ban jata hai jo reporting mein confusing hai. Same team CAPI pixel match
+    // ke liye bhi use hota hai (pixel_config is currently keyed by this team).
     const sourceTeamLabel = teamCode.split(',')[0].trim();
 
     const body = await req.json();
@@ -119,12 +255,14 @@ serve(async (req) => {
     const state = (body.state || '').toString().trim() || null;
     const source = (body.source || `GoogleSheet-${sourceTeamLabel}`).toString().trim();
     const phone = sanitizePhone(body.phone);
+    const formId = (body.form_id || '').toString().replace(/^f:/, '').trim() || null;
     const leadDetails = buildLeadDetails(body);
+    const isWomenOnlyForm = formId === WOMEN_ONLY_FORM_ID;
 
     // ---- Invalid phone ----
     if (!isValidIndianPhone(phone)) {
       await supabase.from('leads').insert({
-        name, phone: phone || 'INVALID', city, state, source, status: 'Invalid', lead_details: leadDetails
+        name, phone: phone || 'INVALID', city, state, source, status: 'Invalid', lead_details: leadDetails, form_id: formId
       });
       return new Response(JSON.stringify({ status: 'invalid_phone' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -147,30 +285,53 @@ serve(async (req) => {
 
     // ---- Night hours -> backlog (picked up by existing process-backlog cron) ----
     if (!isWithinWorkingHours()) {
-      await supabase.from('leads').insert({ name, phone, city, state, source, status: 'Night_Backlog', lead_details: leadDetails });
+      await supabase.from('leads').insert({ name, phone, city, state, source, status: 'Night_Backlog', lead_details: leadDetails, form_id: formId });
       return new Response(JSON.stringify({ status: 'night_backlog' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // ---- Assign via the SAME RPC meta-webhook uses ----
-    const { data: bestUser, error: rpcError } = await supabase
-      .rpc('get_best_assignee_for_team', { p_team_code: teamCode });
+    // ---- Assignment: women-only form -> Simar's team ONLY, else normal RPC ----
+    let finalUserId: string | null = null;
+    let finalUserName: string | null = null;
 
-    if (rpcError || !bestUser || bestUser.length === 0) {
-      await supabase.from('leads').insert({
-        name, phone, city, state, source, status: 'Queued',
-        notes: `Team ${teamCode} - all users at capacity`, lead_details: leadDetails
-      });
-      return new Response(JSON.stringify({ status: 'queued_no_eligible_user' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (isWomenOnlyForm) {
+      const target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+      if (!target) {
+        // Deliberately does NOT fall back to the general team pool — a
+        // women-only lead leaking to unrelated agents defeats the whole
+        // point of this routing rule. Waits in Queued instead.
+        await supabase.from('leads').insert({
+          name, phone, city, state, source, status: 'Queued',
+          notes: `Women-only form (${WOMEN_ONLY_FORM_ID}) - no active user under SIMARJIT right now`,
+          lead_details: leadDetails, form_id: formId
+        });
+        return new Response(JSON.stringify({ status: 'queued_no_eligible_simar_user' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      finalUserId = target.id;
+      finalUserName = target.name;
+    } else {
+      const { data: bestUser, error: rpcError } = await supabase
+        .rpc('get_best_assignee_for_team', { p_team_code: teamCode });
+
+      if (rpcError || !bestUser || bestUser.length === 0) {
+        await supabase.from('leads').insert({
+          name, phone, city, state, source, status: 'Queued',
+          notes: `Team ${teamCode} - all users at capacity`, lead_details: leadDetails, form_id: formId
+        });
+        return new Response(JSON.stringify({ status: 'queued_no_eligible_user' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const target = bestUser[0];
+      finalUserId = target.user_id || target.out_user_id;
+      finalUserName = target.user_name;
     }
 
-    const target = bestUser[0];
-    const finalUserId = target.user_id || target.out_user_id;
-
-    const { error: assignError } = await supabase.from('leads').insert({
+    const { data: newLead, error: assignError } = await supabase.from('leads').insert({
       name, phone, city, state, source,
       status: 'Assigned',
       assigned_to: finalUserId,
@@ -178,11 +339,12 @@ serve(async (req) => {
       assigned_at: new Date().toISOString(),
       lead_type: 'fresh',
       recycle_count: 0,
-      lead_details: leadDetails
-    });
+      lead_details: leadDetails,
+      form_id: formId
+    }).select('id').single();
 
     if (assignError) {
-      await supabase.from('leads').insert({ name, phone, city, state, source, status: 'Queued', lead_details: leadDetails });
+      await supabase.from('leads').insert({ name, phone, city, state, source, status: 'Queued', lead_details: leadDetails, form_id: formId });
       return new Response(JSON.stringify({ status: 'assign_failed', error: assignError.message }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -209,7 +371,10 @@ serve(async (req) => {
       console.log('Push notification failed (non-critical):', notifErr);
     }
 
-    return new Response(JSON.stringify({ status: 'assigned', assigned_to: target.user_name || finalUserId }), {
+    // ---- CAPI signal (non-critical, matched by the intake token's team) ----
+    await sendCapiLeadEvent(supabase, sourceTeamLabel, newLead.id, name, phone, city);
+
+    return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
