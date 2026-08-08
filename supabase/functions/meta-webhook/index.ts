@@ -3,8 +3,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 🚀 LEADFLOW WEBHOOK v37 - DUPLICATE PHONE NO LONGER BLOCKS ASSIGNMENT
+ * 🚀 LEADFLOW WEBHOOK v38 - CAPI MATCH-QUALITY UPGRADE
  * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * v38 (admin decision 2026-08-08): CAPI 'Lead' event action_source fixed
+ * 'crm' -> 'system_generated' ('crm' is not a valid Meta enum value —
+ * send-crm-conversion v3 already found + fixed this for status-change
+ * events; ported here for the initial Lead event too, same fix applied
+ * identically in sheet-lead-intake v9). user_data enriched with ln
+ * (last name) and external_id (hashed lead id) for higher Event Match
+ * Quality — same match-key set send-crm-conversion already sends. The
+ * non-standard `lead_id` field inside user_data (not a real Meta match
+ * key) was removed in favor of the proper external_id field.
  *
  * FIXES APPLIED:
  * 1. ❌ REMOVED: Auto-disable (is_active: false) when quota full
@@ -486,19 +496,32 @@ serve(async (req) => {
                                 return digits;
                             };
 
+                            // Split full name into first + last for correct Meta
+                            // matching (fn/ln) — same convention as send-crm-conversion.
+                            const nameParts = (name || '').trim().split(/\s+/).filter(Boolean);
+                            const firstName = nameParts[0] || '';
+                            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+                            const userData: Record<string, any> = {
+                                ph: [await hashValue(formatPhone(phone))],
+                                country: [await hashValue('in')],
+                                external_id: [await hashValue(String(newLead.id))],
+                            };
+                            if (firstName) userData.fn = [await hashValue(firstName)];
+                            if (lastName) userData.ln = [await hashValue(lastName)];
+                            if (city && city.toLowerCase() !== 'unknown') userData.ct = [await hashValue(city)];
+
                             const capiPayload = {
                                 data: [{
                                     event_name: 'Lead',
                                     event_id: `lead_${leadId}_${Math.floor(Date.now() / 1000)}`,
                                     event_time: Math.floor(Date.now() / 1000),
-                                    action_source: 'crm',
-                                    user_data: {
-                                        ph: [await hashValue(formatPhone(phone))],
-                                        fn: [await hashValue(name || '')],
-                                        ct: [await hashValue(city || '')],
-                                        country: [await hashValue('in')],
-                                        lead_id: leadId ? Number(leadId) : undefined,
-                                    },
+                                    // Meta's action_source enum has no 'crm' value — 'crm' silently
+                                    // mis-registers the event. 'system_generated' is the value Meta
+                                    // documents for CRM/automation-triggered events (same fix already
+                                    // applied in send-crm-conversion v3, ported here for consistency).
+                                    action_source: 'system_generated',
+                                    user_data: userData,
                                     custom_data: {
                                         event_source: 'crm',
                                         lead_event_source: 'LeadFlow CRM',

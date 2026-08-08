@@ -3,8 +3,45 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v8 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v10 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v10 (admin decision 2026-08-08) — WOMEN-ONLY FORM NOW FALLS BACK.
+ *  v6 gave Simar's team EXCLUSIVE rights to the women-only form: if nobody
+ *  under Simar was eligible, the lead was parked in 'Queued' forever. That
+ *  was my own over-strict reading — the admin never asked for it, and it
+ *  backfired live: Priya Bhatiya (the only active user under Simar) has a
+ *  daily_limit of 9 while that form produces far more per day, so leads
+ *  simply piled up in Queued. Nothing re-processes 'Queued' leads, so they
+ *  would have rotted there permanently = paid-for leads nobody ever calls.
+ *
+ *  Correct rule (admin, verbatim): women's leads go to Simar's team FIRST;
+ *  once their daily limit is full, the rest go to the other teams like any
+ *  normal lead. No lead should ever sit in Queued.
+ *
+ *  So the women-only branch is now: Simar's team first → else normal pool.
+ *  The reverse rule is UNCHANGED and still strict: leads from any OTHER
+ *  form must never reach Simar's managed users.
+ *
+ * v9 (admin decision 2026-08-08) — CAPI match-quality upgrade, applied
+ * identically in meta-webhook.ts's Lead event for consistency across both
+ * intake channels:
+ *  - action_source 'crm' -> 'system_generated'. 'crm' is NOT a valid Meta
+ *    action_source enum value — send-crm-conversion v3 already discovered
+ *    and fixed this exact bug for status-change events, but the fix was
+ *    never ported to either channel's INITIAL 'Lead' event. Fixed here.
+ *  - user_data enriched with ln (last name, split from name), st (state,
+ *    now passed through), and external_id (hashed lead id) — the same
+ *    match-key set send-crm-conversion already uses. More matched keys =
+ *    higher Meta Event Match Quality = better ad-delivery optimization =
+ *    lower cost-per-lead, which is the whole point of sending CAPI at all.
+ *  - Deliberately did NOT add ad_id to the CAPI payload: Meta's CAPI schema
+ *    has no ad_id match/attribution field for this event type — native
+ *    Meta Lead Ads already attribute leads to the originating ad on Meta's
+ *    own side automatically. ad_id capture (for OUR OWN internal
+ *    cost-per-ad reporting) would need a new leads.ad_id column, which is
+ *    a schema change requiring separate admin approval per CLAUDE.md rule 3
+ *    — not done here.
+ *
  * v8 (admin decision 2026-08-08) — two fixes, both scoped to THIS intake
  * channel only (meta-webhook / send-crm-conversion untouched):
  *  1. MUTUAL EXCLUSIVITY — admin confirmed a second form_id (also connected
@@ -248,7 +285,8 @@ async function sendCapiLeadEvent(
   leadId: string,
   name: string,
   phone: string,
-  city: string
+  city: string,
+  state: string | null
 ) {
   try {
     let teamCode: string | null = null;
@@ -300,10 +338,29 @@ async function sendCapiLeadEvent(
       return digits;
     };
 
+    // Split full name into first + last for correct Meta matching (fn/ln) —
+    // same convention as send-crm-conversion.
+    const nameParts = (name || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
     const hashedPhone = await hashValue(formatPhone(phone));
-    const hashedName = await hashValue(name || '');
-    const hashedCity = await hashValue(city || '');
+    const hashedFirst = firstName ? await hashValue(firstName) : '';
+    const hashedLast = lastName ? await hashValue(lastName) : '';
+    const hashedCity = city && city.toLowerCase() !== 'unknown' ? await hashValue(city) : '';
+    const hashedState = state ? await hashValue(state) : '';
     const hashedCountry = await hashValue('in');
+    const hashedExternalId = await hashValue(String(leadId));
+
+    const userData: Record<string, any> = {
+      ph: [hashedPhone],
+      country: [hashedCountry],
+      external_id: [hashedExternalId],
+    };
+    if (hashedFirst) userData.fn = [hashedFirst];
+    if (hashedLast) userData.ln = [hashedLast];
+    if (hashedCity) userData.ct = [hashedCity];
+    if (hashedState) userData.st = [hashedState];
 
     for (const [pixelId, config] of matchedPixels) {
       const capiPayload = {
@@ -311,13 +368,12 @@ async function sendCapiLeadEvent(
           event_name: 'Lead',
           event_id: `sheetlead_${leadId}_${pixelId}`,
           event_time: Math.floor(Date.now() / 1000),
-          action_source: 'crm',
-          user_data: {
-            ph: [hashedPhone],
-            fn: [hashedName],
-            ct: [hashedCity],
-            country: [hashedCountry],
-          },
+          // Meta's action_source enum has no 'crm' value — 'crm' silently
+          // mis-registers the event. 'system_generated' is the value Meta
+          // documents for CRM/automation-triggered events (same fix already
+          // applied in send-crm-conversion v3, ported here for consistency).
+          action_source: 'system_generated',
+          user_data: userData,
           custom_data: {
             event_source: 'crm',
             lead_event_source: 'LeadFlow CRM',
@@ -431,17 +487,27 @@ serve(async (req) => {
     let finalUserName: string | null = null;
 
     if (isWomenOnlyForm) {
-      const target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+      // Women-only form: Simar's team gets FIRST REFUSAL, not exclusive rights.
+      let target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+
+      // v10 (admin decision 2026-08-08): if nobody under Simar can take it
+      // right now (daily limit reached, or no active user at all), the lead
+      // goes to the normal team pool instead of sitting in Queued. Admin's
+      // rule is explicit: no lead should ever be parked in Queued — a lead
+      // nobody works is pure wasted ad spend. Priority is preserved because
+      // Simar's team is always checked first.
       if (!target) {
-        // Deliberately does NOT fall back to the general team pool — a
-        // women-only lead leaking to unrelated agents defeats the whole
-        // point of this routing rule. Waits in Queued instead.
+        target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID);
+      }
+
+      if (!target) {
+        // Genuinely nobody left anywhere — every team is at capacity.
         await supabase.from('leads').insert({
           name, phone, city, state, source, status: 'Queued',
-          notes: `Women-only form (${WOMEN_ONLY_FORM_ID}) - no active user under SIMARJIT right now`,
+          notes: `Team ${teamCode} - all users at capacity`,
           lead_details: leadDetails, form_id: formId
         });
-        return new Response(JSON.stringify({ status: 'queued_no_eligible_simar_user' }), {
+        return new Response(JSON.stringify({ status: 'queued_no_eligible_user' }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -508,7 +574,7 @@ serve(async (req) => {
     }
 
     // ---- CAPI signal (non-critical, matched by the ACTUAL assigned user's team) ----
-    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city);
+    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city, state);
 
     return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
