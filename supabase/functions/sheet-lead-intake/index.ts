@@ -3,8 +3,42 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v6 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v8 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v8 (admin decision 2026-08-08) — two fixes, both scoped to THIS intake
+ * channel only (meta-webhook / send-crm-conversion untouched):
+ *  1. MUTUAL EXCLUSIVITY — admin confirmed a second form_id (also connected
+ *     to this same sheet/system, a different page) exists and needs NO
+ *     special routing of its own — it should flow through the normal team
+ *     pool like any other lead. BUT explicitly: leads from any form OTHER
+ *     than WOMEN_ONLY_FORM_ID must never land with users managed by
+ *     SIMARJIT — that pool is reserved exclusively for the women-only form.
+ *     Previously the normal (non-women's-form) branch called the shared
+ *     get_best_assignee_for_team RPC directly, which had no way to exclude
+ *     Simar's managed users (e.g. Priya Bhatiya was still eligible there).
+ *     Fixed with a new inline helper, findTeamAssigneeExcludingManager,
+ *     mirroring the RPC's exact eligibility/fairness logic (2-pass 60%/100%
+ *     daily-limit gate, fill_ratio ASC + plan_weight DESC ordering) but
+ *     additionally excluding SIMAR_MANAGER_ID — kept inline (not a shared
+ *     RPC change) per CLAUDE.md rule 4.
+ *  2. CAPI PIXEL CONSISTENCY — sendCapiLeadEvent previously matched the
+ *     pixel using the intake token's static first-team label (always
+ *     'ECO@WIN12'), regardless of who the lead actually got assigned to.
+ *     Meanwhile the SAME lead's later status-change CAPI events (fired by
+ *     the separate send-crm-conversion function) correctly match by the
+ *     lead's actual assigned user's team_code — verified live this often
+ *     resolves to TEAMFIRE's pixel, not ECO@WIN12's, since ECO@WIN12 has
+ *     almost no active members and most sheet leads fall back to TEAMFIRE.
+ *     Result: a single lead's CAPI events could be split across two
+ *     different pixels, fragmenting Meta's optimization signal. Fixed —
+ *     sendCapiLeadEvent now takes the actually-assigned user's ID, fetches
+ *     their team_code fresh (same as send-crm-conversion does), and fans
+ *     out to every matching active pixel_config row (same team_code-match +
+ *     dedupe-by-pixel_id approach as send-crm-conversion), instead of a
+ *     single `.find()` against a hardcoded label. This guarantees the
+ *     initial 'Lead' event and every later status-change event for the
+ *     same lead always land on the exact same pixel(s).
+ *
  * v6 (admin decision 2026-08-08):
  *  1. FORM-BASED MANAGER ROUTING — form_id WOMEN_ONLY_FORM_ID (26784403284560247,
  *     confirmed 2026-08-08 from the real Meta ad's own form_id column — the
@@ -143,24 +177,112 @@ async function findManagerScopedAssignee(supabase: any, managerId: string) {
   return scored[0].user;
 }
 
+// Same eligibility + fairness rule as get_best_assignee_for_team RPC
+// (2-pass: <=60% daily limit first, then <=100%; fill_ratio ASC, plan_weight
+// DESC), but additionally excludes anyone managed by `excludeManagerId`.
+// Kept inline rather than modifying the shared RPC (CLAUDE.md rule 4) —
+// this exclusion must ONLY apply to non-women's-form leads from this sheet
+// intake channel, not to every caller of the RPC (e.g. meta-webhook).
+async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string, excludeManagerId: string) {
+  const teamArray = teamCode.replace(/\s+/g, '').split(',');
+
+  const { data: candidates } = await supabase
+    .from('users')
+    .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight, fresh_leads_quota, fresh_leads_received, manager_id')
+    .in('team_code', teamArray)
+    .eq('is_active', true)
+    .eq('is_online', true)
+    .in('role', ['member', 'manager'])
+    .or(`manager_id.is.null,manager_id.neq.${excludeManagerId}`);
+
+  if (!candidates || candidates.length === 0) return null;
+
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const startOfDayIso = new Date(`${todayIST}T00:00:00+05:30`).toISOString();
+
+  const pass1: { user: any; fillRatio: number; weight: number }[] = [];
+  const pass2: { user: any; fillRatio: number; weight: number }[] = [];
+
+  for (const u of candidates) {
+    const promisedOk = !u.total_leads_promised || u.total_leads_received < u.total_leads_promised;
+    if (!promisedOk) continue;
+    const freshOk = !u.fresh_leads_quota || (u.fresh_leads_received || 0) < u.fresh_leads_quota;
+    if (!freshOk) continue;
+
+    const { count: todayCount } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', u.id)
+      .gte('assigned_at', startOfDayIso);
+
+    const cnt = todayCount || 0;
+    const dailyLimit = u.daily_limit || 0;
+    const weight = u.plan_weight || 1;
+
+    if (dailyLimit <= 0 || cnt < Math.floor(dailyLimit * 0.6)) {
+      const effLimit = dailyLimit > 0 ? Math.floor(dailyLimit * 0.6) : 1;
+      pass1.push({ user: u, fillRatio: cnt / Math.max(effLimit, 1), weight });
+    }
+    if (dailyLimit <= 0 || cnt < dailyLimit) {
+      pass2.push({ user: u, fillRatio: cnt / Math.max(dailyLimit, 1), weight });
+    }
+  }
+
+  const pick = (arr: { user: any; fillRatio: number; weight: number }[]) => {
+    if (arr.length === 0) return null;
+    arr.sort((a, b) => a.fillRatio - b.fillRatio || b.weight - a.weight);
+    return arr[0].user;
+  };
+
+  return pick(pass1) || pick(pass2);
+}
+
+// Sends the initial 'Lead' CAPI event, matched by pixel using the lead's
+// ACTUAL assigned user's team_code (fetched fresh) — same matching rule
+// send-crm-conversion uses for later status-change events on the same lead,
+// so a lead's whole CAPI lifecycle always lands on the same pixel(s). Fans
+// out to every matching active pixel (dedupe by pixel_id), not just one.
 async function sendCapiLeadEvent(
   supabase: any,
-  teamCodeForPixelMatch: string,
+  assignedUserId: string | null,
   leadId: string,
   name: string,
   phone: string,
   city: string
 ) {
   try {
+    let teamCode: string | null = null;
+    if (assignedUserId) {
+      const { data: u } = await supabase.from('users').select('team_code').eq('id', assignedUserId).maybeSingle();
+      teamCode = u?.team_code || null;
+    }
+
+    if (!teamCode) {
+      console.log(`[CAPI] ⏭️ Skipped — could not resolve assigned user's team_code`);
+      return;
+    }
+
     const { data: pixelConfigs } = await supabase
       .from('pixel_config')
       .select('pixel_id, capi_access_token, team_code')
       .eq('is_active', true);
 
-    const matchedPixel = pixelConfigs?.find((c: any) => c.team_code === teamCodeForPixelMatch) || null;
+    const teamCodesOfLead = teamCode.split(',').map((t) => t.trim()).filter(Boolean);
+    const matchedPixels = new Map<string, any>();
 
-    if (!matchedPixel || matchedPixel.capi_access_token === 'PENDING_TOKEN') {
-      console.log(`[CAPI] ⏭️ Skipped — ${!matchedPixel ? 'no config' : 'PENDING_TOKEN'} | team: ${teamCodeForPixelMatch}`);
+    if (pixelConfigs) {
+      for (const config of pixelConfigs) {
+        if (config.capi_access_token === 'PENDING_TOKEN') continue;
+        const configTeams = (config.team_code || '').split(',').map((t: string) => t.trim()).filter(Boolean);
+        const teamMatch = teamCodesOfLead.some((t) => configTeams.includes(t));
+        if (teamMatch && !matchedPixels.has(config.pixel_id)) {
+          matchedPixels.set(config.pixel_id, config);
+        }
+      }
+    }
+
+    if (matchedPixels.size === 0) {
+      console.log(`[CAPI] ⏭️ Skipped — no pixel config matches team: ${teamCode}`);
       return;
     }
 
@@ -178,33 +300,44 @@ async function sendCapiLeadEvent(
       return digits;
     };
 
-    const capiPayload = {
-      data: [{
-        event_name: 'Lead',
-        event_id: `sheetlead_${leadId}_${Math.floor(Date.now() / 1000)}`,
-        event_time: Math.floor(Date.now() / 1000),
-        action_source: 'crm',
-        user_data: {
-          ph: [await hashValue(formatPhone(phone))],
-          fn: [await hashValue(name || '')],
-          ct: [await hashValue(city || '')],
-          country: [await hashValue('in')],
-        },
-        custom_data: {
-          event_source: 'crm',
-          lead_event_source: 'LeadFlow CRM',
-          currency: 'INR',
-          value: 0,
-        },
-      }],
-    };
+    const hashedPhone = await hashValue(formatPhone(phone));
+    const hashedName = await hashValue(name || '');
+    const hashedCity = await hashValue(city || '');
+    const hashedCountry = await hashValue('in');
 
-    const capiResp = await fetch(
-      `https://graph.facebook.com/v18.0/${matchedPixel.pixel_id}/events?access_token=${matchedPixel.capi_access_token}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(capiPayload) }
-    );
-    const capiResult = await capiResp.json();
-    console.log(`[CAPI] ✅ Pixel ${matchedPixel.pixel_id} | team: ${teamCodeForPixelMatch} | Result:`, JSON.stringify(capiResult));
+    for (const [pixelId, config] of matchedPixels) {
+      const capiPayload = {
+        data: [{
+          event_name: 'Lead',
+          event_id: `sheetlead_${leadId}_${pixelId}`,
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: 'crm',
+          user_data: {
+            ph: [hashedPhone],
+            fn: [hashedName],
+            ct: [hashedCity],
+            country: [hashedCountry],
+          },
+          custom_data: {
+            event_source: 'crm',
+            lead_event_source: 'LeadFlow CRM',
+            currency: 'INR',
+            value: 0,
+          },
+        }],
+      };
+
+      try {
+        const capiResp = await fetch(
+          `https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${config.capi_access_token}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(capiPayload) }
+        );
+        const capiResult = await capiResp.json();
+        console.log(`[CAPI] ✅ Pixel ${pixelId} | team: ${teamCode} | Result:`, JSON.stringify(capiResult));
+      } catch (pixelErr: any) {
+        console.error(`[CAPI] ❌ Pixel ${pixelId} error (non-fatal):`, pixelErr.message);
+      }
+    }
   } catch (capiError: any) {
     // NEVER fail the main intake because of CAPI
     console.error('[CAPI] ❌ Error (non-fatal):', capiError.message);
@@ -315,10 +448,12 @@ serve(async (req) => {
       finalUserId = target.id;
       finalUserName = target.name;
     } else {
-      const { data: bestUser, error: rpcError } = await supabase
-        .rpc('get_best_assignee_for_team', { p_team_code: teamCode });
+      // Mutual exclusivity (admin decision 2026-08-08): non-women's-form
+      // leads must never land with Simar's managed users — that pool is
+      // reserved exclusively for the women-only form above.
+      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID);
 
-      if (rpcError || !bestUser || bestUser.length === 0) {
+      if (!target) {
         await supabase.from('leads').insert({
           name, phone, city, state, source, status: 'Queued',
           notes: `Team ${teamCode} - all users at capacity`, lead_details: leadDetails, form_id: formId
@@ -328,9 +463,8 @@ serve(async (req) => {
         });
       }
 
-      const target = bestUser[0];
-      finalUserId = target.user_id || target.out_user_id;
-      finalUserName = target.user_name;
+      finalUserId = target.id;
+      finalUserName = target.name;
     }
 
     const { data: newLead, error: assignError } = await supabase.from('leads').insert({
@@ -373,8 +507,8 @@ serve(async (req) => {
       console.log('Push notification failed (non-critical):', notifErr);
     }
 
-    // ---- CAPI signal (non-critical, matched by the intake token's team) ----
-    await sendCapiLeadEvent(supabase, sourceTeamLabel, newLead.id, name, phone, city);
+    // ---- CAPI signal (non-critical, matched by the ACTUAL assigned user's team) ----
+    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city);
 
     return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
