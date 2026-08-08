@@ -398,6 +398,27 @@ new-crm-saas/
 - DB: 4 women's-form leads stuck in `Queued` were assigned one-at-a-time via
   `get_best_assignee_for_team` (sequential, so round-robin fairness held — all 4 went to different
   users). Drift re-verified 0.
+- **`process-backlog` — form-based manager routing added (mirrors `sheet-lead-intake` v10).** The
+  backlog sweeper had no form awareness, so it was a hole in the mutual-exclusivity rule: a
+  normal-form lead that queued could be handed to one of Simar's managed users at the next 10 AM
+  run, and a women's-form lead got no priority for Simar's team. Now: women's form → Simar's team
+  first refusal, then full-pool fallback; every other form → Simar's users excluded. Applied **only
+  when the lead carries a `form_id`** — leads created before the Apps Script started forwarding it
+  (2026-08-08 ~15:40 IST) keep the pre-existing behaviour, since guessing would either starve
+  Simar's team or leak leads to it; that legacy set only shrinks. Deploy verified live (the new
+  `form` counter appears in the function's own debug output) and the partition verified by SQL
+  simulation (normal form → 22 eligible / Priya blocked; women's form → Priya first; fallback → 22).
+  End-to-end assignment proof waits for capacity to reset at midnight IST.
+  - ⚠️ **The repo copy of `process-backlog` was STALE before this change** — it still had the old
+    hardcoded Himanshu/Simran manager logic, while the deployed version had been rewritten to use a
+    generic `resolveTeamCodes()` team filter (detectable because the live debug output returns a
+    `team` key where the repo version returns `manager`). The current file is now built on the real
+    deployed source. **Before editing any Edge Function, verify the repo copy matches what is live**
+    — several functions here have been edited directly in the Supabase dashboard.
+- **`process-backlog` already sweeps `Queued` leads** (`status IN ('New','Night_Backlog','Queued')`)
+  — an earlier claim in this session that nothing re-processes `Queued` was wrong. Queued sheet
+  leads were piling up purely because of zero daily capacity, not a missing sweep: a live invocation
+  returned `leads_found: 100, distributed: 0` with `capacity: 22` of 23 users rejected.
 - ⚠️ **Capacity, not routing, is now the binding constraint.** 169 sheet leads sit unassigned
   (126 `Night_Backlog` + 43 `Queued`) against only **19 slots of daily capacity left** across 22
   active users. The women's form alone is ~2/3 of sheet volume (~80/day) versus Simar's team
