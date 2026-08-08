@@ -6,10 +6,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  * 📥 SHEET-LEAD-INTAKE v6 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
  * v6 (admin decision 2026-08-08):
- *  1. FORM-BASED MANAGER ROUTING — form_id WOMEN_ONLY_FORM_ID ("TEAM ECO
- *     SIMAR", form_id 2419407918566414 per the Apps Script's own
- *     FORM_OVERRIDES label — CONFIRM this matches the intended form before
- *     trusting it blindly) is women/girls-only leads. These must go ONLY to
+ *  1. FORM-BASED MANAGER ROUTING — form_id WOMEN_ONLY_FORM_ID (26784403284560247,
+ *     confirmed 2026-08-08 from the real Meta ad's own form_id column — the
+ *     earlier guess of 2419407918566414, inferred from an unrelated Apps
+ *     Script column-mapping override comment, was WRONG and has been
+ *     corrected) is women/girls-only leads. These must go ONLY to
  *     users managed by SIMARJIT (simar@forever.com, manager_id below) —
  *     never to the general ECO@WIN12/TEAMFIRE pool, even if Simar's team is
  *     at capacity (that would leak women-only leads to unrelated agents).
@@ -60,7 +61,8 @@ const WORKING_HOURS = { START: 8, END: 22, TIMEZONE: 'Asia/Kolkata' };
 
 // Women/girls-only form — leads from this form_id go ONLY to users managed
 // by SIMARJIT, never to the general team pool. See header note above.
-const WOMEN_ONLY_FORM_ID = '2419407918566414';
+// Confirmed 2026-08-08 from the real Meta ad's own form_id (screenshot).
+const WOMEN_ONLY_FORM_ID = '26784403284560247';
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
 
 const corsHeaders = {
