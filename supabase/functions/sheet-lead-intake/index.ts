@@ -3,8 +3,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v8 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v9 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v9 (admin decision 2026-08-08) — CAPI match-quality upgrade, applied
+ * identically in meta-webhook.ts's Lead event for consistency across both
+ * intake channels:
+ *  - action_source 'crm' -> 'system_generated'. 'crm' is NOT a valid Meta
+ *    action_source enum value — send-crm-conversion v3 already discovered
+ *    and fixed this exact bug for status-change events, but the fix was
+ *    never ported to either channel's INITIAL 'Lead' event. Fixed here.
+ *  - user_data enriched with ln (last name, split from name), st (state,
+ *    now passed through), and external_id (hashed lead id) — the same
+ *    match-key set send-crm-conversion already uses. More matched keys =
+ *    higher Meta Event Match Quality = better ad-delivery optimization =
+ *    lower cost-per-lead, which is the whole point of sending CAPI at all.
+ *  - Deliberately did NOT add ad_id to the CAPI payload: Meta's CAPI schema
+ *    has no ad_id match/attribution field for this event type — native
+ *    Meta Lead Ads already attribute leads to the originating ad on Meta's
+ *    own side automatically. ad_id capture (for OUR OWN internal
+ *    cost-per-ad reporting) would need a new leads.ad_id column, which is
+ *    a schema change requiring separate admin approval per CLAUDE.md rule 3
+ *    — not done here.
+ *
  * v8 (admin decision 2026-08-08) — two fixes, both scoped to THIS intake
  * channel only (meta-webhook / send-crm-conversion untouched):
  *  1. MUTUAL EXCLUSIVITY — admin confirmed a second form_id (also connected
@@ -248,7 +268,8 @@ async function sendCapiLeadEvent(
   leadId: string,
   name: string,
   phone: string,
-  city: string
+  city: string,
+  state: string | null
 ) {
   try {
     let teamCode: string | null = null;
@@ -300,10 +321,29 @@ async function sendCapiLeadEvent(
       return digits;
     };
 
+    // Split full name into first + last for correct Meta matching (fn/ln) —
+    // same convention as send-crm-conversion.
+    const nameParts = (name || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
     const hashedPhone = await hashValue(formatPhone(phone));
-    const hashedName = await hashValue(name || '');
-    const hashedCity = await hashValue(city || '');
+    const hashedFirst = firstName ? await hashValue(firstName) : '';
+    const hashedLast = lastName ? await hashValue(lastName) : '';
+    const hashedCity = city && city.toLowerCase() !== 'unknown' ? await hashValue(city) : '';
+    const hashedState = state ? await hashValue(state) : '';
     const hashedCountry = await hashValue('in');
+    const hashedExternalId = await hashValue(String(leadId));
+
+    const userData: Record<string, any> = {
+      ph: [hashedPhone],
+      country: [hashedCountry],
+      external_id: [hashedExternalId],
+    };
+    if (hashedFirst) userData.fn = [hashedFirst];
+    if (hashedLast) userData.ln = [hashedLast];
+    if (hashedCity) userData.ct = [hashedCity];
+    if (hashedState) userData.st = [hashedState];
 
     for (const [pixelId, config] of matchedPixels) {
       const capiPayload = {
@@ -311,13 +351,12 @@ async function sendCapiLeadEvent(
           event_name: 'Lead',
           event_id: `sheetlead_${leadId}_${pixelId}`,
           event_time: Math.floor(Date.now() / 1000),
-          action_source: 'crm',
-          user_data: {
-            ph: [hashedPhone],
-            fn: [hashedName],
-            ct: [hashedCity],
-            country: [hashedCountry],
-          },
+          // Meta's action_source enum has no 'crm' value — 'crm' silently
+          // mis-registers the event. 'system_generated' is the value Meta
+          // documents for CRM/automation-triggered events (same fix already
+          // applied in send-crm-conversion v3, ported here for consistency).
+          action_source: 'system_generated',
+          user_data: userData,
           custom_data: {
             event_source: 'crm',
             lead_event_source: 'LeadFlow CRM',
@@ -508,7 +547,7 @@ serve(async (req) => {
     }
 
     // ---- CAPI signal (non-critical, matched by the ACTUAL assigned user's team) ----
-    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city);
+    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city, state);
 
     return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
