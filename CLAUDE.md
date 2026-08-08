@@ -311,6 +311,47 @@ new-crm-saas/
   Capacity at time of check today: 289 total, 19 used — the backlog should clear at the 10 AM run.
   **Underlying tension remains**: incoming volume + recycler output exceeds what active buyers can
   absorb, so fresh leads age 1–2 days before delivery (colder leads, wasted ad spend).
+- **`sheet-lead-intake` v6→v8 — form-based manager routing + CAPI signal + mutual exclusivity**
+  (PRs #112, #113, #114). Admin need: leads from a specific Meta form (women/girls-only) must go
+  ONLY to users managed by simar@forever.com (`SIMAR_MANAGER_ID`), while leads from every OTHER
+  form (including a confirmed second form_id, `2419407918566414`, tied to a second page — also
+  connected to this same sheet/system, needs no special routing of its own) must NEVER land with
+  Simar's managed users — full mutual exclusivity, not just one-directional.
+  - **v6**: added form-based routing (initial `WOMEN_ONLY_FORM_ID` guess was wrong — see v7) via
+    new inline `findManagerScopedAssignee()` (manager-scoped fairness check, no fallback to the
+    general pool if nobody under Simar is eligible — a leak would defeat the whole point). Also
+    added the FIRST-EVER Meta CAPI signal for this Google-Sheet lead channel (`sendCapiLeadEvent()`)
+    — verified zero CAPI code existed here before, despite a `pixel_config` row for team_code
+    ECO@WIN12 existing live since 2026-07-08.
+  - **v7**: `WOMEN_ONLY_FORM_ID` corrected `2419407918566414` → `26784403284560247`. The wrong value
+    was inferred from an unrelated Apps Script column-mapping override comment; admin caught it via
+    a real Meta ad screenshot showing the actual running ad's `form_id`. Redeployed same-turn given
+    live misrouting risk.
+  - **v8**: two fixes. (1) The normal (non-women's-form) branch called the shared
+    `get_best_assignee_for_team` RPC directly, which has no way to exclude Simar's managed users —
+    Priya Bhatiya was still eligible there, violating the mutual-exclusivity requirement. Fixed with
+    a new inline `findTeamAssigneeExcludingManager()` mirroring the RPC's exact 2-pass eligibility/
+    fairness logic (60%/100% daily-limit gate, `fill_ratio ASC, plan_weight DESC`) plus a manager
+    exclusion — kept inline, not an RPC change, per rule 4, so it only affects this intake channel.
+    (2) `sendCapiLeadEvent`'s initial 'Lead' event matched pixel by a static first-team label
+    (always 'ECO@WIN12') regardless of actual assignment, while the SAME lead's later status-change
+    CAPI events (`send-crm-conversion`) correctly match by the actual assignee's `team_code` —
+    verified live this often resolves to TEAMFIRE's pixel since ECO@WIN12 has almost no active
+    members. A lead's CAPI events could split across two pixels, fragmenting Meta's signal. Fixed:
+    now fetches the actually-assigned user's `team_code` fresh and fans out to every matching active
+    pixel (same team_code-match + dedupe-by-pixel_id approach as `send-crm-conversion`), so a lead's
+    whole CAPI lifecycle always lands on the same pixel(s).
+  - Apps Script needs a small patch to forward `form_id` in its webhook payload (sent to admin
+    separately) — the CRM-side form_id constant was fixed in v7 after that patch was sent, but the
+    patch itself is form-id-agnostic so it didn't need resending.
+  - Live-tested (v8): non-women's-form lead correctly assigned to a normal TEAMFIRE user, not
+    anyone under Simar; women-only-form lead correctly stayed within Simar's team (queued, since
+    Priya Bhatiya was at her exact daily limit at test time — confirms the no-fallback rule, not a
+    bug). Test leads deleted, counters reverted, drift re-verified 0.
+  - **Still open, not yet actioned**: admin mentioned an ad_id (`ag:120254621573720309`) "needs
+    adding too" — exact required action is unclear and not yet implemented; needs clarification
+    before doing anything with it (no ad_id field currently flows through this intake payload at
+    all).
 
 ### 2026-08-07
 - **August offer ended, then found: recycler cron was wrongly disabled with it.** Offer-end initially
