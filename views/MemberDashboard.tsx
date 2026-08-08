@@ -585,6 +585,11 @@ export const MemberDashboard = () => {
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
       const staleThresholdIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // Sirf IS MAHINE ki leads count karo — purani/backlog leads ke liye nudge
+      // karna bura experience hai aur wo ab realistically actionable bhi nahi.
+      // (Same rule stale-lead-reminder edge function mein bhi hai — dono match karne chahiye.)
+      const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+      const monthStartIso = new Date(`${istDateStr.slice(0, 8)}01T00:00:00+05:30`).toISOString();
       const [managerResult, leadsResult, profileResult, countResult, staleCountResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
@@ -615,12 +620,14 @@ export const MemberDashboard = () => {
           .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
 
-        // 5. Stale lead count — Assigned/Fresh leads 24h+ old with no status update yet
+        // 5. Stale lead count — THIS MONTH's Assigned/Fresh leads, 24h+ old,
+        //    still without a status update
         supabase
           .from('leads')
           .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
           .in('status', ['Assigned', 'Fresh'])
+          .gte('assigned_at', monthStartIso)
           .lt('assigned_at', staleThresholdIso)
       ]);
 
