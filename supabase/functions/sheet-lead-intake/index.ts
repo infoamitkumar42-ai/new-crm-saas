@@ -3,8 +3,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v9 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v10 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v10 (admin decision 2026-08-08) — WOMEN-ONLY FORM NOW FALLS BACK.
+ *  v6 gave Simar's team EXCLUSIVE rights to the women-only form: if nobody
+ *  under Simar was eligible, the lead was parked in 'Queued' forever. That
+ *  was my own over-strict reading — the admin never asked for it, and it
+ *  backfired live: Priya Bhatiya (the only active user under Simar) has a
+ *  daily_limit of 9 while that form produces far more per day, so leads
+ *  simply piled up in Queued. Nothing re-processes 'Queued' leads, so they
+ *  would have rotted there permanently = paid-for leads nobody ever calls.
+ *
+ *  Correct rule (admin, verbatim): women's leads go to Simar's team FIRST;
+ *  once their daily limit is full, the rest go to the other teams like any
+ *  normal lead. No lead should ever sit in Queued.
+ *
+ *  So the women-only branch is now: Simar's team first → else normal pool.
+ *  The reverse rule is UNCHANGED and still strict: leads from any OTHER
+ *  form must never reach Simar's managed users.
+ *
  * v9 (admin decision 2026-08-08) — CAPI match-quality upgrade, applied
  * identically in meta-webhook.ts's Lead event for consistency across both
  * intake channels:
@@ -470,17 +487,27 @@ serve(async (req) => {
     let finalUserName: string | null = null;
 
     if (isWomenOnlyForm) {
-      const target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+      // Women-only form: Simar's team gets FIRST REFUSAL, not exclusive rights.
+      let target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+
+      // v10 (admin decision 2026-08-08): if nobody under Simar can take it
+      // right now (daily limit reached, or no active user at all), the lead
+      // goes to the normal team pool instead of sitting in Queued. Admin's
+      // rule is explicit: no lead should ever be parked in Queued — a lead
+      // nobody works is pure wasted ad spend. Priority is preserved because
+      // Simar's team is always checked first.
       if (!target) {
-        // Deliberately does NOT fall back to the general team pool — a
-        // women-only lead leaking to unrelated agents defeats the whole
-        // point of this routing rule. Waits in Queued instead.
+        target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID);
+      }
+
+      if (!target) {
+        // Genuinely nobody left anywhere — every team is at capacity.
         await supabase.from('leads').insert({
           name, phone, city, state, source, status: 'Queued',
-          notes: `Women-only form (${WOMEN_ONLY_FORM_ID}) - no active user under SIMARJIT right now`,
+          notes: `Team ${teamCode} - all users at capacity`,
           lead_details: leadDetails, form_id: formId
         });
-        return new Response(JSON.stringify({ status: 'queued_no_eligible_simar_user' }), {
+        return new Response(JSON.stringify({ status: 'queued_no_eligible_user' }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
