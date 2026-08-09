@@ -270,6 +270,31 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-09
+- **`components/StaleLeadReminder.tsx` v2 — upgraded to a locked "briefing card" (PR #118).**
+  Admin decision: soft nudges (v1's instantly-dismissible popup) were not moving the needle — a
+  live check on 2026-08-08 showed 20 of 22 notified agents' stale-lead backlog *growing* through
+  the day despite repeated pushes, only 2 improving. Rather than a hard eligibility gate (rejected
+  after live data showed **28/28 currently-active members would fail a zero-tolerance check**,
+  which would have stopped all new-lead distribution — see below), the softer escalation shipped:
+  the popup now locks its only dismiss button for 5 seconds (countdown ring + label, no X button,
+  no other early-close path) and explains *why* status updates matter (better Meta signal → higher
+  lead quality → more deals closed — copy deliberately reframed off "leads are cheap" and onto
+  conversion outcomes) before letting the agent through. Still a **soft** nudge: same `staleCount`
+  prop, same once-per-IST-day sessionStorage dismiss, zero changes to any lead-assignment RPC/
+  function. `npm run build` verified clean before merge.
+- ⚠️ **Hard eligibility gate (blocking new leads until this month's leads are updated) — explored,
+  NOT built.** Live-verified before any code was written: right now 100% of active members (28/28)
+  have at least one August lead still sitting in `Assigned`/`Fresh`. A zero-tolerance version of
+  this gate would have made every active member ineligible simultaneously, i.e. new fresh/recycled
+  leads would have nowhere to go — a worse outcome than the problem it was meant to fix. Also found:
+  enforcing it correctly would require the exact same exclusion logic independently in **4** places
+  (`get_best_assignee_for_team` RPC, `sheet-lead-intake`'s inline logic, `process-backlog`'s inline
+  logic, `assign-recycled-leads`'s inline logic — confirmed each has its own separate eligibility
+  query, none share the RPC). Admin's call: ship the softer briefing-card escalation first, watch
+  real compliance data for a few days, revisit a threshold-based (not zero-tolerance) gate only if
+  that still isn't enough.
+
 ### 2026-08-08
 - **August offer RE-EXTENDED by 2 days** (PR #109) — `endsAt` = 2026-08-09 23:59 IST,
   `OFFER_ACTIVE=true`, `razorpay-webhook.ts` + `razorpay-reconcile` (v5) `PLAN_CONFIG` restored to
