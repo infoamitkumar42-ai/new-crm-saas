@@ -270,6 +270,62 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-10
+- **August offer extended 2 more days + `getOfferForPlan()` endsAt bug fixed (PR #120).**
+  Live check found `OFFER.endsAt` (2026-08-09 23:59 IST) had already passed while `OFFER_ACTIVE`
+  was still `true` — `isOfferLive()` (endsAt-aware) correctly hid the dashboard `OfferBanner.tsx`
+  and the Subscription page's top gradient banner, but `getOfferForPlan()` (used by
+  `Subscription.tsx`'s pricing cards) only ever checked `OFFER_ACTIVE`, never `endsAt` — a bug
+  flagged-but-not-fixed back on 2026-08-06. Result: cards kept showing the "🔥 AUGUST OFFER" badge
+  and inflated lead-counts even after the offer had technically expired. Admin decision: keep the
+  offer live 2 more days AND fix the bug. `OFFER.endsAt` → 2026-08-12 23:59 IST;
+  `getOfferForPlan()` now derives from `isOfferLive()` like the banner does, so cards and banner
+  can never drift out of sync again. Backend (`functions/api/razorpay-webhook.ts` `PLAN_CONFIG` +
+  DB `plan_config` table) deliberately **not touched** — verified both still hold offer-era quota
+  values with no expiry logic tied to them at all, so new payments were already getting offer
+  quota throughout — exactly matching "keep offer live," nothing to fix there. `npm run build`
+  verified clean before merge. ⚠️ Recycle-pool over-commitment flagged 2026-08-08 (1,085 owed vs
+  ~790 pool, not widened) still applies and is now more relevant with 2 extra offer days — not
+  re-verified or fixed here, flagging again so it isn't missed.
+- **`sheet-lead-intake` v11 + `process-backlog` — pawangoyal1927@gmail.com (Priya Goyal, TEAMFIRE,
+  not managed by Simar) added to the women-only-form priority pool.** Admin request: route her the
+  same as Simar's managed team for the ECO@WIN12 women-only form (`form_id=26784403284560247`),
+  without changing her `manager_id` (would incorrectly move her under Simar for reporting purposes
+  elsewhere). Implemented via a new explicit `EXTRA_WOMEN_FORM_USER_IDS` list checked alongside
+  `manager_id === SIMAR_MANAGER_ID` in both functions' priority-pool and other-form-exclusion
+  logic. Deployed manually via Supabase Dashboard (MCP `deploy_edge_function`/`get_edge_function`
+  calls returned `MCP error -32003: MCP tool call requires approval` repeatedly this session, never
+  resolved) — admin pasted the code in directly. Live-verified: with Simar's actual team fully
+  saturated (9/9 daily_limit each) and Priya Goyal holding spare capacity, a real test lead with
+  the women-only form_id was correctly assigned to her; test lead deleted and her counters
+  (`leads_today`, `total_leads_received`) reverted afterward, drift re-checked at 0.
+  ⚠️ **Not fully "ecowin-exclusive" yet**: her `team_code` is still `TEAMFIRE`, so she remains
+  eligible for native `meta-webhook`-sourced TEAMFIRE leads and `assign-recycled-leads` recycled
+  leads — full exclusivity would need `get_best_assignee_for_team` RPC changes (rule 4 approval
+  required), not done, flagged to admin, no decision yet.
+- ⚠️ **ECO@WIN12 Google-Sheet intake channel found dead ~25+ hours** (last lead received
+  2026-08-09 10:59 AM IST, zero since — confirmed again still zero as of this entry). Root cause
+  not yet found: `sheet_intake_tokens` is active, function deploy is confirmed working (see above
+  test), so the break is upstream — most likely the Apps Script `checkNewLeads` trigger itself
+  (admin showed a Google Apps Script dashboard screenshot citing a "0.19–0.22% error rate," which
+  is misleadingly low — real DB evidence shows a near-total outage, not a minor error rate). Needs
+  the actual error text from the Apps Script Executions tab (no Apps Script MCP access in this
+  session) — admin asked to check and hasn't reported back yet. **Real ad spend is being wasted**
+  while this is unresolved (see the 10-Aug ads report cross-check below).
+- **10-Aug ads status report cross-checked against DB — large, real discrepancy found.** Report
+  claimed 2,280 combined Meta leads (Aug 5–10, both ad accounts) — actual CRM count is only **948
+  (41%)**, 1,332 (58%) never arrived. Two separate causes, not "duplicates" (duplicate/invalid rate
+  in what DID arrive was negligible, ~1–3%/~3–6%): (1) **Account 2 (Team Ecosystem, routes via
+  `GoogleSheet-ECO@WIN12`)** — 653 actual vs 1,704 claimed (62% missing), exactly matching the sheet
+  intake outage above (0 leads received Aug 10 despite 162 claimed that day). (2) **Account 1
+  (Himanshu, native `meta-webhook`)** — 287 actual vs 576 claimed, but the gap is a suspiciously
+  uniform ~48–52% every single day, not random loss — hypothesis (code-evidenced, not yet confirmed
+  via Meta Ads Manager since `Meta_Ads` MCP connector isn't authorized in this session):
+  `meta-webhook`'s CAPI `Lead` event uses `event_id: lead_${leadId}_${timestamp}`, which does NOT
+  match/dedupe against Meta's own native `leadgen_id` — Meta's own "Leads" count in Ads Manager may
+  be counting the native in-platform lead AND our server-side CAPI echo as two separate leads,
+  inflating the reported total ~2x. Not fixed or further investigated — flagged to admin only.
+
 ### 2026-08-09
 - **`components/StaleLeadReminder.tsx` v2 — upgraded to a locked "briefing card" (PR #118).**
   Admin decision: soft nudges (v1's instantly-dismissible popup) were not moving the needle — a
