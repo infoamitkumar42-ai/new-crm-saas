@@ -136,6 +136,14 @@ const WORKING_HOURS = { START: 8, END: 22, TIMEZONE: 'Asia/Kolkata' };
 const WOMEN_ONLY_FORM_ID = '26784403284560247';
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
 
+// v11 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
+// team_code=TEAMFIRE, NOT managed by Simar) should get the exact same
+// women-only-form priority treatment as Simar's managed team, WITHOUT
+// actually changing her manager_id (that would incorrectly move her under
+// Simar for reporting/management purposes elsewhere in the app). Kept as a
+// separate explicit user-id list rather than touching manager_id data.
+const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // pawangoyal1927@gmail.com
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-intake-secret',
@@ -177,14 +185,19 @@ function buildLeadDetails(body: any): Record<string, string> | null {
 // plan_weight as tiebreaker) but scoped by manager_id instead of team_code.
 // Kept as a separate inline check (not a shared RPC) so it can't affect
 // the normal team-based routing path used by everyone else.
-async function findManagerScopedAssignee(supabase: any, managerId: string) {
-  const { data: candidates } = await supabase
+async function findManagerScopedAssignee(supabase: any, managerId: string, extraUserIds: string[] = []) {
+  let query = supabase
     .from('users')
     .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight')
-    .eq('manager_id', managerId)
     .eq('is_active', true)
     .eq('is_online', true)
     .eq('payment_status', 'active');
+
+  query = extraUserIds.length > 0
+    ? query.or(`manager_id.eq.${managerId},id.in.(${extraUserIds.join(',')})`)
+    : query.eq('manager_id', managerId);
+
+  const { data: candidates } = await query;
 
   if (!candidates || candidates.length === 0) return null;
 
@@ -220,10 +233,10 @@ async function findManagerScopedAssignee(supabase: any, managerId: string) {
 // Kept inline rather than modifying the shared RPC (CLAUDE.md rule 4) —
 // this exclusion must ONLY apply to non-women's-form leads from this sheet
 // intake channel, not to every caller of the RPC (e.g. meta-webhook).
-async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string, excludeManagerId: string) {
+async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string, excludeManagerId: string, extraExcludeUserIds: string[] = []) {
   const teamArray = teamCode.replace(/\s+/g, '').split(',');
 
-  const { data: candidates } = await supabase
+  let query = supabase
     .from('users')
     .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight, fresh_leads_quota, fresh_leads_received, manager_id')
     .in('team_code', teamArray)
@@ -231,6 +244,12 @@ async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string,
     .eq('is_online', true)
     .in('role', ['member', 'manager'])
     .or(`manager_id.is.null,manager_id.neq.${excludeManagerId}`);
+
+  if (extraExcludeUserIds.length > 0) {
+    query = query.not('id', 'in', `(${extraExcludeUserIds.join(',')})`);
+  }
+
+  const { data: candidates } = await query;
 
   if (!candidates || candidates.length === 0) return null;
 
@@ -487,8 +506,9 @@ serve(async (req) => {
     let finalUserName: string | null = null;
 
     if (isWomenOnlyForm) {
-      // Women-only form: Simar's team gets FIRST REFUSAL, not exclusive rights.
-      let target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID);
+      // Women-only form: Simar's team (+ pawangoyal1927@gmail.com, v11) gets
+      // FIRST REFUSAL, not exclusive rights.
+      let target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
 
       // v10 (admin decision 2026-08-08): if nobody under Simar can take it
       // right now (daily limit reached, or no active user at all), the lead
@@ -497,7 +517,7 @@ serve(async (req) => {
       // nobody works is pure wasted ad spend. Priority is preserved because
       // Simar's team is always checked first.
       if (!target) {
-        target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID);
+        target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
       }
 
       if (!target) {
@@ -516,8 +536,9 @@ serve(async (req) => {
     } else {
       // Mutual exclusivity (admin decision 2026-08-08): non-women's-form
       // leads must never land with Simar's managed users — that pool is
-      // reserved exclusively for the women-only form above.
-      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID);
+      // reserved exclusively for the women-only form above. Same exclusion
+      // applies to pawangoyal1927@gmail.com as of v11.
+      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
 
       if (!target) {
         await supabase.from('leads').insert({

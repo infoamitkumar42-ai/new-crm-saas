@@ -27,6 +27,16 @@ const corsHeaders = {
 const WOMEN_ONLY_FORM_ID = '26784403284560247';
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
 
+// v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
+// team_code=TEAMFIRE, NOT managed by Simar) gets the same women-only-form
+// priority + other-form exclusion as Simar's managed team — mirrors the
+// identical change made in sheet-lead-intake v11. Kept as an explicit
+// user-id list rather than changing her manager_id (would incorrectly
+// move her under Simar for reporting purposes elsewhere in the app).
+const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // pawangoyal1927@gmail.com
+const isSimarScoped = (u: { manager_id?: string; id: string }) =>
+    u.manager_id === SIMAR_MANAGER_ID || EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
+
 // ----------------------------------------------------------------------
 // HELPER: Infer State from Phone (Simplified Copy)
 // ----------------------------------------------------------------------
@@ -188,7 +198,7 @@ serve(async (req) => {
                 // 3b. Form-based exclusion — leads from any form OTHER than the
                 // women-only form must never reach Simar's managed users.
                 // (Skipped entirely when form_id is unknown; see header note.)
-                if (leadFormId && !isWomenOnlyForm && u.manager_id === SIMAR_MANAGER_ID) {
+                if (leadFormId && !isWomenOnlyForm && isSimarScoped(u)) {
                     if (i === 0) firstLeadRejections.form++;
                     return false;
                 }
@@ -224,7 +234,7 @@ serve(async (req) => {
             // kept so the lead still goes out instead of sitting in the queue —
             // exactly the fallback rule live in sheet-lead-intake v10.
             if (isWomenOnlyForm) {
-                const simarFirst = eligible.filter(u => u.manager_id === SIMAR_MANAGER_ID);
+                const simarFirst = eligible.filter(isSimarScoped);
                 if (simarFirst.length > 0) {
                     eligible = simarFirst;
                 }
