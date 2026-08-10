@@ -271,6 +271,52 @@ new-crm-saas/
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
 ### 2026-08-10
+- **ADMIN-CONTROLLED RECYCLE POOL — steps 1 & 2 of 3 live (PRs #122, #123).** Admin decision:
+  recycled leads sirf TEAMFIRE ko jaani chahiye (ECO@WIN12 + Simar ke managed users ko bilkul
+  nahi), abhi mostly fresh leads rakhni hain, aur admin dashboard se ek soft on/off switch chahiye
+  jisse zaroorat par har user ko 2-4 recycled leads mil sakein.
+  - **Step 1 (DB, PR #122)**: naya `system_config` row `recycled_pool_control` =
+    `{"enabled": false, "max_per_user_per_day": 3, "allowed_team_codes": ["TEAMFIRE"]}` + 2 RLS
+    policies. **No schema change** (`system_config` already had `config_key`/`config_value` jsonb).
+    ⚠️ **Key finding**: `system_config` had **RLS ENABLED with ZERO policies**, so the frontend
+    (anon/authenticated key) could not read or write it at all — only service_role could. Without
+    the new policies an admin toggle would have rendered, accepted clicks, and **silently done
+    nothing**. Policies are scoped to `config_key = 'recycled_pool_control'` ONLY, and use
+    `is_admin()` (role='admin' only, hardened `search_path`) rather than `is_admin_or_manager()`
+    so managers can't alter lead distribution. No INSERT/DELETE policy — admin can update that one
+    row, never create/remove config rows. Verified live via simulated JWTs: admin sees exactly 1
+    row (other 14 invisible), admin UPDATE on `distribution_enabled` affects **0 rows**, member
+    sees **0 rows**, and service_role still sees all 15 rows incl. `plan_fresh_config` so the
+    recycler is unaffected. Migration recorded at
+    `supabase/migrations/20260810120000_add_recycled_pool_control_config.sql`.
+  - **Step 2 (`assign-recycled-leads`, PR #123)**: function ab wo config padhta hai. Teen rules —
+    (a) **master switch**, (b) **team allowlist** plus an independent `manager_id` guard so Simar's
+    users stay excluded even if their `team_code` ever changes, (c) **per-DAY cap**.
+    ⚠️ **Real bug found and fixed here**: the old cap was **per-batch**, and the cron runs 6×/day,
+    so turbo_boost users were getting up to 24/day — live check that afternoon showed Kajal /
+    Mary Janjot / Nitinluthra had **already received 12 recycled leads that day**. The new code
+    counts today's already-assigned recycled leads (one aggregate query, keyed by user) and caps
+    against that, applied in **both** the boost and old-plan branches so it holds even if
+    `OFFER_MODE` is ever flipped to false.
+    **Fail-safe**: missing row, read error, non-positive cap, or empty team list all resolve to
+    **OFF**. Fresh lead distribution (`meta-webhook`, `sheet-lead-intake`, `process-backlog`,
+    `get_best_assignee_for_team`) is untouched by this function and keeps running regardless.
+    Deployed manually via Supabase Dashboard (MCP `deploy_edge_function` / `apply_migration` /
+    `get_edge_function` / `get_logs` all still return `-32003 requires approval` this session).
+    Live-verified both states: OFF → `pool_enabled:false` + 0 leads; ON → `users_processed: 21`
+    (exactly the 21 TEAMFIRE users, zero ECO@WIN12, matching an independent SQL simulation) with
+    `leads_assigned: 0` because every one of them was already at/over the 3/day cap. That zero is
+    also positive proof the per-user counter reads correctly — had the map been broken/empty,
+    `dayCapRemaining` would have been 3 and leads *would* have gone out. Config restored to
+    `enabled:false` after testing; counter drift re-verified **0**; all ECO@WIN12/Simar users
+    confirmed at `recycled_today = 0`.
+  - ⚠️ **Deliberately NOT done**: nobody's `recycled_leads_quota` was reduced. That's a delivery
+    promise to paying offer users (**1,516 leads currently owed** across active members) — the
+    master switch controls *pace* without breaking the commitment. The pre-existing recycle-pool
+    over-commitment warning (1,085 owed vs ~790 pool, flagged 2026-08-08) still stands.
+  - **Step 3 (admin dashboard UI) NOT built yet** — toggle + per-user daily view (daily_limit,
+    delivered today split fresh/recycled, remaining, lifetime quota). Until it ships, the switch
+    is changed via SQL on `system_config.recycled_pool_control`.
 - **August offer extended 2 more days + `getOfferForPlan()` endsAt bug fixed (PR #120).**
   Live check found `OFFER.endsAt` (2026-08-09 23:59 IST) had already passed while `OFFER_ACTIVE`
   was still `true` — `isOfferLive()` (endsAt-aware) correctly hid the dashboard `OfferBanner.tsx`
