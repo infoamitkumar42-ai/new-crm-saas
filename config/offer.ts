@@ -31,7 +31,7 @@ export const OFFER = {
   /** Marketing ke liye per-lead price */
   perLeadPrice: 11,
   /** Offer khatam hone ka time (IST). Banner isse countdown dikhata hai. */
-  endsAt: '2026-08-09T23:59:59+05:30',
+  endsAt: '2026-08-12T23:59:59+05:30',
 
   /**
    * SABHI 5 plans pe offer hai. Har plan ka total = price ÷ ₹11 (round down).
@@ -71,14 +71,24 @@ export const OFFER = {
   } as Record<string, OfferPlanOverride>,
 };
 
-/** Kisi plan ka offer override do — offer band ho ya plan offer mein na ho to null. */
-export const getOfferForPlan = (planId: string): OfferPlanOverride | null => {
-  if (!OFFER_ACTIVE) return null;
-  return OFFER.plans[planId] ?? null;
-};
-
 /** Offer abhi chal raha hai? (flag + end-date dono check karta hai) */
 export const isOfferLive = (): boolean => {
   if (!OFFER_ACTIVE) return false;
   return Date.now() < new Date(OFFER.endsAt).getTime();
+};
+
+/**
+ * Kisi plan ka offer override do — offer band ho, plan offer mein na ho, ya
+ * endsAt nikal chuka ho to null.
+ *
+ * BUG FIX (2026-08-10): pehle ye sirf OFFER_ACTIVE check karta tha, endsAt
+ * nahi — isliye endsAt nikalne ke baad bhi Subscription.tsx ki pricing cards
+ * "AUGUST OFFER" badge + offer wale lead-counts dikhati rehti thi, jabki top
+ * banner (jo isOfferLive() use karta hai) sahi se gayab ho jata tha. Ab dono
+ * isOfferLive() se hi decide hote hain, taaki cards aur banner hamesha sync
+ * mein rahein.
+ */
+export const getOfferForPlan = (planId: string): OfferPlanOverride | null => {
+  if (!isOfferLive()) return null;
+  return OFFER.plans[planId] ?? null;
 };
