@@ -314,9 +314,26 @@ new-crm-saas/
     promise to paying offer users (**1,516 leads currently owed** across active members) — the
     master switch controls *pace* without breaking the commitment. The pre-existing recycle-pool
     over-commitment warning (1,085 owed vs ~790 pool, flagged 2026-08-08) still stands.
-  - **Step 3 (admin dashboard UI) NOT built yet** — toggle + per-user daily view (daily_limit,
-    delivered today split fresh/recycled, remaining, lifetime quota). Until it ships, the switch
-    is changed via SQL on `system_config.recycled_pool_control`.
+  - **Step 3 (admin dashboard UI, PR #125)**: naya `components/RecyclePoolControl.tsx` — ON/OFF
+    switch, 1–5 ka per-user-per-day cap, aur har active member ka daily view (effective daily
+    limit, aaj deliver hui fresh vs recycled split, bachi hui, lifetime quota remaining) + ek
+    4-stat rollup. Allowed teams **read-only** dikhte hain (SQL se hi badalte hain) taaki UI se
+    galti se lead distribution widen na ho jaye.
+    ⚠️ **Silent-failure guard (important pattern)**: RLS bina error diye **0 rows** update kar
+    sakti hai. Isliye har save ke baad component value ko **dobara padh kar compare** karta hai —
+    agar persist nahi hui to explicit error dikhta hai, jhoota "Saved" kabhi nahi. Yehi bug-class
+    thi jiski wajah se step 1 zaroori tha.
+    Aaj ke numbers `leads` table se actual count hote hain, `leads_today` counter par bharosa
+    nahi (CLAUDE.md DATABASE REPORTING RULES).
+    **Blast radius jaan-boojh kar chhota**: `AdminDashboard.tsx` mein sirf **2 lines** (import +
+    render) — component apna data khud fetch karta hai, us file ki baaki logic bilkul untouched.
+    (Us file ke apne header mein "🔒 LOCKED v2.0" likha hai, par CLAUDE.md ki official LOCKED
+    list mein wo nahi hai — phir bhi minimum-touch approach liya gaya.)
+    Verified: `npm run build` clean; admin JWT se `users` (27) + aaj ki `leads` (173) readable;
+    component jo **exact** write karta hai (poora `config_value` object replace, `jsonb_set` nahi)
+    wo admin ke roop mein **1 row** update karta hai; panel ke totals independent SQL se
+    cross-check kiye (400 daily limit, 62 fresh, 93 recycled, 245 remaining, 27 active members);
+    saare tests ke baad live config abhi bhi `enabled:false` — koi residue nahi.
 - **August offer extended 2 more days + `getOfferForPlan()` endsAt bug fixed (PR #120).**
   Live check found `OFFER.endsAt` (2026-08-09 23:59 IST) had already passed while `OFFER_ACTIVE`
   was still `true` — `isOfferLive()` (endsAt-aware) correctly hid the dashboard `OfferBanner.tsx`
