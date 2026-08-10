@@ -270,6 +270,64 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-10 (evening) — SHEET INTAKE OUTAGE RESOLVED + Apps Script v7
+- **ROOT CAUSE (30-hour outage, 9 Aug 10:59 → 10 Aug 18:18):** Meta's Google-Sheet
+  authorization expired ("Authorisation required… reauthorise with Google Sheets" on the
+  Lead Integration page). Meta kept collecting leads but stopped writing them to the Sheet.
+  **Nothing on our side was broken** — Apps Script ran every 10 min and returned "Completed"
+  each time, CRM endpoint was healthy, intake token active. Proof: the Sheet's own last row
+  (`2026-08-09T00:28:44-05:00` = 10:58:44 IST) matched the CRM's last lead (10:59:02 IST)
+  to within 18 seconds, and sheet rows (1932) ≈ CRM sheet-leads (1936) — i.e. every row that
+  ever reached the Sheet had been processed. ⚠️ **Diagnostic lesson**: consistent 2-4s
+  "Completed" runs mean *no new rows found*, not "working" — a silent-success failure mode.
+- ⚠️ **Reconnecting RESTRUCTURED the spreadsheet.** Admin removed + re-created the
+  integration, and Meta then created **one tab per form** — `new form` (18 cols) and
+  `Fresh lead form | 10/05/26` (20 cols) — while the old `Sheet1` (25 cols) went dead.
+  This is exactly the column-layout risk that was flagged before the Remove.
+- **Apps Script v6 → v7 (complete rewrite, deployed by admin).** v6 read only `Sheet1` and
+  had **hardcoded column positions** (`FORM_OVERRIDES`), so post-restructure it silently sent
+  0 leads. v7:
+  - reads **all tabs** except `Sheet1`, so a future new form/tab needs no code change;
+  - builds the column map **from header names**, not positions — `FORM_OVERRIDES` is now
+    obsolete and deliberately removed (the new per-form tabs have headers that match their
+    data exactly, verified from a live header dump);
+  - keeps a **per-tab pointer** (v6's single global pointer had stuck on `Sheet1` and
+    blocked everything);
+  - **advances the pointer only on HTTP 200**, so a CRM/network failure re-sends next run
+    instead of silently dropping the lead (v6's real risk);
+  - `MAX_PER_RUN=60` guards the 6-min Apps Script timeout; LockService prevents overlap;
+  - filters Meta's `"You don't have enough permissions"` cell text and `<test lead>` rows so
+    they never become lead details.
+  - Live-verified: 26 leads sent, **26 assigned, 0 Invalid, 0 Queued**, counter drift 0,
+    and both forms' fields captured correctly (women's form → Education/Profession/
+    Experience/DOB/State; normal form → Education/Experience/City).
+- **Manual CSV recovery of the outage backlog: 152 leads imported and assigned.**
+  136 normal-form + 16 women's-form leads from Meta CSV exports.
+  - ⚠️ **Mistake made and fixed:** the first attempt pushed leads through
+    `sheet-lead-intake` via `net.http_post` in paced batches. `pg_net` is **async**, so ~29
+    concurrent requests all read the same stale per-user lead count and **29 of 32 leads
+    landed on one user** (Ravenjeet Kaur, 39 vs her limit of 26). Caught immediately,
+    un-assigned all 29 (counters verified back to exact prior values, drift 0), and redid the
+    whole distribution with a **sequential SQL loop in one transaction**, where each
+    assignment is visible to the next iteration. Final spread was correct and within every
+    daily limit. **Never fan out lead assignment through pg_net — it cannot be paced safely.**
+  - ⚠️ **`trg_check_limit_insert` enforces `users.daily_limit` and IGNORES
+    `daily_limit_override`.** Any capacity calculation must use `daily_limit` or the trigger
+    will reject the insert (hit live with Ansh: override 12, daily_limit 9).
+  - The 16 women's-form leads were assigned to Simar's team + Priya Goyal **4 each via a
+    one-time daily-limit override** (admin decision — they were all already at 9/9). Used the
+    documented checklist: `ALTER TABLE leads DISABLE TRIGGER trg_check_limit_update` … re-enable,
+    all wrapped in a single `BEGIN/COMMIT` so the trigger can never be left disabled if
+    anything fails. `total_leads_promised` was **not** touched (they had 40-72 lifetime quota
+    left, so no auto-deactivation risk). Trigger confirmed re-enabled afterwards.
+- **Duplicate audit (admin asked).** No lead was assigned twice: zero repeated phones among
+  today's 178 leads. However **3 phones** in the imported set belong to people who had already
+  submitted before and are held by other agents (`7738782904` now with 3 agents; `9204174123`
+  already `Contacted` by another agent). This is the documented 2026-08-06 rule working as
+  intended (repeat form-fills are treated as fresh leads, double-calling risk accepted), not a
+  bug. Wider context: **93 phones system-wide sit with 2+ active agents — only 2 came from
+  today's import, 91 pre-date it.** Flagged to admin; no cleanup done yet.
+
 ### 2026-08-10
 - **ADMIN-CONTROLLED RECYCLE POOL — steps 1 & 2 of 3 live (PRs #122, #123).** Admin decision:
   recycled leads sirf TEAMFIRE ko jaani chahiye (ECO@WIN12 + Simar ke managed users ko bilkul
