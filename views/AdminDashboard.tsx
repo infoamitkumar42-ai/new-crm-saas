@@ -19,6 +19,7 @@ import {
   Globe, Wifi, WifiOff, Timer, Edit3
 } from 'lucide-react';
 import UserQuickEdit from '../components/UserQuickEdit';
+import RecyclePoolControl from '../components/RecyclePoolControl';
 
 // ============================================================
 // Types & Interfaces
@@ -1519,6 +1520,11 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Recycle Pool Control — recycled leads ka admin switch + daily view.
+            Self-contained component (apna data khud fetch karta hai), isliye
+            is file ki baaki logic bilkul untouched hai. */}
+        <RecyclePoolControl />
 
         {/* System Health Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
