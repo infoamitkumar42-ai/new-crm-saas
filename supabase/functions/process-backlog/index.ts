@@ -59,7 +59,8 @@ function inferStateFromPhone(phone: string): string {
 // `source` string. Generic for ANY team (present or future) instead of
 // the old hardcoded Himanshu/Simran-only check.
 //
-//  - "GoogleSheet-<TEAM_CODE>"  -> team_code taken directly from source
+//  - "GoogleSheet-<TEAM_CODE>"  -> sheet_intake_tokens se POORI team list
+//                                  (neeche BUGFIX note dekho)
 //  - "Meta - <page name>"      -> looked up in meta_pages (same table
 //                                  meta-webhook itself uses), matched by
 //                                  substring like the existing CAPI code
@@ -68,13 +69,36 @@ function inferStateFromPhone(phone: string): string {
 // in that case NO team filter is applied, same permissive fallback the
 // function already had before this fix, so nothing that worked before
 // regresses.
+//
+// ⚠️ BUGFIX 2026-08-11 — BACKLOG PERMANENTLY STUCK
+// Pehle ye `GoogleSheet-ECO@WIN12` se seedha ['ECO@WIN12'] nikal leta tha.
+// Par asli routing `sheet_intake_tokens.team_code` mein hai, jo
+// 'ECO@WIN12,TEAMFIRE' hai (DONO teams). Source label mein sirf PEHLA team
+// aata hai — wo 2026-08-06 ko jaan-boojh kar chhota kiya gaya tha taaki
+// label 'GoogleSheet-ECO@WIN12,TEAMFIRE' jaisa gandaa na dikhe.
+//
+// Nateeja: live intake dono teams ko bhejta tha, par ye backlog sweeper
+// sirf ECO@WIN12 ko. ECO@WIN12 ke sirf 3 active users hain jo roz 9/9 full
+// ho jaate hain -> 194 leads permanently atak gayi thi, jabki TEAMFIRE ke
+// 125 slots khali pade the. Isi wajah se Simar ki team ko bhi din bhar
+// purani mixed leads milti thi (backlog unhi ko ja sakta tha).
+//
+// Ab team list wahi source se aati hai jahan se live intake leta hai —
+// sheet_intake_tokens. Token na mile to purana behaviour (label se) chalta
+// hai, taaki koi regression na ho.
 // ----------------------------------------------------------------------
-function resolveTeamCodes(source: string, metaPages: { page_name: string; team_id: string }[]): string[] | null {
+function resolveTeamCodes(
+    source: string,
+    metaPages: { page_name: string; team_id: string }[],
+    sheetTeamMap: Map<string, string[]>
+): string[] | null {
     if (!source) return null;
 
     if (source.startsWith('GoogleSheet-')) {
         const tc = source.replace('GoogleSheet-', '').trim();
-        return tc ? [tc] : null;
+        if (!tc) return null;
+        const full = sheetTeamMap.get(tc);
+        return (full && full.length > 0) ? full : [tc];   // fallback = purana behaviour
     }
 
     if (source.startsWith('Meta - ')) {
@@ -135,6 +159,22 @@ serve(async (req) => {
         // 1b. Fetch meta_pages ONCE — used to resolve team_code for "Meta - ..." sources
         const { data: metaPages } = await supabase.from('meta_pages').select('page_name, team_id');
 
+        // 1c. Fetch sheet_intake_tokens ONCE — asli team routing yahi hai.
+        // Map: source-label ka team (list ka pehla) -> POORI team list.
+        // Jaise 'ECO@WIN12' -> ['ECO@WIN12','TEAMFIRE'].
+        const { data: sheetTokens } = await supabase
+            .from('sheet_intake_tokens')
+            .select('team_code, is_active');
+
+        const sheetTeamMap = new Map<string, string[]>();
+        for (const t of (sheetTokens || [])) {
+            if (t.is_active === false) continue;
+            const teams = String(t.team_code || '')
+                .split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (teams.length > 0) sheetTeamMap.set(teams[0], teams);
+        }
+        console.log('📄 Sheet team routing:', JSON.stringify([...sheetTeamMap]));
+
         // 2. Fetch Active Users
         const { data: users, error: usersError } = await supabase
             .from('users')
@@ -154,7 +194,7 @@ serve(async (req) => {
             const lead = leads[i];
 
             // A. Determine Context — team_code(s) this lead is allowed to go to
-            const teamCodes = resolveTeamCodes(lead.source, metaPages || []);
+            const teamCodes = resolveTeamCodes(lead.source, metaPages || [], sheetTeamMap);
             let leadState = lead.state;
 
             // Form-based routing context (see header note). Only meaningful
