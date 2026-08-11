@@ -270,6 +270,27 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — Parampreet kaur (parampreetk082@gmail.com) — signup-sync gap, 3rd occurrence
+- **Symptom:** admin asked why she (starter plan, August-offer `daily_limit=9`) had only 5 leads
+  today despite being active/online.
+- **ROOT CAUSE — same `handle_new_user()` signup-sync gap as Priya Bhatiya (2026-07-07) and
+  Harmandeep kaur (2026-08-08), 3rd confirmed case.** `auth.users.raw_user_meta_data.team_code`
+  correctly had `'TEAMFIRE'` from signup (2026-08-10), but it was never synced into
+  `public.users.team_code` — that column was **NULL**. With no team_code, she was invisible to
+  every team-based routing check (`get_best_assignee_for_team` RPC, `process-backlog`'s team
+  filter, `sheet-lead-intake`'s team check) — her 5 leads so far leaked through some permissive
+  fallback path rather than normal routing, well under her offer `daily_limit=9`.
+- **Fix:** `team_code` set to `'TEAMFIRE'` from her own signup metadata (not defaulted) — same
+  precedent fix pattern as the two earlier cases. She's now eligible for normal team-based
+  round-robin.
+- **Wider audit re-run**: 34 more `team_code IS NULL` users found, but every one of them is either
+  `plan_name='none'` (never paid) or `is_active=false`/`payment_status≠'active'` — none currently
+  lose leads from this. One exception to watch: `kajal123@gmail.com` has `plan_name='supervisor'`
+  set but is inactive — would hit the same bug if ever reactivated without a team_code fix first.
+  Not batch-fixed this time (flagged to admin, offered as a zero-risk follow-up); the underlying
+  `handle_new_user()` trigger itself still isn't patched, so **this will keep recurring for every
+  new signup** until that's fixed — 3 independent hits now (07-Jul, 08-Aug, 11-Aug).
+
 ### 2026-08-11 — Ravenjeet Kaur mid-day renewal cutoff — temp override, over-assign found + fixed, cleanly resolved
 - **Symptom:** admin asked why `ravenjeetkaur@gmail.com` (weekly_boost regular, TEAMFIRE) stopped
   getting leads today despite having 152 leads of quota left.
