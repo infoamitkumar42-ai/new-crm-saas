@@ -270,7 +270,7 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
-### 2026-08-11 — Ravenjeet Kaur mid-day renewal cutoff — temp override, ⚠️ MANUAL REVERT PENDING
+### 2026-08-11 — Ravenjeet Kaur mid-day renewal cutoff — temp override, over-assign found + fixed, cleanly resolved
 - **Symptom:** admin asked why `ravenjeetkaur@gmail.com` (weekly_boost regular, TEAMFIRE) stopped
   getting leads today despite having 152 leads of quota left.
 - **ROOT CAUSE (not a bug — a design gap):** `functions/api/razorpay-webhook.ts` (line ~220-256)
@@ -298,16 +298,40 @@ new-crm-saas/
   `is_online=true`, `is_plan_pending=false`, `plan_activation_time=NULL`.
   `total_leads_promised`/`total_leads_received` were **NOT touched** — her real cumulative quota
   (1217/1065) is unaffected by this display-plan swap.
-- ⚠️ **MANUAL REVERT STILL PENDING — do this after midnight IST tonight (12-Aug)**:
-  ```sql
-  UPDATE users SET plan_name = 'supervisor', updated_at = NOW()
-  WHERE email = 'ravenjeetkaur@gmail.com'
-  RETURNING email, plan_name, daily_limit, plan_weight, is_active, is_online, is_plan_pending;
-  ```
-  Expect `daily_limit` to auto-flip to 11 (trigger reads `plan_config`). Then re-run the counter
-  drift + over-quota audit queries. **Both `send_later` and `create_trigger` (the tools that would
-  auto-schedule this) returned `-32003 requires approval` this session** — could not be automated,
-  needs a human trigger (ping the assistant after midnight IST, or run the SQL directly).
+- ⚠️ **Second bug found — the temp override caused a real over-assignment (12→30 actual, 4 over
+  the agreed 26 cap).** Root cause: the renewal webhook's `leads_today: 0` reset wiped out the
+  fact she'd already received 12 leads earlier today — it did **not** reset the DB's actual lead
+  count (still 12), only the `leads_today` counter column. `process-backlog`'s own internal
+  per-run capacity check reads that counter (`freshUser.leads_today`, not actual `COUNT(*)`), so
+  it thought she had a full 0→26 window instead of 12→26. A burst of 18 Sheet leads landed almost
+  simultaneously (`15:40:01–15:40:02` IST — near-concurrent inserts, each transaction's snapshot
+  not yet seeing the others' commits, the same race-condition class as the documented pg_net-fanout
+  bug, this time from real concurrent webhook traffic hitting a suddenly-very-available, high
+  `plan_weight` user). Net result: 12 (before reset) + 18 (after) = 30, 4 over the intended cap.
+  `trg_check_limit_update`'s actual-COUNT(*) check should have blocked once she hit 26 but the
+  near-simultaneous transactions each read a stale pre-commit count, exactly like the earlier
+  documented race.
+- **Fix applied**: capacity-checked the whole ECO@WIN12/TEAMFIRE pool — found **0 free daily slots
+  anywhere else** (every other active user was exactly at their own `daily_limit`), so reassigning
+  the 4 excess leads to someone else would have just pushed the over-quota problem onto a different
+  user. Instead, un-assigned the 4 **most recently landed** leads (the literal overflow, fairest —
+  last-in-first-out) back to `Night_Backlog` (`assigned_to`/`user_id` → NULL) so they flow normally
+  once capacity frees at the midnight IST reset, same as any other backlog lead — no one else's
+  quota touched. Verified: her `today_actual` back to exactly **26**, `total_leads_received` (1079)
+  matches actual lead count exactly (drift 0).
+- **Cleanly resolved (no more manual-revert dependency)**: restored her to the **exact original
+  pending state** the webhook had set before the temp override — `plan_name='supervisor'`,
+  `is_active=false`, `is_online=false`, `is_plan_pending=true`,
+  `plan_activation_time='2026-08-12T01:30:00Z'` (unchanged from the original payment, = tomorrow
+  07:00 IST). `daily_limit` auto-synced back to `11` via `trg_sync_user_plan_fields`.
+  `total_leads_promised`/`total_leads_received` (1217/1079) untouched throughout — her real quota
+  accounting was never at risk.
+  **This means tomorrow's existing `daily-quota-check` cron (jobid 14, 7:00 AM IST) will activate
+  her automatically** (`is_plan_pending=true AND plan_activation_time<=now` is exactly what that
+  cron already looks for) — **no manual SQL needed anymore**, the earlier-flagged manual-revert
+  task is no longer outstanding.
+- Full system re-verify after all of the above: counter drift **0**, over-quota active users **0**,
+  users over their `daily_limit` **0**.
 
 ### 2026-08-11 — NIGHT_BACKLOG PERMANENTLY STUCK: root cause + fix (PR #129)
 - **Symptom:** sheet leads sat in `Night_Backlog`/`Queued` for days and the 10 AM cron +
