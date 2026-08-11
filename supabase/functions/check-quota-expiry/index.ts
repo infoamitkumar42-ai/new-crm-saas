@@ -33,7 +33,7 @@ serve(async (req) => {
       })
       .eq("is_plan_pending", true)
       .lte("plan_activation_time", nowIso)
-      .select("id, email, plan_name");
+      .select("id, email, plan_name, pending_plan_name");
 
     if (activateErr) {
       console.warn("⚠️ Pending plan activation error:", activateErr.message);
@@ -42,6 +42,26 @@ serve(async (req) => {
       if (activatedCount > 0) {
         console.log(`✅ Activated ${activatedCount} pending plans:`,
           activatedPlans?.map((u: any) => `${u.email}(${u.plan_name})`).join(", "));
+
+        // Deferred-renewal case (2026-08-11): a user who was already active and
+        // earning kept their OLD plan's pace through today — the razorpay-webhook
+        // stashed the NEW plan's name in pending_plan_name instead of switching
+        // plan_name immediately, so they'd never get instantly cut off mid-day.
+        // Apply the switch now, one row at a time — trg_sync_user_plan_fields
+        // (BEFORE UPDATE) auto-derives daily_limit/plan_weight/etc from
+        // plan_config off plan_name, so setting plan_name here is all this needs.
+        const withPendingPlan = (activatedPlans || []).filter((u: any) => u.pending_plan_name);
+        for (const u of withPendingPlan) {
+          const { error: switchErr } = await supabase
+            .from("users")
+            .update({ plan_name: u.pending_plan_name, pending_plan_name: null, updated_at: nowIso })
+            .eq("id", u.id);
+          if (switchErr) {
+            console.error(`❌ Failed to switch ${u.email} to pending plan ${u.pending_plan_name}:`, switchErr.message);
+          } else {
+            console.log(`🔁 ${u.email}: switched ${u.plan_name} -> ${u.pending_plan_name} (deferred renewal)`);
+          }
+        }
       } else {
         console.log("ℹ️ No pending plans to activate");
       }
