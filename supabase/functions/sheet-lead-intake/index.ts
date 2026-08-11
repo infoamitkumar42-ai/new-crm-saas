@@ -186,6 +186,24 @@ function buildLeadDetails(body: any): Record<string, string> | null {
 // Kept as a separate inline check (not a shared RPC) so it can't affect
 // the normal team-based routing path used by everyone else.
 async function findManagerScopedAssignee(supabase: any, managerId: string, extraUserIds: string[] = []) {
+  // Diagnostic-only (2026-08-11): fetch the FULL manager-scoped pool, ignoring
+  // is_active/is_online/payment_status, purely to log why each one is or isn't
+  // eligible right now. Traces a recurring "why did this fall through to the
+  // general pool despite apparent free capacity" question that historical data
+  // (no is_online audit trail) couldn't answer after the fact. Does not affect
+  // the real eligibility query below in any way.
+  const { data: allScoped } = await supabase
+    .from('users')
+    .select('id, name, email, is_active, is_online, payment_status')
+    .or(extraUserIds.length > 0
+      ? `manager_id.eq.${managerId},id.in.(${extraUserIds.join(',')})`
+      : `manager_id.eq.${managerId}`);
+  console.log('👥 Simar-scoped pool (raw, pre-filter):', JSON.stringify(
+    (allScoped || []).map((u: any) => ({
+      email: u.email, active: u.is_active, online: u.is_online, payment: u.payment_status
+    }))
+  ));
+
   let query = supabase
     .from('users')
     .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight')
@@ -199,7 +217,10 @@ async function findManagerScopedAssignee(supabase: any, managerId: string, extra
 
   const { data: candidates } = await query;
 
-  if (!candidates || candidates.length === 0) return null;
+  if (!candidates || candidates.length === 0) {
+    console.log('👥 No active+online+paid Simar-scoped candidates — falling through to general pool.');
+    return null;
+  }
 
   const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const startOfDayIso = new Date(`${todayIST}T00:00:00+05:30`).toISOString();
@@ -207,7 +228,10 @@ async function findManagerScopedAssignee(supabase: any, managerId: string, extra
   const scored: { user: any; fillRatio: number; weight: number }[] = [];
 
   for (const u of candidates) {
-    if (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised) continue;
+    if (u.total_leads_promised > 0 && u.total_leads_received >= u.total_leads_promised) {
+      console.log(`👥 ${u.email}: SKIPPED (lifetime quota exhausted: ${u.total_leads_received}/${u.total_leads_promised})`);
+      continue;
+    }
 
     const { count: todayCount } = await supabase
       .from('leads')
@@ -216,14 +240,22 @@ async function findManagerScopedAssignee(supabase: any, managerId: string, extra
       .gte('assigned_at', startOfDayIso);
 
     const dailyLimit = u.daily_limit || 0;
-    if (dailyLimit > 0 && (todayCount || 0) >= dailyLimit) continue;
+    if (dailyLimit > 0 && (todayCount || 0) >= dailyLimit) {
+      console.log(`👥 ${u.email}: SKIPPED (daily limit full: ${todayCount}/${dailyLimit})`);
+      continue;
+    }
 
     const fillRatio = dailyLimit > 0 ? (todayCount || 0) / dailyLimit : 0;
+    console.log(`👥 ${u.email}: ELIGIBLE (today ${todayCount}/${dailyLimit}, fillRatio ${fillRatio.toFixed(2)})`);
     scored.push({ user: u, fillRatio, weight: u.plan_weight || 1 });
   }
 
-  if (scored.length === 0) return null;
+  if (scored.length === 0) {
+    console.log('👥 All Simar-scoped candidates at capacity/quota — falling through to general pool.');
+    return null;
+  }
   scored.sort((a, b) => a.fillRatio - b.fillRatio || b.weight - a.weight);
+  console.log(`👥 Picked: ${scored[0].user.email}`);
   return scored[0].user;
 }
 
