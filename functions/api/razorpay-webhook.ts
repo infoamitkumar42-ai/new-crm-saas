@@ -195,10 +195,10 @@ export const onRequestPost = async (context: any) => {
 
             // Fetch current counters and team_code to preserve on renewal
             const userFetchRes = await fetch(
-                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,total_leads_received,team_code`,
+                `${supabaseUrl}/rest/v1/users?id=eq.${userId}&select=total_leads_promised,total_leads_received,team_code,is_active,payment_status`,
                 { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
             );
-            
+
             if (!userFetchRes.ok) {
                 console.error('[Webhook] DB Error (User Fetch):', await userFetchRes.text());
             }
@@ -208,6 +208,19 @@ export const onRequestPost = async (context: any) => {
             const currentTotalLeadsReceived = userData?.[0]?.total_leads_received || 0;
             const existingTeamCode = userData?.[0]?.team_code || null;
             const resolvedTeamCode = existingTeamCode || teamCode;
+
+            // 2026-08-11: renewal-while-active fix. If the user is already active
+            // and currently earning under their CURRENT plan, don't instantly cut
+            // them off — that loses the rest of today's already-active daily
+            // capacity even though they still have quota/capacity left (this is
+            // exactly what happened to Ravenjeet Kaur on 2026-08-11 and needed a
+            // manual admin fix). Instead: keep serving today's plan uninterrupted,
+            // stash the NEW plan in pending_plan_name, and let check-quota-expiry's
+            // 7 AM IST activation pass apply it tomorrow — same activation_time
+            // this code already computes below, just repurposed.
+            // Brand-new signups and already-inactive/expired renewals (the common
+            // case) are completely unaffected — same behavior as before.
+            const wasActiveEarning = userData?.[0]?.is_active === true && userData?.[0]?.payment_status === 'active';
 
             // Safe cumulative: use max(received, promised) as baseline so any historical
             // corruption in total_leads_promised never causes instant plan expiry on activation.
@@ -224,14 +237,23 @@ export const onRequestPost = async (context: any) => {
             tomorrowIST.setUTCHours(1, 30, 0, 0); // 01:30 UTC = 07:00 IST
             const activationTime = tomorrowIST.toISOString();
 
-            const userUpdateRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
-                method: 'PATCH',
-                headers: {
-                    apikey: supabaseKey,
-                    Authorization: `Bearer ${supabaseKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
+            // Deferred branch: user keeps today's current plan running (nothing
+            // about their active plan/pace touched), new plan applies tomorrow.
+            // Immediate branch: existing behavior, unchanged — new/inactive users
+            // get the new plan's config right away, gated behind is_active=false
+            // until tomorrow's 7 AM IST activation.
+            const updateBody = wasActiveEarning
+                ? {
+                    payment_status: 'active',
+                    is_plan_pending: true,
+                    plan_activation_time: activationTime,
+                    pending_plan_name: normalizedPlan,
+                    total_leads_promised: newTotalLeadsPromised,
+                    valid_until: infiniteValidity,
+                    updated_at: now.toISOString(),
+                    ...(resolvedTeamCode ? { team_code: resolvedTeamCode } : {})
+                }
+                : {
                     plan_name: normalizedPlan,
                     payment_status: 'active',
                     is_active: false,
@@ -252,7 +274,20 @@ export const onRequestPost = async (context: any) => {
                     fresh_leads_received: 0,
                     recycled_leads_received: 0,
                     ...(resolvedTeamCode ? { team_code: resolvedTeamCode } : {})
-                })
+                };
+
+            if (wasActiveEarning) {
+                console.log(`[Webhook] Deferred renewal: User ${userId} stays on current plan today, switches to ${normalizedPlan} tomorrow 7 AM IST.`);
+            }
+
+            const userUpdateRes = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: supabaseKey,
+                    Authorization: `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateBody)
             });
 
             if (!userUpdateRes.ok) {

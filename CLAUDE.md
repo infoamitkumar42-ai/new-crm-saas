@@ -270,6 +270,52 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — RENEWAL-WHILE-ACTIVE FIX: no more instant cutoff mid-day (PR pending)
+- **Follow-up to Ravenjeet Kaur's mid-day renewal cutoff (see earlier entry same day).** Admin
+  asked for a permanent fix: an active, currently-earning user who renews/upgrades should finish
+  today at their CURRENT plan's pace, and only switch to the new plan starting tomorrow — not get
+  instantly deactivated and cut off mid-day like the webhook did before.
+- **First proposed a simpler "instant merge" design — admin correctly rejected it.** Would have
+  immediately dropped `daily_limit` to the new (possibly lower) plan's value mid-day, which breaks
+  badly if the user already received more today than the new limit (e.g. offer-plan daily_limit=26,
+  already at 20 today, renews to starter's daily_limit=9 — instantly shows "9" while already at
+  20). Admin's proposed fix instead: keep today's plan/pace completely untouched, add the new
+  plan's quota into the cumulative total (as already happens), and only flip `plan_name`/
+  `daily_limit`/etc at the existing next-day-7-AM-IST cutover point.
+- **New column `pending_plan_name`** (nullable text, migration
+  `20260811160500_add_pending_plan_name.sql`) — stores the new plan's name for this "deferred
+  renewal" case only. NULL for everyone else (brand-new signups, already-inactive renewals) —
+  zero behavior change for those, verified by reading every code path that touches `plan_name`.
+- **`functions/api/razorpay-webhook.ts`**: now checks the user's CURRENT `is_active`/
+  `payment_status` before building the update. If they're already active+earning
+  (`wasActiveEarning`), the PATCH body no longer touches `is_active`/`is_online`/`plan_name`/
+  `daily_limit`/`plan_weight`/etc — it only adds the new quota to `total_leads_promised`
+  (cumulative, unchanged) and stashes the new plan in `pending_plan_name` with the SAME
+  `plan_activation_time` (tomorrow 7 AM IST) already computed. Brand-new/inactive-renewal path is
+  byte-for-byte the same as before (separate branch, untouched).
+- **`supabase/functions/check-quota-expiry/index.ts`**: its existing 7-AM-IST pending-activation
+  step now also applies `pending_plan_name -> plan_name` (sequential, one row at a time, only for
+  the subset that has a non-null `pending_plan_name`) right after flipping `is_active=true`.
+  `trg_sync_user_plan_fields` (already-existing BEFORE UPDATE trigger) auto-derives
+  `daily_limit`/`plan_weight`/etc from `plan_config` off the new `plan_name` — no manual config
+  lookup needed in this function.
+- **`razorpay-reconcile`** (the 15-min backup poller, lives only on Supabase Dashboard, not in
+  this repo) mirrors the webhook's OLD activation logic and was **not yet updated** — flagged to
+  admin, needs the same patch pasted in for full consistency (a payment picked up by the reconcile
+  poller instead of the webhook would otherwise still hit the old instant-cutoff behavior).
+- **DB mechanism live-tested before wiring into either function**: created a throwaway test user
+  in the exact "deferred renewal" state (active, `plan_name='weekly_boost'`,
+  `pending_plan_name='starter'`, `is_plan_pending=true`, `plan_activation_time` in the past), ran
+  the same two-step SQL check-quota-expiry will run — confirmed `plan_name` switched to
+  `'starter'`, `pending_plan_name` cleared to NULL, `daily_limit` auto-synced 26→9 and
+  `plan_weight` 7→1 (starter's correct values) via the trigger, and `is_active` stayed `true`
+  throughout (no cutoff at any point). Test row deleted immediately after (`auth.users` +
+  `public.users`), 0 left over.
+  `npm run build` + `tsc --noEmit` both clean (only pre-existing baseline Deno-import noise, no
+  new errors) before merge.
+- Deployed manually via Supabase Dashboard / Cloudflare Pages — MCP `deploy_edge_function` still
+  returns `-32003 requires approval` this session.
+
 ### 2026-08-11 — 8 leads found missing from Meta's Google Sheet + women-only-form routing audit
 - **Admin uploaded a Meta CSV export (44 leads, 10-Aug, women-only form
   `26784403284560247`, "team simar ad campaing", 3 ad variants).** Cross-checked against the
