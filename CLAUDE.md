@@ -270,6 +270,52 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — 8 leads found missing from Meta's Google Sheet + women-only-form routing audit
+- **Admin uploaded a Meta CSV export (44 leads, 10-Aug, women-only form
+  `26784403284560247`, "team simar ad campaing", 3 ad variants).** Cross-checked against the
+  CRM: 36/44 present (8 assigned, 27 Queued/Night_Backlog, 1 Invalid), **8/44 completely
+  missing from the CRM.**
+- **Root cause confirmed via two Apps Script diagnostics run by admin (not an Apps Script or CRM
+  bug):**
+  - `runMissingCheck()` searched all live tabs for the 8 missing phones — **0 found anywhere**
+    (Sheet1 correctly excluded as dead/legacy). They never reached the Google Sheet at all.
+  - `LEADFLOW STATUS` check showed both live tabs **fully synced**: `"Fresh lead form | 10/05/26"`
+    95 rows/pointer 95/pending 0, `"new form"` 381 rows/pointer 381/pending 0 — Apps Script has
+    processed every row that ever existed in the Sheet, zero backlog on its side.
+  - Conclusion: the gap is **upstream of our system entirely** — Meta's own Lead-Ads-to-Sheet
+    write step silently dropped these 8 specific leads before Apps Script could ever see them.
+    Same failure class as the documented 30-hour outage (2026-08-09/10), just much smaller in
+    scale this time (8 leads over ~16h, intermittent, not a full break). No code fix possible on
+    our side for Meta's own write reliability.
+  - The 7-day Apps Script error rate (0.25%, ~6 failed runs) admin flagged as a possible cause
+    was a red herring here — irrelevant once confirmed the rows never reached the Sheet.
+- **Recovered:** all 8 leads manually inserted from the CSV's own data (name, phone, city/state,
+  education/profession/DOB, correct `form_id`) as `status='Queued'` — same recovery pattern as
+  the earlier 152-lead outage import. Will route automatically via the existing Simar-first /
+  general-pool-fallback logic in `process-backlog` once daily capacity frees. Zero duplicates
+  verified before insert (checked all 8 phones against existing `leads` rows).
+- **Separately audited the women-only-form routing "leak" the admin flagged** (male/non-Simar
+  users receiving this form's leads despite the block). Confirmed via code read
+  (`sheet-lead-intake` + `process-backlog`) this is the **existing approved fallback design**
+  (2026-08-08 decision: Simar's team gets first refusal, then the lead falls through to the
+  general eligible pool once Simar's team is at capacity, rather than sitting in `Queued`
+  forever). Admin re-confirmed this is exactly the wanted behavior ("block ni karna baki team ko
+  leads lene ke liye... na queued mein rakhna hai") — **no code change made**, current behavior
+  already matches the requirement.
+  - Historical scale check: over 4 days, 61 of 111 form-id leads (55%) fell through to the
+    general pool — expected given Simar's team is only 4 active users (36 leads/day capacity)
+    against this form's volume (44 leads in a single day's CSV alone).
+  - Spot-checked several fallback instances against Simar-team members' daily counts at that
+    exact moment — some showed apparent free capacity (e.g. Parwati/Baljinder kaur at 0/9) yet
+    the lead still fell through. Traced the assignment function (`findManagerScopedAssignee`) —
+    query logic itself is correct (requires `is_active`+`is_online`+`payment_status='active'`,
+    picks lowest fill-ratio first). Most likely explanation is those users were briefly
+    **offline** at that exact moment — `is_online` has no historical log
+    (`last_active_at` is NULL for all checked users), so this can't be proven retroactively.
+    Not a confirmed bug; flagged for future traceability (optional: add a log line recording
+    which Simar candidates were considered + their online state, offered to admin, no decision
+    yet).
+
 ### 2026-08-11 — `handle_new_user()` ROOT CAUSE FIXED — team_code NULL bug will not recur
 - **Follow-up to the entry directly below.** Root cause found: it was never a random "sync gap" —
   `handle_new_user()` had an **explicit, deliberate block**:
