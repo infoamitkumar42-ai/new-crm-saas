@@ -270,7 +270,7 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
-### 2026-08-11 — RENEWAL-WHILE-ACTIVE FIX: no more instant cutoff mid-day (PR pending)
+### 2026-08-11 — RENEWAL-WHILE-ACTIVE FIX: no more instant cutoff mid-day (PRs #137, #138)
 - **Follow-up to Ravenjeet Kaur's mid-day renewal cutoff (see earlier entry same day).** Admin
   asked for a permanent fix: an active, currently-earning user who renews/upgrades should finish
   today at their CURRENT plan's pace, and only switch to the new plan starting tomorrow — not get
@@ -299,10 +299,15 @@ new-crm-saas/
   `trg_sync_user_plan_fields` (already-existing BEFORE UPDATE trigger) auto-derives
   `daily_limit`/`plan_weight`/etc from `plan_config` off the new `plan_name` — no manual config
   lookup needed in this function.
-- **`razorpay-reconcile`** (the 15-min backup poller, lives only on Supabase Dashboard, not in
-  this repo) mirrors the webhook's OLD activation logic and was **not yet updated** — flagged to
-  admin, needs the same patch pasted in for full consistency (a payment picked up by the reconcile
-  poller instead of the webhook would otherwise still hit the old instant-cutoff behavior).
+- **`razorpay-reconcile`** (the 15-min backup poller) — admin pasted its current source, applied
+  the identical `wasActiveEarning` branch (same `pending_plan_name` stash, same untouched
+  brand-new/inactive-renewal path), and **committed it to this repo for the first time**
+  (`supabase/functions/razorpay-reconcile/index.ts` — previously lived only on Supabase Dashboard
+  with no history, same as `send-crm-conversion` before it). `RAZORPAY_KEY_ID`/`SECRET` and
+  `PLAN_CONFIG` copied byte-for-byte from the pasted source — verified against the pasted code to
+  confirm no accidental drift in live credentials or plan numbers (the exact BUG-013 risk this
+  file's own header warns about). Now a payment picked up by either the webhook OR the reconcile
+  poller gets identical deferred-renewal treatment.
 - **DB mechanism live-tested before wiring into either function**: created a throwaway test user
   in the exact "deferred renewal" state (active, `plan_name='weekly_boost'`,
   `pending_plan_name='starter'`, `is_plan_pending=true`, `plan_activation_time` in the past), ran
@@ -313,6 +318,12 @@ new-crm-saas/
   `public.users`), 0 left over.
   `npm run build` + `tsc --noEmit` both clean (only pre-existing baseline Deno-import noise, no
   new errors) before merge.
+- **Live-verified after deploy**: `functions/api/razorpay-webhook.ts` confirmed live on Cloudflare
+  Pages Production at the exact merged commit. `check-quota-expiry` verified with a second
+  throwaway test user by invoking the actual **deployed** function (not a local simulation) —
+  same result as the DB-mechanism dry run, confirming the real production code works end-to-end.
+  Test row deleted after, drift/over-quota re-checked at 0. `razorpay-reconcile` deployed by admin
+  directly (no live-invoke test — would have hit the real Razorpay API — reviewed by diff instead).
 - Deployed manually via Supabase Dashboard / Cloudflare Pages — MCP `deploy_edge_function` still
   returns `-32003 requires approval` this session.
 
