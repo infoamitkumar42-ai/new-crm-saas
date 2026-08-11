@@ -270,6 +270,39 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — NIGHT_BACKLOG PERMANENTLY STUCK: root cause + fix (PR #129)
+- **Symptom:** sheet leads sat in `Night_Backlog`/`Queued` for days and the 10 AM cron +
+  10-min sweeper never placed them, even though TEAMFIRE had free daily slots all day.
+- **ROOT CAUSE — source-label vs `sheet_intake_tokens` routing mismatch.**
+  `process-backlog`'s `resolveTeamCodes()` derived the allowed team list from the lead's
+  `source` string: `'GoogleSheet-ECO@WIN12'` → `['ECO@WIN12']`. But that label deliberately
+  carries **only the first team** — it was shortened on 2026-08-06 (`teamCode.split(',')[0]`)
+  so the label wouldn't read `GoogleSheet-ECO@WIN12,TEAMFIRE`. The **real** routing lives in
+  `sheet_intake_tokens.team_code` = `'ECO@WIN12,TEAMFIRE'`.
+  So live intake (`sheet-lead-intake`) could place a sheet lead with **either** team, while the
+  backlog sweeper could only ever place it with **ECO@WIN12 — 3 active users, 27 slots/day**,
+  who saturate every single day. Effective backlog pool was 3 users / 27 slots instead of
+  **21 users / 263 slots**. This also explains why Simar's team kept getting old mixed leads all
+  day: backlog leads had nowhere else to go. ⚠️ **Pattern to remember: never derive routing from
+  a display/label string — read the table the live path reads.**
+- **Fix:** `resolveTeamCodes()` now takes a `sheetTeamMap` built once per run from
+  `sheet_intake_tokens` (inactive tokens skipped), keyed *first team → full team list*. If no
+  token matches, it falls back to the old label-derived behaviour so nothing regresses.
+  Meta-page routing and the form-based Simar/Priya-Goyal exclusion are untouched.
+- **Backlog cleared the same hour** via an equivalent **sequential** SQL pass (one assignment
+  visible to the next — per the standing "never fan out lead assignment through `pg_net`" rule),
+  using the token table for team resolution and preserving the form-based exclusion.
+  **214 → 70 backlog, 129+ leads distributed.**
+- **Verified after:** today 299 assigned = **243 fresh-Sheet + 56 fresh-Meta-webhook + 0
+  recycled** (recycle pool is still `enabled:false`); counter drift **0**; over-quota active
+  users **0**; users over `daily_limit` **0**.
+- ⚠️ **The remaining ~70 are capacity-blocked, not bug-blocked** — sheet-eligible pool is
+  263 daily slots and all 263 were consumed. They flow at the midnight IST reset. The real
+  constraint is now the same one flagged 2026-08-08: incoming volume exceeds what active
+  buyers can absorb.
+- Deployed manually via Supabase Dashboard — MCP `deploy_edge_function` / `get_edge_function`
+  still return `-32003 requires approval` in this session.
+
 ### 2026-08-10 (evening) — SHEET INTAKE OUTAGE RESOLVED + Apps Script v7
 - **ROOT CAUSE (30-hour outage, 9 Aug 10:59 → 10 Aug 18:18):** Meta's Google-Sheet
   authorization expired ("Authorisation required… reauthorise with Google Sheets" on the
