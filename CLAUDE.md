@@ -270,6 +270,40 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — `handle_new_user()` ROOT CAUSE FIXED — team_code NULL bug will not recur
+- **Follow-up to the entry directly below.** Root cause found: it was never a random "sync gap" —
+  `handle_new_user()` had an **explicit, deliberate block**:
+  ```sql
+  IF COALESCE(NEW.raw_user_meta_data->>'role', 'member') = 'member' THEN
+      v_team_code := NULL;
+  END IF;
+  ```
+  guaranteeing `team_code = NULL` for **every single new member signup**, 100% of the time — not
+  a rare glitch. Comment in the old code suggests the original design intended member routing to
+  resolve team via `manager_id`, but the actual lead-routing code (`get_best_assignee_for_team`
+  RPC, `process-backlog`, `sheet-lead-intake`) all filter on `u.team_code` directly, never via a
+  manager join — hence the mismatch, and why this kept resurfacing (3 confirmed hits: 07-Jul,
+  08-Aug, 11-Aug).
+- **Fix (approved, full `CREATE OR REPLACE` shown before applying per rule 4)**: removed the
+  member→NULL override. `team_code` is now taken directly from signup metadata for both member
+  and manager roles, exactly matching what the signup form already sends (verified every prior
+  audit case had the correct value sitting unused in `raw_user_meta_data`). Nothing else in the
+  function changed.
+  **Live-tested**: inserted a throwaway `auth.users` row with `role:'member',
+  team_code:'TESTTEAM_VERIFY'` — resulting `public.users` row correctly showed
+  `team_code='TESTTEAM_VERIFY'` (previously would've been NULL). Test rows deleted immediately
+  after (`auth.users` + `public.users`), 0 left over.
+- **Batch-fixed all 34 previously-flagged `team_code IS NULL` members** (from the wider audit) by
+  setting each from their own `raw_user_meta_data.team_code` — same precedent fix, just applied to
+  all of them now instead of one at a time. All 34 were unpaid/inactive so this was zero-risk
+  (no live routing changed for them). Only `canary-test-samson@...` remains NULL — a monitoring
+  test account whose metadata never had a team_code to begin with; correctly left alone.
+- **Parampreet kaur topped up to her full daily quota**: was 5/9, given 4 more from the eligible
+  TEAMFIRE/ECO@WIN12 backlog (excluding the women-only form, she's not Simar-scoped) — now
+  **9/9**, `total_leads_received` (9) matches actual lead count exactly.
+- **Full re-verify**: counter drift **0**, over-quota active users **0**, `team_code IS NULL`
+  members remaining **1** (the canary account, expected).
+
 ### 2026-08-11 — Parampreet kaur (parampreetk082@gmail.com) — signup-sync gap, 3rd occurrence
 - **Symptom:** admin asked why she (starter plan, August-offer `daily_limit=9`) had only 5 leads
   today despite being active/online.
