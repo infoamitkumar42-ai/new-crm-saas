@@ -270,6 +270,45 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-11 — Ravenjeet Kaur mid-day renewal cutoff — temp override, ⚠️ MANUAL REVERT PENDING
+- **Symptom:** admin asked why `ravenjeetkaur@gmail.com` (weekly_boost regular, TEAMFIRE) stopped
+  getting leads today despite having 152 leads of quota left.
+- **ROOT CAUSE (not a bug — a design gap):** `functions/api/razorpay-webhook.ts` (line ~220-256)
+  applies the SAME "deactivate now, activate tomorrow 7 AM IST" logic to **every** payment,
+  including renewals of an **already-active, currently-earning** user. She had already received
+  12 leads today (well within her weekly_boost `daily_limit=26`) when a new payment for a
+  **different, lower** plan (`supervisor`, ₹1,499, `daily_limit=11`) landed at 15:00:02 IST. The
+  webhook instantly set `is_active=false`, `is_online=false`, `is_plan_pending=true`,
+  `plan_activation_time='tomorrow 07:00 IST'` — cutting her off from the rest of TODAY's leads
+  even though her prior plan still had quota and daily capacity left. `total_leads_promised`
+  (1217) / `total_leads_received` (1065) confirmed no drift, no quota-expiry — purely a timing
+  side-effect of the renewal webhook's blanket next-day-activation rule.
+- ⚠️ **Wider pattern, not Ravenjeet-specific**: any active user who renews/upgrades mid-day gets
+  the same instant cutoff, losing the rest of that day's already-active-plan capacity. Flagged to
+  admin; **not fixed** (would need a deliberate webhook logic change — separate approval, out of
+  scope for today's ask).
+- **Admin decision**: reactivate her for the REST of today only (not a permanent fix). Discovered
+  `trg_sync_user_plan_fields` (BEFORE UPDATE trigger) force-overwrites `daily_limit`/`plan_weight`
+  from `plan_config` on every single `users` UPDATE keyed off `plan_name` — so simply flipping
+  `is_active=true` would NOT have worked; the trigger would keep re-locking `daily_limit` to
+  supervisor's 11, and she was already at 12/11 for the day (blocked instantly by
+  `trg_check_limit_insert`'s actual-COUNT(*) check).
+  **Fix applied**: temporarily set `plan_name='weekly_boost'` (her real plan for the rest of
+  today) so the trigger sets `daily_limit=26`/`plan_weight=7`, plus `is_active=true`,
+  `is_online=true`, `is_plan_pending=false`, `plan_activation_time=NULL`.
+  `total_leads_promised`/`total_leads_received` were **NOT touched** — her real cumulative quota
+  (1217/1065) is unaffected by this display-plan swap.
+- ⚠️ **MANUAL REVERT STILL PENDING — do this after midnight IST tonight (12-Aug)**:
+  ```sql
+  UPDATE users SET plan_name = 'supervisor', updated_at = NOW()
+  WHERE email = 'ravenjeetkaur@gmail.com'
+  RETURNING email, plan_name, daily_limit, plan_weight, is_active, is_online, is_plan_pending;
+  ```
+  Expect `daily_limit` to auto-flip to 11 (trigger reads `plan_config`). Then re-run the counter
+  drift + over-quota audit queries. **Both `send_later` and `create_trigger` (the tools that would
+  auto-schedule this) returned `-32003 requires approval` this session** — could not be automated,
+  needs a human trigger (ping the assistant after midnight IST, or run the SQL directly).
+
 ### 2026-08-11 — NIGHT_BACKLOG PERMANENTLY STUCK: root cause + fix (PR #129)
 - **Symptom:** sheet leads sat in `Night_Backlog`/`Queued` for days and the 10 AM cron +
   10-min sweeper never placed them, even though TEAMFIRE had free daily slots all day.
