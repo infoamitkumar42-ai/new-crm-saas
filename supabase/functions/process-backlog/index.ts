@@ -275,6 +275,12 @@ serve(async (req) => {
             // exactly the fallback rule live in sheet-lead-intake v10.
             if (isWomenOnlyForm) {
                 const simarFirst = eligible.filter(isSimarScoped);
+                // Diagnostic-only (2026-08-11): trace who was in the eligible
+                // pool vs who was Simar-scoped, for the same "why did this fall
+                // through despite apparent capacity" question sheet-lead-intake
+                // logs. Does not affect the assignment logic below.
+                console.log('👥 Women-form: eligible pool', eligible.map((u: any) => u.name),
+                    '| Simar-scoped among them:', simarFirst.map((u: any) => u.name));
                 if (simarFirst.length > 0) {
                     eligible = simarFirst;
                 }
