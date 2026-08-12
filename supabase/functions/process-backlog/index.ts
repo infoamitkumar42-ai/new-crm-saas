@@ -24,7 +24,10 @@ const corsHeaders = {
 // would either starve Simar's team or leak leads to it, so those keep the
 // exact pre-existing behaviour. That legacy set only shrinks over time.
 // ----------------------------------------------------------------------
-const WOMEN_ONLY_FORM_ID = '26784403284560247';
+// 2026-08-12: old ECO@WIN12 ad account got disabled; a new form was set up
+// on a new ad account for the same women-only audience. Kept the old ID too
+// (existing/queued leads still carry it) — new leads use the new one.
+const WOMEN_ONLY_FORM_IDS = ['26784403284560247', '1771429337239760'];
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
 
 // v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
@@ -200,7 +203,7 @@ serve(async (req) => {
             // Form-based routing context (see header note). Only meaningful
             // when the lead actually carries a form_id.
             const leadFormId = lead.form_id || null;
-            const isWomenOnlyForm = leadFormId === WOMEN_ONLY_FORM_ID;
+            const isWomenOnlyForm = leadFormId ? WOMEN_ONLY_FORM_IDS.includes(leadFormId) : false;
 
             // Infer State
             if (!leadState || leadState === 'Unknown') {
