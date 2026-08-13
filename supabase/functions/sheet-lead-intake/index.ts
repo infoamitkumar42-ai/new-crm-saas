@@ -143,10 +143,15 @@ const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@foreve
 // ks6315077@gmail.com — manages both ECO@WIN12 and ECOKULWINDER). Each
 // women-only form has its OWN priority manager, not a single shared one.
 const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks6315077@gmail.com
-const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string> = {
-  '26784403284560247': SIMAR_MANAGER_ID,
-  '1771429337239760': KULWINDER_MANAGER_ID,
-  '28656339480638911': KULWINDER_MANAGER_ID,
+// 2026-08-13 (later same day): Simar's original team went idle once the old
+// ad account stopped generating leads for their dedicated form — admin asked
+// for them to also share in the 2 new forms' leads. Old form stays
+// Simar-exclusive (unchanged); the 2 new forms now share priority between
+// BOTH dedicated teams (whichever has more room), not Kulwinder singh alone.
+const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
+  '26784403284560247': [SIMAR_MANAGER_ID],
+  '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
+  '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
 };
 // Every manager whose team is dedicated to a women-only form — excluded from
 // every OTHER (non-women-only) lead, same rule that already applied to Simar.
@@ -196,12 +201,17 @@ function buildLeadDetails(body: any): Record<string, string> | null {
   return Object.keys(details).length > 0 ? details : null;
 }
 
-// Finds the best active user managed by `managerId`, using the same
-// fairness rule as get_best_assignee_for_team (lowest fill-ratio first,
+// Finds the best active user managed by ANY id in `managerIds`, using the
+// same fairness rule as get_best_assignee_for_team (lowest fill-ratio first,
 // plan_weight as tiebreaker) but scoped by manager_id instead of team_code.
 // Kept as a separate inline check (not a shared RPC) so it can't affect
 // the normal team-based routing path used by everyone else.
-async function findManagerScopedAssignee(supabase: any, managerId: string, extraUserIds: string[] = []) {
+async function findManagerScopedAssignee(supabase: any, managerIds: string[], extraUserIds: string[] = []) {
+  const managerOr = managerIds.map(id => `manager_id.eq.${id}`).join(',');
+  const fullOrClause = extraUserIds.length > 0
+    ? `${managerOr},id.in.(${extraUserIds.join(',')})`
+    : managerOr;
+
   // Diagnostic-only (2026-08-11): fetch the FULL manager-scoped pool, ignoring
   // is_active/is_online/payment_status, purely to log why each one is or isn't
   // eligible right now. Traces a recurring "why did this fall through to the
@@ -211,25 +221,20 @@ async function findManagerScopedAssignee(supabase: any, managerId: string, extra
   const { data: allScoped } = await supabase
     .from('users')
     .select('id, name, email, is_active, is_online, payment_status')
-    .or(extraUserIds.length > 0
-      ? `manager_id.eq.${managerId},id.in.(${extraUserIds.join(',')})`
-      : `manager_id.eq.${managerId}`);
-  console.log('👥 Simar-scoped pool (raw, pre-filter):', JSON.stringify(
+    .or(fullOrClause);
+  console.log('👥 Priority-manager pool (raw, pre-filter):', JSON.stringify(
     (allScoped || []).map((u: any) => ({
       email: u.email, active: u.is_active, online: u.is_online, payment: u.payment_status
     }))
   ));
 
-  let query = supabase
+  const query = supabase
     .from('users')
     .select('id, name, email, daily_limit, total_leads_received, total_leads_promised, plan_weight')
     .eq('is_active', true)
     .eq('is_online', true)
-    .eq('payment_status', 'active');
-
-  query = extraUserIds.length > 0
-    ? query.or(`manager_id.eq.${managerId},id.in.(${extraUserIds.join(',')})`)
-    : query.eq('manager_id', managerId);
+    .eq('payment_status', 'active')
+    .or(fullOrClause);
 
   const { data: candidates } = await query;
 
@@ -556,14 +561,15 @@ serve(async (req) => {
     let finalUserName: string | null = null;
 
     if (isWomenOnlyForm) {
-      // Women-only form: EACH form_id has its own dedicated priority manager
-      // (see WOMEN_FORM_PRIORITY_MANAGER) — that manager's team gets FIRST
-      // REFUSAL, not exclusive rights.
-      const priorityManagerId = formId ? WOMEN_FORM_PRIORITY_MANAGER[formId] : undefined;
-      const priorityExtraIds = priorityManagerId === SIMAR_MANAGER_ID ? EXTRA_WOMEN_FORM_USER_IDS : [];
+      // Women-only form: EACH form_id has its own dedicated priority
+      // manager(s) (see WOMEN_FORM_PRIORITY_MANAGER) — those managers' teams
+      // get FIRST REFUSAL (combined pool, fairest-first across both), not
+      // exclusive rights.
+      const priorityManagerIds = formId ? WOMEN_FORM_PRIORITY_MANAGER[formId] : undefined;
+      const priorityExtraIds = priorityManagerIds?.includes(SIMAR_MANAGER_ID) ? EXTRA_WOMEN_FORM_USER_IDS : [];
 
-      let target = priorityManagerId
-        ? await findManagerScopedAssignee(supabase, priorityManagerId, priorityExtraIds)
+      let target = priorityManagerIds
+        ? await findManagerScopedAssignee(supabase, priorityManagerIds, priorityExtraIds)
         : null;
 
       // v10 (admin decision 2026-08-08): if nobody under the priority manager

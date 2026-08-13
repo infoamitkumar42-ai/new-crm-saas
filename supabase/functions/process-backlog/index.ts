@@ -34,10 +34,15 @@ const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@foreve
 // (ks6315077@gmail.com), who manages both ECO@WIN12 and ECOKULWINDER. Each
 // women-only form has its own dedicated priority manager, not one shared ID.
 const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks6315077@gmail.com
-const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string> = {
-    '26784403284560247': SIMAR_MANAGER_ID,
-    '1771429337239760': KULWINDER_MANAGER_ID,
-    '28656339480638911': KULWINDER_MANAGER_ID,
+// 2026-08-13 (later same day): Simar's original team went idle once the old
+// ad account stopped generating leads for their dedicated form — admin asked
+// for them to also share in the 2 new forms' leads. Old form stays
+// Simar-exclusive (unchanged); the 2 new forms now share priority between
+// BOTH dedicated teams (whichever has more room), not Kulwinder singh alone.
+const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
+    '26784403284560247': [SIMAR_MANAGER_ID],
+    '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
+    '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
 };
 
 // v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
@@ -54,14 +59,14 @@ const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // p
 const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
 const isWomenFormManagerScoped = (u: { manager_id?: string; id: string }) =>
     WOMEN_FORM_MANAGER_IDS.includes(u.manager_id || '') || EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
-// Priority pool for a SPECIFIC women-only form_id (its own dedicated manager
-// + Priya Goyal only when that manager is Simar).
+// Priority pool for a SPECIFIC women-only form_id (its own dedicated
+// manager(s) + Priya Goyal only when Simar is one of them).
 const isPriorityForForm = (u: { manager_id?: string; id: string }, formId: string | null) => {
     if (!formId) return false;
-    const priorityManagerId = WOMEN_FORM_PRIORITY_MANAGER[formId];
-    if (!priorityManagerId) return false;
-    if (u.manager_id === priorityManagerId) return true;
-    return priorityManagerId === SIMAR_MANAGER_ID && EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
+    const priorityManagerIds = WOMEN_FORM_PRIORITY_MANAGER[formId];
+    if (!priorityManagerIds) return false;
+    if (priorityManagerIds.includes(u.manager_id || '')) return true;
+    return priorityManagerIds.includes(SIMAR_MANAGER_ID) && EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
 };
 
 // ----------------------------------------------------------------------
