@@ -138,6 +138,19 @@ const WORKING_HOURS = { START: 8, END: 22, TIMEZONE: 'Asia/Kolkata' };
 // (existing/queued leads still carry it) — new leads use the new ones.
 const WOMEN_ONLY_FORM_IDS = ['26784403284560247', '1771429337239760', '28656339480638911'];
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
+// 2026-08-13: old ECO@WIN12 ad account (Simar-priority) was disabled; the 2
+// replacement forms belong to a DIFFERENT manager's team (Kulwinder singh,
+// ks6315077@gmail.com — manages both ECO@WIN12 and ECOKULWINDER). Each
+// women-only form has its OWN priority manager, not a single shared one.
+const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks6315077@gmail.com
+const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string> = {
+  '26784403284560247': SIMAR_MANAGER_ID,
+  '1771429337239760': KULWINDER_MANAGER_ID,
+  '28656339480638911': KULWINDER_MANAGER_ID,
+};
+// Every manager whose team is dedicated to a women-only form — excluded from
+// every OTHER (non-women-only) lead, same rule that already applied to Simar.
+const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
 
 // v11 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
 // team_code=TEAMFIRE, NOT managed by Simar) should get the exact same
@@ -264,12 +277,14 @@ async function findManagerScopedAssignee(supabase: any, managerId: string, extra
 
 // Same eligibility + fairness rule as get_best_assignee_for_team RPC
 // (2-pass: <=60% daily limit first, then <=100%; fill_ratio ASC, plan_weight
-// DESC), but additionally excludes anyone managed by `excludeManagerId`.
-// Kept inline rather than modifying the shared RPC (CLAUDE.md rule 4) —
-// this exclusion must ONLY apply to non-women's-form leads from this sheet
-// intake channel, not to every caller of the RPC (e.g. meta-webhook).
-async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string, excludeManagerId: string, extraExcludeUserIds: string[] = []) {
+// DESC), but additionally excludes anyone managed by any ID in
+// `excludeManagerIds`. Kept inline rather than modifying the shared RPC
+// (CLAUDE.md rule 4) — this exclusion must ONLY apply to non-women's-form
+// leads from this sheet intake channel, not to every caller of the RPC
+// (e.g. meta-webhook).
+async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string, excludeManagerIds: string | string[], extraExcludeUserIds: string[] = []) {
   const teamArray = teamCode.replace(/\s+/g, '').split(',');
+  const excludeIds = Array.isArray(excludeManagerIds) ? excludeManagerIds : [excludeManagerIds];
 
   let query = supabase
     .from('users')
@@ -278,7 +293,7 @@ async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string,
     .eq('is_active', true)
     .eq('is_online', true)
     .in('role', ['member', 'manager'])
-    .or(`manager_id.is.null,manager_id.neq.${excludeManagerId}`);
+    .or(`manager_id.is.null,manager_id.not.in.(${excludeIds.join(',')})`);
 
   if (extraExcludeUserIds.length > 0) {
     query = query.not('id', 'in', `(${extraExcludeUserIds.join(',')})`);
@@ -541,18 +556,28 @@ serve(async (req) => {
     let finalUserName: string | null = null;
 
     if (isWomenOnlyForm) {
-      // Women-only form: Simar's team (+ pawangoyal1927@gmail.com, v11) gets
-      // FIRST REFUSAL, not exclusive rights.
-      let target = await findManagerScopedAssignee(supabase, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
+      // Women-only form: EACH form_id has its own dedicated priority manager
+      // (see WOMEN_FORM_PRIORITY_MANAGER) — that manager's team gets FIRST
+      // REFUSAL, not exclusive rights.
+      const priorityManagerId = formId ? WOMEN_FORM_PRIORITY_MANAGER[formId] : undefined;
+      const priorityExtraIds = priorityManagerId === SIMAR_MANAGER_ID ? EXTRA_WOMEN_FORM_USER_IDS : [];
 
-      // v10 (admin decision 2026-08-08): if nobody under Simar can take it
-      // right now (daily limit reached, or no active user at all), the lead
-      // goes to the normal team pool instead of sitting in Queued. Admin's
-      // rule is explicit: no lead should ever be parked in Queued — a lead
-      // nobody works is pure wasted ad spend. Priority is preserved because
-      // Simar's team is always checked first.
+      let target = priorityManagerId
+        ? await findManagerScopedAssignee(supabase, priorityManagerId, priorityExtraIds)
+        : null;
+
+      // v10 (admin decision 2026-08-08): if nobody under the priority manager
+      // can take it right now (daily limit reached, or no active user at
+      // all), the lead goes to the normal team pool instead of sitting in
+      // Queued. Admin's rule is explicit: no lead should ever be parked in
+      // Queued — a lead nobody works is pure wasted ad spend. Priority is
+      // preserved because the dedicated manager's team is always checked
+      // first. Fallback excludes EVERY women-form-dedicated manager (not
+      // just this form's), so leads never cross-pollinate between the
+      // separate dedicated pools — they only fall through to the general
+      // team pool (e.g. TEAMFIRE).
       if (!target) {
-        target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
+        target = await findTeamAssigneeExcludingManager(supabase, teamCode, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
       }
 
       if (!target) {
@@ -569,11 +594,12 @@ serve(async (req) => {
       finalUserId = target.id;
       finalUserName = target.name;
     } else {
-      // Mutual exclusivity (admin decision 2026-08-08): non-women's-form
-      // leads must never land with Simar's managed users — that pool is
-      // reserved exclusively for the women-only form above. Same exclusion
-      // applies to pawangoyal1927@gmail.com as of v11.
-      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, SIMAR_MANAGER_ID, EXTRA_WOMEN_FORM_USER_IDS);
+      // Mutual exclusivity (admin decision 2026-08-08, extended 2026-08-13):
+      // non-women's-form leads must never land with any women-form-dedicated
+      // manager's users (Simar's or Kulwinder singh's) — those pools are
+      // reserved exclusively for their own women-only forms above. Same
+      // exclusion applies to pawangoyal1927@gmail.com as of v11.
+      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
 
       if (!target) {
         await supabase.from('leads').insert({
