@@ -327,6 +327,33 @@ new-crm-saas/
 - Deployed manually via Supabase Dashboard / Cloudflare Pages — MCP `deploy_edge_function` still
   returns `-32003 requires approval` this session.
 
+### 2026-08-13 — WRONG PRIORITY MANAGER on the 2 new women-only forms (PR #142)
+- **Follow-up bug found immediately after deploying #139/#140.** Live-verified 5 leads leaked to
+  TEAMFIRE within ~15 min of that deploy going live, then 2 more leaked to Simar's own team
+  (Priya Bhatiya, Priya Goyal) while this fix was being written — both leaks from the SAME root
+  cause, caught live via direct queries.
+- **Root cause:** the previous fix correctly recognized the 2 new form_ids as women-only, but the
+  priority-check still only looked for **Simar's** `manager_id`. The 2 new forms actually belong
+  to a **different manager** — **Kulwinder singh (ks6315077@gmail.com)**, who manages both
+  `ECO@WIN12` and `ECOKULWINDER` — confirmed by looking up the `manager_id` on the leads that had
+  already leaked. Zero eligible candidates were ever found under Simar for these 2 forms, so every
+  lead fell straight through to general TEAMFIRE routing instead of Kulwinder's team.
+- **Fix:** `WOMEN_FORM_PRIORITY_MANAGER` now maps each form_id to its **own** dedicated manager
+  (Simar for the original form, Kulwinder singh for the 2 new ones) in both `sheet-lead-intake`
+  and `process-backlog`. `WOMEN_FORM_MANAGER_IDS` (both managers) is used for excluding
+  dedicated-team members from non-women-only leads, so the two pools never cross-pollinate —
+  fallback always lands in the general team pool (TEAMFIRE), never the other manager's team.
+- **All 7 leaked leads manually corrected** (sequential SQL, never pg_net-fanned-out) — 5 moved
+  off TEAMFIRE, 2 moved off Simar's team, all onto Kulwinder singh's team per the admin's explicit
+  priority order (ECO@WIN12/ECOKULWINDER first, TEAMFIRE only as fallback). Final state: **56
+  leads** across the 2 new forms, 100% on Kulwinder singh's team, 0 on TEAMFIRE, 0 on Simar's team.
+- Full re-verify after: counter drift **0**, over-quota active users **0**, users over
+  `daily_limit` **0**, duplicate phones today **0**.
+- **This is the SECOND deploy-then-leak cycle for this same feature** — flagged clearly to admin:
+  every live lead continues routing on the OLD (buggy) logic until this fix is actually deployed
+  (MCP `deploy_edge_function` still blocked, `-32003 requires approval`). Sent both files again,
+  marked urgent.
+
 ### 2026-08-13 — Old ECO@WIN12 ad account disabled — 2 replacement forms wired up (PRs #139, #140)
 - Old ad account got disabled (Meta policy, one ad flagged). Admin set up **two** new ad
   accounts/forms for the same women-only audience: `1771429337239760` and (found live before
