@@ -327,6 +327,26 @@ new-crm-saas/
 - Deployed manually via Supabase Dashboard / Cloudflare Pages — MCP `deploy_edge_function` still
   returns `-32003 requires approval` this session.
 
+### 2026-08-13 — Simar's idle team added to the 2 new forms' priority pool (PR #144)
+- **Follow-up, same day.** Once the old ad account stopped generating leads, Simar's original team
+  (Priya Bhatiya, Parwati, Baljinder kaur) had **zero leads all day** — their dedicated form
+  (`26784403284560247`) simply had no incoming traffic anymore, while the 2 new forms' priority
+  pool (Kulwinder singh's team only, per PR #142) kept getting leads. Not a bug — a routing gap
+  the new-form fix didn't address.
+- **Admin decision**: the 2 new forms should now share priority between **both** dedicated teams
+  (Simar's + Kulwinder singh's), fairest-first across the combined pool — whoever has more room
+  gets the lead. The **old** form stays Simar-exclusive, unchanged (no reason to touch what still
+  works).
+- **Fix**: `WOMEN_FORM_PRIORITY_MANAGER` values changed from a single manager ID to an array.
+  `findManagerScopedAssignee` (`sheet-lead-intake`) and `isPriorityForForm` (`process-backlog`)
+  generalized to accept multiple manager IDs, so the priority-pool query naturally spans both
+  teams and picks whoever has the lowest fill-ratio. Fallback (`TEAMFIRE`) still only triggers
+  once **both** teams are full. `npm run build` + `tsc --noEmit` clean before merge.
+- **No backlog to redistribute at the time of the fix** (checked — 0 rows in Night_Backlog/Queued),
+  so nothing needed manual reassignment; the 3 idle members will start receiving leads
+  automatically as soon as the deploy goes live and new leads arrive.
+- Sent both files for manual deploy (MCP `deploy_edge_function` still blocked, `-32003`).
+
 ### 2026-08-13 — WRONG PRIORITY MANAGER on the 2 new women-only forms (PR #142)
 - **Follow-up bug found immediately after deploying #139/#140.** Live-verified 5 leads leaked to
   TEAMFIRE within ~15 min of that deploy going live, then 2 more leaked to Simar's own team
