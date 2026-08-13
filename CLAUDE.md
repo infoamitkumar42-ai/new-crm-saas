@@ -327,6 +327,36 @@ new-crm-saas/
 - Deployed manually via Supabase Dashboard / Cloudflare Pages — MCP `deploy_edge_function` still
   returns `-32003 requires approval` this session.
 
+### 2026-08-13 — Old ECO@WIN12 ad account disabled — 2 replacement forms wired up (PRs #139, #140)
+- Old ad account got disabled (Meta policy, one ad flagged). Admin set up **two** new ad
+  accounts/forms for the same women-only audience: `1771429337239760` and (found live before
+  admin mentioned it) `28656339480638911`, both on the same Google Sheet (new tabs, same sheet —
+  no Apps Script change needed) and the same CAPI dataset (`2334725197446887`, confirmed via
+  Lead Integration screenshot — Business-Manager-level pixel, survives the ad-account swap).
+- `WOMEN_ONLY_FORM_ID` (single string) → `WOMEN_ONLY_FORM_IDS` (array, `.includes()`) in both
+  `sheet-lead-intake` and `process-backlog`. Old ID kept (existing/queued leads still carry it).
+- **47 leads had already landed under the 3rd form_id (`28656339480638911`) before it was
+  recognized** — went through normal team routing instead of the women's-priority path (found
+  via routine "check Google Sheet leads" query, admin hadn't yet mentioned this 2nd new form).
+  Admin's instruction for this batch specifically: today's 10 newly-activated users (5 new
+  ECOKULWINDER signups + 5 ECO@WIN12 renewals — Prema, Toshiba, Jiya, Mansi, jayashri, Shagufta,
+  Kulwinder, Lalita, Bhairulal, Suraj) get first priority, TEAMFIRE only as fallback if their
+  capacity runs out — a one-time override for today's backlog, not a permanent code change
+  (permanent behavior for this form_id follows the same Simar-priority-then-fallback pattern as
+  the other 2 women-only forms).
+  - Un-assigned 3 leads that had landed on non-priority TEAMFIRE members (Himanshu, Ravenjeet,
+    Harmandeep) via the still-undeployed old code, then sequentially (never pg_net-fanned-out)
+    redistributed all 47 across the 10 priority users by fill-ratio. Priority pool's combined
+    free capacity (124) comfortably covered the 47 — TEAMFIRE fallback never triggered.
+  - **2 more leads leaked to TEAMFIRE (Asha, Himanshu) mid-fix** — arrived live via
+    `sheet-lead-intake` while the code fix was committed but not yet deployed (MCP
+    `deploy_edge_function` still blocked, admin deploys manually). Caught and reassigned to the
+    priority pool the same way. Final split: all 49 leads on the 10 priority users, 0 on
+    TEAMFIRE, drift 0, no one over `daily_limit`.
+  - ⚠️ **This leak stops once the admin deploys the updated files** — sent both function files
+    for manual deploy, flagged urgency since every live lead until then still routes on the old
+    2-form-ID logic.
+
 ### 2026-08-11 — 8 leads found missing from Meta's Google Sheet + women-only-form routing audit
 - **Admin uploaded a Meta CSV export (44 leads, 10-Aug, women-only form
   `26784403284560247`, "team simar ad campaing", 3 ad variants).** Cross-checked against the
