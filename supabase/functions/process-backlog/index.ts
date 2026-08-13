@@ -29,6 +29,16 @@ const corsHeaders = {
 // (existing/queued leads still carry it) — new leads use the new ones.
 const WOMEN_ONLY_FORM_IDS = ['26784403284560247', '1771429337239760', '28656339480638911'];
 const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@forever.com
+// 2026-08-13: the 2 replacement forms (after the old ECO@WIN12 ad account
+// was disabled) belong to a DIFFERENT manager's team — Kulwinder singh
+// (ks6315077@gmail.com), who manages both ECO@WIN12 and ECOKULWINDER. Each
+// women-only form has its own dedicated priority manager, not one shared ID.
+const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks6315077@gmail.com
+const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string> = {
+    '26784403284560247': SIMAR_MANAGER_ID,
+    '1771429337239760': KULWINDER_MANAGER_ID,
+    '28656339480638911': KULWINDER_MANAGER_ID,
+};
 
 // v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
 // team_code=TEAMFIRE, NOT managed by Simar) gets the same women-only-form
@@ -36,9 +46,23 @@ const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@foreve
 // identical change made in sheet-lead-intake v11. Kept as an explicit
 // user-id list rather than changing her manager_id (would incorrectly
 // move her under Simar for reporting purposes elsewhere in the app).
+// Only applies to Simar's own form — not Kulwinder singh's.
 const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // pawangoyal1927@gmail.com
-const isSimarScoped = (u: { manager_id?: string; id: string }) =>
-    u.manager_id === SIMAR_MANAGER_ID || EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
+
+// Excluded from every OTHER (non-women-only) lead — each of these managers'
+// teams is dedicated to their own women-only form.
+const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
+const isWomenFormManagerScoped = (u: { manager_id?: string; id: string }) =>
+    WOMEN_FORM_MANAGER_IDS.includes(u.manager_id || '') || EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
+// Priority pool for a SPECIFIC women-only form_id (its own dedicated manager
+// + Priya Goyal only when that manager is Simar).
+const isPriorityForForm = (u: { manager_id?: string; id: string }, formId: string | null) => {
+    if (!formId) return false;
+    const priorityManagerId = WOMEN_FORM_PRIORITY_MANAGER[formId];
+    if (!priorityManagerId) return false;
+    if (u.manager_id === priorityManagerId) return true;
+    return priorityManagerId === SIMAR_MANAGER_ID && EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
+};
 
 // ----------------------------------------------------------------------
 // HELPER: Infer State from Phone (Simplified Copy)
@@ -238,10 +262,11 @@ serve(async (req) => {
                 // If teamCodes is null (unresolved source), no team filter is applied —
                 // same permissive fallback as before this fix.
 
-                // 3b. Form-based exclusion — leads from any form OTHER than the
-                // women-only form must never reach Simar's managed users.
+                // 3b. Form-based exclusion — leads from any form OTHER than a
+                // women-only form must never reach a women-form-dedicated
+                // manager's users (Simar's or Kulwinder singh's).
                 // (Skipped entirely when form_id is unknown; see header note.)
-                if (leadFormId && !isWomenOnlyForm && isSimarScoped(u)) {
+                if (leadFormId && !isWomenOnlyForm && isWomenFormManagerScoped(u)) {
                     if (i === 0) firstLeadRejections.form++;
                     return false;
                 }
@@ -271,21 +296,23 @@ serve(async (req) => {
                 continue;
             }
 
-            // B2. Women-only form: Simar's team gets FIRST REFUSAL. If at least
-            // one of their users is still eligible, narrow the pool to them.
-            // If none are (daily limit full / nobody active), the full pool is
-            // kept so the lead still goes out instead of sitting in the queue —
-            // exactly the fallback rule live in sheet-lead-intake v10.
+            // B2. Women-only form: THAT form's dedicated priority manager's
+            // team gets FIRST REFUSAL. If at least one of their users is
+            // still eligible, narrow the pool to them. If none are (daily
+            // limit full / nobody active), the full pool is kept so the
+            // lead still goes out instead of sitting in the queue — exactly
+            // the fallback rule live in sheet-lead-intake v10.
             if (isWomenOnlyForm) {
-                const simarFirst = eligible.filter(isSimarScoped);
+                const priorityFirst = eligible.filter(u => isPriorityForForm(u, leadFormId));
                 // Diagnostic-only (2026-08-11): trace who was in the eligible
-                // pool vs who was Simar-scoped, for the same "why did this fall
-                // through despite apparent capacity" question sheet-lead-intake
-                // logs. Does not affect the assignment logic below.
+                // pool vs who was priority-scoped for this form, for the same
+                // "why did this fall through despite apparent capacity"
+                // question sheet-lead-intake logs. Does not affect the
+                // assignment logic below.
                 console.log('👥 Women-form: eligible pool', eligible.map((u: any) => u.name),
-                    '| Simar-scoped among them:', simarFirst.map((u: any) => u.name));
-                if (simarFirst.length > 0) {
-                    eligible = simarFirst;
+                    '| priority-scoped among them:', priorityFirst.map((u: any) => u.name));
+                if (priorityFirst.length > 0) {
+                    eligible = priorityFirst;
                 }
             }
 
