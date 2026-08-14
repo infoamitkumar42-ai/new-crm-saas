@@ -204,12 +204,17 @@ function buildLeadDetails(body: any): Record<string, string> | null {
     profession: 'Profession',
     experience: 'Experience',
     dob: 'Date of Birth',
+    email: 'Email',
   };
   for (const [key, label] of Object.entries(map)) {
     const v = (body[key] || '').toString().trim();
     if (v) details[label] = v;
   }
   return Object.keys(details).length > 0 ? details : null;
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // Finds the best active user managed by ANY id in `managerIds`, using the
@@ -371,7 +376,8 @@ async function sendCapiLeadEvent(
   name: string,
   phone: string,
   city: string,
-  state: string | null
+  state: string | null,
+  email: string | null = null
 ) {
   try {
     let teamCode: string | null = null;
@@ -436,6 +442,11 @@ async function sendCapiLeadEvent(
     const hashedState = state ? await hashValue(state) : '';
     const hashedCountry = await hashValue('in');
     const hashedExternalId = await hashValue(String(leadId));
+    // Email match-key (2026-08-14) — extra matched key = higher Meta Event
+    // Match Quality score = better ad-delivery optimization, same reasoning
+    // as the v9 CAPI match-quality upgrade. Only hashed/sent when it looks
+    // like a real email, so junk values never pollute the match keys.
+    const hashedEmail = email && isValidEmail(email) ? await hashValue(email) : '';
 
     const userData: Record<string, any> = {
       ph: [hashedPhone],
@@ -446,6 +457,7 @@ async function sendCapiLeadEvent(
     if (hashedLast) userData.ln = [hashedLast];
     if (hashedCity) userData.ct = [hashedCity];
     if (hashedState) userData.st = [hashedState];
+    if (hashedEmail) userData.em = [hashedEmail];
 
     for (const [pixelId, config] of matchedPixels) {
       const capiPayload = {
@@ -532,6 +544,7 @@ serve(async (req) => {
     const source = (body.source || `GoogleSheet-${sourceTeamLabel}`).toString().trim();
     const phone = sanitizePhone(body.phone);
     const formId = (body.form_id || '').toString().replace(/^f:/, '').trim() || null;
+    const email = (body.email || '').toString().trim().toLowerCase() || null;
     const leadDetails = buildLeadDetails(body);
     const isWomenOnlyForm = WOMEN_ONLY_FORM_IDS.includes(formId);
 
@@ -680,7 +693,7 @@ serve(async (req) => {
     }
 
     // ---- CAPI signal (non-critical, matched by the ACTUAL assigned user's team) ----
-    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city, state);
+    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city, state, email);
 
     return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

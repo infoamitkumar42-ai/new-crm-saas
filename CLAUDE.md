@@ -270,6 +270,25 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-14 — Email CAPI match-key added for sheet-sourced leads (`sheet-lead-intake`)
+- **Follow-up to the new form_id 27622038114105519 restriction (same day, see entry below).** Admin
+  added an Email field to the new form and asked whether it reaches CRM/CAPI for match-quality —
+  live check found **0/20 real leads from this form had an email captured anywhere**: `sheet-lead-
+  intake` never read `body.email` at all (silently dropped), and the CAPI payload (`sendCapiLeadEvent`)
+  had no `em` (hashed email) field to begin with, regardless of whether the Sheet forwarded it.
+- **Fix**: `buildLeadDetails()` now also captures `email` -> `lead_details.Email` (JSONB, no schema
+  change). `sendCapiLeadEvent()` takes a new optional `email` param, validates it looks like a real
+  email (`isValidEmail` — junk values never get hashed/sent), and adds a hashed `em` array to the
+  CAPI `user_data` alongside the existing ph/fn/ln/ct/st/external_id keys — same match-quality
+  reasoning as the 2026-08-08 v9 CAPI upgrade. Applies to **every** sheet-sourced lead (not just this
+  one form_id) — harmless no-op for forms that don't send an email field.
+- ⚠️ **Apps Script side still needs a manual check/patch (outside this repo)** — the Sheet's Apps
+  Script must forward the new Email column as a JSON key literally named `email` in the POST body
+  it sends to `sheet-lead-intake`, or this fix has nothing to read. Not verified from this session
+  (no Apps Script access) — admin needs to confirm the column is being forwarded correctly.
+- `npm run build` clean before merge. Sent updated file for manual deploy (MCP `deploy_edge_function`
+  still blocked, `-32003`) — not yet live-verified (no real lead with an email has come in yet).
+
 ### 2026-08-14 — New mixed-gender form (27622038114105519) restricted to TEAMFIRE + TEAMSIMRAN
 - **Admin set up a new Meta ad account/form** for MIXED (male+female) leads, routed through the
   same Google Sheet integration already used for the women-only forms. Requirement: unlike the
