@@ -270,6 +270,30 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-14 — Email match-key extended to `send-crm-conversion` + 44 leads backfilled
+- **Follow-up to the email-CAPI fix above (same day).** That fix only covered `sheet-lead-intake`'s
+  initial 'Lead' event. Checked `send-crm-conversion` (fires QualifiedLead/ClosedDeal/FollowUp on
+  status change, origin-pixel-matched) — the events ad optimization actually relies on — and found
+  it had **no email match-key either**, and didn't even select `lead_details` from the `leads` table.
+- **Fix**: `send-crm-conversion` now selects `lead_details`, reads `lead_details.Email` (same key
+  `sheet-lead-intake` writes), validates it, hashes it, and adds `em` to `user_data` — same pattern
+  as the sheet-intake fix. `npm run build` clean.
+- **Root cause of the missing patch**: the Apps Script (Google-side, outside this repo) never read
+  or forwarded an email column at all — confirmed by reading the actual deployed `Code.gs` (v7) the
+  admin pasted. Sent a v8 patch (adds `email` to `buildColMap()` + the payload) — admin deployed it
+  to the Apps Script project directly.
+- **Backfill**: sent a small read-only diagnostic Apps Script function to dump phone+email pairs
+  from the Sheet's "new all form" tab (the only tab with an Email column) — 44 pairs found, all 44
+  matched existing CRM leads by phone, all had `lead_details.Email` missing. Backfilled via a single
+  `UPDATE ... WHERE lead_details ? 'Email' IS FALSE` (JSONB merge, no schema change, no overwrite of
+  existing keys). Verified 44/44 rows updated correctly.
+- ⚠️ This backfill only fixes **display/data** for those 44 leads and any *future* status-change CAPI
+  event on them — it does **not** retroactively resend the initial 'Lead' CAPI event (already sent
+  without `em` when each lead was first assigned; Meta doesn't accept event replay for match-key
+  corrections). Going forward (patched Apps Script + this fix), new leads get email end-to-end.
+- Sent updated `send-crm-conversion` file for manual deploy (MCP `deploy_edge_function` still
+  blocked, `-32003`) — not yet live-verified (needs a real status-change event on a lead with email).
+
 ### 2026-08-14 — Email CAPI match-key added for sheet-sourced leads (`sheet-lead-intake`)
 - **Follow-up to the new form_id 27622038114105519 restriction (same day, see entry below).** Admin
   added an Email field to the new form and asked whether it reaches CRM/CAPI for match-quality —

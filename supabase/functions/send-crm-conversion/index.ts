@@ -76,6 +76,10 @@ function formatPhone(p: string): string {
   return digits;
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -96,10 +100,10 @@ serve(async (req) => {
       });
     }
 
-    // ── Fetch lead (now also state, for better matching) ──
+    // ── Fetch lead (now also state + lead_details, for better matching) ──
     const { data: lead } = await supabase
       .from('leads')
-      .select('id, name, phone, city, state, source, assigned_to')
+      .select('id, name, phone, city, state, source, assigned_to, lead_details')
       .eq('id', lead_id)
       .single();
 
@@ -197,6 +201,12 @@ serve(async (req) => {
     const hashedState = lead.state ? await hashValue(lead.state) : '';
     const hashedCountry = await hashValue('in');
     const hashedExternalId = await hashValue(String(lead.id));
+    // Email match-key (2026-08-14) — read from lead_details.Email (populated
+    // by sheet-lead-intake for sheet-sourced leads). These status-change
+    // events (QualifiedLead/ClosedDeal/FollowUp) are the ones ad optimization
+    // actually relies on, so this matters more than the initial Lead event.
+    const rawEmail = (lead.lead_details?.Email || '').toString().trim().toLowerCase();
+    const hashedEmail = rawEmail && isValidEmail(rawEmail) ? await hashValue(rawEmail) : '';
 
     // Build user_data with only the keys we actually have (Meta ignores empties,
     // but omitting them keeps the payload clean and match quality accurate).
@@ -209,6 +219,7 @@ serve(async (req) => {
     if (hashedLast) userData.ln = [hashedLast];
     if (hashedCity) userData.ct = [hashedCity];
     if (hashedState) userData.st = [hashedState];
+    if (hashedEmail) userData.em = [hashedEmail];
 
     const results: any[] = [];
 
