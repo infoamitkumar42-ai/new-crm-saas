@@ -270,6 +270,39 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-14 — New mixed-gender form (27622038114105519) restricted to TEAMFIRE + TEAMSIMRAN
+- **Admin set up a new Meta ad account/form** for MIXED (male+female) leads, routed through the
+  same Google Sheet integration already used for the women-only forms. Requirement: unlike the
+  women-only forms, this one must NEVER reach ECO@WIN12/ECOKULWINDER (Simar's/Kulwinder singh's
+  dedicated pools) — only `TEAMFIRE` and `TEAMSIMRAN` are eligible.
+- **Fix (`sheet-lead-intake` + `process-backlog`)**: new `RESTRICTED_TEAM_FORM_IDS` map
+  (`'27622038114105519' -> ['TEAMFIRE','TEAMSIMRAN']`) overrides whatever team_code the
+  `sheet_intake_token` itself carries, so this form's routing is correct regardless of which
+  existing integration/secret the Apps Script ends up sending it through. This form is NOT
+  women-only, so it takes the normal (non-priority) assignment branch in both functions — the
+  restriction only narrows the eligible team pool, nothing else about the flow changes. Women-only
+  form logic (`WOMEN_ONLY_FORM_IDS`, priority-manager routing) is completely untouched.
+- ⚠️ **`TEAMSIMRAN` currently has 0 active users** (23 total, checked live) — until someone on that
+  team is active/paid, this form's leads will effectively land on TEAMFIRE only, exactly matching
+  the admin's own fallback expectation. No further code change needed when TEAMSIMRAN gets active
+  members — they'll automatically join the pool.
+- `npm run build` clean before merge. Sent both files for manual deploy (MCP `deploy_edge_function`
+  still returns `-32003 requires approval` this session) — not yet live-verified via test invocation,
+  pending admin's deploy confirmation.
+
+### 2026-08-13 — August offer extended 2 more days (PR #146) + urgency push notifications
+- **Offer extension**: `config/offer.ts` `OFFER.endsAt` → `2026-08-15T23:59:59+05:30` (was
+  `2026-08-12T23:59:59+05:30`, already expired by ~11h when caught). `OFFER_ACTIVE` unchanged.
+  Backend `PLAN_CONFIG` (`functions/api/razorpay-webhook.ts` + `razorpay-reconcile`) doesn't
+  auto-expire on `endsAt` and was already giving correct offer quota throughout — full audit found
+  **0 mismatches** between backend quota and what active users actually have (`daily_limit`/
+  `total_leads_promised` all correctly synced to their plan via `trg_sync_user_plan_fields`).
+- **Urgency push notifications** sent to the 8 active users with lowest remaining lifetime quota
+  (`total_leads_promised - actual leads <= 30`) via `send-push-notification`'s direct `user_id`
+  payload branch. 5 delivered successfully (PRIYA/goyal.misspriya, Ankush, Ajay kumar, Sameer,
+  Ansh). **3 users have no push subscription at all** (Priya Goyal — 13 pending, Asha — 23,
+  Priya Bhatiya — 21) — flagged to admin to reach them another way (WhatsApp/direct message).
+
 ### 2026-08-11 — RENEWAL-WHILE-ACTIVE FIX: no more instant cutoff mid-day (PRs #137, #138)
 - **Follow-up to Ravenjeet Kaur's mid-day renewal cutoff (see earlier entry same day).** Admin
   asked for a permanent fix: an active, currently-earning user who renews/upgrades should finish

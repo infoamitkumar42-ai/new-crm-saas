@@ -157,6 +157,17 @@ const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
 // every OTHER (non-women-only) lead, same rule that already applied to Simar.
 const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
 
+// 2026-08-14 (admin): new form_id 27622038114105519 — MIXED gender leads
+// (not women-only, so it takes the normal/else assignment branch below).
+// Admin requirement: must NEVER reach ECO@WIN12/ECOKULWINDER (Simar's/
+// Kulwinder singh's dedicated pools) — only TEAMFIRE + TEAMSIMRAN are
+// eligible. Restricting the team pool here (not relying on whatever
+// team_code the sheet_intake_token happens to carry) keeps this correct
+// regardless of which token/integration the Apps Script sends it through.
+const RESTRICTED_TEAM_FORM_IDS: Record<string, string[]> = {
+  '27622038114105519': ['TEAMFIRE', 'TEAMSIMRAN'],
+};
+
 // v11 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
 // team_code=TEAMFIRE, NOT managed by Simar) should get the exact same
 // women-only-form priority treatment as Simar's managed team, WITHOUT
@@ -605,7 +616,14 @@ serve(async (req) => {
       // manager's users (Simar's or Kulwinder singh's) — those pools are
       // reserved exclusively for their own women-only forms above. Same
       // exclusion applies to pawangoyal1927@gmail.com as of v11.
-      const target = await findTeamAssigneeExcludingManager(supabase, teamCode, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
+      //
+      // 2026-08-14: form-specific team restriction (RESTRICTED_TEAM_FORM_IDS)
+      // narrows the eligible team pool for specific form_ids, overriding
+      // whatever team_code the sheet_intake_token itself carries.
+      const restrictedTeams = formId ? RESTRICTED_TEAM_FORM_IDS[formId] : undefined;
+      const teamCodeForLookup = restrictedTeams ? restrictedTeams.join(',') : teamCode;
+
+      const target = await findTeamAssigneeExcludingManager(supabase, teamCodeForLookup, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
 
       if (!target) {
         await supabase.from('leads').insert({

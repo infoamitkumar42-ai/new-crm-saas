@@ -57,6 +57,17 @@ const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // p
 // Excluded from every OTHER (non-women-only) lead — each of these managers'
 // teams is dedicated to their own women-only form.
 const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
+
+// 2026-08-14 (admin): new form_id 27622038114105519 — MIXED gender leads
+// (not women-only). Admin requirement: must NEVER reach ECO@WIN12/
+// ECOKULWINDER — only TEAMFIRE + TEAMSIMRAN are eligible. Mirrors the
+// identical restriction added in sheet-lead-intake the same day. Overrides
+// whatever team_code resolveTeamCodes() would otherwise derive from the
+// lead's source/token, so it holds regardless of which sheet integration
+// this form ends up going through.
+const RESTRICTED_TEAM_FORM_IDS: Record<string, string[]> = {
+  '27622038114105519': ['TEAMFIRE', 'TEAMSIMRAN'],
+};
 const isWomenFormManagerScoped = (u: { manager_id?: string; id: string }) =>
     WOMEN_FORM_MANAGER_IDS.includes(u.manager_id || '') || EXTRA_WOMEN_FORM_USER_IDS.includes(u.id);
 // Priority pool for a SPECIFIC women-only form_id (its own dedicated
@@ -234,6 +245,12 @@ serve(async (req) => {
             const leadFormId = lead.form_id || null;
             const isWomenOnlyForm = leadFormId ? WOMEN_ONLY_FORM_IDS.includes(leadFormId) : false;
 
+            // 2026-08-14: form-specific team restriction overrides whatever
+            // resolveTeamCodes() derived from source/token (see
+            // RESTRICTED_TEAM_FORM_IDS header note).
+            const restrictedTeams = leadFormId ? RESTRICTED_TEAM_FORM_IDS[leadFormId] : undefined;
+            const teamCodesForLead = restrictedTeams || teamCodes;
+
             // Infer State
             if (!leadState || leadState === 'Unknown') {
                 leadState = inferStateFromPhone(lead.phone);
@@ -258,14 +275,14 @@ serve(async (req) => {
                 }
 
                 // 3. Team (generic — replaces old hardcoded Himanshu/Simran-only logic)
-                if (teamCodes && teamCodes.length > 0) {
-                    if (!teamCodes.includes(u.team_code)) {
+                if (teamCodesForLead && teamCodesForLead.length > 0) {
+                    if (!teamCodesForLead.includes(u.team_code)) {
                         if (i === 0) firstLeadRejections.team++;
                         return false;
                     }
                 }
-                // If teamCodes is null (unresolved source), no team filter is applied —
-                // same permissive fallback as before this fix.
+                // If teamCodesForLead is null (unresolved source, no restriction),
+                // no team filter is applied — same permissive fallback as before.
 
                 // 3b. Form-based exclusion — leads from any form OTHER than a
                 // women-only form must never reach a women-form-dedicated
