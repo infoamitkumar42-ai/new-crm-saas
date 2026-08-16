@@ -270,6 +270,21 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — August offer re-extended 2 more days (endsAt was already expired)
+- **Found offer was silently OFF in the live UI**: `OFFER.endsAt` was still `2026-08-15T23:59:59+05:30`
+  from the last extension, and today is 16-Aug — `isOfferLive()` had already flipped to `false`
+  overnight, meaning the top banner + pricing-card "AUGUST OFFER" badge were both hidden and every
+  plan's card had silently reverted to `plan.duration`/`baseTotalLeads` (`getOfferForPlan()` returns
+  `null` once `endsAt` passes — this is the exact BUG FIX'd endsAt-aware behavior from 2026-08-10,
+  working as designed, just needed a fresh extension).
+- **Fix**: `OFFER.endsAt` → `2026-08-18T23:59:59+05:30` (2 more days from today). `OFFER_ACTIVE`
+  already `true`, untouched. Backend `PLAN_CONFIG` (`functions/api/razorpay-webhook.ts` +
+  `razorpay-reconcile`) doesn't auto-expire on `endsAt` — was already giving correct offer quota
+  throughout, nothing to fix there.
+- `npm run build` clean. This is a `config/offer.ts`-only change — no Edge Function deploy needed,
+  goes live automatically with the next Cloudflare Pages build (same deploy as the Manager-plan-pace
+  PR #150, per admin's request to land both together before deploying).
+
 ### 2026-08-16 — Manager plan (offer) pace changed: 20 din/14 per din → 10 din/27 per din
 - **Admin decision**: Manager plan (August offer) ka total quota (272 leads) same rakha, lekin duration
   20 din se ghata ke **10 din** kar diya, jisse per-din pace **14 → 27 leads/din** ho gaya
