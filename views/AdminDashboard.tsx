@@ -97,6 +97,7 @@ interface AdminUserRow {
   manager_id: string | null;
   team_code: string | null;
   created_at: string;
+  is_active: boolean; // Lead-routing eligibility (pairs with is_online)
   is_online: boolean; // Added for live tracking
   total_leads_promised?: number; // Optional context
 }
@@ -1988,7 +1989,14 @@ export const AdminDashboard: React.FC = () => {
               daily_limit_override: showEditModal.daily_limit_override,
               leads_today: showEditModal.leads_today,
               plan_name: showEditModal.plan_name,
-              is_active: showEditModal.payment_status === 'active'
+              // Pass the REAL is_active, not payment_status. These are different
+              // things: payment_status='active' just means they've paid, while
+              // is_active=false means they're currently paused (self-paused from
+              // their dashboard, or auto-paused). Deriving the toggle from
+              // payment_status pre-filled it as ON for every paying user, so an
+              // admin saving an unrelated field (e.g. daily_limit) would silently
+              // un-pause someone who had deliberately paused themselves.
+              is_active: showEditModal.is_active
             }}
             onClose={() => setShowEditModal(null)}
             onSave={() => {

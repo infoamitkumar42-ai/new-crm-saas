@@ -270,6 +270,48 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — BUG-014: Admin Quick Edit silently killed users' lead flow (`is_online` desync)
+- **Symptom**: Ravenjeet Kaur (`ravenjeetkaur@gmail.com`) got zero leads all day despite being
+  `is_active=true`, `payment_status='active'`, 124 quota remaining, plan not pending. Admin asked
+  whether she paused herself or the system broke.
+- **Diagnosis**: her row was `is_active=true` **but `is_online=false`**. Every lead-routing path
+  (`get_best_assignee_for_team` RPC, `sheet-lead-intake`, `process-backlog`,
+  `assign-recycled-leads`, `assign_lead_round_robin`) requires **BOTH** flags true, so she was
+  invisible to routing while looking perfectly healthy in the admin UI. **3 more paying users were
+  in the exact same broken state** (Prince, Simran, Jashandeep kaur — 54/33/90 quota remaining),
+  all updated within the same ~1h window.
+- **ROOT CAUSE — `components/UserQuickEdit.tsx` (admin's "Quick Edit" modal)**: its save wrote
+  `is_active` **without ever touching `is_online`**. Every other write path in the codebase pairs
+  them (member pause toggle, admin activation, `check-quota-expiry`, `plan-expiry-notifier`,
+  `razorpay-webhook`/`-reconcile` — verified all 6). So if a user was paused (both false) and an
+  admin later saved Quick Edit for *any* unrelated reason (daily_limit tweak, leads_today reset),
+  they'd come back `is_active=true` / `is_online=false` — permanently unroutable, with no error
+  and no visible sign anywhere in the UI.
+- **Second bug found in the same flow**: `AdminDashboard.tsx` passed
+  `is_active: showEditModal.payment_status === 'active'` into the modal instead of the real
+  `is_active` column. `payment_status='active'` only means "has paid" — it's independent of
+  pause state. So the toggle pre-filled as ON for *every* paying user, meaning an admin saving an
+  unrelated field would silently **un-pause** someone who had deliberately paused themselves.
+  Fixed to pass `showEditModal.is_active`; also added the missing `is_active` field to the
+  `AdminUserRow` interface (which had `is_online` but not `is_active`, despite `select('*')`
+  returning it — this also cleared one pre-existing `tsc` error, 8 → 7 in that file).
+- **Fix**: Quick Edit now writes `is_online: isActive` alongside `is_active`, same pairing the
+  member dashboard's own pause toggle has had since the earlier "webhook needs is_online" fix.
+- **Data repaired**: all 4 affected users set back to `is_online=true` (verified each still had
+  `payment_status='active'` + quota remaining first). Full-table re-scan after: **0 users left in
+  the `is_active=true AND is_online=false` state**.
+- ⚠️ **Pattern to remember**: `is_online` is a *routing* flag, not a presence/heartbeat flag —
+  despite its name. A legacy `update_user_presence()` RPC still exists in the DB that would set it
+  independently as a browser-presence signal, but it is **not called from any frontend code**
+  (grepped) — leaving it alone, flagged here so nobody wires it up without realising it would
+  disable live users' lead flow.
+- **Offer daily-limit audit run at the same time (admin's separate question)**: all 38 active
+  paying users cross-checked against offer `PLAN_CONFIG` — **37/38 exactly correct**. Only
+  mismatch is Himanshu Sharma (`turbo_boost`, `daily_limit=14` vs offer's 33) — same stale value
+  as the documented 2026-08-06 case, caused by the hardcoded per-user-ID branch in
+  `sync_user_plan_fields` not having re-fired since `plan_config` changed. Flagged to admin, **not
+  auto-fixed** (deliberate special-case user).
+
 ### 2026-08-16 — August offer re-extended 2 more days (endsAt was already expired)
 - **Found offer was silently OFF in the live UI**: `OFFER.endsAt` was still `2026-08-15T23:59:59+05:30`
   from the last extension, and today is 16-Aug — `isOfferLive()` had already flipped to `false`
