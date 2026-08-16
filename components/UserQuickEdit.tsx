@@ -61,6 +61,16 @@ const UserQuickEdit: React.FC<UserQuickEditProps> = ({ user, onClose, onSave }) 
                     target_gender: targetGender,
                     target_state: targetState,
                     is_active: isActive,
+                    // 🔥 BUG FIX (2026-08-16): is_online MUST move with is_active.
+                    // Lead routing requires BOTH (get_best_assignee_for_team RPC,
+                    // sheet-lead-intake, process-backlog, assign-recycled-leads all
+                    // filter on is_active AND is_online). This modal used to write
+                    // is_active alone, so saving it on a user who was paused
+                    // (both false) left them is_active=true / is_online=false —
+                    // they LOOK active everywhere in the admin UI but silently
+                    // receive zero leads. Hit 4 real paying users on 2026-08-16.
+                    // Same pairing MemberDashboard's pause toggle already does.
+                    is_online: isActive,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', user.id);
