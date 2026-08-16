@@ -252,8 +252,14 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
     const offer = getOfferForPlan(plan.id);
     if (!offer) return plan;
 
+    // offer.duration sirf un plans ke liye set hota hai jinki offer-era
+    // pacing base plan.duration se match nahi karti (see OfferPlanOverride
+    // comment) — baaki plans ke liye plan.duration hi sahi hai.
+    const effectiveDuration = offer.duration ?? plan.duration;
+
     return {
       ...plan,
+      duration: effectiveDuration,
       dailyLeads: offer.dailyLeads,
       totalLeads: offer.totalLeads,
       replacementLimit: offer.replacementLimit,
@@ -264,7 +270,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ onClose, user: userP
         { text: `${offer.dailyLeads} Leads/Day`, icon: Target, highlight: true },
         { text: `${offer.totalLeads} Total Leads`, icon: TrendingUp, highlight: true },
         { text: `${offer.replacementLimit} Replacement Leads Included`, icon: RefreshCw, highlight: true },
-        { text: `${plan.duration} Day Campaign`, icon: Clock, highlight: false },
+        { text: `${effectiveDuration} Day Campaign`, icon: Clock, highlight: false },
       ],
     } as T & OfferExtras;
   };

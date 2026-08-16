@@ -270,6 +270,38 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — Manager plan (offer) pace changed: 20 din/14 per din → 10 din/27 per din
+- **Admin decision**: Manager plan (August offer) ka total quota (272 leads) same rakha, lekin duration
+  20 din se ghata ke **10 din** kar diya, jisse per-din pace **14 → 27 leads/din** ho gaya
+  (272 ÷ 10 = 27.2, round to 27). Turbo Boost/Weekly Boost jaisa "fast pace" ab Manager plan mein bhi.
+- **Explicit admin choice**: sirf **naye signups/renewals** se ye lagu hoga — abhi jo Manager users
+  active hain (14/din pe), unka `daily_limit` turant nahi badla (koi bhi live user impact nahi hua).
+  Wo apne agle renewal/reactivation cycle mein naye pace pe automatically sync ho jayenge
+  (`trg_sync_user_plan_fields` trigger, jo `plan_config` table se padhta hai).
+- **Changed (4 jagah, sab sync mein rakhi gayi — CLAUDE.md's PLAN_CONFIG-duplication warning follow
+  karte hue)**:
+  - DB `plan_config` table: `manager` row → `duration=10, daily_leads=27` (total_leads=272 unchanged)
+  - `functions/api/razorpay-webhook.ts` `PLAN_CONFIG.manager`: `duration: 20→10, dailyLeads: 14→27`
+  - `supabase/functions/razorpay-reconcile/index.ts` `PLAN_CONFIG.manager`: `dailyLeads: 14→27`
+  - `config/offer.ts` `OFFER.plans.manager`: `dailyLeads: 14→27` + naya optional `duration: 10` field
+- **`components/Subscription.tsx` follow-up fix (same change, found while implementing)**: pricing
+  card ka "X Day Campaign" text `plan.duration` (base, static 20) se aata tha, offer ke `dailyLeads`
+  se independent — isliye sirf `dailyLeads` badalne se card "27 Leads/Day" + "20 Day Campaign" ek
+  saath dikhata (27×20=540 ≠ 272, visibly inconsistent). `OfferPlanOverride` interface mein optional
+  `duration` field add kiya (sirf jab offer-pace base plan.duration se match na kare, tab set karo —
+  baaki 4 plans ke liye unka base duration already offer-dailyLeads se consistent hai, unhe chhuna
+  nahi pada). `applyOffer()` ab `offer.duration ?? plan.duration` use karta hai.
+- `views/Landing.tsx` pricing card bhi manually update ki (`/20 days` → `/10 days`,
+  `14 Leads/Day` → `27 Leads/Day`) — ye static JSX hai, offer.ts se dynamically nahi jud़ta.
+- **`views/Subscription.tsx` jaan-boojh kar NAHI chhua** — poori tarah offer-unaware, hardcoded
+  base values hai, aur koi jagah import/route nahi hoti (dead code, grep se confirm kiya) — is
+  change ka scope se bahar hai.
+- `npm run build` + `tsc --noEmit` dono clean (sirf pre-existing baseline noise, koi naya error
+  meri edited files mein nahi).
+- Sent `functions/api/razorpay-webhook.ts` + `razorpay-reconcile` for manual deploy (MCP
+  `deploy_edge_function` still blocked, `-32003`) — frontend files (Landing.tsx, Subscription.tsx,
+  offer.ts) normal Cloudflare Pages auto-deploy se live ho jayengi is push par.
+
 ### 2026-08-14 — Email match-key extended to `send-crm-conversion` + 44 leads backfilled
 - **Follow-up to the email-CAPI fix above (same day).** That fix only covered `sheet-lead-intake`'s
   initial 'Lead' event. Checked `send-crm-conversion` (fires QualifiedLead/ClosedDeal/FollowUp on

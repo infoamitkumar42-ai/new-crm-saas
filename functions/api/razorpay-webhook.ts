@@ -31,7 +31,7 @@ const PLAN_CONFIG: Record<string, {
     //   turbo_boost:  { ..., dailyLeads: 14, totalLeads: 108, maxReplacements: 10, fresh_count: 93, recycled_count: 15 },
     starter:      { price: 999,  duration: 10, dailyLeads: 9,  totalLeads: 90,  weight: 1, maxReplacements: 9,  fresh_count: 45, recycled_count: 45  },
     supervisor:   { price: 1499, duration: 15, dailyLeads: 11, totalLeads: 136, weight: 3, maxReplacements: 13, fresh_count: 70, recycled_count: 66  },
-    manager:      { price: 2999, duration: 20, dailyLeads: 14, totalLeads: 272, weight: 5, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
+    manager:      { price: 2999, duration: 10, dailyLeads: 27, totalLeads: 272, weight: 5, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
     weekly_boost: { price: 1999, duration: 7,  dailyLeads: 26, totalLeads: 181, weight: 7, maxReplacements: 18, fresh_count: 84, recycled_count: 97  },
     turbo_boost:  { price: 2499, duration: 7,  dailyLeads: 33, totalLeads: 227, weight: 9, maxReplacements: 21, fresh_count: 93, recycled_count: 134 },
     test_plan:    { price: 1,    duration: 1,  dailyLeads: 1,  totalLeads: 1,   weight: 1, maxReplacements: 0,  fresh_count: 1,  recycled_count: 0   },
