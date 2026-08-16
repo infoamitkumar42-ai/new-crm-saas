@@ -270,6 +270,36 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — New lead status: "Not Picked" (agent called, nobody answered)
+- **Why**: Kulwinder singh's team complained that most numbers "don't pick up". The complaint was
+  **unmeasurable** — there was no status for it, so an agent who called and got no answer had no
+  way to record that, and the lead just stayed `Assigned` (identical to never-touched). Analysis of
+  3 days (14–16 Aug, forms 911 + 519) couldn't separate "never called" from "called, no answer".
+- **What the data actually showed** (same form, same days, split by team — clean controlled test):
+  ECO@WIN12 251 leads / **95.2% untouched** / **0 positive**; ECOKULWINDER 140 / 78.6% untouched /
+  **15 positive**; TEAMFIRE 72 / 63.9% untouched / 1 positive. Per-agent: **Prema Vaishnav worked
+  21 of her 26 leads and got 14 positive (54%)** from the exact same pool, while 9 agents
+  (incl. Lalita with 76 leads, and Kulwinder singh himself with 32) worked **zero**. Across both of
+  Kulwinder's teams: 398 leads, only 37 worked (9%). So the lead pool is demonstrably fine — the
+  gap is work-rate, not quality. Still, without this status that stays an argument, not a metric.
+- **Change (frontend only, `views/MemberDashboard.tsx`)**: added `Not Picked` to the lead status
+  dropdown (📵, rose colour), to the filter dropdown + `stats.notPicked` counter, and to
+  `getStatusColor`. **No schema change needed** — verified `leads.status` has **no CHECK
+  constraint** (only `capi_event_log.event_name` does, and that's untouched).
+- ⚠️ **Deliberately INCLUDED `Not Picked` in the stale-lead reminder query** (`['Assigned',
+  'Fresh', 'Not Picked']`). Two reasons: a not-picked lead still needs a **retry** (it isn't
+  resolved), and leaving it out would let an agent permanently silence the nudge by marking
+  everything Not Picked — which would have quietly killed the whole stale-reminder system.
+- ⚠️ **`stale-lead-reminder` Edge Function needs the same one-line change and is NOT in this repo**
+  (Supabase-dashboard-only, same as `send-crm-conversion` used to be). Its status filter must
+  become `['Assigned','Fresh','Not Picked']` too, or the push reminder and the in-app popup will
+  disagree. Flagged to admin — not applied from this session.
+- **NO CAPI event for this status, on purpose.** I'd earlier suggested it would send Meta a
+  "negative signal" — that was wrong and is corrected here: Meta CAPI optimises *toward* events you
+  send, it has no notion of a negative one. The correct negative signal is simply the **absence**
+  of `QualifiedLead`, which already happens. Adding a `NotPicked` event would also require altering
+  `capi_event_log_event_name_check` (a schema change) for zero optimisation benefit.
+
 ### 2026-08-16 — BUG-014: Admin Quick Edit silently killed users' lead flow (`is_online` desync)
 - **Symptom**: Ravenjeet Kaur (`ravenjeetkaur@gmail.com`) got zero leads all day despite being
   `is_active=true`, `payment_status='active'`, 124 quota remaining, plan not pending. Admin asked
