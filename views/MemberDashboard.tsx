@@ -119,6 +119,7 @@ const getStatusColor = (status: string): string => {
     case 'Fresh': return 'bg-blue-50 border-blue-200 text-blue-700';
     case 'Contacted': return 'bg-cyan-50 border-cyan-200 text-cyan-700';
     case 'Call Back': return 'bg-yellow-50 border-yellow-200 text-yellow-700';
+    case 'Not Picked': return 'bg-rose-50 border-rose-200 text-rose-700';
     case 'Interested': return 'bg-green-50 border-green-200 text-green-700';
     case 'Follow-up': return 'bg-orange-50 border-orange-200 text-orange-700';
     case 'Closed': return 'bg-purple-50 border-purple-200 text-purple-700';
@@ -523,6 +524,7 @@ export const MemberDashboard = () => {
     interested: leads.filter(l => l.status === 'Interested').length,
     closed: leads.filter(l => l.status === 'Closed').length,
     callBack: leads.filter(l => l.status === 'Call Back').length,
+    notPicked: leads.filter(l => l.status === 'Not Picked').length,
   }), [leads]);
 
   const conversionRate = useMemo(() => {
@@ -620,13 +622,16 @@ export const MemberDashboard = () => {
           .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
 
-        // 5. Stale lead count — THIS MONTH's Assigned/Fresh leads, 24h+ old,
-        //    still without a status update
+        // 5. Stale lead count — THIS MONTH's leads, 24h+ old, still needing action.
+        //    'Not Picked' is deliberately INCLUDED (added 2026-08-16): that status
+        //    means "called, nobody answered", which is a lead still owed a RETRY,
+        //    not a finished one. Leaving it out would also let an agent silence
+        //    the reminder permanently by marking everything Not Picked.
         supabase
           .from('leads')
           .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
-          .in('status', ['Assigned', 'Fresh'])
+          .in('status', ['Assigned', 'Fresh', 'Not Picked'])
           .gte('assigned_at', monthStartIso)
           .lt('assigned_at', staleThresholdIso)
       ]);
@@ -1247,6 +1252,7 @@ export const MemberDashboard = () => {
             >
               <option value="all">All Status ({leads.length})</option>
               <option value="Fresh">🔵 Fresh ({stats.fresh})</option>
+              <option value="Not Picked">📵 Not Picked ({stats.notPicked})</option>
               <option value="Call Back">🔄 Callback ({stats.callBack})</option>
               <option value="Interested">✅ Interested ({stats.interested})</option>
               <option value="Closed">🎉 Closed ({stats.closed})</option>
@@ -1422,6 +1428,7 @@ export const MemberDashboard = () => {
                       >
                         <option value="Fresh">🔵 Fresh</option>
                         <option value="Contacted">📞 Contacted</option>
+                        <option value="Not Picked">📵 Not Picked</option>
                         <option value="Call Back">🔄 Call Back</option>
                         <option value="Interested">✅ Interested</option>
                         <option value="Follow-up">📅 Follow-up</option>
