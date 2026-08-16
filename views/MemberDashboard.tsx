@@ -27,6 +27,7 @@ import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
 import { OfferBanner } from '../components/OfferBanner';
 import { StaleLeadReminder } from '../components/StaleLeadReminder';
+import PendingLeadsGate, { GATE_BATCH_SIZE, PendingLead } from '../components/PendingLeadsGate';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
 
@@ -292,6 +293,12 @@ export const MemberDashboard = () => {
   // 📋 Leads assigned 24h+ ago with no status update yet — nudges agent to
   // update outcome (Interested/Follow-up/etc.) so CAPI gets real signal.
   const [staleLeadCount, setStaleLeadCount] = useState<number>(0);
+  // 🚦 Call/WhatsApp gate — holds the action the agent tried to take while
+  // they clear their oldest pending leads. See components/PendingLeadsGate.tsx.
+  const [gateLeads, setGateLeads] = useState<PendingLead[] | null>(null);
+  const [gateTotalPending, setGateTotalPending] = useState(0);
+  const [gateCheckingFor, setGateCheckingFor] = useState<string | null>(null);
+  const pendingActionRef = useRef<(() => void) | null>(null);
 
   // Use auth profile as the source of truth, but allow local updates (optimistic UI)
   const [profile, setProfile] = useState<any>(authProfile);
@@ -850,6 +857,51 @@ export const MemberDashboard = () => {
     // DB trigger (fires reliably regardless of client/browser state).
   };
 
+  // 🚦 Call/WhatsApp gate. Runs `action` immediately when the agent has no
+  // overdue leads; otherwise opens PendingLeadsGate with their oldest ones and
+  // replays `action` once those are saved.
+  //
+  // Only counts leads that are (a) from THIS IST month, (b) assigned 24h+ ago,
+  // and (c) still untouched ('Assigned'/'Fresh'). Today's leads are never
+  // counted — the agent is actively working those, and blocking them would
+  // defeat the point. `currentLeadId` is excluded so an agent is never asked
+  // to close out the very lead they are about to dial.
+  //
+  // Fail-open by design: if the check itself errors (network/RLS), the call
+  // goes through. A lead that never gets dialled costs more than a missed nudge.
+  const runGuardedAction = async (currentLeadId: string, action: () => void) => {
+    const userId = authProfile?.id;
+    if (!userId) { action(); return; }
+
+    setGateCheckingFor(currentLeadId);
+    try {
+      const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const monthStartIso = new Date(`${istDateStr.slice(0, 8)}01T00:00:00+05:30`).toISOString();
+      const overdueIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error, count } = await supabase
+        .from('leads')
+        .select('id, name, phone, assigned_at', { count: 'exact' })
+        .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+        .in('status', ['Assigned', 'Fresh'])
+        .gte('assigned_at', monthStartIso)
+        .lt('assigned_at', overdueIso)
+        .neq('id', currentLeadId)
+        .order('assigned_at', { ascending: true })
+        .limit(GATE_BATCH_SIZE);
+
+      if (error || !data || data.length === 0) { action(); return; }
+
+      pendingActionRef.current = action;
+      setGateTotalPending(count ?? data.length);
+      setGateLeads(data as PendingLead[]);
+    } catch {
+      action();
+    } finally {
+      setGateCheckingFor(null);
+    }
+  };
+
   const saveNote = async () => {
     if (!showNotesModal) return;
     setSavingNote(true);
@@ -1100,6 +1152,23 @@ export const MemberDashboard = () => {
         {/* 📋 STALE LEAD STATUS REMINDER — nudges agent to update outcome on
             leads assigned 24h+ ago, so CAPI gets real conversion signal. */}
         <StaleLeadReminder staleCount={staleLeadCount} />
+
+        {/* 🚦 Call/WhatsApp gate — agent must clear their oldest overdue leads
+            before dialling. Opened by runGuardedAction(). */}
+        {gateLeads && (
+          <PendingLeadsGate
+            leads={gateLeads}
+            totalPending={gateTotalPending}
+            onCancel={() => { pendingActionRef.current = null; setGateLeads(null); }}
+            onCleared={() => {
+              const action = pendingActionRef.current;
+              pendingActionRef.current = null;
+              setGateLeads(null);
+              fetchData();
+              if (action) action();
+            }}
+          />
+        )}
 
         {/* 🔥 PROMOTIONAL OFFER BANNER — config/offer.ts se control hota hai.
             Active plan wale user ko nahi dikhta jab tak quota khatam hone ke
@@ -1384,23 +1453,25 @@ export const MemberDashboard = () => {
 
                     {/* Action Buttons — Call + WhatsApp primary (labels always visible), Note/Report compact */}
                     <div className="flex items-stretch gap-2 mb-3">
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-blue-50 text-blue-600 border border-blue-200 px-1 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap hover:bg-blue-100"
+                      <button
+                        onClick={() => runGuardedAction(lead.id, () => { window.location.href = `tel:${lead.phone}`; })}
+                        disabled={gateCheckingFor === lead.id}
+                        className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-blue-50 text-blue-600 border border-blue-200 px-1 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap hover:bg-blue-100 disabled:opacity-60"
                       >
                         <Phone size={15} className="shrink-0" />
                         Call
-                      </a>
+                      </button>
 
-                      <a
-                        href={getWhatsAppLink(lead.phone, lead.name, profile.name || '')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-[1.4] min-w-0 flex items-center justify-center gap-1 bg-[#25D366] text-white px-1.5 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap shadow-sm hover:bg-[#1fb857]"
+                      <button
+                        onClick={() => runGuardedAction(lead.id, () => {
+                          window.open(getWhatsAppLink(lead.phone, lead.name, profile.name || ''), '_blank', 'noopener,noreferrer');
+                        })}
+                        disabled={gateCheckingFor === lead.id}
+                        className="flex-[1.4] min-w-0 flex items-center justify-center gap-1 bg-[#25D366] text-white px-1.5 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap shadow-sm hover:bg-[#1fb857] disabled:opacity-60"
                       >
                         <WhatsAppIcon size={16} />
                         WhatsApp
-                      </a>
+                      </button>
 
                       <button
                         onClick={() => { setShowNotesModal(lead); setNoteText(lead.notes || ''); }}
