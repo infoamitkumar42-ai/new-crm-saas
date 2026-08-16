@@ -270,6 +270,44 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — Call/WhatsApp GATE: agent must clear 10 oldest overdue leads first
+- **Admin ask**: when an agent taps Call or WhatsApp on a new lead, force a popup first
+  demanding they update their other pending leads — so status updates become mandatory, not
+  optional. (Follow-up to the `Not Picked` status added the same day.)
+- ⚠️ **Admin's literal design was measured against live data BEFORE building, and would have
+  stopped the business**: a zero-tolerance "clear this whole month" gate → **only 1 of 38 active
+  members would have passed**; the other 37 could not have called *anyone*. Average agent had
+  **49.8** un-updated leads this month, worst case **247**. Shown to admin with the numbers;
+  admin chose the batched version instead.
+- **Second reason the strict version was wrong (data-quality, not just availability)**: an agent
+  facing 50 leads between them and their next call will mass-mark junk statuses to unlock the
+  button — especially now that one-tap `Not Picked` exists. That converts "no data" into **false
+  data**, which is worse, and pollutes the CAPI signal (a wrong `Interested` sends Meta a real
+  `QualifiedLead` event). Explicitly flagged this to admin rather than shipping it silently.
+- **Built (admin picked the 10-lead variant)**: new `components/PendingLeadsGate.tsx` +
+  `runGuardedAction()` in `views/MemberDashboard.tsx`. Call/WhatsApp changed from bare `<a href>`
+  to buttons that route through the guard. Only counts leads that are (a) THIS IST month,
+  (b) assigned **24h+ ago**, (c) still `Assigned`/`Fresh`. Shows the **10 oldest**; agent sets a
+  status on each, saves, and the original Call/WhatsApp action then replays automatically.
+- **Verified against live data before merge** — nobody ends up permanently stuck: Kamal & Sandeep
+  0 pending (no popup at all, call goes straight through), Prema 3, Lalita 75 (sees 10 at a time,
+  drains over the day). Every agent can always clear a batch in under a minute.
+- ⚠️ **`Not Picked` is deliberately NOT counted as pending by this gate**, even though it IS
+  counted by the soft stale-lead reminder. A hard gate that re-surfaced a genuinely unreachable
+  lead forever would trap the agent behind it. Chasing retries is the reminder's job, not a
+  blocker's.
+- **Fail-open**: if the gate's own query errors (network/RLS), the call proceeds. An undialled
+  lead costs more than a skipped nudge.
+- Gate writes statuses **sequentially, not `Promise.all`** — each UPDATE fires
+  `trg_send_crm_conversion` → `pg_net` → CAPI. Fanning 10 of those out at once is the exact race
+  pattern documented in the 2026-08-10 pg_net incident.
+- `npm run build` + `tsc --noEmit` clean (0 errors in both touched files).
+- ⚠️ **Still open**: `stale-lead-reminder` Edge Function (Supabase-dashboard-only, not in repo)
+  still needs `Not Picked` added to its status filter, or push reminder and in-app popup disagree.
+- **Watch for gaming**: if update-rate jumps but almost everything is marked `Not Picked`/
+  `Rejected`, the statuses are fake. Re-check the status mix in 3–5 days before drawing any
+  conclusion about lead quality or CAPI improvement.
+
 ### 2026-08-16 — New lead status: "Not Picked" (agent called, nobody answered)
 - **Why**: Kulwinder singh's team complained that most numbers "don't pick up". The complaint was
   **unmeasurable** — there was no status for it, so an agent who called and got no answer had no
