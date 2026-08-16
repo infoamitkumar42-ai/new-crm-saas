@@ -70,7 +70,7 @@ const PLAN_CONFIG: Record<string, {
   //   turbo_boost:  { dailyLeads: 14, totalLeads: 108, maxReplacements: 10, fresh_count: 93, recycled_count: 15 },
   starter:      { dailyLeads: 9,  totalLeads: 90,  weight: 1, maxReplacements: 9,  fresh_count: 45, recycled_count: 45  },
   supervisor:   { dailyLeads: 11, totalLeads: 136, weight: 3, maxReplacements: 13, fresh_count: 70, recycled_count: 66  },
-  manager:      { dailyLeads: 14, totalLeads: 272, weight: 5, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
+  manager:      { dailyLeads: 27, totalLeads: 272, weight: 5, maxReplacements: 27, fresh_count: 76, recycled_count: 196 },
   weekly_boost: { dailyLeads: 26, totalLeads: 181, weight: 7, maxReplacements: 18, fresh_count: 84, recycled_count: 97  },
   turbo_boost:  { dailyLeads: 33, totalLeads: 227, weight: 9, maxReplacements: 21, fresh_count: 93, recycled_count: 134 },
 };

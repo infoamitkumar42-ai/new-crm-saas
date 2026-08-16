@@ -22,6 +22,14 @@ export interface OfferPlanOverride {
   replacementLimit: number;
   /** Normal (non-offer) total — UI mein struck-through dikhane ke liye */
   baseTotalLeads: number;
+  /**
+   * Optional — sirf tab set karo jab is plan ki offer-era pacing (dailyLeads)
+   * base plan.duration se match na kare (e.g. manager 2026-08-16: base duration
+   * 20 din hai par offer dailyLeads 27/din = 10 din ka pace). Jab set nahi ho,
+   * UI base plan.duration hi use karta hai (jo baaki 4 plans ke liye already
+   * offer-pace se consistent hai).
+   */
+  duration?: number;
 }
 
 export const OFFER = {
@@ -53,8 +61,9 @@ export const OFFER = {
     manager: {
       baseTotalLeads: 160,
       totalLeads: 272,     // 2999 / 11
-      dailyLeads: 14,      // 272 / 20 din
+      dailyLeads: 27,      // 272 / 10 din
       replacementLimit: 27,
+      duration: 10,        // 2026-08-16: 20 din -> 10 din, daily pace 14 -> 27
     },
     weekly_boost: {
       baseTotalLeads: 92,

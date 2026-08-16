@@ -812,7 +812,7 @@ export const Landing = () => {
               </Link>
             </div>
 
-            {/* Manager - ₹2,999/20 days */}
+            {/* Manager - ₹2,999/10 days */}
             <div className="bg-slate-800/50 backdrop-blur p-8 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all flex flex-col relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">
@@ -828,10 +828,10 @@ export const Landing = () => {
               </div>
               <div className="mb-6">
                 <span className="text-5xl font-black">₹2,999</span>
-                <span className="text-slate-200">/20 days</span>
+                <span className="text-slate-200">/10 days</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
-                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>14 Leads/Day</strong></li>
+                <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <strong>27 Leads/Day</strong></li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> <span className="text-slate-400 line-through mr-1">160</span> <strong className="text-green-400">272 Total Leads</strong></li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> Highest Priority (5x)</li>
                 <li className="flex gap-2 text-sm"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /> 27 Lead Replacements</li>
