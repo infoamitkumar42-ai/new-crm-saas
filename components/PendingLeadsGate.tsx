@@ -39,6 +39,18 @@ import { supabase } from '../supabaseClient';
 /** How many of the oldest pending leads an agent must clear per unlock. */
 export const GATE_BATCH_SIZE = 10;
 
+/**
+ * Users the gate never applies to — Call/WhatsApp always works for them.
+ * Admin decision 2026-08-17: Himanshu Sharma is already a deliberate
+ * special case elsewhere in this system (unlimited total_leads_promised,
+ * his own hardcoded branch in sync_user_plan_fields), and admin does not
+ * want him blocked. Keyed by user id, not email, so a display-name or
+ * address change can't silently re-enable the gate for him.
+ */
+export const GATE_EXEMPT_USER_IDS = [
+  '9dd68ace-a5a7-46d8-b677-3483b5bb0841', // sharmahimanshu9797@gmail.com
+];
+
 export interface PendingLead {
   id: string;
   name: string | null;
