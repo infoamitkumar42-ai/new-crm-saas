@@ -26,7 +26,6 @@ import {
 import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
 import { OfferBanner } from '../components/OfferBanner';
-import { StaleLeadReminder } from '../components/StaleLeadReminder';
 import PendingLeadsGate, { GATE_BATCH_SIZE, PendingLead } from '../components/PendingLeadsGate';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
@@ -290,9 +289,6 @@ export const MemberDashboard = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 🔥 Fix: Track first fresh sync
   const [hasMoreLeads, setHasMoreLeads] = useState(true);
   const [totalLeadCount, setTotalLeadCount] = useState<number | null>(null);
-  // 📋 Leads assigned 24h+ ago with no status update yet — nudges agent to
-  // update outcome (Interested/Follow-up/etc.) so CAPI gets real signal.
-  const [staleLeadCount, setStaleLeadCount] = useState<number>(0);
   // 🚦 Call/WhatsApp gate — holds the action the agent tried to take while
   // they clear their oldest pending leads. See components/PendingLeadsGate.tsx.
   const [gateLeads, setGateLeads] = useState<PendingLead[] | null>(null);
@@ -593,13 +589,7 @@ export const MemberDashboard = () => {
       }
 
       // 🚀 PARALLEL FETCHING: Fetch everything at once
-      const staleThresholdIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      // Sirf IS MAHINE ki leads count karo — purani/backlog leads ke liye nudge
-      // karna bura experience hai aur wo ab realistically actionable bhi nahi.
-      // (Same rule stale-lead-reminder edge function mein bhi hai — dono match karne chahiye.)
-      const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
-      const monthStartIso = new Date(`${istDateStr.slice(0, 8)}01T00:00:00+05:30`).toISOString();
-      const [managerResult, leadsResult, profileResult, countResult, staleCountResult] = await Promise.all([
+      const [managerResult, leadsResult, profileResult, countResult] = await Promise.all([
         // 1. Fetch Manager Name (if exists)
         authProfile?.manager_id
           ? supabase.from('users').select('name').eq('id', authProfile.manager_id).maybeSingle()
@@ -627,20 +617,7 @@ export const MemberDashboard = () => {
         supabase
           .from('leads')
           .select('id', { count: 'exact', head: true })
-          .or(`user_id.eq.${userId},assigned_to.eq.${userId}`),
-
-        // 5. Stale lead count — THIS MONTH's leads, 24h+ old, still needing action.
-        //    'Not Picked' is deliberately INCLUDED (added 2026-08-16): that status
-        //    means "called, nobody answered", which is a lead still owed a RETRY,
-        //    not a finished one. Leaving it out would also let an agent silence
-        //    the reminder permanently by marking everything Not Picked.
-        supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
           .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
-          .in('status', ['Assigned', 'Fresh', 'Not Picked'])
-          .gte('assigned_at', monthStartIso)
-          .lt('assigned_at', staleThresholdIso)
       ]);
 
       // Update UI with results
@@ -658,11 +635,6 @@ export const MemberDashboard = () => {
       // Update total count
       if (countResult?.count !== null && countResult?.count !== undefined) {
         setTotalLeadCount(countResult.count);
-      }
-
-      // Update stale lead count (for the status-update reminder popup)
-      if (staleCountResult?.count !== null && staleCountResult?.count !== undefined) {
-        setStaleLeadCount(staleCountResult.count);
       }
 
       if (leadsResult.data) {
@@ -1148,10 +1120,6 @@ export const MemberDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 sm:pb-6">
-
-        {/* 📋 STALE LEAD STATUS REMINDER — nudges agent to update outcome on
-            leads assigned 24h+ ago, so CAPI gets real conversion signal. */}
-        <StaleLeadReminder staleCount={staleLeadCount} />
 
         {/* 🚦 Call/WhatsApp gate — agent must clear their oldest overdue leads
             before dialling. Opened by runGuardedAction(). */}

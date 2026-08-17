@@ -270,6 +270,22 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-16 — Removed the in-app StaleLeadReminder popup (superseded by the Call/WhatsApp gate)
+- **Admin ask**: now that the hard gate exists, drop the old soft "briefing card" popup.
+- **Deleted `components/StaleLeadReminder.tsx`** and every trace of it in
+  `views/MemberDashboard.tsx`: import, render, `staleLeadCount` state, and the per-fetch
+  `count` query that fed it. That query ran inside `fetchData`'s `Promise.all`, i.e. on **every
+  20-second poll** — so this is a real request-volume saving, not just dead-code cleanup.
+- ⚠️ **It was also showing a stale hardcoded `DEADLINE_LABEL = 'Deadline: 10 Aug, 11:59 PM'`** —
+  6 days expired by the time it was removed. Nothing auto-updated it (the file's own comment
+  admitted it had to be edited by hand). Agents were being shown a dead deadline, which is worse
+  than no deadline; another reason removal was the right call rather than re-dating it.
+- **What still covers this job**: (1) the new `PendingLeadsGate` blocks Call/WhatsApp inside the
+  app — strictly stronger than the popup ever was; (2) the `stale-lead-reminder` **Edge Function
+  + cron (jobid 27) is untouched and still running** — it is the only thing that reaches an agent
+  who has not opened the app at all, which the gate by definition cannot do. Deliberately kept.
+- `npm run build` + `tsc --noEmit` clean; grepped for leftover references, none remain.
+
 ### 2026-08-16 — Call/WhatsApp GATE: agent must clear 10 oldest overdue leads first
 - **Admin ask**: when an agent taps Call or WhatsApp on a new lead, force a popup first
   demanding they update their other pending leads — so status updates become mandatory, not
