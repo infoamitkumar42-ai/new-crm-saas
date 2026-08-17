@@ -26,7 +26,7 @@ import {
 import { Subscription } from '../components/Subscription';
 import { SmartRenewalBanner } from '../components/SmartRenewalBanner';
 import { OfferBanner } from '../components/OfferBanner';
-import PendingLeadsGate, { GATE_BATCH_SIZE, PendingLead } from '../components/PendingLeadsGate';
+import PendingLeadsGate, { GATE_BATCH_SIZE, GATE_EXEMPT_USER_IDS, PendingLead } from '../components/PendingLeadsGate';
 import { useAuth } from '../auth/useAuth';
 import LeadAlert from '../components/LeadAlert';
 
@@ -844,6 +844,9 @@ export const MemberDashboard = () => {
   const runGuardedAction = async (currentLeadId: string, action: () => void) => {
     const userId = authProfile?.id;
     if (!userId) { action(); return; }
+
+    // Exempt users (see GATE_EXEMPT_USER_IDS) always dial straight through.
+    if (GATE_EXEMPT_USER_IDS.includes(userId)) { action(); return; }
 
     setGateCheckingFor(currentLeadId);
     try {
