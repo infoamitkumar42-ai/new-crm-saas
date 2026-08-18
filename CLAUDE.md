@@ -270,6 +270,47 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-19 (00:40 IST) — BUG-015 follow-up: `supabaseClient.ts` ka no-op `lock` ab asli mutex (v4.2)
+- **Option B, admin-approved, deliberately low-traffic window mein** (12:40 AM IST — night hours,
+  leads Night_Backlog mein ja rahi hain, live assignment band). Activity check pehle: last 2h mein
+  15 leads assign, last 1h mein 10 status updates, backlog 9 — normal raat ka traffic.
+- **Kya theek hua**: `lock` option supabase-js ko batata hai ki auth operations ko serialize karo,
+  taaki do operations ek saath same rotating `refresh_token` use na karein. Purana lock **dono
+  branches mein seedha `await fn()`** karta tha — yaani **effectively no-op**. Wo bypass jaan-boojh
+  kar lagaya gaya tha (`navigator.locks` mobile par 15s hang karti thi), par usne protection bhi
+  hata di. Ab ek asli in-memory promise-chain mutex (`authProcessLock`) hai.
+- ⚠️ **`navigator.locks` ka istemaal NAHI kiya** — wahi 15s mobile-hang ki original wajah thi. Ye
+  純 in-memory promise chain hai, isliye wo regression wapas nahi aa sakta.
+- **Deadlock-proof by design (teen guarantees)**:
+  1. `fn()` ka result jaisa hai waisa caller ko return hota hai — na error nigla jaata hai, na
+     value badalti hai. Contract 100% same.
+  2. Chain kabhi reject nahi hoti (`.then(fn, fn)`) — ek failed auth op baaki sabko block nahi
+     karta.
+  3. **WATCHDOG**: chain `LOCK_MAX_HOLD_MS` (10s) ke baad khud aage badh jaati hai chahe `fn()`
+     abhi bhi latka ho. `fn()` abort nahi hota (uska result normally aata hai), sirf chain uska
+     intezaar chhod deti hai. Worst case = ek slow request, **deadlock kabhi nahi**.
+- **Standalone test se verify kiya** (8/8 pass, `scratchpad/locktest.mjs`): 5 concurrent calls par
+  max simultaneous execution **1** (serialization proven); har caller ko apni sahi return value;
+  async error caller tak pahunchta hai aur chain zinda rehti hai; **sync throw** bhi safely handle;
+  aur ek kabhi-resolve-na-hone-wali request ke baad agli request watchdog ke bilkul baad chal padi
+  (deadlock nahi).
+- **`reset-password` ka special-case hata diya** — purane code mein wo "real lock" branch tha par
+  dono branches byte-for-byte same the (dono no-op), to koi behaviour nahi badla. Ab har page ek hi
+  consistent mutex use karta hai.
+- ⚠️ **SCOPE (important, galatfehmi na ho)**: ye lock **ek tab ke andar** serialize karta hai. Ye
+  **cross-tab (do alag tabs/windows) ko cover NAHI karta** — uske liye `navigator.locks` ya
+  storage-based lock chahiye, jo jaan-boojh kar nahi kiya (mobile hang risk). Iska asli faayda ye
+  hai ki **ek hi tab ke andar** supabase-js ke apne concurrent callers (`getSession()` on visibility
+  change, `logEvent`'s getSession, autoRefresh timer, `isAuthenticated()` helper — sab `_useSession`
+  se hokar isi lock par aate hain) ab genuinely serialize hote hain. BUG-015 ka Option A ne sirf
+  humara apna duplicate caller hataya tha; ye library ke internal concurrent callers ko cover karta
+  hai.
+- LOCKED file (`supabaseClient.ts`) — admin ki explicit approval lekar badla gaya (rule #1).
+  Header v4.0 → **v4.2 (REAL AUTH LOCK)**.
+- `npm run build` clean (1862 modules). `tsc --noEmit` mein sirf pre-existing baseline error
+  (`src/pages/ResetPassword.tsx` ka path resolution) — **main par bhi wahi error maujood hai**,
+  stash karke verify kiya, is change se unrelated.
+
 ### 2026-08-18 — BUG-015: random logout / "wapas login page" loop — refresh-token RACE fixed (v6.5)
 - **Symptom (admin's own words)**: app ya browser mein login karne ke baad jab dubara dashboard
   kholo to logout ho jaata hai, dubara login karo to phir login page par wapas; background mein
