@@ -270,6 +270,40 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-18 — FASTMOVERS added to the women-only form pool as an EQUAL third team
+- **Found while checking yesterday's payments**: 5 new paying members (₹5,495 total, 502 leads of
+  quota) were correctly activated — `is_active`/`is_online`/`payment_status` all fine, not
+  pending — but had received **ZERO leads, ever**. Root cause: their team `FASTMOVERS` appeared
+  in **neither** routing path — not in `WOMEN_FORM_PRIORITY_MANAGER`, and not in
+  `sheet_intake_tokens.team_code` (which was `'ECO@WIN12,TEAMFIRE'`). They could never have been
+  assigned anything. Their manager is Kamaldeep kaur (`kamalsohal0098@gmail.com`).
+- **Admin's rule (explicit)**: no team gets preference — the women-only form is shared **equally**
+  across all three dedicated teams. Implemented by adding `KAMALDEEP_MANAGER_ID` to the priority
+  list for both new women-only forms in `sheet-lead-intake` + `process-backlog`. The existing
+  lowest-fill-ratio round-robin then does the sharing automatically.
+- ⚠️ **"Equal" here means equal % of each agent's `daily_limit`, NOT equal raw lead counts** —
+  the teams are different sizes (ECO@WIN12 7 users/82 capacity, ECOKULWINDER 6/56, FASTMOVERS
+  5/49). Equalising raw counts would under-serve every individual on the larger team. Flagged and
+  confirmed with admin before building.
+- **Capacity verified before enabling**: pool is 187/day vs ~167 leads/day from this form
+  (4-day actuals: 180/141/172/175), so no team starves. Projected: ECO@WIN12 ~73 (was 75),
+  ECOKULWINDER ~50 (was 56), FASTMOVERS ~44 (was 0).
+- ⚠️ **TEAMFIRE loses its ~11/day fall-through from this form** — the priority pool now absorbs
+  the full volume. Small relative to TEAMFIRE's own supply (form 519 + meta-webhook) and their
+  114/276 utilisation, but stated to admin up front rather than discovered later.
+- **DB change was ALSO required, and code alone would have silently failed for backlog leads**:
+  `process-backlog` applies its `teamCodesForLead` filter **before** the priority narrowing, so
+  FASTMOVERS would have been dropped before `isPriorityForForm` ever ran. Fixed by
+  `sheet_intake_tokens.team_code` → `'ECO@WIN12,TEAMFIRE,FASTMOVERS'`. Live intake alone did not
+  need this (`findManagerScopedAssignee` never checks team_code) — the two paths differ, which is
+  exactly the class of gap that caused the 2026-08-11 stuck-backlog incident.
+- `source` label unaffected (still `GoogleSheet-ECO@WIN12` — it uses only the first team).
+  `send-crm-conversion` still matches the ECO@WIN12 pixel by lead origin, so CAPI for
+  FASTMOVERS-worked leads is unchanged.
+- Kamaldeep also added to `WOMEN_FORM_MANAGER_IDS`, so FASTMOVERS is excluded from non-women-only
+  leads and from the women-form fallback — they receive women's-form priority leads only, per
+  admin's "ECO win wali sheet se hi, women's wali se".
+
 ### 2026-08-16 — Removed the in-app StaleLeadReminder popup (superseded by the Call/WhatsApp gate)
 - **Admin ask**: now that the hard gate exists, drop the old soft "briefing card" popup.
 - **Deleted `components/StaleLeadReminder.tsx`** and every trace of it in
