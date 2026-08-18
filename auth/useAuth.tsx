@@ -1,8 +1,13 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 LOCKED - useAuth.tsx v6.4 (LOOP FIX)                  ║
+ * ║  🔒 LOCKED - useAuth.tsx v6.5 (REFRESH RACE FIX)          ║
  * ║  Locked Date: March 10, 2026                              ║
  * ║  Status: STABLE                                           ║
+ * ║                                                            ║
+ * ║  Changes from v6.4:                                        ║
+ * ║  - ✅ Removed manual proactive refreshSession() in init    ║
+ * ║       (raced with autoRefreshToken on app resume ->        ║
+ * ║        rotated refresh token reused -> false SIGNED_OUT)   ║
  * ║                                                            ║
  * ║  Changes from v6.3:                                        ║
  * ║  - ✅ FIXED infinite loop (profileRef vs profile dep)      ║
@@ -519,24 +524,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(currentSession);
           setIsNetworkError(false);
 
-          try {
-            const expiresAt = currentSession.expires_at;
-            if (expiresAt) {
-              const nowSec = Math.floor(Date.now() / 1000);
-              const timeLeftSec = expiresAt - nowSec;
-              if (timeLeftSec < 600) {
-                console.log(`🔑 Token expires in ${timeLeftSec}s — refreshing manually via proxy...`);
-                const { data: refreshData } = await supabase.auth.refreshSession();
-                if (refreshData?.session) {
-                  setSession(refreshData.session);
-                  console.log('✅ Token refreshed successfully via proxy.');
-                }
-              }
-            }
-          } catch (refreshErr) {
-            console.warn('⚠️ Manual token refresh failed, using existing session:', refreshErr);
-          }
-
+          // ⚠️ v6.5 — MANUAL PROACTIVE refreshSession() REMOVED ON PURPOSE.
+          // Yahan pehle "agar token 10 min mein expire ho raha hai to khud
+          // refresh kar lo" wala block tha. Supabase ka apna autoRefreshToken
+          // (supabaseClient.ts mein `true`) bilkul yahi kaam already karta hai,
+          // to ye DUSRA caller tha — aur dono ek hi refresh_token se ek saath
+          // request bhej dete the.
+          //
+          // Refresh tokens ROTATE hote hain: jo request pehle pahunchti hai wo
+          // naya token le leti hai aur purana turant invalid ho jaata hai; doosri
+          // ko "Invalid Refresh Token: Already Used" milta hai -> supabase-js
+          // session clear karke SIGNED_OUT fire kar deta hai -> user login page
+          // par wapas. Normally supabase-js ka `lock` isse rokta, par
+          // supabaseClient.ts ka lock dono branches mein seedha fn() call karta
+          // hai (effectively no-op), isliye kuch nahi rukta.
+          //
+          // Race sabse zyada app-resume par lagti thi (phone lock/unlock, app
+          // switch, mobile-data tower/4G-5G switch) — dono timers ek saath jaagte
+          // the. Yahi wo "dubara dashboard kholo to logout ho jaata hai" bug tha.
+          // Ise hataane se ek hi refresh caller bachta hai, race khatam.
           const cachedProfileStr = localStorage.getItem('leadflow-profile-cache');
           const cachedProfile = cachedProfileStr ? JSON.parse(cachedProfileStr) : null;
 
