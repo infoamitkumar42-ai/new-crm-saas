@@ -270,6 +270,46 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-18 — BUG-015: random logout / "wapas login page" loop — refresh-token RACE fixed (v6.5)
+- **Symptom (admin's own words)**: app ya browser mein login karne ke baad jab dubara dashboard
+  kholo to logout ho jaata hai, dubara login karo to phir login page par wapas; background mein
+  notification banner chalta rehta hai. Mobile data par zyada, WiFi par bhi kabhi-kabhi. Android
+  aur iOS dono. Pehle ke "permanent solutions" (BUG-012 chunk recovery, PWA/SW cache cleanup) se
+  kabhi theek nahi hua — kyunki wo saare **loading/chunk** layer ke fixes the, ye **auth** layer
+  ka bug hai. Screenshots: "Loading workspace… / Checking session…" par atka hua.
+- **ROOT CAUSE — do independent callers ek hi rotating refresh_token par**:
+  1. `supabaseClient.ts` mein `autoRefreshToken: true` (supabase-js ka apna background timer)
+  2. `auth/useAuth.tsx` `initializeAuth()` ka **manual** block: "agar token 10 min mein expire ho
+     raha hai to khud `supabase.auth.refreshSession()` kar lo"
+  App resume hote hi (phone lock/unlock, app switch, mobile-data tower ya 4G↔5G switch) dono ek
+  saath jaagte the aur **same refresh_token** se ek saath request bhejte the. Supabase refresh
+  tokens **rotate** karta hai — pehli request naya token le leti hai aur purana usi waqt invalid
+  ho jaata hai, doosri ko `Invalid Refresh Token: Already Used` milta hai → supabase-js session
+  clear karke `SIGNED_OUT` fire kar deta hai → user login page par. **Ye genuine expiry nahi thi,
+  ek false logout tha.**
+- ⚠️ **Kyun rukna chahiye tha par nahi ruka**: supabase-js ka `lock` option exactly isi race ko
+  rokne ke liye hota hai, par `supabaseClient.ts` (line ~243) ka custom lock **dono branches mein
+  seedha `await fn()` karta hai** — यानी effectively **no-op**, kuch bhi serialize nahi hota. Wo
+  bypass jaan-boojh kar lagaya gaya tha (Web Locks API mobile par 15s hang karti thi), par uska
+  side-effect yahi race thi.
+- **Fix (Option A, admin-approved — minimal, sirf deletion)**: `initializeAuth()` ka manual
+  proactive-refresh block **hata diya**. Supabase ka apna `autoRefreshToken` already wahi kaam
+  karta hai, ye sirf duplicate caller tha. Ab **ek hi** refresh caller bachta hai → race khatam.
+  Koi naya code add nahi hua, koi naya async/state path nahi bana — isliye crash risk ~zero.
+- **Jaan-boojh kar NAHI chhua**: `SIGNED_OUT` ka 1× session-recovery block (safety net, rehne
+  diya), `signIn`/`signUp`/`signOut`, profile-fetch logic, `src/sw.ts`, PWA cleanup. Push
+  notification banner ka behaviour unrelated hai — wo service worker + server-side subscription se
+  chalta hai, React session state se nahi.
+- **LOCKED file (`auth/useAuth.tsx`) — admin ki explicit approval lekar badla gaya** (rule #1).
+  Header v6.4 → **v6.5 (REFRESH RACE FIX)**.
+- `npm run build` clean. `tsc --noEmit` mein sirf pre-existing baseline noise (`views/Auth.tsx` ka
+  duplicate import block, is change se bilkul unrelated) — meri edited file mein 0 error.
+- ⚠️ **Residual gap (Option B, admin ne raat 11 baje ke liye schedule kiya)**: `supabaseClient.ts`
+  ka no-op `lock` अभी bhi no-op hai. Single-app resume wali race is fix se khatam ho gayi, par agar
+  koi user **do tabs/windows ek saath** khule rakhe to theoretically abhi bhi ho sakti hai. Uske
+  liye ek real promise-based mutex chahiye (⚠️ `navigator.locks` NAHI — wahi 15s mobile hang ki
+  original wajah thi). Alag commit mein, per CLAUDE.md rule #8.
+
 ### 2026-08-18 — Sandeep / Kulvir singh's members moved into ECO@WIN12's priority flow
 - **Found while confirming TEAMFIRE's fallback role** (admin asked: "TEAMFIRE ko bas end mein
   fallback rakho"). That was already the behaviour — but the audit turned up **one user who did
