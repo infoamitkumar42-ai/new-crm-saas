@@ -34,6 +34,14 @@ const SIMAR_MANAGER_ID = 'acaf3c4d-22bf-43eb-b91d-eae0d6af9f76'; // simar@foreve
 // (ks6315077@gmail.com), who manages both ECO@WIN12 and ECOKULWINDER. Each
 // women-only form has its own dedicated priority manager, not one shared ID.
 const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks6315077@gmail.com
+// 2026-08-18 (admin): FASTMOVERS team (manager Kamaldeep kaur) joins the
+// women-only form's priority pool as an EQUAL third team — no preference
+// between ECO@WIN12, ECOKULWINDER and FASTMOVERS. Mirrors the identical
+// change in sheet-lead-intake. NOTE: this alone is not enough for the
+// backlog path — FASTMOVERS also had to be added to
+// sheet_intake_tokens.team_code, because the team filter below runs BEFORE
+// the priority narrowing and would otherwise drop them first.
+const KAMALDEEP_MANAGER_ID = '56c2a478-c4a0-4704-91f7-15eb3ab75270'; // kamalsohal0098@gmail.com
 // 2026-08-13 (later same day): Simar's original team went idle once the old
 // ad account stopped generating leads for their dedicated form — admin asked
 // for them to also share in the 2 new forms' leads. Old form stays
@@ -41,8 +49,8 @@ const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks631507
 // BOTH dedicated teams (whichever has more room), not Kulwinder singh alone.
 const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
     '26784403284560247': [SIMAR_MANAGER_ID],
-    '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
-    '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID],
+    '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID],
+    '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID],
 };
 
 // v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
@@ -56,7 +64,7 @@ const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // p
 
 // Excluded from every OTHER (non-women-only) lead — each of these managers'
 // teams is dedicated to their own women-only form.
-const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID];
+const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID];
 
 // 2026-08-14 (admin): new form_id 27622038114105519 — MIXED gender leads
 // (not women-only). Admin requirement: must NEVER reach ECO@WIN12/
