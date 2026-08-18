@@ -270,6 +270,29 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-18 — Sandeep / Kulvir singh's members moved into ECO@WIN12's priority flow
+- **Found while confirming TEAMFIRE's fallback role** (admin asked: "TEAMFIRE ko bas end mein
+  fallback rakho"). That was already the behaviour — but the audit turned up **one user who did
+  not fit either side**: Sandeep (`sandeepratti875@gmail.com`), `team_code='ECO@WIN12'` but
+  managed by **Kulvir singh** (`kulvir0038@gmail.com`) — a DIFFERENT person from Kulwinder singh
+  (`ks6315077@gmail.com`). ⚠️ The names are nearly identical; the ids are not. Easy to confuse.
+- **Why he was mis-routed**: his manager_id was in neither `WOMEN_FORM_PRIORITY_MANAGER` nor
+  `WOMEN_FORM_MANAGER_IDS`, so he was excluded from the priority pool yet still matched the
+  fallback pool (his team is in the intake token). Net effect: an ECO@WIN12 member was being
+  served last, alongside TEAMFIRE — he had already taken 10 women-form leads that way.
+- **Admin's call**: he belongs with ECO@WIN12's priority flow, never at the end with TEAMFIRE.
+- **Fix**: added `KULVIR_MANAGER_ID` to the priority map for both new women-only forms and to
+  `WOMEN_FORM_MANAGER_IDS` (so his users are also excluded from the fallback and from
+  non-women-only forms), in `sheet-lead-intake` + `process-backlog`.
+- **Added as a MANAGER, not a hardcoded user id** (unlike the earlier Priya Goyal case): Kulvir
+  manages 11 accounts of which only Sandeep is active today — the other 10 join automatically if
+  they ever reactivate, instead of silently repeating this same bug.
+- Priority pool is now 4 managers across 3 teams — still "3 teams equal" as admin specified;
+  Kulvir's members sit inside ECO@WIN12, they are not a fourth team.
+- Old Simar-exclusive form (`26784403284560247`) deliberately untouched.
+- `npm run build` clean; both edge functions verified to carry identical constants.
+
+
 ### 2026-08-18 — FASTMOVERS added to the women-only form pool as an EQUAL third team
 - **Found while checking yesterday's payments**: 5 new paying members (₹5,495 total, 502 leads of
   quota) were correctly activated — `is_active`/`is_online`/`payment_status` all fine, not
