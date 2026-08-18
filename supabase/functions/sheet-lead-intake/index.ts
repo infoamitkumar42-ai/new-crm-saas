@@ -153,6 +153,16 @@ const KULWINDER_MANAGER_ID = 'a2d1e794-c35f-4ec3-ab8c-ac7e1623debc'; // ks631507
 // Capacity check before enabling: pool 187/day vs ~167 leads/day from this
 // form, so no team starves.
 const KAMALDEEP_MANAGER_ID = '56c2a478-c4a0-4704-91f7-15eb3ab75270'; // kamalsohal0098@gmail.com
+// 2026-08-18 (admin): Kulvir singh manages a handful of ECO@WIN12-team members
+// (only Sandeep / sandeepratti875@gmail.com is active today). Because his
+// manager_id was in NEITHER the priority list nor an exclusion, his users sat
+// in the TEAMFIRE fallback pool despite being ECO@WIN12 — admin's call is that
+// they belong with ECO@WIN12's priority flow, never at the end with TEAMFIRE.
+// Added as a manager (not a hardcoded user id) so his other members join
+// automatically if they ever reactivate.
+// ⚠️ Kulvir singh (kulvir0038@gmail.com) is a DIFFERENT person from Kulwinder
+// singh (ks6315077@gmail.com) — the names are easy to confuse, the ids are not.
+const KULVIR_MANAGER_ID = 'c1b03a20-27bd-4c91-92c6-fe8827afc382'; // kulvir0038@gmail.com
 // 2026-08-13 (later same day): Simar's original team went idle once the old
 // ad account stopped generating leads for their dedicated form — admin asked
 // for them to also share in the 2 new forms' leads. Old form stays
@@ -160,12 +170,12 @@ const KAMALDEEP_MANAGER_ID = '56c2a478-c4a0-4704-91f7-15eb3ab75270'; // kamalsoh
 // BOTH dedicated teams (whichever has more room), not Kulwinder singh alone.
 const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
   '26784403284560247': [SIMAR_MANAGER_ID],
-  '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID],
-  '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID],
+  '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID],
+  '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID],
 };
 // Every manager whose team is dedicated to a women-only form — excluded from
 // every OTHER (non-women-only) lead, same rule that already applied to Simar.
-const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID];
+const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID];
 
 // 2026-08-14 (admin): new form_id 27622038114105519 — MIXED gender leads
 // (not women-only, so it takes the normal/else assignment branch below).
