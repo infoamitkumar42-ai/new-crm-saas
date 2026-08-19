@@ -11,6 +11,119 @@
 
 ---
 
+## 2026-08-19
+
+---
+
+### BUG-016 — "Checking session…" hang / bounce-to-login: profile cache wiped on EVERY app open for 87 users
+
+**Status:** ✅ Fixed
+
+**Symptoms:** App ya browser kholte hi "Loading workspace… / Checking session… / Connecting to
+secure server…" par minutes tak atak jaata tha, ya login page par wapas fenk deta tha. Admin ke
+saath sabse zyada, managers/unpaid members ke saath bhi. Mobile data par zyada, WiFi par bhi.
+
+**Root cause:** `auth/useAuth.tsx` ke profile-cache initializer mein ek "legacy dummy profile"
+cleanup tha jo sirf 4 fields dekhta tha:
+```js
+parsed.daily_limit === 0 && parsed.leads_today === 0 &&
+parsed.total_leads_received === 0 && parsed.payment_status === 'inactive'
+```
+Ye ek ASLI admin/manager/unpaid-member row ka bilkul **normal** state hai — admin leads leta hi
+nahi, isliye uske counters hamesha 0 aur `payment_status` `'inactive'` rehta hai. Live DB par
+**87 users** is condition se match kar rahe the (2 admin + 13 manager + 72 member).
+
+Un users ka profile cache **har app-open par wipe** ho jaata tha, jisse poori recovery chain toot
+jaati thi:
+1. `initializeAuth()` ka "instant restore" skip (usko `profileRef.current` chahiye — ab null)
+2. "Optimistic Load: Showing cached profile" bhi skip (`cachedProfile` mila hi nahi)
+3. Blocking `await loadUserProfile()` chalta hai
+4. Agar wo live fetch fail hui — expired/dead token -> RLS 0 rows -> **406 "Cannot coerce the
+   result to a single JSON object"** — to `fetchProfile` ka stale-cache fallback bhi khaali
+5. `profile` null reh jaata hai -> `isAuthenticated = !!session && !!profile` **false**
+   -> "Checking session…" par atka, ya login page par wapas
+
+Paying members (jinke `daily_limit=9`, `total_leads_received=300+`, `payment_status='active'`)
+kabhi match nahi karte the — isliye unhe ye bug lagbhag kabhi nahi dikhta tha. Yahi wajah hai ki
+symptom "randomly kuch logon ke saath" lagta tha.
+
+⚠️ `createTempProfile()` — jo wo dummy banata tha — **poore codebase mein kahin call hi nahi hota**
+(dead code, grep se confirm). Cache mein sirf asli DB rows jaati hain (teeno `writeProfileCache`
+call sites verify kiye). Yaani ye heuristic ab **sirf asli profiles** ko match kar sakti thi —
+uska original purpose khatam ho chuka tha, sirf nuksaan bacha tha.
+
+**Fix (`auth/useAuth.tsx`):** condition ko dummy ke **poore signature** se match karaya —
+`createTempProfile()` hamesha `is_active: true`, `total_leads_promised: 50` aur khali `sheet_url`
+likhta tha; ye teeno ek asli row mein saath nahi aate:
+```js
+const isLegacyDummy =
+  parsed && parsed.daily_limit === 0 && parsed.leads_today === 0 &&
+  parsed.total_leads_received === 0 && parsed.payment_status === 'inactive' &&
+  parsed.is_active === true && parsed.total_leads_promised === 50 && !parsed.sheet_url;
+```
+
+**Verification:**
+- Live DB query: tightened condition se **0 real users** match karte hain (purani se 87 karte the)
+- Logic test (6 cases, sab pass): admin row -> keep (pehle WIPE), unpaid member -> keep (pehle
+  WIPE), manager / paying member / naya signup -> keep, asli legacy dummy -> abhi bhi WIPE
+- `npm run build` clean (1862 modules); `tsc --noEmit` mein 0 naya error
+
+```sql
+-- Kitne real users purani (buggy) condition se match karte the
+SELECT role, COUNT(*) FROM users
+WHERE daily_limit=0 AND leads_today=0 AND total_leads_received=0 AND payment_status='inactive'
+GROUP BY role;   -- 72 member, 13 manager, 2 admin
+
+-- Nayi (fixed) condition — hamesha 0 aana chahiye
+SELECT COUNT(*) FROM users
+WHERE daily_limit=0 AND leads_today=0 AND total_leads_received=0 AND payment_status='inactive'
+  AND is_active=true AND total_leads_promised=50 AND COALESCE(sheet_url,'')='';
+```
+
+**Date:** 2026-08-19
+
+---
+
+### ⚠️ BUG-015 follow-up — `lock` option supabase-js 2.39.0 mein NEVER forwarded (abhi tak un-fixed)
+
+**Status:** 🔎 Diagnosed, NOT fixed (deliberate — alag decision chahiye)
+
+Investigation ke dauran mila: `supabaseClient.ts` ka custom `auth.lock` **kabhi lagu hi nahi hua**.
+`node_modules/@supabase/supabase-js@2.39.0`'s `_initSupabaseAuthClient()` sirf 7 options forward
+karta hai — `autoRefreshToken, persistSession, detectSessionInUrl, storage, storageKey, flowType,
+debug` — aur **`lock` ko silently drop kar deta hai** (type definition mein `lock` hai, par
+implementation use hi nahi karti). `gotrue-js@2.98.0` (GoTrueClient.ts:337-342) phir default par
+gir jaata hai:
+```js
+if (settings.lock) { this.lock = settings.lock }            // kabhi nahi — drop ho chuka
+else if (persistSession && isBrowser() && navigator.locks) {
+  this.lock = navigatorLock                                  // <- YEHI chal raha hai
+}
+```
+Yaani **`navigator.locks` shuru se hi active hai** — wahi API jiske baare mein CLAUDE.md kehta hai
+ki mobile par 15s hang karti hai. Jo "SMART LOCK bypass" us hang se bachne ke liye likha gaya tha,
+wo **dead config** tha.
+
+Proof (live console log): `@supabase/gotrue-js: Lock "lock:leadflow-auth-v2" was not released
+within 5000ms … Forcefully acquiring the lock to recover.` — ye message `navigatorLock` ka apna
+hai aur 5000ms `gotrue-js` ka default `lockAcquireTimeout` hai. Saath mein `getSession() timed out
+after 15s` do baar.
+
+⚠️ **Isi wajah se BUG-015 ka "Option B" (in-tab mutex, PR #161) bhi dead code tha** — wo kabhi
+chala hi nahi, isliye na usne kuch fix kiya na kuch toda. Revert (PR #162) bhi functionally no-op
+tha. Jo temporal correlation dikha tha ("raat ko B lagaya, subah issue aaya") wo **coincidence**
+thi.
+
+**Options aage ke liye (koi bhi abhi implement nahi kiya):**
+- (B) `createClient()` ke baad `supabase.auth.lock` directly assign karo — `acquireTimeout === 0`
+  par `LockAcquireTimeoutError` throw karna ZAROORI hai, warna `_autoRefreshTokenTick()`
+  (GoTrueClient.ts:2976) skip hone ke bajaye queue hone lagega
+- (C) `supabase-js` upgrade karo aise version par jo `lock` forward karta ho (bada risk, live auth)
+
+**Date:** 2026-08-19
+
+---
+
 ## 2026-05-24
 
 ---

@@ -109,7 +109,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const cachedStr = localStorage.getItem('leadflow-profile-cache');
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr);
-        if (parsed && parsed.daily_limit === 0 && parsed.leads_today === 0 && parsed.total_leads_received === 0 && parsed.payment_status === 'inactive') {
+
+        // 🧹 Legacy "dummy profile" cleanup — ye purane `createTempProfile()` ke
+        // banaye fake placeholder ko hataane ke liye hai (wo function ab dead
+        // code hai, kahin call nahi hota; cache mein sirf asli DB rows jaati
+        // hain via writeProfileCache).
+        //
+        // ⚠️ BUG-016: pehle ye check sirf 4 zero-ish fields dekhta tha —
+        //   daily_limit=0 && leads_today=0 && total_leads_received=0 &&
+        //   payment_status='inactive'
+        // Par ye ASLI admin/manager/unpaid-member rows ka bilkul normal state
+        // hai (admin leads leta hi nahi, isliye uske counters hamesha 0 aur
+        // payment_status 'inactive' rehta hai). Live DB mein **87 users** is
+        // purani condition se match kar rahe the — 2 admin, 13 manager,
+        // 72 member. Unka cache HAR app-open par wipe ho jaata tha, jisse:
+        //   - "instant restore" skip (usko profileRef chahiye)
+        //   - "optimistic load" skip (cachedProfile mila hi nahi)
+        //   - blocking live fetch; agar wo fail hui (expired token -> RLS ->
+        //     406 "Cannot coerce the result to a single JSON object") to
+        //     stale-cache fallback ke paas bhi kuch nahi bacha
+        //   - profile null -> isAuthenticated false -> "Checking session..."
+        //     par atka hua ya login page par wapas
+        //
+        // FIX: dummy ke poore signature se match karo. `createTempProfile()`
+        // hamesha is_active=true, total_leads_promised=50 aur khali sheet_url
+        // likhta tha — teeno ek asli row mein saath nahi aate. Live DB par
+        // verify kiya: tightened condition se **0 real users** match karte hain,
+        // yaani kisi asli profile ka cache ab kabhi wipe nahi hoga, aur agar
+        // kahin purana dummy pada hai to wo abhi bhi saaf ho jaayega.
+        const isLegacyDummy =
+          parsed &&
+          parsed.daily_limit === 0 &&
+          parsed.leads_today === 0 &&
+          parsed.total_leads_received === 0 &&
+          parsed.payment_status === 'inactive' &&
+          parsed.is_active === true &&
+          parsed.total_leads_promised === 50 &&
+          !parsed.sheet_url;
+
+        if (isLegacyDummy) {
           console.warn("🧹 Wiping legacy dummy profile from cache to force live DB fetch!");
           localStorage.removeItem('leadflow-profile-cache');
           return null;

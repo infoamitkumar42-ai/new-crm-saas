@@ -270,6 +270,62 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-19 — BUG-016: ASLI root cause mila — profile cache har app-open par wipe (87 users)
+- **Ye wo bug hai jo BUG-015 ke dono fixes ne MISS kiya tha.** Admin ne console log bheja, usse
+  poori chain saaf ho gayi. Symptom: "Checking session… / Connecting to secure server…" par minutes
+  tak atka, ya login page par wapas.
+- **ROOT CAUSE — `auth/useAuth.tsx` ka "legacy dummy profile" cleanup asli profiles ko maar raha
+  tha.** Condition sirf 4 fields dekhti thi: `daily_limit=0 && leads_today=0 &&
+  total_leads_received=0 && payment_status='inactive'`. Ye ek **asli admin/manager/unpaid-member
+  row ka bilkul normal state** hai (admin leads leta hi nahi → counters hamesha 0, payment_status
+  'inactive'). Live DB: **87 users** match kar rahe the — **2 admin, 13 manager, 72 member**.
+- **Kaise ye "logout"/"hang" banta tha** (poori chain, console log se confirm):
+  1. Cache wipe → `profileRef.current` null → `initializeAuth()` ka **instant restore skip**
+  2. `cachedProfile` bhi null → **optimistic load skip** → blocking `await loadUserProfile()`
+  3. Us waqt token dead ho (`400 Invalid Refresh Token: Refresh Token Not Found`) → RLS 0 rows →
+     **`users` 406 "Cannot coerce the result to a single JSON object"**
+  4. `fetchProfile` ka stale-cache fallback bhi **khaali** (abhi to wipe kiya tha)
+  5. `profile` null → `isAuthenticated = !!session && !!profile` **false** → atka ya login par wapas
+- ⚠️ **Kyun ye "random" lagta tha**: paying members (`daily_limit=9`, `total_leads_received=300+`,
+  `payment_status='active'`) kabhi match nahi karte the — unhe ye bug lagbhag kabhi nahi dikha.
+  Sirf admin/manager/unpaid ko dikhta tha, isliye reproduce karna mushkil tha.
+- ⚠️ **`createTempProfile()` — jo wo dummy banata tha — poore codebase mein kahin call hi nahi
+  hota** (dead code, grep se confirm). Teeno `writeProfileCache` call sites sirf **asli DB rows**
+  likhte hain. Yaani ye heuristic ka original purpose khatam ho chuka tha; ab wo **sirf asli
+  profiles** ko match kar sakti thi — pure nuksaan.
+- **Fix**: condition ko dummy ke **poore signature** se match karaya — `createTempProfile()` hamesha
+  `is_active: true`, `total_leads_promised: 50`, khali `sheet_url` likhta tha; ye teeno ek asli row
+  mein saath nahi aate. Purana dummy (agar kahin pada ho) abhi bhi saaf hota hai.
+- **Verified**: live DB par tightened condition se **0 real users** match (purani se 87 karte the);
+  6-case logic test sab pass (admin row → keep, jo pehle WIPE tha; unpaid member → keep, pehle
+  WIPE; manager/paying member/naya signup → keep; asli legacy dummy → abhi bhi WIPE).
+  `npm run build` clean (1862 modules), `tsc --noEmit` mein 0 naya error (sirf `views/Auth.tsx` ka
+  pre-existing duplicate-import baseline noise).
+- LOCKED file (`auth/useAuth.tsx`) — admin ki explicit approval lekar badla gaya (rule #1).
+- Poori details + verification SQL: `bugfix.md` **BUG-016**.
+
+### 2026-08-19 — ⚠️ BADI KHOJ: `lock` option supabase-js 2.39.0 mein KABHI forward nahi hota
+- **BUG-015 ke Option B (PR #161) ko revert (PR #162) karte waqt mila — aur isne poori picture
+  badal di.** `supabase-js@2.39.0` ka `_initSupabaseAuthClient()` sirf 7 options forward karta hai
+  (`autoRefreshToken, persistSession, detectSessionInUrl, storage, storageKey, flowType, debug`)
+  aur **`lock` ko silently drop** kar deta hai (type definition mein hai, implementation mein nahi).
+  `gotrue-js@2.98.0` (GoTrueClient.ts:337-342) phir default par girta hai → **`navigatorLock`**.
+- ⚠️ Matlab **`navigator.locks` shuru se hi chal raha tha** — wahi API jise CLAUDE.md "mobile par
+  15s hang" ke liye blame karti hai. Jo "SMART LOCK bypass" us hang se bachne ke liye likha gaya
+  tha, wo **kabhi lagu hi nahi hua** — dead config.
+- **Proof (live console log)**: `@supabase/gotrue-js: Lock "lock:leadflow-auth-v2" was not released
+  within 5000ms … Forcefully acquiring the lock to recover.` — ye `navigatorLock` ka apna message
+  hai, aur 5000ms `gotrue-js` ka default `lockAcquireTimeout`. Saath `getSession() timed out after
+  15s` ×2.
+- ⚠️ **Isliye PR #161 (mutex) bhi dead code tha** — kabhi chala hi nahi, na kuch fix kiya na toda.
+  Uska revert (#162) bhi functionally no-op. Jo "raat ko B lagaya, subah issue aaya" correlation
+  dikha tha, wo **coincidence** thi, cause nahi. **Sabak: koi bhi auth-lock theory pehle verify
+  karo ki wo config live mein pahunch bhi rahi hai ya nahi.**
+- **Abhi FIX NAHI kiya** (alag decision chahiye, alag commit — rule #8). Options: (B) `createClient`
+  ke baad `supabase.auth.lock` directly assign karo — par `acquireTimeout === 0` par
+  `LockAcquireTimeoutError` **throw karna zaroori** hai warna `_autoRefreshTokenTick()`
+  (GoTrueClient.ts:2976) skip hone ke bajaye queue hoga; (C) `supabase-js` upgrade (bada risk).
+
 ### 2026-08-18 — BUG-015: random logout / "wapas login page" loop — refresh-token RACE fixed (v6.5)
 - **Symptom (admin's own words)**: app ya browser mein login karne ke baad jab dubara dashboard
   kholo to logout ho jaata hai, dubara login karo to phir login page par wapas; background mein
