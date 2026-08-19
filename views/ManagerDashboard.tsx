@@ -105,11 +105,25 @@ export const ManagerDashboard = () => {
       let leadsMap: { [key: string]: { total: number; interested: number; closed: number } } = {};
 
       // Fetch counts for all members in parallel (fast!)
+      //
+      // ⚠️ `assigned_to` use karo, `user_id` NAHI. `leads` table mein DONO columns
+      // `users` ko point karte hain (CLAUDE.md ka documented DUAL FK issue):
+      //   • user_id     = original/legacy owner — recycle ya reassign hone par
+      //                   NAHI badalta
+      //   • assigned_to = abhi kis member ke paas lead hai — HAR routing path
+      //                   (meta-webhook, sheet-lead-intake, process-backlog,
+      //                   assign-recycled-leads) yahi set karta hai
+      // Pehle ye counts `user_id` se hote the, isliye manager panel ke numbers
+      // asliyat se alag the — live check par TEAMFIRE ke 15+ members mein
+      // **55 leads tak ka farak** dono directions mein (Ankush 270 dikh raha tha
+      // vs asli 325; Mandeep kaur 651 vs asli 598). Member dashboard aur admin
+      // reports pehle se `assigned_to` par hain, ab manager panel bhi match karta
+      // hai.
       const countPromises = (members || []).map(async (member) => {
         const [totalResult, interestedResult, closedResult] = await Promise.all([
-          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id),
-          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id).eq('status', 'Interested'),
-          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', member.id).eq('status', 'Closed')
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_to', member.id),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_to', member.id).eq('status', 'Interested'),
+          supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_to', member.id).eq('status', 'Closed')
         ]);
 
         return {
