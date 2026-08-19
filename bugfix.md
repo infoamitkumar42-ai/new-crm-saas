@@ -124,6 +124,132 @@ thi.
 
 ---
 
+## 2026-08-05 → 2026-08-18 (backfilled 2026-08-19)
+
+> These three were fixed when they happened but only recorded in CLAUDE.md's changelog,
+> not here. Backfilled so this file stays the single authoritative bug log.
+
+---
+
+### BUG-013 — `PLAN_CONFIG` duplication: one copy updated, the other stale → wrong quota sold
+
+**Status:** ✅ Fixed
+
+**Symptoms:** Two real paying customers (Ravenjeet Kaur, Kajal) received the wrong lead quota
+after buying during the August offer — they got pre-offer numbers instead of offer numbers.
+
+**Root cause:** `PLAN_CONFIG` exists in **two** independent copies:
+1. `functions/api/razorpay-webhook.ts` (Cloudflare Pages Function)
+2. `supabase/functions/razorpay-reconcile/index.ts` (15-min cron poller)
+
+The August offer rollout updated only #1. But **#2 processes most live payments in practice**,
+because the Cloudflare webhook has a documented history of silent failures (BUG-006) and the
+reconcile poller picks those up. So the stale copy was the one actually deciding quota.
+
+**Fix:** `razorpay-reconcile` redeployed with `PLAN_CONFIG` matching `razorpay-webhook.ts`
+byte-for-byte. Both affected customers' quotas corrected manually.
+
+⚠️ **Standing rule:** plan numbers (offer ON/OFF included) must be changed in **both** files,
+plus the DB `plan_config` table, plus `config/offer.ts` for the UI. Four places. Changing fewer
+means buyers get quota that does not match what they were sold. A warning block now sits at the
+top of `razorpay-reconcile/index.ts`.
+
+```sql
+-- Verify all three quota sources agree for a plan
+SELECT plan_name, duration, daily_leads, total_leads, weight FROM plan_config ORDER BY plan_name;
+-- then diff against PLAN_CONFIG in razorpay-webhook.ts AND razorpay-reconcile/index.ts
+```
+
+**Date:** 2026-08-05 / fixed 2026-08-06
+
+---
+
+### BUG-014 — Admin Quick Edit silently killed users' lead flow (`is_online` desync)
+
+**Status:** ✅ Fixed
+
+**Symptoms:** Ravenjeet Kaur received zero leads all day despite `is_active=true`,
+`payment_status='active'`, 124 quota remaining and no pending plan. Nothing in the admin UI
+looked wrong.
+
+**Root cause:** her row was `is_active=true` **but `is_online=false`**. Every lead-routing path
+(`get_best_assignee_for_team` RPC, `sheet-lead-intake`, `process-backlog`,
+`assign-recycled-leads`, `assign_lead_round_robin`) requires **BOTH** flags true, so she was
+invisible to routing while looking perfectly healthy.
+
+`components/UserQuickEdit.tsx` wrote `is_active` **without ever touching `is_online`**. Every
+other write path in the codebase pairs them (member pause toggle, admin activation,
+`check-quota-expiry`, `plan-expiry-notifier`, `razorpay-webhook`/`-reconcile` — all 6 verified).
+So a user who had paused themselves (both flags false) and was later saved through Quick Edit for
+any unrelated reason came back `is_active=true` / `is_online=false` — permanently unroutable,
+with no error and no visible sign.
+
+**3 more paying users were in the same broken state** (Prince, Simran, Jashandeep kaur).
+
+**Second bug in the same flow:** `AdminDashboard.tsx` passed
+`is_active: showEditModal.payment_status === 'active'` into the modal instead of the real
+`is_active` column. `payment_status='active'` only means "has paid" — independent of pause state.
+So the toggle pre-filled as ON for every paying user, meaning an admin saving an unrelated field
+would silently **un-pause** someone who had deliberately paused themselves.
+
+**Fix:** Quick Edit now writes `is_online: isActive` alongside `is_active`; `AdminDashboard.tsx`
+passes the real `is_active`; `AdminUserRow` interface gained the missing `is_active` field. All 4
+affected users repaired.
+
+⚠️ **`is_online` is a ROUTING flag, not a presence/heartbeat flag** — despite its name. A legacy
+`update_user_presence()` RPC still exists in the DB that would set it as a browser-presence
+signal; it is **not called from any frontend code** (grepped). Wiring it up would disable live
+users' lead flow.
+
+```sql
+-- Must always return 0 rows
+SELECT email, name FROM users
+WHERE role='member' AND is_active=true AND is_online=false AND payment_status='active';
+```
+
+**Date:** 2026-08-16
+
+---
+
+### BUG-015 — Random logout / "back to login page" loop: refresh-token race
+
+**Status:** ✅ Fixed (v6.5) — see also the BUG-015 follow-up above, which corrects part of the
+original diagnosis
+
+**Symptoms (admin's own words):** after logging in, reopening the dashboard logs you out; logging
+in again lands you back on the login page. Worse on mobile data, but also on WiFi. Android and
+iOS both. Every earlier "permanent solution" (BUG-012 chunk recovery, PWA/SW cache cleanup) failed
+to fix it — because those were all **loading/chunk** layer fixes and this is an **auth** layer bug.
+
+**Root cause — two independent callers on one rotating refresh token:**
+1. `supabaseClient.ts` has `autoRefreshToken: true` (supabase-js's own background timer)
+2. `auth/useAuth.tsx` `initializeAuth()` had a **manual** block: "if the token expires within 10
+   minutes, call `supabase.auth.refreshSession()` yourself"
+
+On app resume (phone lock/unlock, app switch, mobile-data tower or 4G↔5G handover) both woke at
+once and sent a refresh with the **same** token. Supabase **rotates** refresh tokens: the first
+request consumes it and invalidates it immediately, so the second gets
+`Invalid Refresh Token: Already Used` → supabase-js clears the session and fires `SIGNED_OUT` →
+the user lands on the login page. **Not a genuine expiry — a false logout.**
+
+**Fix (minimal, deletion only):** removed the manual proactive-refresh block from
+`initializeAuth()`. `autoRefreshToken` already does that job, so it was a duplicate caller and
+nothing else. One refresh caller remains → race gone. Header bumped v6.4 → **v6.5**.
+
+⚠️ **Important correction (found 2026-08-19):** the original diagnosis blamed the no-op custom
+`lock` in `supabaseClient.ts` for failing to serialise these calls. That lock was never in effect
+at all — `supabase-js@2.39.0` silently drops the `lock` option (see the BUG-015 follow-up entry
+above). The race and this fix are still real; the explanation of *why nothing stopped it* was
+wrong. `navigator.locks` was the active lock the whole time and did not prevent this, because the
+two callers were in the same tab and gotrue-js's own re-entrancy guard let both through.
+
+⚠️ This fix addressed the **false logout**. It did **not** fix the separate "Checking session…"
+**hang** — that turned out to be BUG-016.
+
+**Date:** 2026-08-18
+
+---
+
 ## 2026-05-24
 
 ---
