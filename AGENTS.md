@@ -45,6 +45,10 @@ those modes.
 `docs/sessions/` holds per-session logs, including what was *tried and abandoned*. Read the
 relevant one before re-attempting something in the same area.
 
+**Onboarding a new agent or IDE?** [`docs/AGENT-ONBOARDING-TEST.md`](./docs/AGENT-ONBOARDING-TEST.md)
+is a read-only test, with an answer key, for checking that it actually reads these docs before it
+is trusted with real work.
+
 ---
 
 ## 2. Hard rules
