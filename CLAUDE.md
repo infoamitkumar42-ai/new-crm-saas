@@ -2,6 +2,22 @@
 
 > **READ THIS ENTIRE FILE BEFORE TOUCHING ANY CODE. If you skip this, you WILL break something.**
 
+> ### 📍 Start with `AGENTS.md`, not here
+>
+> This file is the **long-form reference and changelog** — dense, historical, and best skimmed for
+> the area you are touching. The tool-neutral entry point for anyone (or any agent) working on
+> this repo is:
+>
+> | File | Purpose |
+> |---|---|
+> | **[`AGENTS.md`](./AGENTS.md)** | Rules + the traps that have actually caused damage. Read first. |
+> | [`docs/SYSTEM-OVERVIEW.md`](./docs/SYSTEM-OVERVIEW.md) | How the system works end to end. |
+> | [`docs/AGENT-PROTOCOL.md`](./docs/AGENT-PROTOCOL.md) | Required workflow for making and proving a change. |
+> | [`bugfix.md`](./bugfix.md) | Every bug ever found. Check before debugging. |
+> | [`docs/sessions/`](./docs/sessions/) | Per-session logs, including dead ends worth not repeating. |
+>
+> The hard rules below are duplicated in `AGENTS.md`. If the two ever disagree, fix both.
+
 ---
 
 ## ⛔ HARD RULES — VIOLATING ANY OF THESE = INSTANT ROLLBACK
