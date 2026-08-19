@@ -286,6 +286,44 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-19 (late night) — UNITEDECOSYSTEM priority-pool bug found + fixed (code review self-catch) + CAPI pixel-match fix
+- **Found while doing the admin-requested "review the deploy carefully" pass on the UNITEDECOSYSTEM
+  setup from earlier tonight.** The `RESTRICTED_TEAM_FORM_IDS['1377999317060769']` entry I wrote a
+  few hours earlier carried a comment claiming "UNITEDECOSYSTEM first, TEAMFIRE only once full" —
+  but `RESTRICTED_TEAM_FORM_IDS` pools ALL its listed teams into one combined fill-ratio pass
+  (`findTeamAssigneeExcludingManager` in sheet-lead-intake, the `eligible` filter in
+  process-backlog). That means a TEAMFIRE agent with a lower fill-ratio at that instant could win a
+  lead over an UNITEDECOSYSTEM agent sitting at 0% — comment described the intent, the code never
+  implemented it. Caught before any real leads were routed under it (activation is tomorrow 7 AM
+  IST) — own mistake, corrected same night.
+- **Fix**: new separate map `PRIORITY_TEAM_FORM_IDS` (form_id → ordered team list) in both
+  `sheet-lead-intake` and `process-backlog`. Teams are tried ONE AT A TIME, exclusively — the next
+  team only runs if the current one has nobody eligible right now — same "first refusal, then
+  fallback" shape as the women-only forms' priority-manager pattern, just team-scoped instead of
+  manager-scoped since UNITEDECOSYSTEM has no other lead source to be mutually-exclusive against.
+  `1377999317060769` moved out of `RESTRICTED_TEAM_FORM_IDS` into the new map.
+- **Separate, real (pre-existing) bug also found and fixed in the same review**: `sheet-lead-intake`'s
+  `sendCapiLeadEvent()` matched the initial `Lead` CAPI event's pixel by the ASSIGNED agent's
+  `team_code`, while `send-crm-conversion` (fires later on status changes) matches by the lead's
+  ORIGIN team parsed from `source` — a v5 fix from 2026-08-09 that this function never received.
+  Whenever a sheet-sourced lead falls back cross-team — now expected for UNITEDECOSYSTEM leads
+  landing on TEAMFIRE agents — the initial `Lead` event went to one pixel and every later
+  QualifiedLead/FollowUp/Closed event went to another, splitting one lead's signal across two ad
+  accounts. Now both functions match by origin team.
+- Both fixes are code-only, sent to admin for manual deploy (MCP `deploy_edge_function` still
+  requires approval this session, same as all session). Neither fix has gone live yet — flagging
+  clearly so nobody assumes tomorrow's UNITEDECOSYSTEM activation already has correct priority
+  routing until the deploy is confirmed.
+- Also fixed same night: **Simran** (`manukamboj8000@gmail.com`, TEAMFIRE) — `is_online` set back to
+  `true` (was `false` with `is_active=true`, 12 quota remaining). Investigated whether this was
+  self-inflicted per admin's suspicion: every `is_online`-writing code path in the app (member pause
+  toggle, admin Quick Edit, admin activation, `check-quota-expiry`, `plan-expiry-notifier`,
+  `razorpay-webhook`, `razorpay-reconcile`) writes `is_active`/`is_online` together, to the same
+  value — there is no path that can produce this exact mismatch. No audit trail survived (the
+  midnight counter-reset cron overwrites `updated_at` for every user, including hers, before the
+  desync's real timestamp could be read). Most likely a residual case the 16-Aug BUG-014 sweep
+  missed, or a direct DB edit — not something she did through the app.
+
 ### 2026-08-19 (21:00 IST) — Himanshu Sharma ab pakka 14 leads/din par (trigger fix, admin-approved)
 - **Admin ka faisla**: Himanshu ko **original turbo_boost pace = 14/din** par rakhna hai, August
   offer wala 33/din **nahi**. Baaki kuch nahi chhedna.

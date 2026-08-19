@@ -81,11 +81,21 @@ const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEE
 // this form ends up going through.
 const RESTRICTED_TEAM_FORM_IDS: Record<string, string[]> = {
   '27622038114105519': ['TEAMFIRE', 'TEAMSIMRAN'],
-  // 2026-08-19 — "new form kirti", Kirti giri's own ad account + Google Sheet,
-  // set up for the 30 members who bought during the August offer. Their team
-  // appears in no other routing path, so this form is their only supply.
-  // UNITEDECOSYSTEM first; TEAMFIRE only once they are all at capacity, so a
-  // lead never rots in Queued the way the women-only form's leads once did.
+};
+
+// 2026-08-19 — form-specific PRIORITY order (distinct from
+// RESTRICTED_TEAM_FORM_IDS above, which pools all its listed teams into ONE
+// equal fill-ratio pass). Teams here are tried IN ORDER, each as its own
+// exclusive pool — mirrors the identical fix in sheet-lead-intake. This
+// form_id used to live in RESTRICTED_TEAM_FORM_IDS with a comment claiming
+// "UNITEDECOSYSTEM first" that the pooled-pass code never actually
+// implemented — comment described intent, code didn't. See
+// isPriorityForForm/priorityFirst below for how this is applied.
+//
+// "new form kirti" — Kirti giri's own ad account + Google Sheet, for the 30
+// members who bought during the August offer. Their team (UNITEDECOSYSTEM)
+// appears in no other routing path, so this form is their only supply.
+const PRIORITY_TEAM_FORM_IDS: Record<string, string[]> = {
   '1377999317060769': ['UNITEDECOSYSTEM', 'TEAMFIRE'],
 };
 const isWomenFormManagerScoped = (u: { manager_id?: string; id: string }) =>
@@ -355,6 +365,24 @@ serve(async (req) => {
                     '| priority-scoped among them:', priorityFirst.map((u: any) => u.name));
                 if (priorityFirst.length > 0) {
                     eligible = priorityFirst;
+                }
+            } else {
+                // 2026-08-19: team-ordered priority (PRIORITY_TEAM_FORM_IDS,
+                // see const above) — mirrors sheet-lead-intake's identical
+                // fix. Each team is tried exclusively, in order; the next
+                // team is only used if the current one has nobody eligible
+                // right now. `eligible` already only contains
+                // UNITEDECOSYSTEM/TEAMFIRE candidates (from teamCodesForLead
+                // above), this just picks which of them goes first.
+                const priorityTeamOrder = leadFormId ? PRIORITY_TEAM_FORM_IDS[leadFormId] : undefined;
+                if (priorityTeamOrder) {
+                    for (const team of priorityTeamOrder) {
+                        const teamPool = eligible.filter((u: any) => u.team_code === team);
+                        if (teamPool.length > 0) {
+                            eligible = teamPool;
+                            break;
+                        }
+                    }
                 }
             }
 

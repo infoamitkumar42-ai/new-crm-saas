@@ -3,8 +3,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v11 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v12 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v12 (2026-08-19) — UNITEDECOSYSTEM (Kirti) now genuinely gets FIRST
+ *  REFUSAL on form 1377999317060769, TEAMFIRE only as fallback. It was
+ *  wired into RESTRICTED_TEAM_FORM_IDS in v11's PR, whose entry's own
+ *  comment claimed priority — but RESTRICTED_TEAM_FORM_IDS pools all its
+ *  teams into ONE combined fill-ratio pass, so TEAMFIRE agents could win a
+ *  lead over an UNITEDECOSYSTEM agent sitting at 0% capacity. New separate
+ *  map PRIORITY_TEAM_FORM_IDS tries each team exclusively, in order — the
+ *  next team only runs if the current one returns nobody eligible. See the
+ *  const's own comment for detail.
+ *
  * v11 (2026-08-19) — sendCapiLeadEvent's pixel match switched from the
  *  ASSIGNED user's team_code back to the lead's ORIGIN team (parsed from
  *  `source`, "GoogleSheet-<team>"). v8 (below) had moved it TO the assigned
@@ -203,11 +213,25 @@ const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEE
 // regardless of which token/integration the Apps Script sends it through.
 const RESTRICTED_TEAM_FORM_IDS: Record<string, string[]> = {
   '27622038114105519': ['TEAMFIRE', 'TEAMSIMRAN'],
-  // 2026-08-19 — "new form kirti", Kirti giri's own ad account + Google Sheet,
-  // set up for the 30 members who bought during the August offer. Their team
-  // appears in no other routing path, so this form is their only supply.
-  // UNITEDECOSYSTEM first; TEAMFIRE only once they are all at capacity, so a
-  // lead never rots in Queued the way the women-only form's leads once did.
+};
+
+// 2026-08-19 — form-specific PRIORITY order (distinct from
+// RESTRICTED_TEAM_FORM_IDS above, which pools all its listed teams together
+// as ONE equal fairness pass). Teams are tried IN ORDER, each as its own
+// exclusive pool — the next team is only tried if the current one has
+// nobody eligible right now. Fixes a bug in the previous version of this
+// form's setup: it lived in RESTRICTED_TEAM_FORM_IDS, whose header comment
+// I wrote claiming "UNITEDECOSYSTEM first, TEAMFIRE only once full" — but
+// the actual code joined both teams into one fill-ratio pool, so TEAMFIRE
+// could win a lead over UNITEDECOSYSTEM even with UNITEDECOSYSTEM sitting
+// at 0% capacity. Comment described intent, code didn't implement it.
+//
+// "new form kirti" — Kirti giri's own ad account + Google Sheet, for the 30
+// members who bought during the August offer. Their team (UNITEDECOSYSTEM)
+// appears in no other routing path, so this form is their only supply.
+// TEAMFIRE is fallback only, so a lead never rots in Queued the way the
+// women-only forms' leads once did before their own fallback fix (v10).
+const PRIORITY_TEAM_FORM_IDS: Record<string, string[]> = {
   '1377999317060769': ['UNITEDECOSYSTEM', 'TEAMFIRE'],
 };
 
@@ -684,10 +708,24 @@ serve(async (req) => {
       // 2026-08-14: form-specific team restriction (RESTRICTED_TEAM_FORM_IDS)
       // narrows the eligible team pool for specific form_ids, overriding
       // whatever team_code the sheet_intake_token itself carries.
-      const restrictedTeams = formId ? RESTRICTED_TEAM_FORM_IDS[formId] : undefined;
-      const teamCodeForLookup = restrictedTeams ? restrictedTeams.join(',') : teamCode;
+      //
+      // 2026-08-19: PRIORITY_TEAM_FORM_IDS (see const above) takes a
+      // different form_id ownership from RESTRICTED_TEAM_FORM_IDS. When a
+      // form_id has a priority order, teams are tried ONE AT A TIME,
+      // exclusively, in order — not pooled together.
+      const priorityTeams = formId ? PRIORITY_TEAM_FORM_IDS[formId] : undefined;
 
-      const target = await findTeamAssigneeExcludingManager(supabase, teamCodeForLookup, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
+      let target: any = null;
+      if (priorityTeams) {
+        for (const team of priorityTeams) {
+          target = await findTeamAssigneeExcludingManager(supabase, team, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
+          if (target) break;
+        }
+      } else {
+        const restrictedTeams = formId ? RESTRICTED_TEAM_FORM_IDS[formId] : undefined;
+        const teamCodeForLookup = restrictedTeams ? restrictedTeams.join(',') : teamCode;
+        target = await findTeamAssigneeExcludingManager(supabase, teamCodeForLookup, WOMEN_FORM_MANAGER_IDS, EXTRA_WOMEN_FORM_USER_IDS);
+      }
 
       if (!target) {
         await supabase.from('leads').insert({
