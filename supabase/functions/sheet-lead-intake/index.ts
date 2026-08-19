@@ -3,8 +3,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 📥 SHEET-LEAD-INTAKE v10 — Google Sheet (Meta native sync) -> CRM bridge
+ * 📥 SHEET-LEAD-INTAKE v11 — Google Sheet (Meta native sync) -> CRM bridge
  * ═══════════════════════════════════════════════════════════════════════════
+ * v11 (2026-08-19) — sendCapiLeadEvent's pixel match switched from the
+ *  ASSIGNED user's team_code back to the lead's ORIGIN team (parsed from
+ *  `source`, "GoogleSheet-<team>"). v8 (below) had moved it TO the assigned
+ *  user's team specifically to fix a mismatch with send-crm-conversion — but
+ *  send-crm-conversion was itself changed to origin-based matching one day
+ *  later (v5, 2026-08-09) and this function was never updated to match.
+ *  Found while reviewing the new UNITEDECOSYSTEM (Kirti) form: any lead that
+ *  falls back cross-team (e.g. UNITEDECOSYSTEM origin -> assigned to a
+ *  TEAMFIRE agent, which is expected here since 30 users' worth of daily
+ *  capacity likely exceeds that ad account's real volume) would send its
+ *  initial 'Lead' event to TEAMFIRE's pixel while every later status-change
+ *  event (QualifiedLead/FollowUp/Closed) went to UNITEDECOSYSTEM's pixel —
+ *  splitting one lead's CAPI signal across two ad accounts. Both functions
+ *  now use the same origin-team rule, so a lead's whole CAPI lifecycle
+ *  always lands on the same pixel(s), regardless of who actually works it.
+ *  See the function's own comment (search sendCapiLeadEvent) for detail.
+ *
  * v10 (admin decision 2026-08-08) — WOMEN-ONLY FORM NOW FALLS BACK.
  *  v6 gave Simar's team EXCLUSIVE rights to the women-only form: if nobody
  *  under Simar was eligible, the lead was parked in 'Queued' forever. That
@@ -391,13 +408,24 @@ async function findTeamAssigneeExcludingManager(supabase: any, teamCode: string,
 }
 
 // Sends the initial 'Lead' CAPI event, matched by pixel using the lead's
-// ACTUAL assigned user's team_code (fetched fresh) — same matching rule
-// send-crm-conversion uses for later status-change events on the same lead,
-// so a lead's whole CAPI lifecycle always lands on the same pixel(s). Fans
-// out to every matching active pixel (dedupe by pixel_id), not just one.
+// ORIGIN team (parsed from `source`, "GoogleSheet-<team>") — NOT the
+// assigned user's team_code. This function only ever runs for sheet-sourced
+// leads, so `source` always carries that shape.
+//
+// 2026-08-19 fix: this previously matched by the ASSIGNED user's team_code
+// (fetched fresh), which diverged from send-crm-conversion's later
+// status-change events (which match by origin team, v5, 2026-08-09) any
+// time a lead fell back cross-team — e.g. a UNITEDECOSYSTEM-origin lead
+// assigned to a TEAMFIRE fallback agent would send its initial 'Lead' event
+// to TEAMFIRE's pixel and every later QualifiedLead/FollowUp/Closed event to
+// UNITEDECOSYSTEM's pixel, splitting one lead's signal across two ad
+// accounts. Now both functions use the same origin-team rule, so a lead's
+// whole CAPI lifecycle always lands on the same pixel(s), regardless of who
+// actually worked it. Fans out to every matching active pixel (dedupe by
+// pixel_id), not just one.
 async function sendCapiLeadEvent(
   supabase: any,
-  assignedUserId: string | null,
+  source: string,
   leadId: string,
   name: string,
   phone: string,
@@ -406,14 +434,11 @@ async function sendCapiLeadEvent(
   email: string | null = null
 ) {
   try {
-    let teamCode: string | null = null;
-    if (assignedUserId) {
-      const { data: u } = await supabase.from('users').select('team_code').eq('id', assignedUserId).maybeSingle();
-      teamCode = u?.team_code || null;
-    }
+    const originMatch = (source || '').match(/^GoogleSheet-(.+)$/i);
+    const teamCode: string | null = originMatch ? originMatch[1] : null;
 
     if (!teamCode) {
-      console.log(`[CAPI] ⏭️ Skipped — could not resolve assigned user's team_code`);
+      console.log(`[CAPI] ⏭️ Skipped — could not resolve origin team from source: ${source}`);
       return;
     }
 
@@ -719,7 +744,7 @@ serve(async (req) => {
     }
 
     // ---- CAPI signal (non-critical, matched by the ACTUAL assigned user's team) ----
-    await sendCapiLeadEvent(supabase, finalUserId, newLead.id, name, phone, city, state, email);
+    await sendCapiLeadEvent(supabase, source, newLead.id, name, phone, city, state, email);
 
     return new Response(JSON.stringify({ status: 'assigned', assigned_to: finalUserName || finalUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
