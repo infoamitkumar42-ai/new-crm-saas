@@ -23,6 +23,12 @@ interface TeamMember {
   total_leads?: number;
   closed_leads?: number;
   is_active?: boolean;
+  // `select('*')` ye dono already laata hai; interface mein missing the.
+  // total_leads_promised se hi "Expired" aur "No Plan" alag kiye jaate hain
+  // (getPlanLabel dekho). interested_leads ko add karne se is file ke 2
+  // pre-existing tsc errors bhi clear ho jaate hain.
+  total_leads_promised?: number;
+  interested_leads?: number;
 }
 
 interface Stats {
@@ -219,6 +225,38 @@ export const ManagerDashboard = () => {
       default: return 'bg-slate-50 text-slate-600';
     }
   };
+
+  /**
+   * Plan badge par kya dikhana hai.
+   *
+   * ⚠️ `plan_name` column expire hone par CLEAR nahi hota — wo aakhri khareeda
+   * hua plan yaad rakhta hai (renewal ke liye zaroori hai). Isliye badge seedha
+   * `plan_name` dikhata tha aur ek expired user bhi "turbo_boost" jaisa
+   * subscriber lagta tha — jaise Mary Janjot, jiski quota 227/227 poori ho chuki
+   * hai aur `is_active=false` hai, phir bhi "turbo_boost" dikh raha tha.
+   *
+   * Ab plan ka naam SIRF tab dikhta hai jab plan sach mein chal raha ho
+   * (`payment_status === 'active'`). Warna:
+   *   • kabhi plan khareeda tha (total_leads_promised > 0) -> "Expired"
+   *   • kabhi khareeda hi nahi                             -> "No Plan"
+   *
+   * `total_leads_promised` se farak karna zaroori hai: kuch purane rows par
+   * `plan_name` set hai par payment kabhi hui hi nahi (live DB mein TEAMFIRE ke
+   * 2 aise users — plan_name='starter', 0 payments, promised=0). Unhe "Expired"
+   * dikhana galat hota, wo "No Plan" hain.
+   */
+  const getPlanLabel = (member: { payment_status?: string; plan_name?: string; total_leads_promised?: number }) => {
+    if (member.payment_status === 'active' && member.plan_name && member.plan_name !== 'none') {
+      return member.plan_name;
+    }
+    return (member.total_leads_promised || 0) > 0 ? 'Expired' : 'No Plan';
+  };
+
+  /** Expired/No-Plan badge hamesha neutral grey — plan ke rang se confuse na ho. */
+  const getPlanBadgeColor = (member: { payment_status?: string; plan_name?: string }) =>
+    member.payment_status === 'active' && member.plan_name && member.plan_name !== 'none'
+      ? getPlanColor(member.plan_name)
+      : 'bg-slate-100 text-slate-500';
 
   // ============================================================
   // Effects (With Cleanup)
@@ -445,8 +483,8 @@ export const ManagerDashboard = () => {
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${getPlanColor(member.plan_name)}`}>
-                            {member.plan_name || 'None'}
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${getPlanBadgeColor(member)}`}>
+                            {getPlanLabel(member)}
                           </span>
                         </td>
                         <td className="p-4 text-center">
@@ -484,8 +522,8 @@ export const ManagerDashboard = () => {
                     </div>
 
                     <div className="flex items-center gap-2 mb-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${getPlanColor(member.plan_name)}`}>
-                        {member.plan_name || 'No Plan'}
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${getPlanBadgeColor(member)}`}>
+                        {getPlanLabel(member)}
                       </span>
                       <span className="text-xs text-slate-500">
                         Today: {member.leads_today}/{member.daily_limit}
