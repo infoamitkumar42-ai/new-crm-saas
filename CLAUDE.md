@@ -1808,6 +1808,14 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-010 | 2026-07-09 | Phantom `total_leads_promised=50` at signup doubles quota on first real payment | `handle_new_user()` — default `50` → `0` |
 | BUG-011 | 2026-08-04 | `assign_recycled_leads` RPC silently returned 0 leads (NULL-unsafe `NOT (col ILIKE ...)` filter) | `COALESCE(l.state,'')` / `COALESCE(l.city,'')` — pool 0 → 1,140 |
 | BUG-012 | 2026-08-04 | Chunk-load failure after deploy showed crash screen instead of auto-recovering | `App.tsx` `lazyWithRetry` — cache clear + cache-busting reload + pending promise |
+| BUG-013 | 2026-08-05 | `PLAN_CONFIG` exists in 2 copies; only 1 updated for the offer → 2 real buyers got wrong quota | `razorpay-reconcile` `PLAN_CONFIG` synced to `razorpay-webhook.ts` |
+| BUG-014 | 2026-08-16 | Admin Quick Edit wrote `is_active` without `is_online` → 4 paying users silently unroutable | `UserQuickEdit.tsx` writes both; `AdminDashboard.tsx` passes real `is_active` |
+| BUG-015 | 2026-08-18 | Random logout loop — 2 callers refreshing the same rotating refresh token | `auth/useAuth.tsx` v6.5 — manual proactive refresh removed |
+| BUG-016 | 2026-08-19 | "Checking session…" hang / bounce-to-login: profile cache wiped every app open for 87 users | `auth/useAuth.tsx` — dummy-profile heuristic matched on full signature |
+
+> ⚠️ **Keep this table in sync with `bugfix.md`.** It went stale at BUG-012 once already
+> (BUG-013→016 were missing until backfilled on 2026-08-19), which made it look like nothing had
+> broken for two weeks.
 
 ---
 
