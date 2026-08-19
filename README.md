@@ -26,6 +26,7 @@ of leads they paid for, not on a calendar date.
 | [`docs/SYSTEM-OVERVIEW.md`](./docs/SYSTEM-OVERVIEW.md) | You need to understand how the system works — lead flow, the four routing paths, data model, deploys. |
 | [`docs/AGENT-PROTOCOL.md`](./docs/AGENT-PROTOCOL.md) | You are about to make a change and need the required workflow for proving it works. |
 | [`docs/AUTONOMOUS-AGENT-RULES.md`](./docs/AUTONOMOUS-AGENT-RULES.md) | You are an agent running many steps without a human between them (Antigravity, background agents, multi-agent runs). |
+| [`docs/AGENT-ONBOARDING-TEST.md`](./docs/AGENT-ONBOARDING-TEST.md) | You are about to let a new agent or IDE work on this repo — run this read-only test first. |
 | [`bugfix.md`](./bugfix.md) | **Before debugging anything.** Every bug ever found, with root cause and a verification query. |
 | [`CLAUDE.md`](./CLAUDE.md) | You want the long-form changelog or a detailed reference for one area. |
 | [`docs/sessions/`](./docs/sessions/) | You are working in an area someone touched recently — including what they tried and abandoned. |
