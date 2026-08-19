@@ -1,11 +1,8 @@
 /**
  * ╔════════════════════════════════════════════════════════════╗
- * ║  🔒 PRODUCTION - supabaseClient.ts v4.2 (REAL AUTH LOCK)   ║
- * ║  Date: January 6, 2025 (v4.2: August 19, 2026)             ║
+ * ║  🔒 PRODUCTION - supabaseClient.ts v4.0 FINAL              ║
+ * ║  Date: January 6, 2025                                     ║
  * ║  Status: WORKING - NO 406 ERRORS                           ║
- * ║                                                            ║
- * ║  v4.2: `lock` ab asli in-tab mutex hai (pehle no-op tha).  ║
- * ║        BUG-015 follow-up. navigator.locks NAHI use hoti.   ║
  * ╚════════════════════════════════════════════════════════════╝
  */
 
@@ -195,64 +192,6 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   return originalFetch(input, init);
 };
 
-// ╔════════════════════════════════════════════════════════════╗
-// ║  🔒 AUTH LOCK (v4.2) — real in-tab mutex, replaces no-op    ║
-// ╚════════════════════════════════════════════════════════════╝
-// supabase-js har auth operation ko is `lock` ke through chalata hai taaki do
-// operations EK SAATH same refresh_token use na kar lein. Refresh tokens
-// ROTATE hote hain: pehla use hote hi purana invalid ho jaata hai, doosre ko
-// "Invalid Refresh Token: Already Used" milta hai -> session clear -> user
-// login page par (BUG-015 wala false logout).
-//
-// ⚠️ Pehle yahan jo `lock` tha wo **dono branches mein seedha `await fn()`**
-// karta tha — yaani effectively NO-OP, kuch bhi serialize nahi hota tha. Wo
-// bypass jaan-boojh kar lagaya gaya tha kyunki `navigator.locks` (Web Locks
-// API) mobile par 15s hang karti thi. Bypass ne hang to hata diya, par saath
-// mein wo protection bhi hata di jiske liye lock hota hai.
-//
-// Ye wala mutex **`navigator.locks` use NAHI karta** — sirf ek in-memory
-// promise chain hai, isliye 15s-hang wali original wajah wapas nahi aa sakti.
-//
-// SAFETY (kyun ye hang/crash nahi kar sakta):
-//  - `fn()` ka result JAISA HAI waisa hi caller ko return hota hai — na error
-//    nigla jaata hai, na resolve value badalti hai. Contract 100% same.
-//  - Chain kabhi reject nahi hoti (`.then(fn, fn)`), isliye ek failed auth
-//    operation baaki sab ko permanently block nahi kar sakta.
-//  - WATCHDOG: chain agli operation ke liye `LOCK_MAX_HOLD_MS` ke baad khud
-//    aage badh jaati hai, chahe `fn()` abhi bhi latka ho. Yaani worst case
-//    ek slow request ho sakti hai, par **deadlock kabhi nahi**. `fn()` ko
-//    abort nahi kiya jaata — uska apna result aane par normally resolve hota
-//    hai, sirf chain uska intezaar chhod deti hai.
-//
-// ⚠️ SCOPE: ye lock ek TAB ke andar serialize karta hai. Do alag tabs ke beech
-// (cross-tab) serialize karne ke liye `navigator.locks` ya storage-based lock
-// chahiye — wo jaan-boojh kar NAHI kiya gaya (mobile hang risk).
-const LOCK_MAX_HOLD_MS = 10000;
-let authLockChain: Promise<void> = Promise.resolve();
-
-function authProcessLock<R>(
-  _name: string,
-  _acquireTimeout: number,
-  fn: () => Promise<R>
-): Promise<R> {
-  // Pichli operation ke settle hone ke BAAD chalao — chahe wo pass ho ya fail.
-  const result = authLockChain.then(fn, fn);
-
-  // Chain tabhi aage badhegi jab `result` settle ho jaye YA watchdog fire ho —
-  // jo pehle ho. Isliye ek atki hui request auth ko hamesha ke liye block
-  // nahi kar sakti.
-  authLockChain = new Promise<void>((release) => {
-    const watchdog = setTimeout(release, LOCK_MAX_HOLD_MS);
-    const done = () => {
-      clearTimeout(watchdog);
-      release();
-    };
-    result.then(done, done);
-  });
-
-  return result;
-}
-
 /**
  * 🛡️ SMART FETCH: Split routing for optimal performance.
  * 
@@ -299,12 +238,15 @@ export const supabase = createClient(
       storageKey: 'leadflow-auth-v2', // 🛡️ Changed to avoid stale lock conflict from old key
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       detectSessionInUrl: true,
-      // 🔒 v4.2: real in-tab mutex (upar `authProcessLock` dekho).
-      // Pehle yahan jo function tha wo dono branches mein seedha `await fn()`
-      // karta tha — effectively no-op. Ab har page par (reset-password sameth)
-      // ek hi consistent mutex chalta hai. `navigator.locks` use NAHI hoti,
-      // isliye purana 15s mobile hang wapas nahi aa sakta.
-      lock: authProcessLock,
+      // 🛡️ SMART LOCK: The Web Locks API causes 15s hangs on mobile.
+      // We allow the real lock only on the reset-password page where session rehydration is critical.
+      lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+        if (typeof window !== 'undefined' && window.location.pathname.includes('reset-password')) {
+          return await fn();
+        }
+        // Bypass lock on all other pages (prevents mobile 15s hang)
+        return await fn();
+      },
     },
 
     global: {
