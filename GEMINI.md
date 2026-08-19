@@ -1,3 +1,39 @@
+# ⛔ STOP — read AGENTS.md before changing any code in this repository.
+
+This is a LIVE revenue system. Paying customers are owed a specific number of leads, and
+"small" changes here have previously cost real money: paying members receiving zero leads for
+a day, buyers sold the wrong quota, 87 users locked out of the app.
+
+Required reading, in order:
+
+  1. AGENTS.md                    Rules and the traps that have actually caused damage
+  2. docs/SYSTEM-OVERVIEW.md      How the system works: lead flow, routing paths, data model
+  3. docs/AGENT-PROTOCOL.md       Required workflow for making and proving a change
+  4. bugfix.md                    Every bug ever found — check here BEFORE debugging anything
+
+Running many steps without a human between them (autonomous / background / multi-agent)?
+Also read docs/AUTONOMOUS-AGENT-RULES.md — hard stops, premise re-verification, parallel agents.
+
+⚠️ FIRST, MAKE SURE YOUR CHECKOUT IS CURRENT: `git pull origin main`
+An onboarding test on 2026-08-19 found an agent answering from a clone that was several
+commits behind — it reported bugfix.md as ending at BUG-010 when it ends at BUG-016, and
+never saw AGENTS.md or docs/ at all. Stale docs are worse than no docs, because they are
+quoted with confidence. If CLAUDE.md is under ~1,900 lines or bugfix.md has no BUG-016,
+you are on an old checkout. Pull before answering anything.
+
+Non-negotiable rules (full list in AGENTS.md):
+
+  - Never edit auth/useAuth.tsx, supabaseClient.ts, App.tsx, vite.config.ts or src/sw.ts
+    without explicit approval for that specific change.
+  - Never change DB schema, RPCs or RLS without showing the SQL and getting approval first.
+  - One logical change per commit. Branch + PR; never push to main.
+  - Identify users by email, never by name — several people here share names.
+  - Verify against the live database before you write code, and again before you claim it works.
+
+If you are unsure, stop and ask. Guessing is the failure mode this file exists to prevent.
+
+---
+
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 
