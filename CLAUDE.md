@@ -270,6 +270,70 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-19 — August offer 25-Aug tak extend (kal raat se silently OFF tha)
+- **Offer live UI mein band ho chuka tha**: `OFFER.endsAt` abhi bhi `2026-08-18T23:59:59+05:30` tha,
+  aur aaj 19-Aug hai — `isOfferLive()` raat ko hi `false` ho gaya, yaani top banner + pricing-card
+  ka "AUGUST OFFER" badge dono chhup gaye aur cards base `plan.duration`/`baseTotalLeads` par wapas
+  chale gaye. Ye wahi endsAt-aware behaviour hai jo 2026-08-10 ko fix hua tha — sahi kaam kar raha
+  hai, bas fresh extension chahiye tha. (Yehi 3rd baar hua hai — 13, 16 aur ab 19 Aug.)
+- **Fix**: `OFFER.endsAt` → `2026-08-25T23:59:59+05:30` (6 din). `OFFER_ACTIVE` already `true`,
+  untouched. `config/offer.ts`-only change — koi Edge Function deploy nahi, agli Cloudflare Pages
+  build par live.
+- ⚠️ **Backend par koi gap nahi tha**: `PLAN_CONFIG` (`functions/api/razorpay-webhook.ts` +
+  `razorpay-reconcile`) `endsAt` par auto-expire nahi karta, isliye aaj ki **5 payments ko offer
+  quota hi mila** (starter → `total_leads_promised=90`, `daily_limit=9`, base 50/5 nahi). Live
+  verify kiya — kuch backfill/correct karne ki zaroorat nahi.
+- `npm run build` clean (1862 modules).
+
+### 2026-08-19 — Manager panel: 2 fixes (PR #164 data accuracy, PR #165 plan badge)
+- **PR #164 — counts `user_id` ki jagah `assigned_to` par**: `views/ManagerDashboard.tsx` ke teeno
+  count queries (total / Interested / Closed) `user_id` par thi. `leads` mein dono FK hain
+  (CLAUDE.md ka documented DUAL FK issue): `user_id` = original/legacy owner (recycle ya reassign
+  par NAHI badalta), `assigned_to` = abhi kiske paas hai (har routing path yahi set karta hai).
+  Live check: TEAMFIRE ke **15+ members galat** the, **55 leads tak** ka farak dono directions mein
+  — Ankush 270 vs asli 325, Mandeep kaur 651 vs asli 598, Paramjeet kaur 157 vs 107, Ajay kumar 673
+  vs 722. Member dashboard aur admin reports pehle se `assigned_to` par the, ab manager panel bhi
+  match karta hai. Admin ne khud screenshot se ye pakda tha.
+- **PR #165 — expired members ka plan naam ab nahi dikhta**: `plan_name` expire hone par clear nahi
+  hota (renewal ke liye jaan-boojh kar last plan yaad rakhta hai), aur badge seedha wahi render
+  karta tha — isliye Mary Janjot (`maryjanjot9@gmail.com`, quota 227/227 poori, `is_active=false`,
+  `payment_status='inactive'`) panel mein "turbo_boost" subscriber lag rahi thi. Ab plan naam SIRF
+  `payment_status==='active'` par dikhta hai; warna `total_leads_promised > 0` ho to **"Expired"**,
+  nahi to **"No Plan"** (dono neutral grey, taaki plan tier se confuse na ho). Desktop table +
+  mobile card dono par.
+- ⚠️ **`total_leads_promised` se farak karna zaroori tha**: kuch purane rows par `plan_name` set hai
+  par payment kabhi hui hi nahi — live mein TEAMFIRE ke 2 aise users (`kiran@gmail.com`,
+  `simrankaurdee9@gmail.com`: `plan_name='starter'`, 0 captured payments, `promised=0`). Unhe
+  "Expired" dikhana galat hota, wo "No Plan" hain. Yahi admin ko "plan liya but total leads 0" laga
+  tha.
+- **9 asli DB rows par verify kiya**: Mary Janjot + Priya Goyal → "Expired"; Kiran/Simran (stale
+  plan_name) + Pinki dhiman/Gurpreet kaur (kabhi plan nahi) → "No Plan"; Harmandeep/Gurmansingh
+  (active) → apna plan; **Bhawna Gousar (aaj pay kiya, kal 7 AM activate)** → "starter", "Expired"
+  NAHI (ye case important tha).
+- `TeamMember` interface mein `total_leads_promised` + `interested_leads` add kiye (`select('*')`
+  pehle se laata tha) — is file ke 2 pre-existing tsc errors bhi clear (12 → 10). Build clean.
+- **Rule #8 follow kiya** — dono alag commits/PRs mein.
+
+### 2026-08-19 — 🚨 UNITEDECOSYSTEM: 5 paying users, ZERO routing (FASTMOVERS bug ka repeat)
+- **Aaj 5 payments aayi, sab UNITEDECOSYSTEM (Kirti giri ki team)** — ₹4,995, 450 leads quota:
+  `mamtasharmax8419@gmail.com` (Neeraj lata), `hkaur20674@gmail.com` (Harpreet kaur),
+  `gousarshanu@gmail.com` (Bhawna Gousar), `kirtigiri9416@gmail.com` (Kirti),
+  `sweety.saini1988@gmail.com` (Sweety saini). Sab sahi pending state mein —
+  `is_plan_pending=true`, **20-Aug 07:00 IST ko activate honge**.
+- ⚠️ **`UNITEDECOSYSTEM` KISI BHI routing path mein nahi hai** — live verify kiya:
+  - `meta_pages.team_id` → sirf TEAMFIRE, TEAMSIMRAN, GJ01TEAMFIRE, TEAMRAJ ❌
+  - `sheet_intake_tokens.team_code` → `'ECO@WIN12,TEAMFIRE,FASTMOVERS'` ❌
+  - `WOMEN_FORM_PRIORITY_MANAGER` → Kirti giri list mein nahi ❌
+  - `recycled_pool_control.allowed_team_codes` → `['TEAMFIRE']` ❌
+  Yaani kal 7 AM se ye 5 activate honge aur inhe **0 leads** milengi — bilkul wahi jo 2026-08-18 ko
+  FASTMOVERS ke saath hua tha.
+- **Abhi FIX NAHI kiya** — admin se poocha hai ki inhe women's-form priority pool mein daalna hai
+  (ECO@WIN12/ECOKULWINDER/FASTMOVERS ke saath equal) ya general TEAMFIRE-fallback pool mein. Deadline
+  kal 7 AM IST.
+- ⚠️ **Naam ka confusion (rule: hamesha email se identify karo)**: `kirtigiri9416@gmail.com` (Kirti,
+  MEMBER, aaj paid) aur `kirtidkgiri@gmail.com` (Kirti giri, MANAGER of UNITEDECOSYSTEM) **do alag
+  log hain**. Same team, lagbhag same naam.
+
 ### 2026-08-19 — BUG-016: ASLI root cause mila — profile cache har app-open par wipe (87 users)
 - **Ye wo bug hai jo BUG-015 ke dono fixes ne MISS kiya tha.** Admin ne console log bheja, usse
   poori chain saaf ho gayi. Symptom: "Checking session… / Connecting to secure server…" par minutes
