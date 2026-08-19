@@ -10,6 +10,7 @@ day, buyers sold the wrong quota, 87 users locked out of the app.
 2. **`docs/SYSTEM-OVERVIEW.md`** — how the system works: lead flow, the four routing paths, data model
 3. **`docs/AGENT-PROTOCOL.md`** — required workflow for making and proving a change
 4. **`bugfix.md`** — every bug ever found; check here *before* debugging anything
+5. **`docs/AUTONOMOUS-AGENT-RULES.md`** — required if you run multiple steps without a human between them
 
 ## Non-negotiable rules (full list in `AGENTS.md`)
 

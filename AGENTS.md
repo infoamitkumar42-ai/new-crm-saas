@@ -36,6 +36,12 @@ So: this codebase asks you to slow down and verify, not to be clever.
 | 4 | **`bugfix.md`** | Every bug ever found, with root cause and a verification query. **Check here before debugging anything** — it is probably already documented. |
 | 5 | **`CLAUDE.md`** | Long-form changelog and project reference. Dense; skim for the area you're touching. |
 
+**If you execute multiple steps without a human between them** — Google Antigravity, background
+or async agents, multi-agent runs, any "go build this" mode — also read
+**[`docs/AUTONOMOUS-AGENT-RULES.md`](./docs/AUTONOMOUS-AGENT-RULES.md)**. It carries the hard-stop
+list, the premise re-verification budget, and the parallel-agent rules. It is not optional for
+those modes.
+
 `docs/sessions/` holds per-session logs, including what was *tried and abandoned*. Read the
 relevant one before re-attempting something in the same area.
 
