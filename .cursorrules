@@ -11,6 +11,9 @@ Required reading, in order:
   3. docs/AGENT-PROTOCOL.md       Required workflow for making and proving a change
   4. bugfix.md                    Every bug ever found — check here BEFORE debugging anything
 
+Running many steps without a human between them (autonomous / background / multi-agent)?
+Also read docs/AUTONOMOUS-AGENT-RULES.md — hard stops, premise re-verification, parallel agents.
+
 Non-negotiable rules (full list in AGENTS.md):
 
   - Never edit auth/useAuth.tsx, supabaseClient.ts, App.tsx, vite.config.ts or src/sw.ts
