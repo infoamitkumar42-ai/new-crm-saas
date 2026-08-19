@@ -186,6 +186,12 @@ const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEE
 // regardless of which token/integration the Apps Script sends it through.
 const RESTRICTED_TEAM_FORM_IDS: Record<string, string[]> = {
   '27622038114105519': ['TEAMFIRE', 'TEAMSIMRAN'],
+  // 2026-08-19 — "new form kirti", Kirti giri's own ad account + Google Sheet,
+  // set up for the 30 members who bought during the August offer. Their team
+  // appears in no other routing path, so this form is their only supply.
+  // UNITEDECOSYSTEM first; TEAMFIRE only once they are all at capacity, so a
+  // lead never rots in Queued the way the women-only form's leads once did.
+  '1377999317060769': ['UNITEDECOSYSTEM', 'TEAMFIRE'],
 };
 
 // v11 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
