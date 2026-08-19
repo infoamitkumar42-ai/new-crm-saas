@@ -286,6 +286,43 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-19 (21:00 IST) — Himanshu Sharma ab pakka 14 leads/din par (trigger fix, admin-approved)
+- **Admin ka faisla**: Himanshu ko **original turbo_boost pace = 14/din** par rakhna hai, August
+  offer wala 33/din **nahi**. Baaki kuch nahi chhedna.
+- **Symptom**: admin panel par **23/14** dikh raha tha — jaise limit paar kar li ho.
+- ⚠️ **Par leak nahi hua tha**: us din ki saari 23 leads **09:15–18:18** ke beech mili, jab uska
+  `daily_limit` abhi **33** tha. **18:47** ko wo 14 ho gaya, aur uske baad **0** leads mili.
+  Ratio isliye galat lagta tha kyunki limit baad mein badli, leads baad mein nahi aayi.
+- **ROOT CAUSE — `sync_user_plan_fields()` ki Himanshu-wali branch `plan_config` padh rahi thi**:
+  ```sql
+  SELECT daily_leads INTO pc FROM plan_config WHERE plan_name = NEW.plan_name;
+  NEW.daily_limit := COALESCE(pc.daily_leads, 14);   -- 14 sirf FALLBACK tha
+  ```
+  `plan_config.turbo_boost` mein offer ka **33** hai, to ye lookup hamesha **33** deta tha — 14
+  kabhi lagta hi nahi tha. Branch ki exact logic alag se chala kar verify kiya: **33 nikla**.
+  Aur ye trigger `BEFORE INSERT OR UPDATE` hai **bina kisi column filter ke**, yaani har lead
+  assignment (jo counters update karta hai) uske `daily_limit` ko chupchaap 33 par le jaata tha.
+- **Fix**: us branch mein `NEW.daily_limit := 14;` hardcode kar diya. `plan_config` se padhna
+  "ye user offer se bahar hai" express kar hi nahi sakta — jo yahan bilkul yahi chahiye tha.
+  `plan_weight := 7` waisa hi hai (uski purani custom priority, `plan_config` ke 9 se alag).
+- **Verified (apply karne ke baad)**:
+  - Himanshu par harmless self-UPDATE → trigger chala → `daily_limit` **14 hi raha** ✔
+  - **Mandeep kaur** (doosri turbo_boost user, control case) → **33 / weight 9** par hi rahi ✔
+  - Baaki saare active/paid users vs `plan_config`: **0 daily_limit mismatch, 0 plan_weight
+    mismatch** ✔
+  - Counter drift **0**, over-quota active users **0** ✔
+- `leads_today` counter mein **koi drift nahi tha** (23 counter = 23 actual) — usme kuch fix karne
+  ki zaroorat nahi thi. Aaj ka 23/14 raat 12 baje ke reset se apne aap saaf ho jayega, aur kal se
+  use **14/din hi** milengi.
+- Migration record: `supabase/migrations/20260819210000_himanshu_daily_limit_hardcode.sql`
+  (verification SQL uske andar hai). RPC change tha — admin ki explicit approval lekar kiya
+  (rule #4).
+- ⚠️ **Isi check ke dauran mila (fix NAHI kiya)**: **Simran** (`manukamboj8000@gmail.com`,
+  TEAMFIRE) `is_active=true` par `is_online=false` hai — wahi BUG-014 wala pattern, jisme user
+  har routing path se invisible ho jaata hai. 12 quota bacha hai. Uski row **20:50 IST** ko update
+  hui thi (mere change se pehle aur unrelated — ye trigger `is_online` ko chhuta hi nahi). Admin
+  se poocha hai ki usne khud pause kiya hai ya ye desync hai.
+
 ### 2026-08-19 — August offer 25-Aug tak extend (kal raat se silently OFF tha)
 - **Offer live UI mein band ho chuka tha**: `OFFER.endsAt` abhi bhi `2026-08-18T23:59:59+05:30` tha,
   aur aaj 19-Aug hai — `isOfferLive()` raat ko hi `false` ho gaya, yaani top banner + pricing-card
