@@ -286,6 +286,45 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-20 — BUG-017: reactivation deadlock in `update_user_lead_count` — 23 paying members stuck "Plan Inactive" with real quota left
+- **Found from a member screenshot** (Ajay kumar, `ajayk783382@gmail.com`) — dashboard showed
+  "Plan Inactive" with **17 leads still left (719/736)**, not quota-exhausted. Admin asked to fix
+  him AND check whether the underlying logic could do this to anyone else who genuinely deserves
+  leads.
+- **Root cause — `trigger_update_user_lead_count`'s DECREMENT branch (fires when a lead is taken
+  away from a user — reassignment, recycling, any admin correction) required `payment_status =
+  'active'` to reactivate someone.** But `payment_status='inactive'` is exactly what the trigger's
+  own INCREMENT branch sets when it first deactivates someone for hitting quota. So once a user was
+  correctly deactivated for exhausting their quota, and LATER had a lead removed from their count
+  for any reason (genuinely reopening room under their `total_leads_promised`), this trigger could
+  never bring them back — its own condition required the state only a successful reactivation would
+  produce. `payment_status` also wasn't written at all in this branch, only `is_active` — so even
+  fixing the condition alone would've left `is_active=true` next to a stale `payment_status=
+  'inactive'`, which every OTHER query that filters on `payment_status` (`check-quota-expiry`,
+  `plan-expiry-notifier`) would still treat as inactive.
+- **Scale**: live query found **23 real paying members** in exactly this signature
+  (`is_active=false`, `payment_status='inactive'`, real `plan_name`, `total_leads_received <
+  total_leads_promised`) — quota owed ranged 1 to 67 leads, **~323 leads total** being wrongly
+  withheld. Not every one of the 23 is provably caused by this exact mechanism — this repo has a
+  long history of one-off manual SQL corrections (`MASTER_FIX_LEADS.sql` etc.) that could
+  independently leave the same signature — but this is a real, reproducible bug in an always-on
+  trigger, and it's the only currently-active code path that can produce this outcome.
+- **Fix**: decrement branch's reactivation condition now checks `plan_name <> 'none' AND
+  total_leads_promised > 0 AND (actual count) < total_leads_promised` (same intent check the
+  increment branch and `check-quota-expiry`'s own activation pass already use) instead of requiring
+  `payment_status = 'active'`, and now sets `payment_status = 'active'` alongside `is_active = true`
+  so both fields land in the same consistent state every other activation path already produces.
+  Increment branch and all counter math untouched.
+  `supabase/migrations/20260820134500_fix_reactivation_deadlock.sql` (full `CREATE OR REPLACE`,
+  admin-approved per rule 4).
+- **All 23 already-stuck users batch-corrected in the same session** (`is_active=true`,
+  `is_online=true`, `payment_status='active'` — `daily_limit` auto-synced correctly per plan via
+  `trg_sync_user_plan_fields`). The trigger fix alone does NOT retroactively fix already-stuck
+  users — it only prevents the same freeze from happening again — so this batch pass was required
+  too. **Verified after**: 0 users left in the stuck signature, counter drift 0, over-quota active
+  users 0.
+- Full details + verification SQL: `bugfix.md` **BUG-017**.
+
 ### 2026-08-19 (late night) — UNITEDECOSYSTEM priority-pool bug found + fixed (code review self-catch) + CAPI pixel-match fix
 - **Found while doing the admin-requested "review the deploy carefully" pass on the UNITEDECOSYSTEM
   setup from earlier tonight.** The `RESTRICTED_TEAM_FORM_IDS['1377999317060769']` entry I wrote a
@@ -1903,6 +1942,7 @@ WHERE is_active = true AND total_leads_promised > 0
 | BUG-014 | 2026-08-16 | Admin Quick Edit wrote `is_active` without `is_online` → 4 paying users silently unroutable | `UserQuickEdit.tsx` writes both; `AdminDashboard.tsx` passes real `is_active` |
 | BUG-015 | 2026-08-18 | Random logout loop — 2 callers refreshing the same rotating refresh token | `auth/useAuth.tsx` v6.5 — manual proactive refresh removed |
 | BUG-016 | 2026-08-19 | "Checking session…" hang / bounce-to-login: profile cache wiped every app open for 87 users | `auth/useAuth.tsx` — dummy-profile heuristic matched on full signature |
+| BUG-017 | 2026-08-20 | Reactivation deadlock — decrement branch required `payment_status='active'` to reactivate, which is exactly what deactivation had just cleared; 23 paying members stuck "Plan Inactive" with quota left | `update_user_lead_count()` decrement branch — condition + `payment_status` write fixed |
 
 > ⚠️ **Keep this table in sync with `bugfix.md`.** It went stale at BUG-012 once already
 > (BUG-013→016 were missing until backfilled on 2026-08-19), which made it look like nothing had

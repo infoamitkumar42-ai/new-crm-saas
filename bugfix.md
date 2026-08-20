@@ -11,6 +11,87 @@
 
 ---
 
+## 2026-08-20
+
+---
+
+### BUG-017 — Reactivation deadlock: 23 paying members stuck "Plan Inactive" despite genuine quota left
+
+**Status:** ✅ Fixed
+
+**Symptom:** Ajay kumar (`ajayk783382@gmail.com`) reported "Plan Inactive" on his dashboard despite
+17 leads still owed (719/736 delivered). A follow-up query found 23 members in the identical state.
+
+**Root cause:** `trigger_update_user_lead_count` (AFTER INSERT/UPDATE on `leads`, function
+`update_user_lead_count()`) has two branches:
+- INCREMENT (a lead lands on someone) — correctly deactivates on quota exhaustion, setting BOTH
+  `is_active=false` AND `payment_status='inactive'` together.
+- DECREMENT (a lead is taken away — reassignment, recycling, an admin correction) — was supposed to
+  reverse this if the user genuinely has room again, but its condition required
+  `payment_status = 'active'` first. That's exactly the field the increment branch had just set to
+  `'inactive'`. A user correctly deactivated for hitting quota could never satisfy this condition
+  again — it required the very state only a successful reactivation would produce. The branch also
+  never wrote `payment_status` at all, only `is_active`, so even fixing the condition alone would
+  leave `payment_status` stale.
+
+**What broke:** Any paying member who (a) was correctly auto-deactivated for exhausting quota, then
+(b) later had one of their counted leads removed for any reason (reassignment, recycling from an
+inactive holder, an admin correction) while `total_leads_promised` still had room — got permanently
+stuck showing "Plan Inactive" with real leads owed, no self-healing path. Live count: 23 members,
+1–67 leads owed each, ~323 leads total wrongly withheld. Not every one of the 23 is provably caused
+by this exact mechanism (this repo has a long history of one-off manual SQL corrections that could
+independently leave the same signature) — but it is a real, reproducible bug in an always-on
+trigger, and the only currently-active code path that produces this exact outcome.
+
+**Fix (`supabase/migrations/20260820134500_fix_reactivation_deadlock.sql`):**
+```sql
+-- Decrement branch's reactivation condition, before/after:
+-- BEFORE:
+--   WHEN payment_status = 'active' AND plan_name != 'none' AND (actual count) < total_leads_promised
+--   THEN is_active := true   -- payment_status never touched
+-- AFTER:
+--   WHEN plan_name != 'none' AND total_leads_promised > 0 AND (actual count) < total_leads_promised
+--   THEN is_active := true, payment_status := 'active'   -- both set together
+```
+Full `CREATE OR REPLACE FUNCTION public.update_user_lead_count()` is in the migration file. Increment
+branch and all counter math untouched. Admin-approved per CLAUDE.md rule 4 (RPC/trigger change).
+
+**One-time batch correction** (same session, since the trigger fix alone only prevents *future*
+freezes — it doesn't retroactively fix already-stuck rows):
+```sql
+UPDATE users
+SET is_active = true, is_online = true, payment_status = 'active', updated_at = NOW()
+WHERE role = 'member' AND is_active = false AND payment_status = 'inactive'
+  AND plan_name <> 'none' AND total_leads_promised > 0
+  AND total_leads_received < total_leads_promised;
+-- 23 rows affected. daily_limit auto-synced per plan via trg_sync_user_plan_fields.
+```
+
+**Verification (all re-run after, all clean):**
+```sql
+-- 1. Nobody left in the stuck signature
+SELECT COUNT(*) FROM users WHERE role='member' AND is_active=false AND payment_status='inactive'
+  AND plan_name<>'none' AND total_leads_promised>0 AND total_leads_received < total_leads_promised;
+-- -> 0
+
+-- 2. Counter drift (standard check)
+SELECT u.email, u.total_leads_received AS counter, COUNT(l.id) AS actual
+FROM users u LEFT JOIN leads l ON l.assigned_to = u.id
+WHERE u.role = 'member' GROUP BY u.id, u.email, u.total_leads_received
+HAVING u.total_leads_received != COUNT(l.id);
+-- -> 0 rows
+
+-- 3. Over-quota active users (standard check)
+SELECT email, total_leads_promised, (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) AS actual
+FROM users u WHERE is_active = true AND total_leads_promised > 0
+  AND (SELECT COUNT(*) FROM leads WHERE assigned_to = u.id) >= total_leads_promised;
+-- -> 0 rows
+```
+
+**Date:** 2026-08-20
+
+---
+
 ## 2026-08-19
 
 ---
