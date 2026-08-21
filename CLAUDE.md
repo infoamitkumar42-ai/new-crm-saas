@@ -317,12 +317,31 @@ new-crm-saas/
   Increment branch and all counter math untouched.
   `supabase/migrations/20260820134500_fix_reactivation_deadlock.sql` (full `CREATE OR REPLACE`,
   admin-approved per rule 4).
-- **All 23 already-stuck users batch-corrected in the same session** (`is_active=true`,
-  `is_online=true`, `payment_status='active'` — `daily_limit` auto-synced correctly per plan via
-  `trg_sync_user_plan_fields`). The trigger fix alone does NOT retroactively fix already-stuck
-  users — it only prevents the same freeze from happening again — so this batch pass was required
-  too. **Verified after**: 0 users left in the stuck signature, counter drift 0, over-quota active
-  users 0.
+- ⚠️ **BATCH CORRECTION WAS TOO BROAD — admin caught it, 13 of the 23 reverted the same evening.**
+  The batch pass filtered ONLY on "quota remaining > 0" and never checked **when the user last
+  paid**. That swept in long-dormant accounts alongside genuine current customers: MUSKAN (last
+  payment **13-Feb**, last lead 27-Apr), PRIYA GOYAL/`priyajotgoyal` (last payment **14-Feb**, last
+  lead 28-Feb), Reetika + Saloni Rajput (May), Saijel Goel + PRACHI GARG + Simranjit kaur + Rajni +
+  Sanju rani (June), Arsh adiwal + Goldy + Seema Rani (10-Jul), Suman (14-Jul). Several had been
+  **deliberately** closed out months earlier — CLAUDE.md's own 2026-06-06 entry records Saloni
+  Rajput being deactivated with `total_leads_promised` set to actual (remaining **0**); her current
+  67 "remaining" is phantom, created later when leads were reassigned AWAY from her, not quota she
+  was ever owed. Reactivating these would have handed out free leads.
+- **Reverted** all 13 pre-August payers back to `is_active=false`, `is_online=false`,
+  `payment_status='inactive'`. Verified first that **only Suman had received anything** (2 leads at
+  21:00 IST, which took her to exactly 132/132 — naturally quota-complete, so no correction owed);
+  the other 12 got **zero** leads, so the revert is clean with no lead movement to undo.
+- **10 genuine August-cycle payers kept active** (last payment 3–6 Aug, still receiving leads
+  normally): Gurdeep Kaur, Sameer, Ajay kumar, Priya Goyal (`pawangoyal1927`), Manav, Ankush, PRIYA
+  (`goyal.misspriya`), Ansh, Nitinluthra, Jasnoor Kaur. Ajay kumar — the original report that
+  surfaced this bug — is in this group and correctly stays active with his 17 leads.
+- ⚠️ **LESSON — "quota remaining" alone does NOT mean "deserves leads".** `total_leads_promised`
+  minus `total_leads_received` can be inflated by leads being reassigned away from a user (the
+  decrement path), by historical manual SQL corrections, or by an admin closing an account without
+  zeroing quota. Any future batch reactivation MUST also check last captured payment date, and
+  should be shown to the admin as a list before being applied — not applied and then reported.
+- **Verified after revert**: counter drift 0, over-quota active users 0, 0 users left in the
+  `is_active=true`/`is_online=false` desync state.
 - Full details + verification SQL: `bugfix.md` **BUG-017**.
 
 ### 2026-08-19 (late night) — UNITEDECOSYSTEM priority-pool bug found + fixed (code review self-catch) + CAPI pixel-match fix

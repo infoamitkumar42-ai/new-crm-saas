@@ -67,6 +67,42 @@ WHERE role = 'member' AND is_active = false AND payment_status = 'inactive'
 -- 23 rows affected. daily_limit auto-synced per plan via trg_sync_user_plan_fields.
 ```
 
+⚠️ **THIS BATCH WAS TOO BROAD — 13 of the 23 were reverted the same evening after the admin caught
+it.** The filter checked only "quota remaining > 0" and never checked **when the user last paid**,
+so it swept in long-dormant accounts: MUSKAN (last payment 13-Feb), PRIYA GOYAL/`priyajotgoyal`
+(14-Feb), Reetika + Saloni Rajput (May), Saijel Goel + PRACHI GARG + Simranjit kaur + Rajni + Sanju
+rani (June), Arsh adiwal + Goldy + Seema Rani (10-Jul), Suman (14-Jul).
+
+**Why "quota remaining" is not sufficient evidence of an owed plan:** `total_leads_promised -
+total_leads_received` can be inflated by (a) leads being reassigned AWAY from a user — the very
+decrement path this bug is about, (b) historical one-off manual SQL corrections (`MASTER_FIX_LEADS
+.sql` and friends), (c) an admin closing an account without zeroing quota. Concrete case: CLAUDE.md's
+2026-06-06 entry records Saloni Rajput being deliberately deactivated with `total_leads_promised`
+set to actual, i.e. remaining **0**. Her 67 "remaining" today is phantom, created afterwards by lead
+reassignment. Reactivating her would have given away 67 free leads.
+
+**Revert** (verified first that only Suman had received anything — 2 leads, taking her to exactly
+132/132 = naturally quota-complete, nothing to undo; the other 12 got zero leads):
+```sql
+UPDATE users
+SET is_active = false, is_online = false, payment_status = 'inactive', updated_at = NOW()
+WHERE email IN ('muskanchopra376@gmail.com','priyajotgoyal@gmail.com','reetika123@gmail.com',
+  'salonirajput12345@gmail.com','saijelgoel4@gmail.com','prachigarg@flp.com',
+  'simran667890@gmail.com','vansh.rajni.96@gmail.com','vinodbishnoi1971@gmail.com',
+  'arshadiwal72@gmail.com','goldybagrian1704@gmail.com','srani4323@gmail.com',
+  'sumansandhu1423@gmail.com');
+-- 13 rows. daily_limit auto-returns to 0 via trg_sync_user_plan_fields.
+```
+
+**10 genuine August-cycle payers correctly kept active** (last captured payment 3–6 Aug, still
+receiving leads): Gurdeep Kaur, Sameer, Ajay kumar, Priya Goyal (`pawangoyal1927`), Manav, Ankush,
+PRIYA (`goyal.misspriya`), Ansh, Nitinluthra, Jasnoor Kaur. Ajay kumar — the original member report
+that surfaced this bug — is in this group and keeps his 17 owed leads.
+
+**RULE FOR NEXT TIME:** any batch reactivation must ALSO join on last captured payment date, and
+must be shown to the admin as a list for approval BEFORE being applied — not applied first and
+reported after.
+
 **Verification (all re-run after, all clean):**
 ```sql
 -- 1. Nobody left in the stuck signature
