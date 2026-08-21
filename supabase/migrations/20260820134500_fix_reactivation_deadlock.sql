@@ -102,11 +102,15 @@ BEGIN
       -- precondition (see header). A real plan + genuine quota room is now
       -- enough to reopen routing eligibility, same intent check the
       -- increment branch and check-quota-expiry's own activation pass use.
+      -- ⚠️ v2 (same day, see "REVISION" note at the bottom of this file):
+      -- reactivation ALSO requires that this lead is not being RECYCLED away.
       is_active = CASE
         WHEN COALESCE(plan_name, 'none') != 'none'
              AND COALESCE(total_leads_promised, 0) > 0
              AND (SELECT COUNT(*) FROM leads WHERE assigned_to = OLD.assigned_to)
                  < COALESCE(total_leads_promised, 0)
+             AND NOT (COALESCE(NEW.lead_type, '') = 'recycled'
+                      AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
         THEN true
         ELSE is_active
       END,
@@ -115,6 +119,8 @@ BEGIN
              AND COALESCE(total_leads_promised, 0) > 0
              AND (SELECT COUNT(*) FROM leads WHERE assigned_to = OLD.assigned_to)
                  < COALESCE(total_leads_promised, 0)
+             AND NOT (COALESCE(NEW.lead_type, '') = 'recycled'
+                      AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
         THEN 'active'
         ELSE payment_status
       END,
@@ -140,3 +146,74 @@ $function$;
 --    (they need a real decrement event, or the one-time batch correction
 --    applied separately in the same session) — this only prevents the SAME
 --    bug from re-freezing anyone in the future.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- REVISION v2 — SAME DAY, a few hours later. READ THIS BEFORE TRUSTING v1.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- The admin caught two problems with the work above.
+--
+-- (A) THE BATCH CORRECTION WAS TOO BROAD — see bugfix.md BUG-017. It filtered
+--     only on "quota remaining > 0" and never checked when the user last paid,
+--     so it reactivated 13 long-dormant accounts. Reverted.
+--
+-- (B) THE v1 TRIGGER FIX ABOVE WAS ITSELF DANGEROUS, for a reason v1 missed:
+--
+--     `assign_recycled_leads` reclaims old leads from expired members and
+--     hands them to paying ones. Crucially it MOVES the row — a plain
+--     UPDATE of leads.assigned_to — rather than copying it:
+--
+--         UPDATE leads SET lead_type='recycled', original_user_id=<old owner>,
+--                          assigned_to = p_user_id, user_id = p_user_id, ...
+--         WHERE id = v_lead.id;
+--
+--     So every recycle fires THIS trigger's decrement branch against the
+--     expired original owner, dropping their total_leads_received by 1 and
+--     opening phantom room under their total_leads_promised. That is where
+--     the phantom quota came from in the first place — confirmed on live
+--     data, where phantom_quota tracks leads_recycled_away almost exactly
+--     (Saloni Rajput 67 vs 70, PRACHI GARG 49 vs 69, Payal 88 vs 136;
+--     3,013 leads recycled from 164 users in total).
+--
+--     v1 removed the `payment_status = 'active'` precondition. That condition
+--     was a genuine deadlock for the case v1 targeted — but it was ALSO the
+--     only thing stopping the decrement branch from resurrecting expired
+--     users on every recycle. With the recycler enabled (system_config
+--     recycled_pool_control.enabled = true, cron 6x/day), v1 would have
+--     silently re-activated expired accounts several times a day — exactly
+--     the outcome (A) was reverted for, but automatic and unattended.
+--
+--     FIX: the decrement branch's reactivation now additionally requires that
+--     this lead is not being recycled away from this very user:
+--
+--         AND NOT (COALESCE(NEW.lead_type,'') = 'recycled'
+--                  AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
+--
+--     The genuine case v1 was written for (an admin correcting a wrongly
+--     assigned lead on a real customer) still reactivates. Recycling never
+--     does.
+--
+-- ALSO APPLIED (data cleanup, admin-requested): 51 expired members
+-- (is_active=false AND payment_status='inactive') had 659 leads of phantom
+-- quota between them, produced by the recycle-decrement described above.
+-- All set to total_leads_promised = total_leads_received, i.e. remaining 0:
+--
+--     UPDATE users SET total_leads_promised = total_leads_received, updated_at = NOW()
+--     WHERE role='member' AND is_active=false AND payment_status='inactive'
+--       AND total_leads_promised > total_leads_received;
+--
+-- Currently-active paying members were deliberately NOT touched — several of
+-- them also carry recycle-inflated quota (SEEMA RANI 143, Ravenjeet Kaur 86,
+-- Ajay kumar 17), but they are live customers and zeroing them would cut off
+-- delivery. That is a separate decision for the admin.
+--
+-- ⚠️ STILL OPEN — the underlying design question. Recycling MOVES a lead
+-- instead of COPYING it, so it will keep deflating the original owner's
+-- counter every time it runs. Zeroing the quota (above) cleans up today's
+-- damage but not the mechanism. Making assign_recycled_leads INSERT a new
+-- row for the receiving user, leaving the original owner's row untouched,
+-- would stop phantom quota at the source — but that is an RPC change needing
+-- explicit approval (CLAUDE.md rule 4) and has its own consequences
+-- (duplicate phone rows, lead-count reporting, CAPI event_id uniqueness).
+-- Not done here. Flagged for a separate, deliberate decision.
+-- ═══════════════════════════════════════════════════════════════════════════

@@ -103,6 +103,74 @@ that surfaced this bug — is in this group and keeps his 17 owed leads.
 must be shown to the admin as a list for approval BEFORE being applied — not applied first and
 reported after.
 
+---
+
+### ⚠️ BUG-017 v2 — where the phantom quota actually comes from, and why the v1 fix was dangerous
+
+The admin then asked the right follow-up: *were those 13 users' quotas even real?* They were not,
+and the mechanism turned out to matter more than the cleanup.
+
+**`assign_recycled_leads` MOVES a lead, it does not COPY it.** The RPC reclaims old leads from
+expired members and hands them to paying ones via a plain UPDATE of `leads.assigned_to`:
+```sql
+UPDATE leads SET lead_type='recycled', original_user_id = <old owner>,
+                 assigned_to = p_user_id, user_id = p_user_id, status='Fresh', ...
+WHERE id = v_lead.id;
+```
+Because `trigger_update_user_lead_count` fires on `assigned_to` changing, **every recycle decrements
+the expired original owner's `total_leads_received`**, opening phantom room under their unchanged
+`total_leads_promised`. Live data confirms it — phantom quota tracks leads-recycled-away almost
+exactly:
+
+| User | Phantom quota | Leads recycled away |
+|---|---|---|
+| Saloni Rajput | 67 | 70 |
+| PRACHI GARG | 49 | 69 |
+| Payal | 88 | 136 |
+| MUSKAN | 10 | 34 |
+
+System-wide: **3,013 leads recycled from 164 users.**
+
+**Why the v1 trigger fix was dangerous.** v1 removed the `payment_status = 'active'` precondition
+from the decrement branch's reactivation. That condition WAS a genuine deadlock for the case v1
+targeted — but it was also the only thing preventing the decrement branch from resurrecting expired
+users on every recycle. The recycler is **enabled** (`system_config.recycled_pool_control.enabled =
+true`, cron 6×/day, TEAMFIRE). So v1 would have silently re-activated expired accounts several times
+a day — the same outcome the admin had just caught and reverted, but automatic and unattended. This
+was caught before any recycler run fired against the v1 trigger.
+
+**Trigger fix v2** — reactivation now additionally requires that the lead is not being recycled away
+from this very user:
+```sql
+AND NOT (COALESCE(NEW.lead_type,'') = 'recycled'
+         AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
+```
+The genuine case (an admin correcting a wrongly-assigned lead on a real customer) still reactivates;
+recycling never does.
+
+**Phantom quota cleanup (admin-requested):** 51 expired members held **659 leads** of phantom quota.
+All zeroed:
+```sql
+UPDATE users SET total_leads_promised = total_leads_received, updated_at = NOW()
+WHERE role='member' AND is_active=false AND payment_status='inactive'
+  AND total_leads_promised > total_leads_received;
+-- 51 rows
+```
+Currently-active paying members deliberately NOT touched — several also carry recycle-inflated quota
+(SEEMA RANI 143, Ravenjeet Kaur 86, Ajay kumar 17) but they are live customers; zeroing them would
+cut off delivery. Separate admin decision.
+
+**Verified after:** expired users with quota remaining **0**, counter drift **0**, over-quota active
+users **0**, 70 active+paying members.
+
+⚠️ **STILL OPEN — the design question.** Recycling still MOVES rather than COPIES, so it will keep
+deflating original owners' counters every run. Zeroing cleans up today's damage, not the mechanism.
+Making `assign_recycled_leads` INSERT a new row for the receiving user (leaving the original owner's
+row intact) would stop phantom quota at the source — but it is an RPC change needing explicit
+approval (rule 4) and carries its own consequences: duplicate phone rows in `leads`, lead-count and
+duplicate-detection reporting, and CAPI `event_id` uniqueness. **Not done — flagged for a separate,
+deliberate decision.**
+
 **Verification (all re-run after, all clean):**
 ```sql
 -- 1. Nobody left in the stuck signature

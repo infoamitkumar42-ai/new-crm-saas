@@ -342,6 +342,33 @@ new-crm-saas/
   should be shown to the admin as a list before being applied — not applied and then reported.
 - **Verified after revert**: counter drift 0, over-quota active users 0, 0 users left in the
   `is_active=true`/`is_online=false` desync state.
+- ⚠️ **v2, SAME DAY — admin's follow-up ("kya unka quota pending tha?") found where phantom quota
+  actually comes from, AND that the v1 trigger fix was itself dangerous.**
+  **`assign_recycled_leads` MOVES a lead, it does not COPY it** — it UPDATEs `leads.assigned_to`
+  from the expired owner to the paying user. So every recycle fires this same trigger's DECREMENT
+  branch on the expired owner, dropping their `total_leads_received` and opening phantom room under
+  their unchanged `total_leads_promised`. Live proof — phantom quota tracks leads-recycled-away
+  almost exactly: Saloni Rajput 67 vs **70**, PRACHI GARG 49 vs **69**, Payal 88 vs **136**, MUSKAN
+  10 vs **34**. System-wide **3,013 leads recycled from 164 users**.
+  **The v1 fix removed `payment_status='active'` from the decrement branch's reactivation — which
+  was a genuine deadlock, but ALSO the only guard stopping recycling from resurrecting expired
+  users.** The recycler is **enabled** (`recycled_pool_control.enabled=true`, cron 6×/day,
+  TEAMFIRE), so v1 would have silently reactivated expired accounts several times a day — the exact
+  thing just reverted above, but automatic and unattended. Caught before any recycler run hit it.
+  **v2 fix**: reactivation now also requires `NOT (NEW.lead_type='recycled' AND NEW.original_user_id
+  IS NOT DISTINCT FROM OLD.assigned_to)`. Genuine admin corrections still reactivate; recycling
+  never does.
+- **Phantom quota cleaned up (admin-requested)**: 51 expired members held **659 leads** of phantom
+  quota — all set to `total_leads_promised = total_leads_received` (remaining **0**). Currently
+  active paying members deliberately NOT touched (SEEMA RANI 143, Ravenjeet Kaur 86, Ajay kumar 17
+  are also recycle-inflated, but they're live customers — separate admin decision).
+  **Verified**: expired-with-quota 0, drift 0, over-quota 0, 70 active+paying members.
+- ⚠️ **STILL OPEN — design question, NOT fixed**: recycling still MOVES instead of COPYING, so it
+  will keep deflating original owners' counters on every run. Zeroing cleaned up today's damage, not
+  the mechanism. Making `assign_recycled_leads` INSERT a new row for the receiving user (leaving the
+  original owner's row intact) would stop phantom quota at the source — but that's an RPC change
+  needing explicit approval (rule 4) with its own consequences: duplicate phone rows in `leads`,
+  lead-count/duplicate-detection reporting, CAPI `event_id` uniqueness. Needs a deliberate decision.
 - Full details + verification SQL: `bugfix.md` **BUG-017**.
 
 ### 2026-08-19 (late night) — UNITEDECOSYSTEM priority-pool bug found + fixed (code review self-catch) + CAPI pixel-match fix
