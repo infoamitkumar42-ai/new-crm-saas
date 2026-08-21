@@ -104,6 +104,8 @@ BEGIN
       -- increment branch and check-quota-expiry's own activation pass use.
       -- ⚠️ v2 (same day, see "REVISION" note at the bottom of this file):
       -- reactivation ALSO requires that this lead is not being RECYCLED away.
+      -- ⚠️ v3 (same day): is_online is written alongside is_active — see the
+      -- v3 note at the bottom. Leaving it out produced a live BUG-014 desync.
       is_active = CASE
         WHEN COALESCE(plan_name, 'none') != 'none'
              AND COALESCE(total_leads_promised, 0) > 0
@@ -113,6 +115,16 @@ BEGIN
                       AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
         THEN true
         ELSE is_active
+      END,
+      is_online = CASE
+        WHEN COALESCE(plan_name, 'none') != 'none'
+             AND COALESCE(total_leads_promised, 0) > 0
+             AND (SELECT COUNT(*) FROM leads WHERE assigned_to = OLD.assigned_to)
+                 < COALESCE(total_leads_promised, 0)
+             AND NOT (COALESCE(NEW.lead_type, '') = 'recycled'
+                      AND NEW.original_user_id IS NOT DISTINCT FROM OLD.assigned_to)
+        THEN true
+        ELSE is_online
       END,
       payment_status = CASE
         WHEN COALESCE(plan_name, 'none') != 'none'
@@ -216,4 +228,25 @@ $function$;
 -- explicit approval (CLAUDE.md rule 4) and has its own consequences
 -- (duplicate phone rows, lead-count reporting, CAPI event_id uniqueness).
 -- Not done here. Flagged for a separate, deliberate decision.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- REVISION v3 — SAME DAY. is_online must be written with is_active.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- v1/v2's reactivation set is_active and payment_status but left is_online
+-- alone. That is the exact BUG-014 shape: is_active=true with is_online=false
+-- is invisible to EVERY routing path (get_best_assignee_for_team,
+-- sheet-lead-intake, process-backlog, assign-recycled-leads all require both),
+-- while looking healthy in the admin UI.
+--
+-- It happened for real, within hours: Neha (nehagoyal36526@gmail.com,
+-- TEAMFIRE, genuine 05-Aug payer, 26 leads owed) had one lead recycled away
+-- at 17:00 IST — after v1 went live, before the v2/v3 guards — and came back
+-- is_active=true / is_online=false. Her row was corrected by hand and this
+-- branch now writes is_online alongside, matching every other write path in
+-- the codebase (member pause toggle, admin Quick Edit, admin activation,
+-- check-quota-expiry, plan-expiry-notifier, razorpay-webhook/-reconcile).
+--
+-- Verification after: SELECT COUNT(*) FROM users WHERE role='member'
+--   AND is_active=true AND is_online=false;  -- expect 0
 -- ═══════════════════════════════════════════════════════════════════════════
