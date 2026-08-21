@@ -286,6 +286,42 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-21 — TEAMFIRE quota corrected for recycle inflation: 17 active members, ~370 phantom leads
+- **Admin's question that started it**: "SEEMA RANI ka 143 kaise hai, verify karo" — followed by a
+  request to audit every TEAMFIRE member's quota against their actual payments, because the phantom
+  quota found on the 13 expired users (BUG-017 v2) might affect live customers too. It did.
+- **SEEMA RANI (`ssatnam41912@gmail.com`) was the clearest case**: `total_leads_promised` 317 is
+  **correct** against her 5 payments (₹5,995 → 320 expected, diff −3). But she currently holds only
+  174 leads because **99 were recycled away** from her. Real delivered = 174 + 99 = **273**, so real
+  remaining is **44**, not the 143 the dashboard showed.
+- **Same pattern across 18 active TEAMFIRE members.** Counting recycled-away leads as delivered
+  (they were — the member held and could work them; the recycler only reclaims from members who had
+  already expired), **12 members had ALREADY been over-delivered**: Ajay kumar −54, Jashandeep kaur
+  −45, Jasnoor Kaur −43, Neha −33, Ansh −33, Simran −28, Sameer −23, Sunaina Rani −23, PRIYA −8,
+  Manav −8, Ankush −3, Sandeep Rehaan −2. TEAMFIRE's visible 495 leads owed was really **~232**.
+- **Fix**: `total_leads_promised = GREATEST(total_leads_received, total_leads_promised −
+  leads_recycled_away)`. Reducing `promised` (not inflating `received`) keeps `total_leads_received`
+  equal to the actual lead count, so the standing counter-drift check stays valid — drift re-verified
+  **0** after. Applied to **17 members**; 13 land at remaining 0 and will be deactivated by the
+  existing 7 AM `check-quota-expiry` cron, 4 keep real quota (SEEMA RANI 44, Ravenjeet Kaur 20,
+  Prince 15, Gurdeep Kaur 3).
+- ⚠️ **Ajay kumar deliberately EXCLUDED at the admin's explicit instruction.** He had messaged about
+  his 17 pending leads and been told they would be honoured; correcting him to 0 the next day would
+  cost trust. He keeps `promised = 736` / 16 remaining. His real figure is −54 — recorded here so
+  nobody "fixes" it later thinking it is drift. Himanshu Sharma also excluded (documented unlimited
+  override, Known Issues #6).
+- **Payments-vs-promised audit run at the same time** (offer values from 04-Aug, excluding 07-Aug
+  when the backend was briefly reverted): 11 members match **exactly**. Flagged, NOT changed —
+  over-credited: Simran **+83**, Sunaina Rani **+74**, Neha +31, Jasnoor +29, PRIYA +26, Sandeep +23,
+  Prince +16; under-credited: Ansh **−29**, Sameer −23, Ravenjeet −20. These ± figures are
+  **approximate** — welcome bonus (+5), fuzzy offer on/off dates, and this repo's long history of
+  manual SQL corrections all move them. Simran and Sunaina are the two worth a manual look.
+- ⚠️ **This is a business-policy call, not a bug fix, and was applied only after the admin chose it
+  explicitly** — unlike the 13 expired members, these are live paying customers. Presented as a list
+  with numbers first, per the lesson recorded in BUG-017 the previous day.
+- **Verified after**: counter drift **0**, `is_active=true`/`is_online=false` desync **0**,
+  13 members at 0 remaining awaiting the 7 AM cron, 56 members still holding genuine quota.
+
 ### 2026-08-21 — UNITEDECOSYSTEM added to the ECO@WIN12 women's-form pool as an EQUAL member
 - **Why**: Kirti's own ad (form `1377999317060769`) was shut down by the admin — CPL too high, poor
   results. UNITEDECOSYSTEM's 31 active members (279/day capacity, **2,749 leads still owed**) had no
