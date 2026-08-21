@@ -286,6 +286,43 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-21 — UNITEDECOSYSTEM added to the ECO@WIN12 women's-form pool as an EQUAL member
+- **Why**: Kirti's own ad (form `1377999317060769`) was shut down by the admin — CPL too high, poor
+  results. UNITEDECOSYSTEM's 31 active members (279/day capacity, **2,749 leads still owed**) had no
+  other supply, so they needed to come onto the ECO@WIN12 sheet alongside Simar's, Kulwinder singh's
+  and Kamaldeep's teams.
+- ⚠️ **Admin's first instruction was "UNITEDECOSYSTEM first priority, TEAMFIRE hata do" — measured
+  against live volume BEFORE building, and it would have starved three teams.** This form supplies
+  **~167 leads/day** (7-day actual, form `28656339480638911`), while UNITEDECOSYSTEM **alone can
+  absorb 279/day**. Strict first-refusal would have consumed the entire daily supply and left
+  ECO@WIN12 / ECOKULWINDER / FASTMOVERS — **15 paying members, 853 leads owed, currently taking
+  ~139/day between them** — at exactly **zero**. Shown to admin with the numbers; admin chose equal
+  round-robin, and chose to **keep TEAMFIRE as the end fallback** rather than removing it.
+- **Implemented**: `KIRTI_MANAGER_ID` (`kirtidkgiri@gmail.com`) added to
+  `WOMEN_FORM_PRIORITY_MANAGER` for both live women-only forms, in `sheet-lead-intake` **and**
+  `process-backlog`. Added as a **manager**, not hardcoded user ids (same reasoning as the 2026-08-18
+  Kulvir case) — all 36 UNITEDECOSYSTEM members sit under her, so future signups join automatically.
+  No strict-priority code needed: the existing lowest-fill-ratio pass gives UNITEDECOSYSTEM the
+  largest share anyway, purely because their capacity is largest.
+- ⚠️ **DB change was ALSO required — code alone would have silently failed on the backlog path.**
+  `process-backlog` applies its `teamCodesForLead` filter **before** the priority narrowing, so
+  UNITEDECOSYSTEM would have been dropped before `isPriorityForForm` ever ran. Exactly the gap
+  documented for FASTMOVERS on 2026-08-18. Fixed by `sheet_intake_tokens.team_code` →
+  `'ECO@WIN12,TEAMFIRE,FASTMOVERS,UNITEDECOSYSTEM'`. ECO@WIN12 stays **first** in that list so the
+  `source` label (`GoogleSheet-ECO@WIN12`) and therefore the CAPI pixel match are unaffected.
+- ⚠️ **`KIRTI_MANAGER_ID` deliberately NOT added to `WOMEN_FORM_MANAGER_IDS`** (the exclusion list).
+  UNITEDECOSYSTEM has its own non-women-only form which takes the normal branch — adding her there
+  would have excluded her own team from their own form's leads.
+- **Verified by SQL simulation of the new pool**: UNITEDECOSYSTEM 31 users/279 cap → ~106 leads/day
+  (63%), FASTMOVERS 7/67 → ~25, ECOKULWINDER 5/47 → ~18, ECO@WIN12 4/38 → ~14, plus Priya Goyal
+  (the `EXTRA_WOMEN_FORM_USER_IDS` entry) → ~3.
+- ⚠️ **SUPPLY IS THE REAL CONSTRAINT, NOT ROUTING.** Pool demand is **422/day** against **167/day**
+  supply — 40% coverage. UNITEDECOSYSTEM's members are on `starter` (9/day promised, 90 in 10 days);
+  at ~106/day across 31 people that's **~3.4/day each, so ~25 days instead of 10**. Clearing all
+  3,602 owed leads across the four teams takes **~21 days** at current volume. Recommended to the
+  admin: scale the **existing** ECO@WIN12 campaign ~2.5x rather than launching a new one — Kirti's
+  new-campaign experiment is exactly what just failed on CPL, while this campaign is proven.
+
 ### 2026-08-20 — BUG-017: reactivation deadlock in `update_user_lead_count` — 23 paying members stuck "Plan Inactive" with real quota left
 - **Found from a member screenshot** (Ajay kumar, `ajayk783382@gmail.com`) — dashboard showed
   "Plan Inactive" with **17 leads still left (719/736)**, not quota-exhausted. Admin asked to fix

@@ -53,10 +53,26 @@ const KULVIR_MANAGER_ID = 'c1b03a20-27bd-4c91-92c6-fe8827afc382'; // kulvir0038@
 // for them to also share in the 2 new forms' leads. Old form stays
 // Simar-exclusive (unchanged); the 2 new forms now share priority between
 // BOTH dedicated teams (whichever has more room), not Kulwinder singh alone.
+// 2026-08-21 (admin): UNITEDECOSYSTEM (Kirti giri's team) joins this pool as
+// an EQUAL member — no strict priority. Mirrors the identical change in
+// sheet-lead-intake; see that file's comment for the volume analysis behind
+// "equal, not first" (~167 leads/day supply vs 279/day UNITEDECOSYSTEM
+// capacity alone — strict priority would have starved the other 3 teams).
+//
+// ⚠️ NOTE: as with the 2026-08-18 FASTMOVERS change, code alone is NOT enough
+// on this path. The teamCodesForLead filter below runs BEFORE the priority
+// narrowing, so UNITEDECOSYSTEM would be dropped first unless it is also in
+// sheet_intake_tokens.team_code for the SIMARJIT token. That row was updated
+// to 'ECO@WIN12,TEAMFIRE,FASTMOVERS,UNITEDECOSYSTEM' in the same change.
+// ECO@WIN12 stays first in that list so the source label is unaffected.
+const KIRTI_MANAGER_ID = '65bfa567-164a-4eeb-8a0c-0241d2efa59b'; // kirtidkgiri@gmail.com
+// ⚠️ Kirti giri (MANAGER, kirtidkgiri@gmail.com) is a DIFFERENT person from
+// Kirti (kirtigiri9416@gmail.com), a MEMBER on the same team.
+
 const WOMEN_FORM_PRIORITY_MANAGER: Record<string, string[]> = {
     '26784403284560247': [SIMAR_MANAGER_ID],
-    '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID],
-    '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID],
+    '1771429337239760': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID, KIRTI_MANAGER_ID],
+    '28656339480638911': [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID, KIRTI_MANAGER_ID],
 };
 
 // v2 (admin decision 2026-08-10): pawangoyal1927@gmail.com (Priya Goyal,
@@ -70,6 +86,10 @@ const EXTRA_WOMEN_FORM_USER_IDS = ['6ded9043-7fe7-4143-b31a-a26eac338309']; // p
 
 // Excluded from every OTHER (non-women-only) lead — each of these managers'
 // teams is dedicated to their own women-only form.
+//
+// ⚠️ KIRTI_MANAGER_ID is deliberately NOT here. UNITEDECOSYSTEM has its own
+// non-women-only form (1377999317060769) which takes the normal branch —
+// adding Kirti would exclude her own team from their own form's leads.
 const WOMEN_FORM_MANAGER_IDS = [SIMAR_MANAGER_ID, KULWINDER_MANAGER_ID, KAMALDEEP_MANAGER_ID, KULVIR_MANAGER_ID];
 
 // 2026-08-14 (admin): new form_id 27622038114105519 — MIXED gender leads
