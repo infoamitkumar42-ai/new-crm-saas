@@ -286,6 +286,43 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-22 (evening) — ROOT-CAUSE FIX: recycling now COPIES a lead instead of MOVING it
+- **This closes the mechanism behind every phantom-quota / missing-lead incident this month.**
+  `assign_recycled_leads` reclaimed old leads from expired members with a plain
+  `UPDATE leads SET assigned_to = <new user>`. Because `trigger_update_user_lead_count` fires on
+  `assigned_to` changing, every recycle **decremented the original owner's `total_leads_received`** —
+  inflating their remaining quota (BUG-017 v2, 21-Aug) and making the lead disappear from their
+  dashboard (Sameer's "90 promised, 86 showing", 22-Aug). Both were symptoms of this one line.
+- **Fix** (`supabase/migrations/20260822180000_recycle_copy_not_move.sql`, admin-approved per rule 4):
+  the source row now has **only** `recycle_count` and `recycled_at` written — `assigned_to`,
+  `status`, `notes` all stay exactly as the original owner left them — and the receiving user gets
+  a **brand-new INSERTed row** (status `Fresh`, notes cleared, fresh assigned/distributed/delivered
+  timestamps, `original_user_id`/`original_status` recorded).
+- ⚠️ **`recycle_count` MUST still be written to the source — it is not cosmetic.** The source row no
+  longer moves away, so it stays in the recycler's scan set forever; without the increment the same
+  lead would be copied to a different agent on every cron run, 6×/day, indefinitely.
+- ⚠️ **New guard the MOVE model gave for free**: a lead is never copied while an **active** agent
+  already holds that phone (`NOT EXISTS (... other.phone = l.phone AND ou.is_active = true)`).
+  Under MOVE only one person could ever hold a lead; with copies that guarantee had to be written
+  explicitly, otherwise two live agents could call the same number.
+- **`created_at` is copied, not reset** — the age window, duplicate detection and date-wise audits
+  all key off it (standing CLAUDE.md rule). The UI displays `assigned_at`, so the receiving agent
+  still sees it as delivered today.
+- **Everything else byte-for-byte unchanged**: eligibility rules, age window, Gujarat exclusion,
+  per-user dedup, quota/daily-limit math, ordering, `SKIP LOCKED`, `recycled_leads_received`
+  bookkeeping.
+- **Live-tested immediately after applying** (Gurdeep Kaur, 2 leads): both source rows stayed with
+  Jasnoor Kaur, status still `Call Back`, and **her counter held at 429 = 429 actual** — under the
+  old model the same run would have dropped her to 427 and removed both leads from her dashboard.
+  **0 new duplicate-phone pairs** created. Counter drift **0**, over-quota **0**, desync **0**.
+- ⚠️ **Pre-existing and NOT caused by this change**: 172 phone numbers are already held by 2+ active
+  agents (359 rows, mostly months old — first flagged 2026-08-10 as "93 phones system-wide"). The
+  new guard stops this growing, it does not clean up history.
+- **Accepted tradeoffs** (stated to admin before applying): `leads` now holds two rows per recycled
+  phone (original owner's history + recipient's copy) — expected, not a bug in future duplicate
+  audits; table grows ~30–60 rows/day at current recycle rate; a recycled lead counts toward both
+  users' lifetime delivered, which is the honest reading since both were genuinely given it to work.
+
 ### 2026-08-22 — August recycled-away leads COPIED back to original owners' dashboards (22 users, 143 leads)
 - **Follow-up to Sameer's "90 promised, only 85-86 showing" question.** Root cause: his 6 recycled-
   away leads (see 2026-08-21 "recycle MOVES not COPIES" entry) had genuinely left his dashboard,

@@ -1,6 +1,19 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- assign_recycled_leads: COPY the lead instead of MOVING it
--- Proposed 2026-08-22. DO NOT APPLY without reading the tradeoffs below.
+-- APPLIED to production 2026-08-22 ~17:00 IST, admin-approved (CLAUDE.md rule 4).
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- LIVE TEST RESULT (run immediately after applying, on Gurdeep Kaur, 2 leads):
+--   * Both source rows stayed with their original owner (Jasnoor Kaur) —
+--     assigned_to unchanged, status still 'Call Back', notes intact,
+--     only recycle_count 0 -> 1 and recycled_at written.
+--   * Jasnoor Kaur's counter held at 429 = 429 actual. Under the old MOVE
+--     model this same operation would have dropped her to 427 and removed
+--     both leads from her dashboard — exactly the bug this fixes.
+--   * The new "no two active agents on one phone" guard produced 0 new
+--     duplicates. (The 172 phones already held by 2+ active agents are
+--     pre-existing, first flagged 2026-08-10, untouched by this change.)
+--   * Counter drift 0, over-quota active 0, is_online desync 0.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- PROBLEM (the mechanism behind every phantom-quota incident this month)
