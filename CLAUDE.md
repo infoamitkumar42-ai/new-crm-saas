@@ -286,6 +286,48 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-22 — August recycled-away leads COPIED back to original owners' dashboards (22 users, 143 leads)
+- **Follow-up to Sameer's "90 promised, only 85-86 showing" question.** Root cause: his 6 recycled-
+  away leads (see 2026-08-21 "recycle MOVES not COPIES" entry) had genuinely left his dashboard,
+  even though he was correctly delivered them. Admin's decision: implement the "copy, don't move"
+  design retroactively for every August-offer payer in the same situation, so counting their own
+  dashboard gives an honest, verifiable answer.
+- **Scope, deliberately narrowed**: only users whose **most recent captured payment is in August**
+  AND who have leads recycled away from them since that payment. A first pass with no payment-date
+  filter found **143 users / 1,996 leads system-wide** — includes long-dormant Jan/Feb payers, the
+  exact over-broad mistake reverted the day before. Narrowed to August-only: **22 users, 143 leads**.
+- **Mechanism**: for each qualifying recycled lead, INSERT a new row — same name/phone/city/state/
+  lead_details/form_id/source, `status` = the lead's `original_status` (what the ORIGINAL owner had
+  it marked as before it was taken, e.g. Call Back/Contacted — not the new holder's current status),
+  `assigned_to`/`user_id` = the original owner, `created_at`/`assigned_at` = the lead's own original
+  `created_at` (so it correctly falls under "August" when filtered). The CURRENT holder's row is
+  **completely untouched** — both the original owner and the current holder now see this lead,
+  by design (admin's explicit instruction: copy, never take it away from whoever has it now).
+  Standard manual-insert checklist followed: `trg_check_limit_insert` and
+  `trigger_update_user_lead_count` disabled for the bulk INSERT, `total_leads_received` set to the
+  real post-insert `COUNT(*)` per affected user, `total_leads_promised` increased by exactly each
+  user's copy count (so `remaining` is unchanged — this is a visibility fix, not a quota change),
+  triggers re-enabled.
+- ⚠️ **Deliberately duplicates contact information** — the same phone number now sits in two agents'
+  dashboards (original owner + current recycled holder). This was raised explicitly to the admin
+  before building (double-calling risk) and approved anyway, since the goal is an honest historical
+  record for the original owner, not routing. Not a bug if noticed in a future duplicate-phone audit.
+- **INSERT fires no CAPI event** (`trg_send_crm_conversion` is AFTER UPDATE only, not INSERT) and
+  no ad-platform signal — this is a pure DB-side backfill, no `sheet-lead-intake`/`meta-webhook`
+  code path involved.
+- ⚠️ **Own mistake caught during verification**: disabling `trigger_update_user_lead_count`
+  table-wide for the bulk INSERT also silently no-op'd a real, concurrent, LIVE lead assignment
+  (UNITEDECOSYSTEM, Pallavi Gupta, `pallavigupta2724@gmail.com`) that landed in the same instant —
+  her counter drifted by 1. Caught by the standard drift-check re-run immediately after, corrected
+  by hand. **Lesson for next time**: a table-wide trigger disable on a live, high-traffic table
+  (leads gets fresh assignments every few minutes) has a real chance of swallowing a concurrent
+  legitimate write — re-run the drift check immediately after every such operation, not on a delay.
+- **Verified after**: counter drift **0**, over-quota active users **0**,
+  `is_active=true`/`is_online=false` desync **0**.
+- Sameer (`rupanasameer551@gmail.com`) confirmed: `total_leads_promised`/`total_leads_received`
+  both **259/259** — his August dashboard count will now show **92** (86 he already held + 6
+  copied back), matching what was actually delivered.
+
 ### 2026-08-22 — 16 TEAMFIRE members naturally expired overnight (normal cron, not a bug) + renewal push
 - **Not a bug** — the 7 AM IST `check-quota-expiry` cron correctly deactivated 16 TEAMFIRE members
   whose `total_leads_received` reached `total_leads_promised` (`plan_name` correctly reset to
