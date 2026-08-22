@@ -286,6 +286,25 @@ new-crm-saas/
 
 ## 📝 CHANGELOG — Recent Changes (Update this after every change)
 
+### 2026-08-22 — 16 TEAMFIRE members naturally expired overnight (normal cron, not a bug) + renewal push
+- **Not a bug** — the 7 AM IST `check-quota-expiry` cron correctly deactivated 16 TEAMFIRE members
+  whose `total_leads_received` reached `total_leads_promised` (`plan_name` correctly reset to
+  `'none'` for 15 of them). TEAMFIRE's active daily capacity dropped from 224 (22 users) to 79
+  (8 users) as a direct result — most of these were the same 11 users flagged the previous evening
+  as "expiring within 1–5 days" once their August-offer quota was consumed.
+- ⚠️ **3 of the 16 (Sunaina Rani, Harmandeep kaur, Jasnoor Kaur) show `total_leads_received` 1–13
+  BELOW `total_leads_promised`, not exactly at it — this is the BUG-017 v2 guard working as
+  designed, not a new bug.** They hit their real quota exactly, were correctly deactivated by
+  `check-quota-expiry`, and AFTER that a lead was recycled away from them (opening a phantom slot
+  under their now-fixed `total_leads_promised`). The v2 guard added 2026-08-21 deliberately does
+  NOT let a recycle event reactivate an already-expired user — confirmed working correctly here.
+- **Renewal push sent** to all 16 via `send-push-notification`'s direct `user_id` payload branch
+  (same pattern as the 2026-08-13 urgency push). **9 delivered** (15 individual device pushes,
+  4 stale subscriptions auto-cleaned via the function's existing 410-handling), **7 had no push
+  subscription at all**: Sunaina Rani, Jashandeep kaur, Manav, Maninder Kaur, Simran
+  (`manukamboj8000`), Priya Goyal (`pawangoyal1927`), Simran (`simrankamboj2411`) — flagged for
+  admin to reach another way (WhatsApp/direct message), same gap as the 2026-08-13 precedent.
+
 ### 2026-08-21 — TEAMFIRE quota corrected for recycle inflation: 17 active members, ~370 phantom leads
 - **Admin's question that started it**: "SEEMA RANI ka 143 kaise hai, verify karo" — followed by a
   request to audit every TEAMFIRE member's quota against their actual payments, because the phantom
